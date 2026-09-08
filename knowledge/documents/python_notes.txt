@@ -1,0 +1,3 @@
+Python dictionaries store data as key-value pairs.
+
+JSON is commonly used to store structured data.
