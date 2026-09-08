@@ -1,0 +1,10 @@
+# Python cache
+__pycache__/
+*.pyc
+
+# Generated exports
+notes_export.txt
+exports/
+
+# Environment / secrets
+.env

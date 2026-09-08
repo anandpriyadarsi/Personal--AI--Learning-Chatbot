@@ -1,8 +1,0 @@
-[
-    {
-        "title": "Python Functions",
-        "topic": "Python",
-        "difficulty": "Easy",
-        "content": "JSON stores data in a structred format.\nIt is commonly used in APIs.\nPython uses the json module to read and write json files."
-    }
-]

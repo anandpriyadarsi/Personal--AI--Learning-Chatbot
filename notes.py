@@ -15,18 +15,18 @@ and backups.
 import json
 import os
 
-FILE_PATH = "data/notes.json"
+from config import NOTES_FILE
 
 
 # -------------------------
 # Load Notes
 # -------------------------
 def load_notes():
-    if not os.path.exists(FILE_PATH):
+    if not os.path.exists(NOTES_FILE):
         return []
 
     try:
-        with open(FILE_PATH, "r") as file:
+        with open(NOTES_FILE, "r") as file:
             return json.load(file)
 
     except json.JSONDecodeError:
@@ -37,7 +37,7 @@ def load_notes():
 # Save Notes
 # -------------------------
 def save_notes_to_file(notes):
-    with open(FILE_PATH, "w") as file:
+    with open(NOTES_FILE, "w") as file:
         json.dump(notes, file, indent=4)
 
 

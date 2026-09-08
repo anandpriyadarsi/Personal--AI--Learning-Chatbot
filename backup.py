@@ -2,22 +2,14 @@ import json
 import os
 import shutil
 
-NOTES_FILE = "data/notes.json"
-RESOURCES_FILE = "data/resources.json"
+from config import (
+    NOTES_FILE,
+    RESOURCES_FILE,
+    NOTES_BACKUP_FILE,
+    RESOURCES_BACKUP_FILE
+)
 
-BACKUP_FOLDER = "backup"
 
-NOTES_BACKUP = "backup/notes_backup.json"
-RESOURCES_BACKUP = "backup/resources_backup.json"
-
-
-# -------------------------
-# Create Backup Folder
-# -------------------------
-def create_backup_folder():
-
-    if not os.path.exists(BACKUP_FOLDER):
-        os.mkdir(BACKUP_FOLDER)
 
 
 # -------------------------
@@ -25,10 +17,9 @@ def create_backup_folder():
 # -------------------------
 def backup_database():
 
-    create_backup_folder()
 
-    shutil.copy(NOTES_FILE, NOTES_BACKUP)
-    shutil.copy(RESOURCES_FILE, RESOURCES_BACKUP)
+    shutil.copy(NOTES_FILE, NOTES_BACKUP_FILE)
+    shutil.copy(RESOURCES_FILE, RESOURCES_BACKUP_FILE)
 
     print("\n✅ Backup created successfully!")
 
@@ -38,12 +29,12 @@ def backup_database():
 # -------------------------
 def restore_database():
 
-    if not os.path.exists(NOTES_BACKUP):
+    if not os.path.exists(NOTES_BACKUP_FILE):
         print("\n❌ No backup found.")
         return
 
-    shutil.copy(NOTES_BACKUP, NOTES_FILE)
-    shutil.copy(RESOURCES_BACKUP, RESOURCES_FILE)
+    shutil.copy(NOTES_BACKUP_FILE, NOTES_FILE)
+    shutil.copy(RESOURCES_BACKUP_FILE, RESOURCES_FILE)
 
     print("\n✅ Database restored successfully!")
 
