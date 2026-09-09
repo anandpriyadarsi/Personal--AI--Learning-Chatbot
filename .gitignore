@@ -8,3 +8,6 @@ exports/
 
 # Environment / secrets
 .env
+# Personal knowledge base
+knowledge/obsidian/*
+knowledge/documents/*
