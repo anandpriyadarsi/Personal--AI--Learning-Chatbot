@@ -13,12 +13,17 @@ from backup import (
     export_notes,
     export_resources
 )
+from knowledge import (
+    show_knowledge_library,
+    knowledge_search_menu,
+    preview_document
+)
 
 
 def about():
     print("\n" + "=" * 55)
     print("      PERSONAL AI LEARNING CHATBOT")
-    print("               Version 1.0")
+    print("               Version 1.1")
     print("=" * 55)
 
     print("\n👨‍💻 Developer : Anand Priyadarsi")
@@ -26,24 +31,27 @@ def about():
     print("\n🎯 Purpose")
     print("This chatbot helps me organize my learning")
     print("journey by managing notes, learning")
-    print("resources, and study progress.")
+    print("resources, academic documents, and study progress.")
 
     print("\n✨ Features")
     print("✔ Notes Manager")
     print("✔ Learning Resources Manager")
     print("✔ Learning Dashboard")
+    print("✔ Knowledge Library")
+    print("✔ Markdown / Text / PDF Support")
+    print("✔ Knowledge Search")
     print("✔ JSON Storage")
     print("✔ Backup & Restore")
     print("✔ Export System")
 
     print("\n🚀 Future Version")
     print("• AI Integration")
+    print("• Semantic Search / RAG")
     print("• Quiz Generator")
-    print("• YouTube Summaries")
-    print("• Second Brain Integration")
+    print("• YouTube Transcript Analysis")
+    print("• Deeper Obsidian Integration")
 
-    print("\nRelease Version : v1.0")
-    print("Release Date    : July 2026")
+    print("\nRelease Version : v1.1")
 
     print("\nThank you for using my project!")
     print("=" * 55)
@@ -51,7 +59,7 @@ def about():
 
 def show_menu():
     print("\n" + "=" * 55)
-    print("🤖      PERSONAL AI LEARNING CHATBOT v1.0")
+    print("🤖      PERSONAL AI LEARNING CHATBOT v1.1")
     print("=" * 55)
 
     print("\n📊 Dashboard")
@@ -76,29 +84,32 @@ def show_menu():
     print("13. Export Notes")
     print("14. Export Resources")
 
+    print("\n🧠 Knowledge Library")
+    print("15. View Knowledge Library")
+    print("16. Search Knowledge")
+    print("17. Preview Document")
+
     print("\n🤖 AI")
-    print("15. Ask AI (Coming Soon)")
+    print("18. Ask AI (Coming Soon)")
 
     print("\nℹ️ Information")
-    print("16. About")
-    print("17. Exit")
+    print("19. About")
+    print("20. Exit")
 
     print("=" * 55)
 
 
 def run_chatbot():
-
     print("=" * 55)
     print("🤖 Welcome to Personal AI Learning Chatbot")
-    print("Version : 1.0")
+    print("Version : 1.1")
     print("Developer : Anand Priyadarsi")
     print("=" * 55)
 
     while True:
-
         show_menu()
 
-        choice = input("\nEnter your choice (1-17): ")
+        choice = input("\nEnter your choice (1-20): ").strip()
 
         if choice == "1":
             show_dashboard()
@@ -119,7 +130,7 @@ def run_chatbot():
             view_resources()
 
         elif choice == "7":
-            add_resource()      
+            add_resource()
 
         elif choice == "8":
             search_resources()
@@ -143,18 +154,28 @@ def run_chatbot():
             export_resources()
 
         elif choice == "15":
-            print("\n🤖 AI Integration Coming Soon!")
+            show_knowledge_library()
 
         elif choice == "16":
-            about()
+            knowledge_search_menu()
 
         elif choice == "17":
+            preview_document()
+
+        elif choice == "18":
+            print("\n🤖 AI Integration Coming Soon!")
+
+        elif choice == "19":
+            about()
+
+        elif choice == "20":
             print("\n👋 Thank you for using Personal AI Learning Chatbot!")
             print("Goodbye, Anand!")
             break
 
         else:
-            print("\n❌ Invalid choice. Please try again.")
+            print("\n❌ Invalid choice. Please enter a number from 1 to 20.")
 
 
-run_chatbot()
+if __name__ == "__main__":
+    run_chatbot()
