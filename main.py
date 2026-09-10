@@ -15,23 +15,25 @@ from backup import (
 )
 from knowledge import (
     show_knowledge_library,
-    knowledge_search_menu,
     preview_document
 )
+from semantic_retrieval import load_semantic_index
+from hybrid_retrieval import hybrid_search_loop
+from rag_answer import rag_chat_loop
 
 
 def about():
     print("\n" + "=" * 55)
     print("      PERSONAL AI LEARNING CHATBOT")
-    print("               Version 1.1")
+    print("               Version 1.3")
     print("=" * 55)
 
     print("\n👨‍💻 Developer : Anand Priyadarsi")
 
     print("\n🎯 Purpose")
-    print("This chatbot helps me organize my learning")
-    print("journey by managing notes, learning")
-    print("resources, academic documents, and study progress.")
+    print("This chatbot helps me organize and understand")
+    print("my learning using notes, resources, PDFs,")
+    print("academic documents, and retrieval-based AI.")
 
     print("\n✨ Features")
     print("✔ Notes Manager")
@@ -39,27 +41,51 @@ def about():
     print("✔ Learning Dashboard")
     print("✔ Knowledge Library")
     print("✔ Markdown / Text / PDF Support")
-    print("✔ Knowledge Search")
-    print("✔ JSON Storage")
+    print("✔ Hybrid Knowledge Retrieval")
+    print("✔ Semantic Search")
+    print("✔ RAG Academic Answer Generation")
+    print("✔ Source-grounded Answers")
     print("✔ Backup & Restore")
     print("✔ Export System")
 
     print("\n🚀 Future Version")
-    print("• AI Integration")
-    print("• Semantic Search / RAG")
+    print("• Better source citations")
+    print("• Conversation memory")
     print("• Quiz Generator")
     print("• YouTube Transcript Analysis")
     print("• Deeper Obsidian Integration")
 
-    print("\nRelease Version : v1.1")
+    print("\nRelease Version : v1.3")
 
     print("\nThank you for using my project!")
     print("=" * 55)
 
 
+def search_hybrid_knowledge():
+    print("\nLoading semantic index...")
+
+    semantic_chunks = load_semantic_index()
+
+    if semantic_chunks is None:
+        print("\n❌ No saved semantic index found.")
+        print(
+            "Run semantic_retrieval.py and "
+            "build the index first."
+        )
+        return
+
+    print(
+        "\n✅ Hybrid Knowledge Retrieval ready."
+    )
+
+    hybrid_search_loop(
+        semantic_chunks
+    )
+
+
 def show_menu():
     print("\n" + "=" * 55)
-    print("🤖      PERSONAL AI LEARNING CHATBOT v1.1")
+    print("🤖      PERSONAL AI LEARNING CHATBOT v1.3")
     print("=" * 55)
 
     print("\n📊 Dashboard")
@@ -86,11 +112,11 @@ def show_menu():
 
     print("\n🧠 Knowledge Library")
     print("15. View Knowledge Library")
-    print("16. Search Knowledge")
+    print("16. Search Knowledge (Hybrid V3.5)")
     print("17. Preview Document")
 
     print("\n🤖 AI")
-    print("18. Ask AI (Coming Soon)")
+    print("18. Ask Academic AI (RAG V4)")
 
     print("\nℹ️ Information")
     print("19. About")
@@ -102,14 +128,16 @@ def show_menu():
 def run_chatbot():
     print("=" * 55)
     print("🤖 Welcome to Personal AI Learning Chatbot")
-    print("Version : 1.1")
+    print("Version : 1.3")
     print("Developer : Anand Priyadarsi")
     print("=" * 55)
 
     while True:
         show_menu()
 
-        choice = input("\nEnter your choice (1-20): ").strip()
+        choice = input(
+            "\nEnter your choice (1-20): "
+        ).strip()
 
         if choice == "1":
             show_dashboard()
@@ -157,24 +185,30 @@ def run_chatbot():
             show_knowledge_library()
 
         elif choice == "16":
-            knowledge_search_menu()
+            search_hybrid_knowledge()
 
         elif choice == "17":
             preview_document()
 
         elif choice == "18":
-            print("\n🤖 AI Integration Coming Soon!")
+            rag_chat_loop()
 
         elif choice == "19":
             about()
 
         elif choice == "20":
-            print("\n👋 Thank you for using Personal AI Learning Chatbot!")
+            print(
+                "\n👋 Thank you for using "
+                "Personal AI Learning Chatbot!"
+            )
             print("Goodbye, Anand!")
             break
 
         else:
-            print("\n❌ Invalid choice. Please enter a number from 1 to 20.")
+            print(
+                "\n❌ Invalid choice. "
+                "Please enter a number from 1 to 20."
+            )
 
 
 if __name__ == "__main__":
