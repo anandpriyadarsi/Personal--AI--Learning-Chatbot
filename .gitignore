@@ -11,3 +11,4 @@ exports/
 # Personal knowledge base
 knowledge/obsidian/*
 knowledge/documents/*
+semantic_index/
