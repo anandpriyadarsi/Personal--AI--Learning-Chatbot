@@ -1,4 +1,5 @@
 import os
+import re
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -16,6 +17,14 @@ KNOWLEDGE_FOLDERS = [
 for folder in KNOWLEDGE_FOLDERS:
     os.makedirs(folder, exist_ok=True)
 
+STOP_WORDS = {
+    "a", "an", "the", "is", "are", "was", "were", "be", "been",
+    "being", "of", "to", "in", "on", "for", "with", "and", "or",
+    "as", "at", "by", "from", "this", "that", "these", "those",
+    "what", "why", "how", "when", "where", "which", "who",
+    "do", "does", "did", "can", "could", "should", "would",
+    "i", "me", "my", "we", "our", "you", "your"
+}
 
 def find_documents():
     documents = []
@@ -30,7 +39,6 @@ def find_documents():
                     documents.append(full_path)
 
     return sorted(documents)
-
 
 def read_text_file(file_path):
     try:
@@ -49,7 +57,6 @@ def read_text_file(file_path):
 
     except OSError as error:
         return f"[Could not read file: {error}]"
-
 
 def read_pdf_file(file_path):
     try:
@@ -80,7 +87,6 @@ def read_pdf_file(file_path):
     except Exception as error:
         return f"[Could not read PDF: {error}]"
 
-
 def read_document(file_path):
     extension = os.path.splitext(file_path)[1].lower()
 
@@ -92,8 +98,16 @@ def read_document(file_path):
 
     return "[Unsupported file type.]"
 
+def tokenize(text):
+    words = re.findall(r"[A-Za-z0-9]+", text.lower())
 
-def split_into_chunks(content, chunk_size=1200):
+    return [
+        word
+        for word in words
+        if word not in STOP_WORDS and len(word) > 1
+    ]
+
+def split_into_chunks(content, chunk_size=1000):
     content = content.strip()
 
     if not content:
@@ -101,7 +115,7 @@ def split_into_chunks(content, chunk_size=1200):
 
     paragraphs = [
         paragraph.strip()
-        for paragraph in content.split("\n\n")
+        for paragraph in re.split(r"\n\s*\n", content)
         if paragraph.strip()
     ]
 
@@ -109,79 +123,96 @@ def split_into_chunks(content, chunk_size=1200):
     current_chunk = ""
 
     for paragraph in paragraphs:
-        if len(current_chunk) + len(paragraph) + 2 <= chunk_size:
-            if current_chunk:
-                current_chunk += "\n\n"
-            current_chunk += paragraph
+        candidate = (
+            paragraph
+            if not current_chunk
+            else current_chunk + "\n\n" + paragraph
+        )
+
+        if len(candidate) <= chunk_size:
+            current_chunk = candidate
+
         else:
             if current_chunk:
                 chunks.append(current_chunk)
 
-            if len(paragraph) > chunk_size:
+            if len(paragraph) <= chunk_size:
+                current_chunk = paragraph
+            else:
                 start = 0
                 while start < len(paragraph):
-                    chunks.append(paragraph[start:start + chunk_size])
+                    chunks.append(
+                        paragraph[start:start + chunk_size]
+                    )
                     start += chunk_size
                 current_chunk = ""
-            else:
-                current_chunk = paragraph
 
     if current_chunk:
         chunks.append(current_chunk)
 
     return chunks
 
+def get_page_number(chunk):
+    match = re.search(r"--- Page (\d+) ---", chunk)
 
-def find_relevant_chunks(content, query):
-    query = query.lower().strip()
+    if match:
+        return int(match.group(1))
 
-    if not query:
-        return []
+    return None
 
-    chunks = split_into_chunks(content)
-    matches = []
+def score_chunk(chunk, query, file_path):
+    chunk_lower = chunk.lower()
+    query_lower = query.lower().strip()
 
-    query_words = [
-        word for word in query.split()
-        if len(word) > 2
+    query_words = tokenize(query)
+    chunk_words = tokenize(chunk)
+
+    if not query_words:
+        return 0
+
+    score = 0
+
+    if query_lower in chunk_lower:
+        score += 12
+
+    word_counts = {}
+
+    for word in query_words:
+        count = chunk_words.count(word)
+        word_counts[word] = count
+
+        if count > 0:
+            score += 3
+            score += min(count, 3)
+
+    matched_words = [
+        word for word, count in word_counts.items()
+        if count > 0
     ]
 
-    for chunk in chunks:
-        chunk_lower = chunk.lower()
+    coverage = len(matched_words) / len(query_words)
 
-        exact_match = query in chunk_lower
-        word_matches = sum(
-            1 for word in query_words
-            if word in chunk_lower
-        )
+    if coverage == 1:
+        score += 8
+    elif coverage >= 0.75:
+        score += 5
+    elif coverage >= 0.5:
+        score += 2
 
-        if exact_match or word_matches > 0:
-            score = word_matches
+    file_name = os.path.basename(file_path).lower()
 
-            if exact_match:
-                score += 5
+    for word in query_words:
+        if word in file_name:
+            score += 2
 
-            matches.append({
-                "text": chunk,
-                "score": score
-            })
+    if len(matched_words) == 1 and len(query_words) >= 3:
+        score -= 3
 
-    matches.sort(
-        key=lambda item: item["score"],
-        reverse=True
-    )
+    return score
 
-    return matches[:5]
-
-
-def search_knowledge(query):
+def retrieve_best_chunks(query, top_k=5):
     documents = find_documents()
-    results = []
-
-    query = query.strip()
-
-    if not query:
-        return results
+    ranked_results = []
 
     for file_path in documents:
         content = read_document(file_path)
@@ -192,16 +223,32 @@ def search_knowledge(query):
         if content.startswith("[PDF support"):
             continue
 
-        matches = find_relevant_chunks(content, query)
+        if content.startswith("[No readable text"):
+            continue
 
-        if matches:
-            results.append({
-                "file": file_path,
-                "matches": matches
-            })
+        chunks = split_into_chunks(content)
 
-    return results
+        for chunk in chunks:
+            score = score_chunk(
+                chunk,
+                query,
+                file_path
+            )
 
+            if score > 0:
+                ranked_results.append({
+                    "file": file_path,
+                    "text": chunk,
+                    "score": score,
+                    "page": get_page_number(chunk)
+                })
+
+    ranked_results.sort(
+        key=lambda item: item["score"],
+        reverse=True
+    )
+
+    return ranked_results[:top_k]
 
 def show_knowledge_library():
     documents = find_documents()
@@ -226,7 +273,6 @@ def show_knowledge_library():
             f"[{extension[1:].upper()}]"
         )
 
-
 def preview_document():
     documents = find_documents()
 
@@ -241,7 +287,9 @@ def preview_document():
         print(f"{number}. {relative_path}")
 
     try:
-        choice = int(input("\nEnter document number: ").strip())
+        choice = int(
+            input("\nEnter document number: ").strip()
+        )
 
         if choice < 1 or choice > len(documents):
             print("\nInvalid document number.")
@@ -260,9 +308,8 @@ def preview_document():
     if len(content) > 1500:
         print("\n[Preview truncated...]")
 
-
 def knowledge_search_menu():
-    print("\n========== SEARCH KNOWLEDGE ==========")
+    print("\n========== KNOWLEDGE RETRIEVAL V2 ==========")
 
     query = input(
         "\nEnter topic or question to search: "
@@ -272,43 +319,45 @@ def knowledge_search_menu():
         print("\nPlease enter a search topic.")
         return
 
-    results = search_knowledge(query)
+    results = retrieve_best_chunks(
+        query,
+        top_k=5
+    )
 
     if not results:
         print(
-            f'\nNo matching information found for "{query}".'
+            f'\nNo relevant information found for "{query}".'
         )
         return
 
     print(
-        f"\nFound information in "
-        f"{len(results)} document(s)."
+        f"\nTop {len(results)} most relevant result(s):"
     )
 
-    for result in results:
+    for number, result in enumerate(results, start=1):
         relative_path = os.path.relpath(
             result["file"],
             BASE_DIR
         )
 
         print("\n" + "=" * 70)
-        print(f"Source: {relative_path}")
+        print(f"Result {number}")
+        print(f"Source : {relative_path}")
+
+        if result["page"] is not None:
+            print(f"Page   : {result['page']}")
+
+        print(f"Score  : {result['score']}")
         print("=" * 70)
 
-        for number, match in enumerate(
-            result["matches"],
-            start=1
-        ):
-            print(f"\nMatch {number}:")
-            print(match["text"])
-            print("-" * 50)
-
+        print(result["text"])
+        print("-" * 70)
 
 def main():
     while True:
         print("\n========== KNOWLEDGE LIBRARY ==========")
         print("1. View Knowledge Library")
-        print("2. Search Knowledge")
+        print("2. Search Knowledge (Retrieval V2)")
         print("3. Preview Document")
         print("4. Exit")
 
@@ -334,7 +383,6 @@ def main():
                 "\nInvalid choice. "
                 "Please enter 1, 2, 3, or 4."
             )
-
 
 if __name__ == "__main__":
     main()
