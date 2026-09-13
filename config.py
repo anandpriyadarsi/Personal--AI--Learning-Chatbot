@@ -1,17 +1,64 @@
-import os
+"""Central project paths for the Personal AI Learning Assistant.
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+Phase 1.5 keeps path discovery side-effect free:
+importing this module never creates directories or files.
+"""
 
-DATA_DIR = os.path.join(BASE_DIR, "data")
-BACKUP_DIR = os.path.join(BASE_DIR, "backup")
-EXPORT_DIR = os.path.join(BASE_DIR, "exports")
+from pathlib import Path
+from typing import Iterable, Union
 
-NOTES_FILE = os.path.join(DATA_DIR, "notes.json")
-RESOURCES_FILE = os.path.join(DATA_DIR, "resources.json")
 
-NOTES_BACKUP_FILE = os.path.join(BACKUP_DIR, "notes_backup.json")
-RESOURCES_BACKUP_FILE = os.path.join(BACKUP_DIR, "resources_backup.json")
+PathLike = Union[str, Path]
 
-os.makedirs(DATA_DIR, exist_ok=True)
-os.makedirs(BACKUP_DIR, exist_ok=True)
-os.makedirs(EXPORT_DIR, exist_ok=True)
+BASE_PATH = Path(__file__).resolve().parent
+DATA_PATH = BASE_PATH / "data"
+BACKUP_PATH = BASE_PATH / "backup"
+EXPORT_PATH = BASE_PATH / "exports"
+
+NOTES_PATH = DATA_PATH / "notes.json"
+RESOURCES_PATH = DATA_PATH / "resources.json"
+
+# Compatibility strings for the existing V1-V13 modules.
+BASE_DIR = str(BASE_PATH)
+DATA_DIR = str(DATA_PATH)
+BACKUP_DIR = str(BACKUP_PATH)
+EXPORT_DIR = str(EXPORT_PATH)
+NOTES_FILE = str(NOTES_PATH)
+RESOURCES_FILE = str(RESOURCES_PATH)
+
+
+def ensure_directories(
+    directories: Iterable[PathLike],
+) -> None:
+    """Create directories only when a write operation explicitly needs them."""
+    for directory in directories:
+        Path(directory).mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+
+
+def ensure_data_dir() -> str:
+    ensure_directories([DATA_PATH])
+    return DATA_DIR
+
+
+def ensure_backup_dir() -> str:
+    ensure_directories([BACKUP_PATH])
+    return BACKUP_DIR
+
+
+def ensure_export_dir() -> str:
+    ensure_directories([EXPORT_PATH])
+    return EXPORT_DIR
+
+
+def ensure_runtime_directories() -> None:
+    """Explicit compatibility helper for commands that need all legacy folders."""
+    ensure_directories(
+        [
+            DATA_PATH,
+            BACKUP_PATH,
+            EXPORT_PATH,
+        ]
+    )
