@@ -3,12 +3,6 @@
 import os
 import re
 
-from math_document_reader import (
-    read_pdf_math_aware,
-    split_math_aware_chunks,
-    math_search_tokens,
-)
-
 from knowledge_paths import BASE_DIR
 from obsidian_integration import (
     get_obsidian_markdown_files,
@@ -46,11 +40,20 @@ LOCAL_KNOWLEDGE_FOLDERS = [
     DOCUMENTS_DIR
 ]
 
-for folder in LOCAL_KNOWLEDGE_FOLDERS:
-    os.makedirs(
-        folder,
-        exist_ok=True
-    )
+
+def ensure_local_knowledge_folders():
+    """
+    Explicitly create the legacy local knowledge folders.
+
+    Importing knowledge.py and read-only discovery must never create
+    directories. Call this helper only from a feature that is about
+    to write a file into one of these locations.
+    """
+    for folder in LOCAL_KNOWLEDGE_FOLDERS:
+        os.makedirs(
+            folder,
+            exist_ok=True
+        )
 
 
 STOP_WORDS = {
@@ -155,11 +158,44 @@ def read_text_file(file_path):
 
 def read_pdf_file(file_path):
     try:
-        return read_pdf_math_aware(
+        from pypdf import PdfReader
+
+    except ImportError:
+        return (
+            "[PDF support is not installed. "
+            "Run: pip install pypdf]"
+        )
+
+    try:
+        reader = PdfReader(
             file_path
         )
 
-    except RuntimeError as error:
+        pages_text = []
+
+        for page_number, page in enumerate(
+            reader.pages,
+            start=1
+        ):
+            text = page.extract_text()
+
+            if text:
+                pages_text.append(
+                    f"\n--- Page {page_number} ---\n"
+                    f"{text.strip()}"
+                )
+
+        if not pages_text:
+            return (
+                "[No readable text found in this PDF. "
+                "It may be a scanned/image-only PDF.]"
+            )
+
+        return "\n".join(
+            pages_text
+        )
+
+    except Exception as error:
         return (
             f"[Could not read PDF: {error}]"
         )
@@ -184,8 +220,9 @@ def read_document(file_path):
 
 
 def tokenize(text):
-    words = math_search_tokens(
-        text
+    words = re.findall(
+        r"[A-Za-z0-9]+",
+        text.lower()
     )
 
     return [
@@ -193,27 +230,76 @@ def tokenize(text):
         for word in words
         if (
             word not in STOP_WORDS
-            and (
-                len(word) > 1
-                or word in {
-                    "x", "y", "z",
-                    "a", "b", "c",
-                    "+", "-", "*",
-                    "/", "=", "<", ">"
-                }
-            )
+            and len(word) > 1
         )
     ]
 
 
 def split_into_chunks(
     content,
-    chunk_size=1400
+    chunk_size=1000
 ):
-    return split_math_aware_chunks(
-        content,
-        chunk_size=chunk_size
-    )
+    content = content.strip()
+
+    if not content:
+        return []
+
+    paragraphs = [
+        paragraph.strip()
+        for paragraph in re.split(
+            r"\n\s*\n",
+            content
+        )
+        if paragraph.strip()
+    ]
+
+    chunks = []
+    current_chunk = ""
+
+    for paragraph in paragraphs:
+        candidate = (
+            paragraph
+            if not current_chunk
+            else (
+                current_chunk
+                + "\n\n"
+                + paragraph
+            )
+        )
+
+        if len(candidate) <= chunk_size:
+            current_chunk = candidate
+
+        else:
+            if current_chunk:
+                chunks.append(
+                    current_chunk
+                )
+
+            if len(paragraph) <= chunk_size:
+                current_chunk = paragraph
+
+            else:
+                start = 0
+
+                while start < len(paragraph):
+                    chunks.append(
+                        paragraph[
+                            start:
+                            start + chunk_size
+                        ]
+                    )
+
+                    start += chunk_size
+
+                current_chunk = ""
+
+    if current_chunk:
+        chunks.append(
+            current_chunk
+        )
+
+    return chunks
 
 
 def get_page_number(chunk):
