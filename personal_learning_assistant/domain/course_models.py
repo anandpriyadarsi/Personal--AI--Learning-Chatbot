@@ -95,3 +95,49 @@ class CourseListResult:
 @dataclass(frozen=True)
 class CourseLookupResult:
     course: Optional[CourseView]
+
+
+@dataclass(frozen=True)
+class CreateCourseCommand:
+    code: str
+    name: str
+    semester: str = ""
+    status: str = "active"
+    topics: Tuple[dict, ...] = ()
+
+
+@dataclass(frozen=True)
+class SetActiveCourseCommand:
+    identifier: str
+
+
+@dataclass(frozen=True)
+class UpdateCourseStatusCommand:
+    identifier: str
+    status: str
+
+
+@dataclass(frozen=True)
+class AddTopicCommand:
+    course_identifier: str
+    topic_name: str
+    status: str = "not_started"
+
+
+@dataclass(frozen=True)
+class UpdateTopicStatusCommand:
+    course_identifier: str
+    topic_name: str
+    status: str
+    confidence: Optional[int] = None
+
+
+@dataclass(frozen=True)
+class CourseCommandResult:
+    course: CourseView
+
+
+@dataclass(frozen=True)
+class TopicCommandResult:
+    topic: TopicView
+    created: Optional[bool] = None
