@@ -45,49 +45,15 @@ def save_notes_to_file(notes):
 # Add Note
 # -------------------------
 def add_note():
-
-    print("\n========== ADD NEW NOTE ==========\n")
-
-    title = input("Title : ")
-    topic = input("Topic : ")
-    difficulty = input("Difficulty (Easy/Medium/Hard): ")
-
-    print("\nEnter your note.")
-    print("Type END on a new line when finished.\n")
-
-    lines = []
-
-    while True:
-        line = input()
-
-        if line.upper() == "END":
-            break
-
-        lines.append(line)
-
-    content = "\n".join(lines)
-
-    note = {
-        "title": title,
-        "topic": topic,
-        "difficulty": difficulty,
-        "content": content
-    }
-
-    notes = load_notes()
-
-    notes.append(note)
-
-    save_notes_to_file(notes)
-
-    print("\n✅ Note saved successfully!")
+    """Compatibility wrapper for the extracted Notes CLI adapter."""
+    return _build_notes_cli().add_note()
 
 
 # -------------------------
 # View Notes
 # -------------------------
 def _build_notes_service():
-    """Build the Phase 2 read-only NotesService lazily."""
+    """Build the Phase 2 NotesService lazily."""
     from config import NOTES_FILE as DEFAULT_NOTES_FILE
     from personal_learning_assistant.repositories.json.note_repository import (
         LegacyJsonNoteRepository,

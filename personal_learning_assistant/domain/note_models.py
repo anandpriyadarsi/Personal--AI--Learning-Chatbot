@@ -1,7 +1,8 @@
-"""Typed read models for the legacy JSON Notes subsystem.
+"""Typed models for the legacy JSON Notes subsystem.
 
-Phase 2 keeps ``data/notes.json`` authoritative. These models are read views
-only; they are not a new persistence format and do not migrate note bodies.
+Phase 2 keeps ``data/notes.json`` authoritative. These models define
+non-interactive service commands/results without changing the legacy JSON
+shape or migrating note bodies.
 """
 
 from dataclasses import dataclass
@@ -34,6 +35,14 @@ class NoteView:
 
 
 @dataclass(frozen=True)
+class CreateNoteCommand:
+    title: str
+    topic: str
+    difficulty: str
+    content: str
+
+
+@dataclass(frozen=True)
 class ListNotesQuery:
     topic: Optional[str] = None
     difficulty: Optional[str] = None
@@ -44,6 +53,11 @@ class SearchNotesQuery:
     text: str
     topic: Optional[str] = None
     difficulty: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class NoteCreateResult:
+    note: NoteView
 
 
 @dataclass(frozen=True)

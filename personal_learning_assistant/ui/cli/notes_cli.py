@@ -1,19 +1,19 @@
-"""Terminal adapter for the legacy Notes read commands.
+"""Terminal adapter for the legacy Notes commands.
 
-Phase 2 Fix 7 keeps note creation on the legacy path for now. Only the
-read-oriented terminal functions (view/search/count) are routed through the
-non-interactive NotesService introduced in Fix 6.
+Phase 2 Fix 8 routes both legacy reads and note creation through the
+non-interactive NotesService. ``input``/``print`` stay in this adapter.
 """
 
 from typing import Callable
 
 from personal_learning_assistant.domain.note_models import (
+    CreateNoteCommand,
     SearchNotesQuery,
 )
 
 
 class NotesCLI:
-    """Interactive renderer/controller for legacy Notes read commands."""
+    """Interactive renderer/controller for legacy Notes commands."""
 
     def __init__(
         self,
@@ -24,6 +24,59 @@ class NotesCLI:
         self.service = service
         self.input = input_fn
         self.output = output_fn
+
+    def add_note(self):
+        self.output(
+            "\n========== ADD NEW NOTE ==========\n"
+        )
+
+        title = self.input(
+            "Title : "
+        )
+        topic = self.input(
+            "Topic : "
+        )
+        difficulty = self.input(
+            "Difficulty (Easy/Medium/Hard): "
+        )
+
+        self.output(
+            "\nEnter your note."
+        )
+        self.output(
+            "Type END on a new line when finished.\n"
+        )
+
+        lines = []
+
+        while True:
+            line = self.input(
+                ""
+            )
+
+            if line.upper() == "END":
+                break
+
+            lines.append(
+                line
+            )
+
+        result = self.service.create_note(
+            CreateNoteCommand(
+                title=title,
+                topic=topic,
+                difficulty=difficulty,
+                content="\n".join(
+                    lines
+                ),
+            )
+        )
+
+        self.output(
+            "\n✅ Note saved successfully!"
+        )
+
+        return result.note.to_legacy_dict()
 
     def view_notes(self):
         result = self.service.list_notes()

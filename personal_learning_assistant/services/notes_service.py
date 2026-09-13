@@ -1,10 +1,12 @@
-"""Non-interactive read service for the legacy Notes subsystem."""
+"""Non-interactive service for the legacy Notes subsystem."""
 
 from typing import Optional
 
 from personal_learning_assistant.domain.note_models import (
+    CreateNoteCommand,
     ListNotesQuery,
     NoteCountResult,
+    NoteCreateResult,
     NoteListResult,
     NoteSearchResult,
     NoteView,
@@ -17,11 +19,11 @@ from personal_learning_assistant.repositories.interfaces import (
 
 class NotesService:
     """
-    Read-only Notes service for Phase 2 Fix 6.
+    Phase 2 Notes service over the current JSON authority.
 
-    The current JSON file remains the authority. No write/migration behavior is
-    introduced here because legacy JSON notes will later be reviewed before
-    Notes Studio moves authoritative note bodies to the Obsidian vault.
+    Reads are side-effect free. Create-note is an explicit command routed to
+    the legacy JSON repository; it does not introduce a second persistence
+    format or migrate note bodies.
     """
 
     def __init__(
@@ -29,6 +31,27 @@ class NotesService:
         repository: NoteRepository,
     ):
         self.repository = repository
+
+    def create_note(
+        self,
+        command: CreateNoteCommand,
+    ) -> NoteCreateResult:
+        note = NoteView(
+            title=str(command.title),
+            topic=str(command.topic),
+            difficulty=str(command.difficulty),
+            content=str(command.content),
+        )
+
+        stored = self.repository.append_note(
+            note.to_legacy_dict()
+        )
+
+        return NoteCreateResult(
+            note=NoteView.from_legacy(
+                stored
+            )
+        )
 
     def list_notes(
         self,
