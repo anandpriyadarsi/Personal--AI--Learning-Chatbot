@@ -92,6 +92,17 @@ def pending_assessments():
 
 
 def assessments_in_window(days):
+    """
+    Return pending assessments in a half-open
+    calendar window.
+
+    Example:
+    - days=7 includes today through today+6.
+    - days=30 includes today through today+29.
+
+    Overdue assessments are handled separately
+    in the overdue/recovery workflow.
+    """
     start = _today()
     end = start + timedelta(
         days=days
@@ -107,7 +118,7 @@ def assessments_in_window(days):
         if due is None:
             continue
 
-        if start <= due <= end:
+        if start <= due < end:
             rows.append(item)
 
     rows.sort(

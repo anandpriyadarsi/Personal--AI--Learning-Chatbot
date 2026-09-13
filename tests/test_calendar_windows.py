@@ -14,13 +14,12 @@ def _assessment(title, due_date):
     }
 
 
-def test_seven_day_window_currently_includes_eighth_calendar_date(monkeypatch):
+def test_seven_day_window_contains_exactly_seven_calendar_dates(monkeypatch):
     """
-    Characterization test for the current inclusive-end defect.
+    Regression test for the old inclusive-end defect.
 
-    A nominal 7-day window beginning on day 0 should eventually mean
-    day offsets 0..6. The current implementation also includes offset 7,
-    so this test records that existing behavior before we fix it.
+    A 7-day window beginning today must include day offsets 0..6.
+    Offset 7 belongs outside this view.
     """
     today = date(2026, 9, 13)
 
@@ -49,17 +48,17 @@ def test_seven_day_window_currently_includes_eighth_calendar_date(monkeypatch):
     assert titles == [
         "Today Quiz",
         "Day 6 Quiz",
-        "Day 7 Quiz",
     ]
-    assert len(rows) == 3
+    assert "Day 7 Quiz" not in titles
+    assert len(rows) == 2
 
 
-def test_thirty_day_window_currently_includes_31st_calendar_date(monkeypatch):
+def test_thirty_day_window_contains_exactly_thirty_calendar_dates(monkeypatch):
     """
-    Characterization test for the same defect in the 30-day view.
+    Regression test for the same defect in the 30-day view.
 
-    The current implementation includes offsets 0..30, which spans
-    31 calendar dates.
+    A 30-day window beginning today must include day offsets 0..29.
+    Offset 30 belongs outside this view.
     """
     today = date(2026, 9, 13)
 
@@ -88,6 +87,6 @@ def test_thirty_day_window_currently_includes_31st_calendar_date(monkeypatch):
     assert titles == [
         "Today Assignment",
         "Day 29 Assignment",
-        "Day 30 Assignment",
     ]
-    assert len(rows) == 3
+    assert "Day 30 Assignment" not in titles
+    assert len(rows) == 2
