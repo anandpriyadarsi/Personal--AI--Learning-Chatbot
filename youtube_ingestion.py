@@ -13,10 +13,21 @@ YOUTUBE_DIR = os.path.join(
     "youtube_transcripts"
 )
 
-os.makedirs(
-    YOUTUBE_DIR,
-    exist_ok=True
-)
+
+def ensure_youtube_dir():
+    """
+    Create the transcript directory only when a transcript
+    is actually going to be written.
+
+    Importing this module and listing transcripts must remain
+    side-effect free.
+    """
+    os.makedirs(
+        YOUTUBE_DIR,
+        exist_ok=True
+    )
+
+    return YOUTUBE_DIR
 
 
 def extract_video_id(url):
@@ -188,6 +199,8 @@ def save_transcript(
         + ".md"
     )
 
+    ensure_youtube_dir()
+
     file_path = os.path.join(
         YOUTUBE_DIR,
         filename
@@ -308,15 +321,18 @@ def import_youtube_video():
 def list_imported_transcripts():
     files = []
 
-    for file_name in os.listdir(
+    if os.path.isdir(
         YOUTUBE_DIR
     ):
-        if file_name.lower().endswith(
-            ".md"
+        for file_name in os.listdir(
+            YOUTUBE_DIR
         ):
-            files.append(
-                file_name
-            )
+            if file_name.lower().endswith(
+                ".md"
+            ):
+                files.append(
+                    file_name
+                )
 
     files.sort()
 
