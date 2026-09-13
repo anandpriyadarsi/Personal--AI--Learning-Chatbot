@@ -336,13 +336,146 @@ def course_urgency(course):
     ), ranked
 
 
+def redistribute_remaining_minutes(
+    allocations,
+    requested_minutes,
+    min_minutes,
+    max_minutes
+):
+    """
+    Ensure every requested study minute is allocated.
+
+    The normal pass respects the maximum course
+    share whenever possible. If every course has
+    already reached that cap, the cap is relaxed
+    only for the remaining minutes so that the
+    planner never silently loses study time.
+    """
+
+    if not allocations:
+        return allocations
+
+    difference = requested_minutes - sum(
+        item["minutes"]
+        for item in allocations
+    )
+
+    while difference != 0:
+        changed = False
+
+        if difference > 0:
+            eligible = [
+                index
+                for index, item in enumerate(
+                    allocations
+                )
+                if item["minutes"] < max_minutes
+            ]
+
+            if not eligible:
+                # The cap makes exact allocation impossible.
+                # Relax it only after all normal candidates
+                # are full. Prefer the currently smallest
+                # allocation, then the more urgent course.
+                eligible = list(
+                    range(
+                        len(allocations)
+                    )
+                )
+
+                eligible.sort(
+                    key=lambda index: (
+                        allocations[
+                            index
+                        ]["minutes"],
+                        -allocations[
+                            index
+                        ]["urgency"],
+                    )
+                )
+
+            else:
+                eligible.sort(
+                    key=lambda index: allocations[
+                        index
+                    ]["urgency"],
+                    reverse=True
+                )
+
+            for index in eligible:
+                allocations[
+                    index
+                ]["minutes"] += 1
+                difference -= 1
+                changed = True
+
+                if difference == 0:
+                    break
+
+        else:
+            eligible = [
+                index
+                for index, item in enumerate(
+                    allocations
+                )
+                if item["minutes"] > min_minutes
+            ]
+
+            if not eligible:
+                # This should be rare, but keeps the invariant
+                # safe if rounding/minimum rules over-allocate.
+                eligible = [
+                    index
+                    for index, item in enumerate(
+                        allocations
+                    )
+                    if item["minutes"] > 1
+                ]
+
+                eligible.sort(
+                    key=lambda index: (
+                        allocations[
+                            index
+                        ]["minutes"],
+                        -allocations[
+                            index
+                        ]["urgency"],
+                    ),
+                    reverse=True
+                )
+
+            else:
+                # Remove first from the least urgent course
+                # while keeping protected minimum time.
+                eligible.sort(
+                    key=lambda index: allocations[
+                        index
+                    ]["urgency"]
+                )
+
+            for index in eligible:
+                allocations[
+                    index
+                ]["minutes"] -= 1
+                difference += 1
+                changed = True
+
+                if difference == 0:
+                    break
+
+        if not changed:
+            break
+
+    return allocations
+
+
 def bounded_course_allocations(
     courses,
     total_minutes
 ):
     """
-    Allocate time by urgency while preventing
-    one course from consuming the entire week.
+    Allocate time by urgency while preserving the
+    exact total weekly study time requested.
     """
 
     raw = []
@@ -359,6 +492,9 @@ def bounded_course_allocations(
             "urgency": urgency,
             "ranked": ranked
         })
+
+    if not raw:
+        return []
 
     urgency_total = sum(
         item["urgency"]
@@ -416,56 +552,12 @@ def bounded_course_allocations(
             "minutes": minutes
         })
 
-    current_total = sum(
-        item["minutes"]
-        for item in allocations
+    allocations = redistribute_remaining_minutes(
+        allocations,
+        total_minutes,
+        min_minutes,
+        max_minutes
     )
-
-    difference = (
-        total_minutes
-        - current_total
-    )
-
-    # Correct rounding/caps in small steps.
-    order = sorted(
-        range(len(allocations)),
-        key=lambda index: allocations[
-            index
-        ]["urgency"],
-        reverse=True
-    )
-
-    while difference != 0:
-        changed = False
-
-        for index in order:
-            item = allocations[
-                index
-            ]
-
-            if difference > 0:
-                if (
-                    item["minutes"]
-                    < max_minutes
-                ):
-                    item["minutes"] += 1
-                    difference -= 1
-                    changed = True
-
-            else:
-                if (
-                    item["minutes"]
-                    > min_minutes
-                ):
-                    item["minutes"] -= 1
-                    difference += 1
-                    changed = True
-
-            if difference == 0:
-                break
-
-        if not changed:
-            break
 
     return allocations
 
