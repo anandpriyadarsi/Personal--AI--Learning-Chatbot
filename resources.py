@@ -81,25 +81,8 @@ def _build_resources_cli():
 # Add Resource
 # -------------------------
 def add_resource():
-
-    print("\n========== ADD NEW RESOURCE ==========\n")
-
-    title = input("Title : ")
-    resource_type = input("Type (YouTube/Book/Website/GitHub/Course): ")
-    link = input("Link : ")
-
-    resource = {
-        "title": title,
-        "type": resource_type,
-        "link": link,
-        "status": "Not Started"
-    }
-
-    resources = load_resources()
-    resources.append(resource)
-    save_resources(resources)
-
-    print("\n✅ Resource added successfully!")
+    """Compatibility wrapper for the extracted Resources CLI adapter."""
+    return _build_resources_cli().add_resource()
 
 
 # -------------------------
@@ -130,48 +113,5 @@ def count_resources():
 # Update Resource Status
 # -------------------------
 def update_status():
-
-    resources = load_resources()
-
-    if len(resources) == 0:
-        print("\nNo resources found.")
-        return
-
-    print("\n========== UPDATE STATUS ==========\n")
-
-    for i, resource in enumerate(resources, start=1):
-        print(f"{i}. {resource['title']} ({resource['status']})")
-
-    try:
-        choice = int(input("\nEnter resource number: "))
-
-        if choice < 1 or choice > len(resources):
-            print("Invalid choice.")
-            return
-
-        print("\nChoose Status")
-        print("1. Not Started")
-        print("2. In Progress")
-        print("3. Completed")
-
-        status_choice = input("Enter choice: ")
-
-        if status_choice == "1":
-            resources[choice-1]["status"] = "Not Started"
-
-        elif status_choice == "2":
-            resources[choice-1]["status"] = "In Progress"
-
-        elif status_choice == "3":
-            resources[choice-1]["status"] = "Completed"
-
-        else:
-            print("Invalid status.")
-            return
-
-        save_resources(resources)
-
-        print("\n✅ Status updated successfully!")
-
-    except ValueError:
-        print("\nPlease enter a valid number.")
+    """Compatibility wrapper for the extracted Resources CLI adapter."""
+    return _build_resources_cli().update_status()
