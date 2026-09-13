@@ -1,46 +1,124 @@
-"""Command-line entry point for Personal AI Learning Chatbot V8."""
+"""Command-line entry point for Personal AI Learning Assistant V13."""
 
-from notes import add_note, view_notes, count_notes, search_notes
-from resources import (
-    add_resource,
-    view_resources,
-    search_resources,
-    count_resources,
-    update_status
-)
-from dashboard import show_dashboard
-from backup import (
-    backup_database,
-    restore_database,
-    export_notes,
-    export_resources
-)
-from knowledge import (
-    show_knowledge_library,
-    preview_document
-)
-from semantic_retrieval import load_semantic_index
-from hybrid_retrieval import hybrid_search_loop
-from rag_answer import rag_chat_loop, course_rag_chat_loop
-from learning_memory import memory_menu
-from course_manager import course_manager_menu
-from obsidian_integration import obsidian_menu
-from youtube_ingestion import youtube_menu
-from youtube_analysis import lecture_analysis_menu
-from academic_progress import academic_progress_menu
-from weekly_planner import weekly_planner_menu
-from multi_course_planner import multi_course_planner_menu
-from assignment_exam_assistant import assignment_exam_menu
-from assessment_question_workspace import assessment_question_workspace_menu
-from assignment_file_importer import assignment_file_importer_menu
-from automatic_topic_mapping import automatic_topic_mapping_menu
-from assessment_performance import performance_engine_menu
-from intelligent_study_planner import intelligent_study_planner_menu
-from academic_intelligence_dashboard import academic_intelligence_dashboard_menu
-from semester_grade_intelligence import semester_grade_intelligence_menu
-from academic_calendar_planner import academic_calendar_menu
-from daily_academic_brief import daily_brief_menu
-from personal_academic_agent import personal_academic_agent_menu
+from importlib import import_module
+
+
+class FeatureLoadError(RuntimeError):
+    """Raised when a lazily loaded feature cannot be imported."""
+
+
+def _load_callable(module_name, function_name):
+    """
+    Import one feature only when the user selects it.
+
+    This keeps main.py startup independent from optional semantic,
+    RAG, vision, YouTube, and document dependencies.
+    """
+    try:
+        module = import_module(
+            module_name
+        )
+    except ImportError as error:
+        raise FeatureLoadError(
+            f"{module_name}.{function_name} could not be loaded: {error}"
+        ) from error
+
+    try:
+        return getattr(
+            module,
+            function_name
+        )
+    except AttributeError as error:
+        raise FeatureLoadError(
+            f"{module_name} does not provide {function_name}."
+        ) from error
+
+
+def _run_feature(module_name, function_name):
+    try:
+        function = _load_callable(
+            module_name,
+            function_name
+        )
+    except FeatureLoadError as error:
+        print(
+            "\nFeature unavailable."
+        )
+        print(error)
+        return None
+
+    return function()
+
+
+FEATURE_ACTIONS = {
+    "1": ("dashboard", "show_dashboard"),
+    "2": ("notes", "view_notes"),
+    "3": ("notes", "add_note"),
+    "4": ("notes", "search_notes"),
+    "5": ("notes", "count_notes"),
+    "6": ("resources", "view_resources"),
+    "7": ("resources", "add_resource"),
+    "8": ("resources", "search_resources"),
+    "9": ("resources", "count_resources"),
+    "10": ("resources", "update_status"),
+    "11": ("backup", "backup_database"),
+    "12": ("backup", "restore_database"),
+    "13": ("backup", "export_notes"),
+    "14": ("backup", "export_resources"),
+    "15": ("knowledge", "show_knowledge_library"),
+    "17": ("knowledge", "preview_document"),
+    "18": ("rag_answer", "rag_chat_loop"),
+    "19": ("learning_memory", "memory_menu"),
+    "20": ("obsidian_integration", "obsidian_menu"),
+    "21": ("youtube_ingestion", "youtube_menu"),
+    "22": ("youtube_analysis", "lecture_analysis_menu"),
+    "23": ("course_manager", "course_manager_menu"),
+    "24": ("rag_answer", "course_rag_chat_loop"),
+    "25": ("academic_progress", "academic_progress_menu"),
+    "26": ("weekly_planner", "weekly_planner_menu"),
+    "27": ("multi_course_planner", "multi_course_planner_menu"),
+    "28": ("assignment_exam_assistant", "assignment_exam_menu"),
+    "29": (
+        "assessment_question_workspace",
+        "assessment_question_workspace_menu"
+    ),
+    "30": (
+        "assignment_file_importer",
+        "assignment_file_importer_menu"
+    ),
+    "31": (
+        "automatic_topic_mapping",
+        "automatic_topic_mapping_menu"
+    ),
+    "32": (
+        "assessment_performance",
+        "performance_engine_menu"
+    ),
+    "33": (
+        "intelligent_study_planner",
+        "intelligent_study_planner_menu"
+    ),
+    "34": (
+        "academic_intelligence_dashboard",
+        "academic_intelligence_dashboard_menu"
+    ),
+    "35": (
+        "semester_grade_intelligence",
+        "semester_grade_intelligence_menu"
+    ),
+    "36": (
+        "academic_calendar_planner",
+        "academic_calendar_menu"
+    ),
+    "37": (
+        "daily_academic_brief",
+        "daily_brief_menu"
+    ),
+    "38": (
+        "personal_academic_agent",
+        "personal_academic_agent_menu"
+    ),
+}
 
 
 def about():
@@ -124,6 +202,20 @@ def about():
 
 def search_hybrid_knowledge():
     print("\nLoading semantic index...")
+
+    try:
+        load_semantic_index = _load_callable(
+            "semantic_retrieval",
+            "load_semantic_index"
+        )
+        hybrid_search_loop = _load_callable(
+            "hybrid_retrieval",
+            "hybrid_search_loop"
+        )
+    except FeatureLoadError as error:
+        print("\nHybrid search is unavailable.")
+        print(error)
+        return
 
     semantic_chunks = load_semantic_index()
 
@@ -224,119 +316,17 @@ def run_chatbot():
             "\nEnter your choice (1-40): "
         ).strip()
 
-        if choice == "1":
-            show_dashboard()
-
-        elif choice == "2":
-            view_notes()
-
-        elif choice == "3":
-            add_note()
-
-        elif choice == "4":
-            search_notes()
-
-        elif choice == "5":
-            count_notes()
-
-        elif choice == "6":
-            view_resources()
-
-        elif choice == "7":
-            add_resource()
-
-        elif choice == "8":
-            search_resources()
-
-        elif choice == "9":
-            count_resources()
-
-        elif choice == "10":
-            update_status()
-
-        elif choice == "11":
-            backup_database()
-
-        elif choice == "12":
-            restore_database()
-
-        elif choice == "13":
-            export_notes()
-
-        elif choice == "14":
-            export_resources()
-
-        elif choice == "15":
-            show_knowledge_library()
+        if choice in FEATURE_ACTIONS:
+            module_name, function_name = (
+                FEATURE_ACTIONS[choice]
+            )
+            _run_feature(
+                module_name,
+                function_name
+            )
 
         elif choice == "16":
             search_hybrid_knowledge()
-
-        elif choice == "17":
-            preview_document()
-
-        elif choice == "18":
-            rag_chat_loop()
-
-        elif choice == "19":
-            memory_menu()
-
-        elif choice == "20":
-            obsidian_menu()
-
-        elif choice == "21":
-            youtube_menu()
-
-        elif choice == "22":
-            lecture_analysis_menu()
-
-        elif choice == "23":
-            course_manager_menu()
-
-        elif choice == "24":
-            course_rag_chat_loop()
-
-        elif choice == "25":
-            academic_progress_menu()
-
-        elif choice == "26":
-            weekly_planner_menu()
-
-        elif choice == "27":
-            multi_course_planner_menu()
-
-        elif choice == "28":
-            assignment_exam_menu()
-
-        elif choice == "29":
-            assessment_question_workspace_menu()
-
-        elif choice == "30":
-            assignment_file_importer_menu()
-
-        elif choice == "31":
-            automatic_topic_mapping_menu()
-
-        elif choice == "32":
-            performance_engine_menu()
-
-        elif choice == "33":
-            intelligent_study_planner_menu()
-
-        elif choice == "34":
-            academic_intelligence_dashboard_menu()
-
-        elif choice == "35":
-            semester_grade_intelligence_menu()
-
-        elif choice == "36":
-            academic_calendar_menu()
-
-        elif choice == "37":
-            daily_brief_menu()
-
-        elif choice == "38":
-            personal_academic_agent_menu()
 
         elif choice == "39":
             about()
