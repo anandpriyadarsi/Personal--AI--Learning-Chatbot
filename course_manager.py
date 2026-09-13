@@ -685,234 +685,69 @@ def linked_documents_for_course(course_identifier):
     return sorted(matches, key=lambda item: item["display_path"].lower())
 
 
+def _build_course_cli():
+    """
+    Lazily load the terminal adapter.
+
+    Keeping this import lazy prevents CLI concerns from becoming a dependency
+    of course data/services and preserves the existing root-module API.
+    """
+    from personal_learning_assistant.ui.cli.course_cli import (
+        CourseCLI,
+    )
+
+    return CourseCLI(
+        course_api=__import__(
+            __name__
+        )
+    )
+
+
 def print_course_progress(course_identifier):
-    progress = get_course_progress(course_identifier)
-    if progress is None:
-        print("\nCourse not found.")
-        return
-
-    course = progress["course"]
-    print("\n" + "=" * 60)
-    print(f"{course['code']} - {course['name']}")
-    if course["semester"]:
-        print(f"Semester : {course['semester']}")
-    print(f"Status   : {course['status'].replace('_', ' ').title()}")
-    print(f"Progress : {progress['mastered_topics']}/{progress['total_topics']} "
-          f"topics mastered ({progress['progress_percent']}%)")
-    print("=" * 60)
-
-    if not course["topics"]:
-        print("\nNo topics added yet.")
-        return
-
-    for number, topic in enumerate(course["topics"], start=1):
-        status = topic["status"].replace("_", " ").title()
-        confidence = topic["confidence"]
-        confidence_text = f" | confidence {confidence}/5" if confidence else ""
-        print(f"{number}. {topic['name']} - {status}{confidence_text}")
+    """Compatibility wrapper for the extracted CLI renderer."""
+    return _build_course_cli().print_course_progress(
+        course_identifier
+    )
 
 
-def choose_course(prompt="Select a course", allow_back=True):
-    courses = list_courses()
-    if not courses:
-        print("\nNo courses exist yet. Open Course Manager and add one first.")
-        return None
-
-    active = get_active_course()
-    print(f"\n========== {prompt.upper()} ==========")
-    for number, course in enumerate(courses, start=1):
-        marker = " [ACTIVE]" if active and active["id"] == course["id"] else ""
-        print(f"{number}. {course['code']} - {course['name']}{marker}")
-    if allow_back:
-        print(f"{len(courses) + 1}. Back")
-
-    try:
-        choice = int(input("\nEnter course number: ").strip())
-    except ValueError:
-        print("\nPlease enter a valid number.")
-        return None
-
-    if allow_back and choice == len(courses) + 1:
-        return None
-    if choice < 1 or choice > len(courses):
-        print("\nInvalid course number.")
-        return None
-
-    return set_active_course(courses[choice - 1]["id"])
+def choose_course(
+    prompt="Select a course",
+    allow_back=True,
+):
+    """Compatibility wrapper for the extracted interactive selector."""
+    return _build_course_cli().choose_course(
+        prompt=prompt,
+        allow_back=allow_back,
+    )
 
 
 def _show_courses():
-    courses = list_courses()
-    active = get_active_course()
-
-    print("\n========== MY COURSES ==========")
-    if not courses:
-        print("\nNo courses added yet.")
-        return
-
-    for number, course in enumerate(courses, start=1):
-        marker = " [ACTIVE]" if active and active["id"] == course["id"] else ""
-        progress = get_course_progress(course["id"])
-        print(
-            f"{number}. {course['code']} - {course['name']}"
-            f" | {course['semester'] or 'Semester not set'}"
-            f" | {progress['progress_percent']}% mastered{marker}"
-        )
+    return _build_course_cli().show_courses()
 
 
 def _add_course_interactive():
-    print("\n========== ADD COURSE ==========")
-    code = input("Course code (example MA103N): ").strip()
-    name = input("Course name: ").strip()
-    semester = input("Semester (example Semester 1): ").strip()
-
-    try:
-        course = create_course(code, name, semester)
-        print(f"\nCourse added: {course['code']} - {course['name']}")
-    except ValueError as error:
-        print(f"\n{error}")
+    return _build_course_cli().add_course_interactive()
 
 
 def _add_topic_interactive():
-    course = choose_course("Add Topic To Course")
-    if course is None:
-        return
-    topic = input("\nTopic name: ").strip()
-    try:
-        saved, created = add_topic(course["id"], topic)
-        if created:
-            print(f"\nTopic added: {saved['name']}")
-        else:
-            print("\nThat topic already exists.")
-    except ValueError as error:
-        print(f"\n{error}")
+    return _build_course_cli().add_topic_interactive()
 
 
 def _update_topic_interactive():
-    course = choose_course("Update Topic Progress")
-    if course is None:
-        return
-    print_course_progress(course["id"])
-    topic = input("\nTopic name: ").strip()
-    print("Statuses: not_started, learning, weak, review, practiced, mastered")
-    status = input("New status: ").strip()
-    confidence_text = input("Confidence 0-5 (press Enter to skip): ").strip()
-    confidence = confidence_text if confidence_text else None
-    try:
-        saved = update_topic_status(course["id"], topic, status, confidence)
-        print(f"\nUpdated {saved['name']} to {saved['status']}.")
-    except ValueError as error:
-        print(f"\n{error}")
+    return _build_course_cli().update_topic_interactive()
 
 
 def _link_document_interactive():
-    course = choose_course("Link Knowledge Source")
-    if course is None:
-        return
-
-    try:
-        from knowledge import describe_source, find_documents
-        documents = find_documents()
-    except ImportError:
-        print("\nKnowledge module is not available.")
-        return
-
-    if not documents:
-        print("\nNo supported documents found.")
-        return
-
-    print("\n========== KNOWLEDGE SOURCES ==========")
-    for number, path in enumerate(documents, start=1):
-        metadata = get_document_metadata(path)
-        current = (
-            f" [{metadata['course_code']}]"
-            if metadata["course_code"] else " [UNTAGGED]"
-        )
-        print(f"{number}. {describe_source(path)}{current}")
-
-    try:
-        choice = int(input("\nEnter source number: ").strip())
-    except ValueError:
-        print("\nPlease enter a valid number.")
-        return
-
-    if choice < 1 or choice > len(documents):
-        print("\nInvalid source number.")
-        return
-
-    selected = documents[choice - 1]
-    topic = input("Related topic (optional): ").strip()
-    link_document(selected, course["id"], topic)
-    print(f"\nSource linked to {course['code']}.")
+    return _build_course_cli().link_document_interactive()
 
 
 def _show_linked_sources():
-    course = choose_course("View Linked Sources")
-    if course is None:
-        return
-
-    links = linked_documents_for_course(course["id"])
-    print(f"\n========== {course['code']} SOURCES ==========")
-    if not links:
-        print("\nNo explicitly linked sources yet.")
-        print("Files can also be auto-tagged from course codes in paths or Markdown tags.")
-        return
-
-    for number, link in enumerate(links, start=1):
-        topic = f" | topic: {link['topic']}" if link["topic"] else ""
-        print(
-            f"{number}. {link['display_path']}"
-            f" | {link['source_type'].replace('_', ' ')}{topic}"
-        )
+    return _build_course_cli().show_linked_sources()
 
 
 def course_manager_menu():
-    while True:
-        active = get_active_course()
-        active_text = (
-            f"{active['code']} - {active['name']}"
-            if active else "None"
-        )
-
-        print("\n========== COURSE MANAGER V8 ==========")
-        print(f"Active course: {active_text}")
-        print("1. View All Courses")
-        print("2. Add Course")
-        print("3. Select Active Course")
-        print("4. View Active Course Progress")
-        print("5. Add Topic")
-        print("6. Update Topic Status")
-        print("7. Link Knowledge Source to Course")
-        print("8. View Linked Sources")
-        print("9. Back")
-
-        choice = input("\nEnter your choice (1-9): ").strip()
-
-        if choice == "1":
-            _show_courses()
-        elif choice == "2":
-            _add_course_interactive()
-        elif choice == "3":
-            course = choose_course("Select Active Course")
-            if course:
-                print(f"\nActive course: {course['code']} - {course['name']}")
-        elif choice == "4":
-            if active:
-                print_course_progress(active["id"])
-            else:
-                print("\nNo active course. Add or select a course first.")
-        elif choice == "5":
-            _add_topic_interactive()
-        elif choice == "6":
-            _update_topic_interactive()
-        elif choice == "7":
-            _link_document_interactive()
-        elif choice == "8":
-            _show_linked_sources()
-        elif choice == "9":
-            break
-        else:
-            print("\nInvalid choice. Please enter 1 to 9.")
+    """Compatibility entry point used by main.py option 23."""
+    return _build_course_cli().run()
 
 
 if __name__ == "__main__":
