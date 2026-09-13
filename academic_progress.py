@@ -53,8 +53,6 @@ def default_history():
 
 
 def load_history():
-    os.makedirs(DATA_DIR, exist_ok=True)
-
     if not os.path.exists(HISTORY_FILE):
         return default_history()
 
@@ -299,12 +297,25 @@ def course_topic_index(course, topic_name):
 
 
 def get_progress_trend(course_id):
-    current = record_progress_snapshot(course_id)
+    """Return current-vs-history progress without mutating history."""
+    current = make_snapshot(course_id)
     if current is None:
         return None
 
-    snapshots = get_course_snapshots(course_id)
-    if not snapshots:
+    snapshots = list(get_course_snapshots(course_id))
+
+    # Before Fix 14 this query recorded/replaced today's snapshot and then
+    # excluded that newest item from comparison. Preserve that comparison
+    # behavior without writing: if the newest stored snapshot is from today,
+    # treat it as the current-history slot and compare against earlier history.
+    historical = snapshots
+    if (
+        historical
+        and historical[-1].get("date") == current.get("date")
+    ):
+        historical = historical[:-1]
+
+    if not historical:
         return {
             "current": current,
             "previous": None,
@@ -315,28 +326,35 @@ def get_progress_trend(course_id):
     previous = None
     cutoff = datetime.now().date() - timedelta(days=7)
 
-    for snapshot in reversed(snapshots[:-1]):
+    for snapshot in reversed(historical):
         try:
-            date = datetime.fromisoformat(snapshot["date"]).date()
-        except (KeyError, ValueError):
+            snapshot_date = datetime.fromisoformat(
+                snapshot["date"]
+            ).date()
+        except (KeyError, TypeError, ValueError):
             continue
-        if date <= cutoff:
+
+        if snapshot_date <= cutoff:
             previous = snapshot
             break
 
-    if previous is None and len(snapshots) >= 2:
-        previous = snapshots[-2]
+    if previous is None:
+        previous = historical[-1]
 
     return {
         "current": current,
         "previous": previous,
         "delta_progress": (
-            current["progress_percent"] - previous.get("progress_percent", 0)
-            if previous else 0
+            current["progress_percent"]
+            - previous.get("progress_percent", 0)
+            if previous
+            else 0
         ),
         "delta_mastered": (
-            current["mastered_topics"] - previous.get("mastered_topics", 0)
-            if previous else 0
+            current["mastered_topics"]
+            - previous.get("mastered_topics", 0)
+            if previous
+            else 0
         ),
     }
 
@@ -347,7 +365,7 @@ def print_progress_dashboard(course_id):
         print("\nCourse not found.")
         return
 
-    snapshot = record_progress_snapshot(course["id"])
+    snapshot = make_snapshot(course["id"])
     counts = snapshot["status_counts"]
 
     print(f"\n========== {course['code']} PROGRESS DASHBOARD ==========")
@@ -481,7 +499,7 @@ def print_weekly_progress(course_id):
 
     if previous is None:
         print("\nNot enough history yet for a comparison.")
-        print("Use V9 during the week; snapshots will build automatically.")
+        print("Use 'Save Progress Snapshot Now' to build comparison history.")
         return
 
     print(f"Previous snapshot: {previous.get('date', 'Unknown')}")

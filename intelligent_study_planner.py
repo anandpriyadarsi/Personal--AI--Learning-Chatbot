@@ -16,7 +16,7 @@ from datetime import date, datetime, timedelta
 
 from knowledge_paths import BASE_DIR
 from course_manager import find_course, get_active_course, choose_course
-from academic_progress import rank_course_topics, record_progress_snapshot
+from academic_progress import rank_course_topics
 from assignment_exam_assistant import (
     list_assessments,
     assessment_priority,
@@ -443,10 +443,6 @@ def build_course_tasks(course):
     Turn course progress, assessment pressure and performance evidence
     into ranked study-task candidates.
     """
-    record_progress_snapshot(
-        course["id"]
-    )
-
     topics = rank_course_topics(
         course["id"],
         limit=12
