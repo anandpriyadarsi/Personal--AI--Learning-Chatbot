@@ -32,3 +32,11 @@ class CourseRepository(Protocol):
     def delete_document_link(self, document_key: str) -> bool:
         """Delete one document-link record if present."""
         ...
+
+class NoteRepository(Protocol):
+    """Read boundary for the legacy notes store during Phase 2."""
+
+    def load_notes(self):
+        """Return legacy note dictionaries without mutating storage."""
+        ...
+
