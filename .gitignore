@@ -62,3 +62,8 @@ __pycache__/
 # Legacy V1 local data - preserved for migration, not public source control
 data/notes.json
 data/resources.json
+
+# Phase 1 local Python environment
+.venv/
+phase1_pip_freeze.txt
+
