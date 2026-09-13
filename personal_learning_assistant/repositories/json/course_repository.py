@@ -10,7 +10,7 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Optional
 
-import course_manager
+import personal_learning_assistant.domain.course_normalization as course_manager
 
 from personal_learning_assistant.repositories.interfaces import CourseState
 

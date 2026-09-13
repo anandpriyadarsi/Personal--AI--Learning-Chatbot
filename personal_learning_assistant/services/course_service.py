@@ -6,7 +6,7 @@ behind typed service commands and repository interfaces.
 
 from typing import Callable, Optional
 
-import course_manager
+import personal_learning_assistant.domain.course_normalization as course_manager
 
 from personal_learning_assistant.domain.course_models import (
     AddTopicCommand,
