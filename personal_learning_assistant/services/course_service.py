@@ -11,15 +11,28 @@ import course_manager
 from personal_learning_assistant.domain.course_models import (
     AddTopicCommand,
     CourseCommandResult,
+    CourseDocumentQuery,
     CourseListResult,
     CourseLookupResult,
     CourseView,
     CreateCourseCommand,
+    DocumentCourseMatchQuery,
+    DocumentCourseMatchResult,
+    DocumentCourseResult,
+    DocumentLinkResult,
+    DocumentLinkView,
+    DocumentMetadataResult,
+    DocumentMetadataView,
+    DocumentQuery,
+    DocumentUnlinkResult,
     GetCourseQuery,
+    LinkedDocumentsResult,
+    LinkDocumentCommand,
     ListCoursesQuery,
     SetActiveCourseCommand,
     TopicCommandResult,
     TopicView,
+    UnlinkDocumentCommand,
     UpdateCourseStatusCommand,
     UpdateTopicStatusCommand,
 )
@@ -482,6 +495,391 @@ class CourseService:
 
         raise ValueError(
             "Course not found."
+        )
+
+
+    def link_document(
+        self,
+        command: LinkDocumentCommand,
+    ) -> DocumentLinkResult:
+        course_result = self.get_course(
+            GetCourseQuery(
+                identifier=(
+                    command.course_identifier
+                )
+            )
+        )
+
+        if course_result.course is None:
+            raise ValueError(
+                "Course not found."
+            )
+
+        source_type = (
+            command.source_type
+            or course_manager.infer_source_type(
+                command.file_path
+            )
+        )
+        source_type = (
+            course_manager._normalise_status(
+                source_type,
+                course_manager.VALID_SOURCE_TYPES,
+                "document",
+            )
+        )
+
+        document_key = (
+            course_manager.canonical_document_key(
+                command.file_path
+            )
+        )
+
+        link = {
+            "course_id": (
+                course_result.course.id
+            ),
+            "topic": (
+                course_manager._clean_text(
+                    command.topic
+                )
+            ),
+            "source_type": source_type,
+            "display_path": str(
+                command.file_path
+            ),
+            "linked_at": self._now(),
+        }
+
+        saved = (
+            self.repository.upsert_document_link(
+                document_key,
+                link,
+            )
+        )
+
+        return DocumentLinkResult(
+            link=DocumentLinkView.from_legacy(
+                saved,
+                document_key=document_key,
+            )
+        )
+
+    def unlink_document(
+        self,
+        command: UnlinkDocumentCommand,
+    ) -> DocumentUnlinkResult:
+        document_key = (
+            course_manager.canonical_document_key(
+                command.file_path
+            )
+        )
+
+        removed = (
+            self.repository.delete_document_link(
+                document_key
+            )
+        )
+
+        return DocumentUnlinkResult(
+            removed=removed
+        )
+
+    def get_document_link(
+        self,
+        query: DocumentQuery,
+    ) -> DocumentLinkResult:
+        document_key = (
+            course_manager.canonical_document_key(
+                query.file_path
+            )
+        )
+        link = (
+            self.repository.get_document_link(
+                document_key
+            )
+        )
+
+        if link is None:
+            return DocumentLinkResult(
+                link=None
+            )
+
+        return DocumentLinkResult(
+            link=DocumentLinkView.from_legacy(
+                link,
+                document_key=document_key,
+            )
+        )
+
+    def identify_course_for_document(
+        self,
+        query: DocumentQuery,
+    ) -> DocumentCourseResult:
+        link_result = self.get_document_link(
+            query
+        )
+
+        if link_result.link is not None:
+            lookup = self.get_course(
+                GetCourseQuery(
+                    identifier=(
+                        link_result.link.course_id
+                    )
+                )
+            )
+            return DocumentCourseResult(
+                course=lookup.course
+            )
+
+        content = query.content
+
+        if content is None:
+            content = (
+                course_manager._read_tag_header(
+                    query.file_path
+                )
+            )
+
+        courses = self.list_courses().courses
+        legacy_courses = [
+            course.to_legacy_dict()
+            for course in courses
+        ]
+
+        tagged = (
+            course_manager._tagged_course_from_content(
+                content,
+                legacy_courses,
+            )
+        )
+
+        if tagged:
+            return DocumentCourseResult(
+                course=CourseView.from_legacy(
+                    tagged
+                )
+            )
+
+        import re
+
+        searchable_path = re.sub(
+            r"[^a-z0-9]+",
+            " ",
+            str(
+                query.file_path
+            ).lower(),
+        )
+        padded_path = (
+            " "
+            + searchable_path
+            + " "
+        )
+
+        for course in courses:
+            code = re.sub(
+                r"[^a-z0-9]+",
+                " ",
+                course.code.lower(),
+            ).strip()
+            name = re.sub(
+                r"[^a-z0-9]+",
+                " ",
+                course.name.lower(),
+            ).strip()
+
+            if (
+                code
+                and f" {code} "
+                in padded_path
+            ):
+                return DocumentCourseResult(
+                    course=course
+                )
+
+            if (
+                name
+                and f" {name} "
+                in padded_path
+            ):
+                return DocumentCourseResult(
+                    course=course
+                )
+
+        return DocumentCourseResult(
+            course=None
+        )
+
+    def get_document_metadata(
+        self,
+        query: DocumentQuery,
+    ) -> DocumentMetadataResult:
+        link_result = self.get_document_link(
+            query
+        )
+        link = link_result.link
+
+        content = query.content
+
+        if content is None:
+            content = (
+                course_manager._read_tag_header(
+                    query.file_path
+                )
+            )
+
+        course_result = (
+            self.identify_course_for_document(
+                DocumentQuery(
+                    file_path=query.file_path,
+                    content=content,
+                )
+            )
+        )
+        course = course_result.course
+
+        topic = (
+            link.topic
+            if (
+                link is not None
+                and link.topic
+            )
+            else (
+                course_manager._tagged_topic_from_content(
+                    content
+                )
+            )
+        )
+
+        source_type = (
+            link.source_type
+            if link is not None
+            else (
+                course_manager.infer_source_type(
+                    query.file_path
+                )
+            )
+        )
+
+        metadata = DocumentMetadataView(
+            course_id=(
+                course.id
+                if course
+                else None
+            ),
+            course_code=(
+                course.code
+                if course
+                else None
+            ),
+            course_name=(
+                course.name
+                if course
+                else None
+            ),
+            topic=topic,
+            source_type=source_type,
+            document_key=(
+                course_manager.canonical_document_key(
+                    query.file_path
+                )
+            ),
+        )
+
+        return DocumentMetadataResult(
+            metadata=metadata
+        )
+
+    def document_matches_course(
+        self,
+        query: DocumentCourseMatchQuery,
+    ) -> DocumentCourseMatchResult:
+        target = self.get_course(
+            GetCourseQuery(
+                identifier=(
+                    query.course_identifier
+                )
+            )
+        )
+
+        if target.course is None:
+            return DocumentCourseMatchResult(
+                matches=False
+            )
+
+        identified = (
+            self.identify_course_for_document(
+                DocumentQuery(
+                    file_path=query.file_path,
+                    content=query.content,
+                )
+            )
+        )
+
+        matches = bool(
+            identified.course
+            and (
+                identified.course.id
+                == target.course.id
+            )
+        )
+
+        return DocumentCourseMatchResult(
+            matches=matches
+        )
+
+    def linked_documents_for_course(
+        self,
+        query: CourseDocumentQuery,
+    ) -> LinkedDocumentsResult:
+        course_result = self.get_course(
+            GetCourseQuery(
+                identifier=(
+                    query.course_identifier
+                )
+            )
+        )
+
+        if course_result.course is None:
+            return LinkedDocumentsResult(
+                links=()
+            )
+
+        matches = []
+
+        for (
+            document_key,
+            link,
+        ) in (
+            self.repository
+            .list_document_links()
+            .items()
+        ):
+            if (
+                link.get(
+                    "course_id"
+                )
+                != course_result.course.id
+            ):
+                continue
+
+            matches.append(
+                DocumentLinkView.from_legacy(
+                    link,
+                    document_key=(
+                        document_key
+                    ),
+                )
+            )
+
+        matches.sort(
+            key=lambda item: (
+                item.display_path.lower()
+            )
+        )
+
+        return LinkedDocumentsResult(
+            links=tuple(matches)
         )
 
     @staticmethod

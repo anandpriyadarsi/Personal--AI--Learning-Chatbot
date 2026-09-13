@@ -86,3 +86,71 @@ class LegacyJsonCourseRepository:
         )
 
         return deepcopy(normalized)
+
+    def get_document_link(
+        self,
+        document_key: str,
+    ):
+        state = self.load_state()
+        link = state.get(
+            "document_links",
+            {},
+        ).get(
+            document_key
+        )
+
+        if link is None:
+            return None
+
+        return deepcopy(link)
+
+    def list_document_links(self):
+        state = self.load_state()
+
+        return deepcopy(
+            state.get(
+                "document_links",
+                {},
+            )
+        )
+
+    def upsert_document_link(
+        self,
+        document_key: str,
+        link,
+    ):
+        state = self.load_state()
+        state.setdefault(
+            "document_links",
+            {},
+        )[document_key] = dict(link)
+
+        saved = self.save_state(
+            state
+        )
+
+        return deepcopy(
+            saved["document_links"][
+                document_key
+            ]
+        )
+
+    def delete_document_link(
+        self,
+        document_key: str,
+    ) -> bool:
+        state = self.load_state()
+        links = state.setdefault(
+            "document_links",
+            {},
+        )
+
+        if document_key not in links:
+            return False
+
+        del links[document_key]
+        self.save_state(
+            state
+        )
+        return True
+

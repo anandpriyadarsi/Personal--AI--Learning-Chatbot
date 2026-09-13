@@ -518,45 +518,64 @@ def infer_source_type(file_path):
     return "document"
 
 
-def link_document(file_path, course_identifier, topic="", source_type=None):
-    course = find_course(course_identifier)
-    if course is None:
-        raise ValueError("Course not found.")
-
-    source_type = source_type or infer_source_type(file_path)
-    source_type = _normalise_status(
-        source_type,
-        VALID_SOURCE_TYPES,
-        "document"
+def link_document(
+    file_path,
+    course_identifier,
+    topic="",
+    source_type=None,
+):
+    """Compatibility facade for CourseService source linking."""
+    from personal_learning_assistant.domain.course_models import (
+        LinkDocumentCommand,
     )
 
-    data = load_course_data()
-    key = canonical_document_key(file_path)
-    data["document_links"][key] = {
-        "course_id": course["id"],
-        "topic": _clean_text(topic),
-        "source_type": source_type,
-        "display_path": str(file_path),
-        "linked_at": _now()
-    }
-    save_course_data(data)
-    return data["document_links"][key]
+    result = _build_course_service().link_document(
+        LinkDocumentCommand(
+            file_path=str(file_path),
+            course_identifier=course_identifier,
+            topic=topic,
+            source_type=source_type,
+        )
+    )
+
+    return (
+        result.link.to_legacy_dict()
+        if result.link
+        else None
+    )
 
 
 def unlink_document(file_path):
-    data = load_course_data()
-    key = canonical_document_key(file_path)
-    if key not in data["document_links"]:
-        return False
-    del data["document_links"][key]
-    save_course_data(data)
-    return True
+    """Compatibility facade for source unlinking."""
+    from personal_learning_assistant.domain.course_models import (
+        UnlinkDocumentCommand,
+    )
+
+    result = _build_course_service().unlink_document(
+        UnlinkDocumentCommand(
+            file_path=str(file_path)
+        )
+    )
+
+    return result.removed
 
 
 def get_document_link(file_path):
-    return load_course_data()["document_links"].get(
-        canonical_document_key(file_path)
+    """Compatibility facade for document-link queries."""
+    from personal_learning_assistant.domain.course_models import (
+        DocumentQuery,
     )
+
+    result = _build_course_service().get_document_link(
+        DocumentQuery(
+            file_path=str(file_path)
+        )
+    )
+
+    if result.link is None:
+        return None
+
+    return result.link.to_legacy_dict()
 
 
 def _tagged_course_from_content(content, courses):
@@ -610,79 +629,102 @@ def _tagged_topic_from_content(content):
     return ""
 
 
-def identify_course_for_document(file_path, content=None):
-    link = get_document_link(file_path)
-    if link:
-        return find_course(link["course_id"])
 
-    courses = list_courses()
-    if content is None:
-        content = _read_tag_header(file_path)
-    tagged = _tagged_course_from_content(content, courses)
-    if tagged:
-        return tagged
-
-    searchable_path = re.sub(
-        r"[^a-z0-9]+",
-        " ",
-        str(file_path).lower()
+def identify_course_for_document(
+    file_path,
+    content=None,
+):
+    """Compatibility facade for document-to-course identification."""
+    from personal_learning_assistant.domain.course_models import (
+        DocumentQuery,
     )
-    padded_path = " " + searchable_path + " "
 
-    for course in courses:
-        code = re.sub(r"[^a-z0-9]+", " ", course["code"].lower()).strip()
-        name = re.sub(r"[^a-z0-9]+", " ", course["name"].lower()).strip()
-        if code and f" {code} " in padded_path:
-            return course
-        if name and f" {name} " in padded_path:
-            return course
+    result = (
+        _build_course_service()
+        .identify_course_for_document(
+            DocumentQuery(
+                file_path=str(file_path),
+                content=content,
+            )
+        )
+    )
 
-    return None
+    if result.course is None:
+        return None
 
-
-def get_document_metadata(file_path, content=None):
-    link = get_document_link(file_path)
-    if content is None:
-        content = _read_tag_header(file_path)
-    course = identify_course_for_document(file_path, content)
-
-    return {
-        "course_id": course["id"] if course else None,
-        "course_code": course["code"] if course else None,
-        "course_name": course["name"] if course else None,
-        "topic": (
-            link.get("topic")
-            if link and link.get("topic")
-            else _tagged_topic_from_content(content)
-        ),
-        "source_type": (
-            link.get("source_type") if link
-            else infer_source_type(file_path)
-        ),
-        "document_key": canonical_document_key(file_path)
-    }
+    return result.course.to_legacy_dict()
 
 
-def document_matches_course(file_path, course_identifier, content=None):
-    course = find_course(course_identifier)
-    if course is None:
-        return False
-    identified = identify_course_for_document(file_path, content)
-    return bool(identified and identified["id"] == course["id"])
+def get_document_metadata(
+    file_path,
+    content=None,
+):
+    """Compatibility facade for document course/source metadata."""
+    from personal_learning_assistant.domain.course_models import (
+        DocumentQuery,
+    )
+
+    result = (
+        _build_course_service()
+        .get_document_metadata(
+            DocumentQuery(
+                file_path=str(file_path),
+                content=content,
+            )
+        )
+    )
+
+    return result.metadata.to_legacy_dict()
 
 
-def linked_documents_for_course(course_identifier):
-    course = find_course(course_identifier)
-    if course is None:
-        return []
+def document_matches_course(
+    file_path,
+    course_identifier,
+    content=None,
+):
+    """Compatibility facade for document/course matching."""
+    from personal_learning_assistant.domain.course_models import (
+        DocumentCourseMatchQuery,
+    )
 
-    matches = []
-    for key, link in load_course_data()["document_links"].items():
-        if link["course_id"] == course["id"]:
-            item = dict(link)
-            item["document_key"] = key
-            matches.append(item)
-    return sorted(matches, key=lambda item: item["display_path"].lower())
+    result = (
+        _build_course_service()
+        .document_matches_course(
+            DocumentCourseMatchQuery(
+                file_path=str(file_path),
+                course_identifier=course_identifier,
+                content=content,
+            )
+        )
+    )
+
+    return result.matches
+
+
+def linked_documents_for_course(
+    course_identifier,
+):
+    """Compatibility facade for linked-source listing."""
+    from personal_learning_assistant.domain.course_models import (
+        CourseDocumentQuery,
+    )
+
+    result = (
+        _build_course_service()
+        .linked_documents_for_course(
+            CourseDocumentQuery(
+                course_identifier=course_identifier
+            )
+        )
+    )
+
+    return [
+        link.to_legacy_dict(
+            include_document_key=True
+        )
+        for link in result.links
+    ]
+
 
 
 def _build_course_cli():

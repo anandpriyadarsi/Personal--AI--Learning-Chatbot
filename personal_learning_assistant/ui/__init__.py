@@ -1,1 +1,1 @@
-"""User-interface adapters for the Personal AI Learning Assistant."""
+"""Command-line adapters."""

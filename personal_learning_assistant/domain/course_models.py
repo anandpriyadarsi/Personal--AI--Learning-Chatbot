@@ -141,3 +141,150 @@ class CourseCommandResult:
 class TopicCommandResult:
     topic: TopicView
     created: Optional[bool] = None
+
+
+@dataclass(frozen=True)
+class LinkDocumentCommand:
+    file_path: str
+    course_identifier: str
+    topic: str = ""
+    source_type: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class UnlinkDocumentCommand:
+    file_path: str
+
+
+@dataclass(frozen=True)
+class DocumentQuery:
+    file_path: str
+    content: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class CourseDocumentQuery:
+    course_identifier: str
+
+
+@dataclass(frozen=True)
+class DocumentCourseMatchQuery:
+    file_path: str
+    course_identifier: str
+    content: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class DocumentLinkView:
+    course_id: str
+    topic: str
+    source_type: str
+    display_path: str
+    linked_at: Optional[str]
+    document_key: Optional[str] = None
+
+    @classmethod
+    def from_legacy(
+        cls,
+        data,
+        document_key=None,
+    ):
+        return cls(
+            course_id=str(
+                data.get(
+                    "course_id",
+                    "",
+                )
+            ),
+            topic=str(
+                data.get(
+                    "topic",
+                    "",
+                )
+            ),
+            source_type=str(
+                data.get(
+                    "source_type",
+                    "document",
+                )
+            ),
+            display_path=str(
+                data.get(
+                    "display_path",
+                    "",
+                )
+            ),
+            linked_at=data.get(
+                "linked_at"
+            ),
+            document_key=document_key,
+        )
+
+    def to_legacy_dict(
+        self,
+        include_document_key=False,
+    ):
+        data = {
+            "course_id": self.course_id,
+            "topic": self.topic,
+            "source_type": self.source_type,
+            "display_path": self.display_path,
+            "linked_at": self.linked_at,
+        }
+
+        if include_document_key:
+            data["document_key"] = (
+                self.document_key
+            )
+
+        return data
+
+
+@dataclass(frozen=True)
+class DocumentMetadataView:
+    course_id: Optional[str]
+    course_code: Optional[str]
+    course_name: Optional[str]
+    topic: str
+    source_type: str
+    document_key: str
+
+    def to_legacy_dict(self):
+        return {
+            "course_id": self.course_id,
+            "course_code": self.course_code,
+            "course_name": self.course_name,
+            "topic": self.topic,
+            "source_type": self.source_type,
+            "document_key": self.document_key,
+        }
+
+
+@dataclass(frozen=True)
+class DocumentLinkResult:
+    link: Optional[DocumentLinkView]
+
+
+@dataclass(frozen=True)
+class DocumentUnlinkResult:
+    removed: bool
+
+
+@dataclass(frozen=True)
+class LinkedDocumentsResult:
+    links: Tuple[DocumentLinkView, ...]
+
+
+@dataclass(frozen=True)
+class DocumentMetadataResult:
+    metadata: DocumentMetadataView
+
+
+@dataclass(frozen=True)
+class DocumentCourseResult:
+    course: Optional[CourseView]
+
+
+@dataclass(frozen=True)
+class DocumentCourseMatchResult:
+    matches: bool

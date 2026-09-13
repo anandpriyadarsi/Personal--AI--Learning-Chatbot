@@ -16,3 +16,19 @@ class CourseRepository(Protocol):
     def save_state(self, state: CourseState) -> CourseState:
         """Persist normalized course state explicitly."""
         ...
+
+    def get_document_link(self, document_key: str):
+        """Return one normalized document-link record or None."""
+        ...
+
+    def list_document_links(self):
+        """Return normalized document-link records keyed by document key."""
+        ...
+
+    def upsert_document_link(self, document_key: str, link):
+        """Create or replace one document-link record explicitly."""
+        ...
+
+    def delete_document_link(self, document_key: str) -> bool:
+        """Delete one document-link record if present."""
+        ...
