@@ -24,32 +24,105 @@ import base64
 import io
 import os
 
-import requests
-
-try:
-    from dotenv import load_dotenv
-except ImportError:
-    load_dotenv = None
-
-try:
-    import fitz  # PyMuPDF
-except ImportError:
-    fitz = None
-
-try:
-    from PIL import Image
-except ImportError:
-    Image = None
-
 
 BASE_DIR = os.path.dirname(
     os.path.abspath(__file__)
 )
 
-if load_dotenv is not None:
+# Phase 1.5:
+# Vision/PDF libraries are optional feature dependencies.
+# Keep them out of module import time so core application startup
+# does not require requests, PyMuPDF, Pillow, or python-dotenv.
+_requests_module = None
+_fitz_module = None
+_image_class = None
+_env_loaded = False
+
+
+class VisionDependencyError(RuntimeError):
+    """Raised when an optional vision dependency is unavailable."""
+
+
+class VisionRequestError(RuntimeError):
+    """Raised when the vision HTTP request cannot be completed."""
+
+
+def load_local_env():
+    """
+    Load BASE_DIR/.env only when vision configuration is requested.
+
+    python-dotenv remains optional. Normal environment variables
+    continue to work when it is not installed.
+    """
+    global _env_loaded
+
+    if _env_loaded:
+        return
+
+    _env_loaded = True
+
+    try:
+        from dotenv import load_dotenv
+    except ImportError:
+        return
+
     load_dotenv(
-        os.path.join(BASE_DIR, ".env")
+        os.path.join(
+            BASE_DIR,
+            ".env"
+        )
     )
+
+
+def _get_requests():
+    global _requests_module
+
+    if _requests_module is not None:
+        return _requests_module
+
+    try:
+        import requests
+    except ImportError as error:
+        raise VisionDependencyError(
+            "Vision transcription requires the 'requests' package. "
+            "Install the vision dependencies before using this feature."
+        ) from error
+
+    _requests_module = requests
+    return _requests_module
+
+
+def _get_fitz():
+    global _fitz_module
+
+    if _fitz_module is not None:
+        return _fitz_module
+
+    try:
+        import fitz
+    except ImportError as error:
+        raise VisionDependencyError(
+            "PyMuPDF is required for scanned PDF rendering. "
+            "Install the vision dependencies before using scanned-PDF vision."
+        ) from error
+
+    _fitz_module = fitz
+    return _fitz_module
+
+
+def _get_image_class():
+    global _image_class
+
+    if _image_class is not None:
+        return _image_class
+
+    try:
+        from PIL import Image
+    except ImportError:
+        return None
+
+    _image_class = Image
+    return _image_class
 
 
 VISION_PROMPT = r"""
@@ -78,6 +151,8 @@ Return only the transcription.
 
 
 def vision_config():
+    load_local_env()
+
     api_url = (
         os.getenv("VISION_API_URL")
         or os.getenv("LLM_API_URL")
@@ -107,11 +182,7 @@ def render_pdf_page(
     page_number,
     dpi=180
 ):
-    if fitz is None:
-        raise RuntimeError(
-            "PyMuPDF is required for scanned PDF rendering. "
-            "Run: python -m pip install pymupdf pillow"
-        )
+    fitz = _get_fitz()
 
     document = fitz.open(
         file_path
@@ -156,6 +227,8 @@ def _resize_png_if_needed(
     png_bytes,
     max_width=1800
 ):
+    Image = _get_image_class()
+
     if Image is None:
         return png_bytes
 
@@ -267,12 +340,23 @@ def transcribe_image_bytes(
         "Content-Type": "application/json",
     }
 
-    response = requests.post(
-        api_url,
-        headers=headers,
-        json=payload,
-        timeout=timeout,
-    )
+    requests = _get_requests()
+
+    try:
+        response = requests.post(
+            api_url,
+            headers=headers,
+            json=payload,
+            timeout=timeout,
+        )
+    except requests.Timeout as error:
+        raise VisionRequestError(
+            "Vision API request timed out."
+        ) from error
+    except requests.RequestException as error:
+        raise VisionRequestError(
+            f"Vision API request failed: {error}"
+        ) from error
 
     if response.status_code >= 400:
         text = response.text[:500]
