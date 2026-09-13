@@ -42,6 +42,42 @@ def save_resources(resources):
 
 
 # -------------------------
+# Phase 2 service/CLI builders
+# -------------------------
+def _build_resources_service():
+    """Build the Phase 2 ResourceService lazily."""
+    from config import RESOURCES_FILE as DEFAULT_RESOURCES_FILE
+    from personal_learning_assistant.repositories.json.resource_repository import (
+        LegacyJsonResourceRepository,
+    )
+    from personal_learning_assistant.services.resource_service import (
+        ResourceService,
+    )
+
+    resource_path = globals().get(
+        "RESOURCES_FILE",
+        DEFAULT_RESOURCES_FILE,
+    )
+
+    return ResourceService(
+        LegacyJsonResourceRepository(
+            resource_path
+        )
+    )
+
+
+def _build_resources_cli():
+    """Build the terminal adapter lazily."""
+    from personal_learning_assistant.ui.cli.resources_cli import (
+        ResourcesCLI,
+    )
+
+    return ResourcesCLI(
+        _build_resources_service()
+    )
+
+
+# -------------------------
 # Add Resource
 # -------------------------
 def add_resource():
@@ -70,63 +106,24 @@ def add_resource():
 # View Resources
 # -------------------------
 def view_resources():
-
-    resources = load_resources()
-
-    if len(resources) == 0:
-        print("\nNo resources found.")
-        return
-
-    print("\n========== MY LEARNING RESOURCES ==========")
-
-    for i, resource in enumerate(resources, start=1):
-
-        print("\n----------------------------")
-        print(f"Resource {i}")
-        print("----------------------------")
-        print("Title  :", resource["title"])
-        print("Type   :", resource["type"])
-        print("Link   :", resource["link"])
-        print("Status :", resource["status"])
+    """Compatibility wrapper for the extracted Resources CLI adapter."""
+    return _build_resources_cli().view_resources()
 
 
 # -------------------------
 # Search Resources
 # -------------------------
 def search_resources():
-
-    keyword = input("\nEnter keyword : ").lower()
-
-    resources = load_resources()
-
-    found = False
-
-    for resource in resources:
-
-        if (keyword in resource["title"].lower() or
-                keyword in resource["type"].lower()):
-
-            found = True
-
-            print("\n----------------------------")
-            print("Title  :", resource["title"])
-            print("Type   :", resource["type"])
-            print("Link   :", resource["link"])
-            print("Status :", resource["status"])
-
-    if not found:
-        print("\n❌ No matching resource found.")
+    """Compatibility wrapper for the extracted Resources CLI adapter."""
+    return _build_resources_cli().search_resources()
 
 
 # -------------------------
 # Count Resources
 # -------------------------
 def count_resources():
-
-    resources = load_resources()
-
-    print("\n========== RESOURCE SUMMARY ==========")
-    print(f"\n📚 Total Resources : {len(resources)}")
+    """Compatibility wrapper for the extracted Resources CLI adapter."""
+    return _build_resources_cli().count_resources()
 
 
 # -------------------------
