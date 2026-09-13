@@ -2,7 +2,6 @@
 
 import os
 import re
-import requests
 
 from knowledge import BASE_DIR, read_text_file, retrieve_best_chunks
 from semantic_retrieval import load_semantic_index
@@ -29,6 +28,43 @@ DEFAULT_TOP_K = 5
 DEFAULT_MAX_CONTEXT_CHARS = 12000
 MAX_HISTORY_MESSAGES = 6
 COURSE_CANDIDATE_MULTIPLIER = 5
+
+# Phase 1.5:
+# requests is an optional RAG dependency. Keep it out of
+# module import time so notes/courses/core commands can start
+# even when HTTP/LLM support is unavailable.
+_requests_module = None
+
+
+class LLMDependencyError(RuntimeError):
+    """Raised when the optional HTTP client is unavailable."""
+
+
+class LLMTimeoutError(RuntimeError):
+    """Raised when the configured LLM request times out."""
+
+
+class LLMRequestError(RuntimeError):
+    """Raised when the configured LLM HTTP request fails."""
+
+
+def _get_requests():
+    global _requests_module
+
+    if _requests_module is not None:
+        return _requests_module
+
+    try:
+        import requests
+    except ImportError as error:
+        raise LLMDependencyError(
+            "RAG answer generation requires the 'requests' package. "
+            "Install the RAG dependencies before using AI answer generation."
+        ) from error
+
+    _requests_module = requests
+    return _requests_module
+
 
 TUTOR_MODES = {
     "1": {
@@ -431,6 +467,8 @@ def call_llm(messages):
             "LLM_API_KEY and LLM_MODEL."
         )
 
+    requests = _get_requests()
+
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json"
@@ -442,23 +480,35 @@ def call_llm(messages):
         "temperature": 0.2
     }
 
-    response = requests.post(
-        api_url,
-        headers=headers,
-        json=payload,
-        timeout=90
-    )
+    try:
+        response = requests.post(
+            api_url,
+            headers=headers,
+            json=payload,
+            timeout=90
+        )
 
-    response.raise_for_status()
+        response.raise_for_status()
+
+    except requests.Timeout as error:
+        raise LLMTimeoutError(
+            "The LLM request timed out."
+        ) from error
+
+    except requests.RequestException as error:
+        raise LLMRequestError(
+            f"LLM request failed: {error}"
+        ) from error
 
     data = response.json()
 
     try:
         return data["choices"][0]["message"]["content"]
-    except (KeyError, IndexError, TypeError):
+
+    except (KeyError, IndexError, TypeError) as error:
         raise RuntimeError(
             "The LLM returned an unexpected response format."
-        )
+        ) from error
 
 
 # --------------------------------------------------
@@ -917,15 +967,15 @@ def rag_chat_loop():
                     question
                 )
 
-            except requests.Timeout:
+            except LLMTimeoutError:
                 print(
                     "\nThe LLM request timed out. "
                     "Please try again."
                 )
 
-            except requests.RequestException as error:
+            except LLMRequestError as error:
                 print(
-                    f"\nLLM request failed: {error}"
+                    f"\n{error}"
                 )
 
             except RuntimeError as error:
@@ -1059,10 +1109,10 @@ def _course_mode_loop(course, mode, semantic_chunks):
                 course_id=course["id"]
             )
 
-        except requests.Timeout:
+        except LLMTimeoutError:
             print("\nThe LLM request timed out. Please try again.")
-        except requests.RequestException as error:
-            print(f"\nLLM request failed: {error}")
+        except LLMRequestError as error:
+            print(f"\n{error}")
         except RuntimeError as error:
             print(f"\n{error}")
 
