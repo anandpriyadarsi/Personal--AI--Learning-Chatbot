@@ -12,3 +12,53 @@ exports/
 knowledge/obsidian/*
 knowledge/documents/*
 semantic_index/
+data/learning_memory.json
+data/obsidian_config.json
+.env
+data/course_progress_history.json
+data/weekly_study_plans.json
+data/multi_course_weekly_plans.json
+data/assessments.json
+data/assessment_workspace.json
+data/intelligent_study_plans.json
+data/semester_grade_config.json
+# ==================================================
+# PHASE 0 - PRIVATE / LOCAL ACADEMIC DATA
+# ==================================================
+
+# Main Obsidian academic vault
+NIT KARNATAKA 2026-30/
+
+# Local structured academic state
+data/courses.json
+data/learning_memory.json
+data/obsidian_config.json
+data/course_progress_history.json
+data/weekly_study_plans.json
+data/multi_course_weekly_plans.json
+data/assessments.json
+data/assessment_workspace.json
+data/intelligent_study_plans.json
+data/semester_grade_config.json
+
+# Future SQLite local academic database
+data/learning_assistant.db
+data/learning_assistant.db-wal
+data/learning_assistant.db-shm
+
+# Local backups
+backup/
+backups/
+
+# Secrets
+.env
+
+# Generated caches / indexes
+semantic_index/
+__pycache__/
+*.pyc
+
+
+# Legacy V1 local data - preserved for migration, not public source control
+data/notes.json
+data/resources.json
