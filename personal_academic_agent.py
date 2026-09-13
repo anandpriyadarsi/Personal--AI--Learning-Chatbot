@@ -206,6 +206,38 @@ def classify_intent(text):
     if any(
         phrase in q
         for phrase in (
+            "project final score",
+            "predict final score",
+            "project course score",
+            "project my final course score",
+            "expected final score",
+            "final score projection",
+            "course score projection",
+        )
+    ) or (
+        any(
+            word in q
+            for word in (
+                "project",
+                "predict",
+                "expected",
+                "projection",
+            )
+        )
+        and any(
+            phrase in q
+            for phrase in (
+                "course score",
+                "final score",
+                "final course score",
+            )
+        )
+    ):
+        return "COURSE_PROJECTION"
+
+    if any(
+        phrase in q
+        for phrase in (
             "course grade",
             "grade intelligence",
             "weighted score",
@@ -213,17 +245,6 @@ def classify_intent(text):
         )
     ):
         return "COURSE_GRADE"
-
-    if any(
-        phrase in q
-        for phrase in (
-            "project final score",
-            "predict final score",
-            "project course score",
-            "expected final score",
-        )
-    ):
-        return "COURSE_PROJECTION"
 
     if any(
         phrase in q
