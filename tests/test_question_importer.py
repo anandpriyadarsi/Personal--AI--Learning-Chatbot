@@ -1,13 +1,13 @@
 import assignment_file_importer
 
 
-def test_fallback_currently_splits_math_prompt_matrix_and_instruction():
+def test_fallback_preserves_single_math_prompt_matrix_and_instruction():
     """
-    Characterization of the current paragraph-fallback defect.
+    Regression test for the paragraph-fallback defect.
 
-    When no top-level question numbering is detected, blank lines are
-    treated as question boundaries. A prompt, its matrix, and its final
-    instruction therefore become separate question records.
+    A single unnumbered math question may contain blank lines between
+    the prompt, matrix, and final instruction. Those blank lines must
+    not create three separate question records.
     """
     text = """Find the rank of the matrix A.
 
@@ -22,37 +22,26 @@ Use elementary row operations and justify your answer."""
         .extract_questions_from_plain_text(text)
     )
 
-    assert len(rows) == 3
+    assert len(rows) == 1
 
     assert rows[0]["text"] == (
-        "Find the rank of the matrix A."
-    )
-
-    assert rows[1]["text"] == (
+        "Find the rank of the matrix A.\n\n"
         "A = [1 2 3]\n"
         "    [2 4 6]\n"
-        "    [1 1 1]"
-    )
-
-    assert rows[2]["text"] == (
+        "    [1 1 1]\n\n"
         "Use elementary row operations and justify your answer."
     )
 
-    assert all(
-        row["source_question_number"] is None
-        for row in rows
-    )
+    assert rows[0]["source_question_number"] is None
 
 
-def test_nested_numbered_equations_can_override_real_question_numbering():
+def test_top_level_numbering_wins_over_parenthesised_equation_labels():
     """
-    Characterization of the current numbered-question defect.
+    Regression test for the numbered-question defect.
 
-    The importer selects whichever QUESTION_PATTERNS family produces
-    the most matches. If numbered equations/subparts such as (1), (2),
-    (3) outnumber real top-level questions 1., 2., the equation pattern
-    wins. The top-level prompt can disappear and the next real question
-    can be merged into the last equation record.
+    Parenthesised equation labels such as (1), (2), (3) must stay
+    inside the real top-level question instead of becoming separate
+    question records.
     """
     text = """1. Solve the following system of equations.
 (1) x + y = 4
@@ -65,27 +54,46 @@ def test_nested_numbered_equations_can_override_real_question_numbering():
         .extract_questions_from_plain_text(text)
     )
 
-    assert len(rows) == 3
+    assert len(rows) == 2
 
     assert [
         row["source_question_number"]
         for row in rows
-    ] == ["1", "2", "3"]
+    ] == ["1", "2"]
 
-    assert rows[0]["text"] == "x + y = 4"
-    assert rows[1]["text"] == "x - y = 2"
-
-    assert rows[2]["text"] == (
-        "2x + y = 5\n"
-        "2. State whether the system is consistent."
+    assert rows[0]["text"] == (
+        "Solve the following system of equations.\n"
+        "(1) x + y = 4\n"
+        "(2) x - y = 2\n"
+        "(3) 2x + y = 5"
     )
 
-    combined = "\n".join(
-        row["text"]
+    assert rows[1]["text"] == (
+        "State whether the system is consistent."
+    )
+
+
+def test_parenthesised_question_numbering_still_works_when_it_is_primary():
+    """
+    Regression protection: if a sheet actually uses parenthesised
+    numbers as the main question markers, the importer should still
+    split them correctly when no stronger top-level numbering exists.
+    """
+    text = """(1) Define a vector space.
+
+(2) Give one example of a subspace."""
+
+    rows = (
+        assignment_file_importer
+        .extract_questions_from_plain_text(text)
+    )
+
+    assert len(rows) == 2
+
+    assert [
+        row["source_question_number"]
         for row in rows
-    )
+    ] == ["1", "2"]
 
-    assert (
-        "Solve the following system of equations."
-        not in combined
-    )
+    assert rows[0]["text"] == "Define a vector space."
+    assert rows[1]["text"] == "Give one example of a subspace."

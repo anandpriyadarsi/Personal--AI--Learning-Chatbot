@@ -22,7 +22,6 @@ from assessment_question_workspace import (
     list_questions,
 )
 from knowledge_paths import BASE_DIR
-from math_document_reader import read_pdf_pages_math_aware
 
 
 SUPPORTED_EXTENSIONS = {
@@ -79,34 +78,86 @@ def read_text_file(file_path):
 
 def read_pdf_pages(file_path):
     try:
-        pages = read_pdf_pages_math_aware(
+        from pypdf import PdfReader
+
+    except ImportError:
+        raise RuntimeError(
+            "PDF support requires pypdf. "
+            "Run: python -m pip install pypdf"
+        )
+
+    try:
+        reader = PdfReader(
             file_path
         )
 
-    except RuntimeError as error:
+    except Exception as error:
         raise RuntimeError(
-            str(error)
+            f"Could not open PDF: {error}"
         )
 
-    return [
-        {
-            "page": item["page"],
-            "text": item["text"]
-        }
-        for item in pages
-    ]
+    pages = []
+
+    for page_number, page in enumerate(
+        reader.pages,
+        start=1
+    ):
+        try:
+            text = page.extract_text() or ""
+        except Exception:
+            text = ""
+
+        text = text.strip()
+
+        if text:
+            pages.append({
+                "page": page_number,
+                "text": text
+            })
+
+    if not pages:
+        raise RuntimeError(
+            "No readable text was found in this PDF. "
+            "It may be scanned or image-only. "
+            "V10.2 does not use OCR automatically."
+        )
+
+    return pages
+
+
+def _select_question_matches(text):
+    """
+    Select the safest question-numbering pattern.
+
+    Top-level markers such as "1.", "Q1:", or "2)"
+    are preferred over parenthesised labels such as
+    "(1)", "(2)", "(3)" because parenthesised labels
+    are commonly used for equations or sub-parts in
+    mathematics.
+    """
+
+    top_level_matches = list(
+        QUESTION_PATTERNS[0].finditer(
+            text
+        )
+    )
+
+    if top_level_matches:
+        return top_level_matches
+
+    parenthesised_matches = list(
+        QUESTION_PATTERNS[1].finditer(
+            text
+        )
+    )
+
+    return parenthesised_matches
 
 
 def _split_numbered_questions(text):
-    matches = []
-
-    for pattern in QUESTION_PATTERNS:
-        candidate = list(
-            pattern.finditer(text)
-        )
-
-        if len(candidate) > len(matches):
-            matches = candidate
+    matches = _select_question_matches(
+        text
+    )
 
     if not matches:
         return []
@@ -137,6 +188,97 @@ def _split_numbered_questions(text):
     return questions
 
 
+def _looks_like_single_math_question(
+    paragraphs
+):
+    if len(paragraphs) <= 1:
+        return False
+
+    joined = "\n\n".join(
+        paragraphs
+    )
+
+    lower_joined = joined.lower()
+    lower_first = paragraphs[
+        0
+    ].lower().strip()
+
+    math_markers = [
+        "=",
+        "[",
+        "]",
+        "\\begin",
+        "\\frac",
+        "\\left",
+        "\\right",
+        "matrix",
+        "rank",
+        "determinant",
+        "inverse",
+        "echelon",
+        "row operation",
+        "linear system",
+        "system of equations",
+    ]
+
+    instruction_starts = (
+        "find ",
+        "solve ",
+        "compute ",
+        "determine ",
+        "prove ",
+        "show ",
+        "verify ",
+        "check ",
+        "use ",
+        "state ",
+        "classify ",
+    )
+
+    first_is_instruction = lower_first.startswith(
+        instruction_starts
+    )
+
+    has_math_content = any(
+        marker in lower_joined
+        for marker in math_markers
+    )
+
+    return (
+        first_is_instruction
+        and has_math_content
+    )
+
+
+def _fallback_plain_text_questions(text):
+    paragraphs = [
+        paragraph.strip()
+        for paragraph in re.split(
+            r"\n\s*\n",
+            text
+        )
+        if paragraph.strip()
+    ]
+
+    if _looks_like_single_math_question(
+        paragraphs
+    ):
+        paragraphs = [
+            "\n\n".join(
+                paragraphs
+            )
+        ]
+
+    return [
+        {
+            "text": paragraph,
+            "source_page": None,
+            "source_question_number": None,
+        }
+        for paragraph in paragraphs
+    ]
+
+
 def extract_questions_from_plain_text(text):
     text = str(text or "").strip()
 
@@ -159,24 +301,9 @@ def extract_questions_from_plain_text(text):
             for item in numbered
         ]
 
-    # Fallback: paragraph-based extraction.
-    paragraphs = [
-        paragraph.strip()
-        for paragraph in re.split(
-            r"\n\s*\n",
-            text
-        )
-        if paragraph.strip()
-    ]
-
-    return [
-        {
-            "text": paragraph,
-            "source_page": None,
-            "source_question_number": None,
-        }
-        for paragraph in paragraphs
-    ]
+    return _fallback_plain_text_questions(
+        text
+    )
 
 
 def extract_questions_from_pdf(file_path):
