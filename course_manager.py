@@ -28,6 +28,7 @@ VALID_TOPIC_STATUSES = {
     "learning",
     "weak",
     "review",
+    "practiced",
     "mastered"
 }
 VALID_SOURCE_TYPES = {
@@ -429,7 +430,8 @@ def recommend_next_topics(course_identifier, limit=5):
         "learning": 1,
         "review": 2,
         "not_started": 3,
-        "mastered": 4
+        "practiced": 4,
+        "mastered": 5
     }
     ordered = sorted(
         enumerate(course["topics"]),
@@ -763,7 +765,7 @@ def _update_topic_interactive():
         return
     print_course_progress(course["id"])
     topic = input("\nTopic name: ").strip()
-    print("Statuses: not_started, learning, weak, review, mastered")
+    print("Statuses: not_started, learning, weak, review, practiced, mastered")
     status = input("New status: ").strip()
     confidence_text = input("Confidence 0-5 (press Enter to skip): ").strip()
     confidence = confidence_text if confidence_text else None
