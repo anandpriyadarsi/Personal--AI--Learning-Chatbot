@@ -215,180 +215,209 @@ def save_course_data(data):
     os.replace(temporary_file, COURSES_FILE)
 
 
-def list_courses(status=None):
-    courses = load_course_data()["courses"]
-    if status is None:
-        return courses
+def _build_course_service():
+    """
+    Build the Phase 2 CourseService lazily.
 
-    wanted = _normalise_status(status, VALID_COURSE_STATUSES, "active")
-    return [course for course in courses if course["status"] == wanted]
+    Imports stay inside this function to avoid a course_manager ->
+    CourseService -> course_manager import cycle at module startup.
+    A fresh service is returned on every call so tests and callers that
+    temporarily replace COURSES_FILE continue to work correctly.
+    """
+    from personal_learning_assistant.repositories.json.course_repository import (
+        LegacyJsonCourseRepository,
+    )
+    from personal_learning_assistant.services.course_service import (
+        CourseService,
+    )
+
+    return CourseService(
+        LegacyJsonCourseRepository(
+            COURSES_FILE
+        ),
+        now=_now,
+    )
+
+
+def list_courses(status=None):
+    """
+    Compatibility facade for the legacy list_courses API.
+
+    The public return value remains a list of legacy dictionaries.
+    """
+    from personal_learning_assistant.domain.course_models import (
+        ListCoursesQuery,
+    )
+
+    result = _build_course_service().list_courses(
+        ListCoursesQuery(
+            status=status
+        )
+    )
+
+    return [
+        course.to_legacy_dict()
+        for course in result.courses
+    ]
 
 
 def find_course(identifier):
-    wanted = _clean_text(identifier).lower()
-    if not wanted:
+    """
+    Compatibility facade for the legacy find_course API.
+    """
+    from personal_learning_assistant.domain.course_models import (
+        GetCourseQuery,
+    )
+
+    result = _build_course_service().get_course(
+        GetCourseQuery(
+            identifier=identifier
+        )
+    )
+
+    if result.course is None:
         return None
 
-    for course in list_courses():
-        if wanted in {
-            course["id"].lower(),
-            course["code"].lower(),
-            course["name"].lower()
-        }:
-            return course
-
-    return None
+    return result.course.to_legacy_dict()
 
 
 def get_active_course():
-    data = load_course_data()
-    active_id = data.get("active_course_id")
-    return find_course(active_id) if active_id else None
+    """
+    Compatibility facade for the legacy get_active_course API.
+    """
+    result = (
+        _build_course_service()
+        .get_active_course()
+    )
+
+    if result.course is None:
+        return None
+
+    return result.course.to_legacy_dict()
 
 
-def create_course(code, name, semester="", status="active", topics=None):
-    code = _clean_text(code).upper()
-    name = _clean_text(name)
+def create_course(
+    code,
+    name,
+    semester="",
+    status="active",
+    topics=None,
+):
+    """
+    Compatibility facade for legacy course creation.
+    """
+    from personal_learning_assistant.domain.course_models import (
+        CreateCourseCommand,
+    )
 
-    if not code:
-        raise ValueError("Course code is required.")
-    if not name:
-        raise ValueError("Course name is required.")
-    if find_course(code):
-        raise ValueError(f"A course with code {code} already exists.")
+    result = _build_course_service().create_course(
+        CreateCourseCommand(
+            code=code,
+            name=name,
+            semester=semester,
+            status=status,
+            topics=tuple(
+                topics or []
+            ),
+        )
+    )
 
-    data = load_course_data()
-    used_ids = {course["id"] for course in data["courses"]}
-    course = _normalise_course({
-        "id": _slug(code),
-        "code": code,
-        "name": name,
-        "semester": semester,
-        "status": status,
-        "topics": topics or [],
-        "created_at": _now(),
-        "updated_at": _now()
-    }, used_ids)
-
-    data["courses"].append(course)
-    if not data.get("active_course_id"):
-        data["active_course_id"] = course["id"]
-    save_course_data(data)
-    return course
+    return result.course.to_legacy_dict()
 
 
 def set_active_course(identifier):
-    course = find_course(identifier)
-    if course is None:
-        raise ValueError("Course not found.")
-
-    data = load_course_data()
-    data["active_course_id"] = course["id"]
-    save_course_data(data)
-    return course
-
-
-def update_course_status(identifier, status):
-    course = find_course(identifier)
-    if course is None:
-        raise ValueError("Course not found.")
-
-    normalised_status = _normalise_status(
-        status,
-        VALID_COURSE_STATUSES,
-        ""
+    """
+    Compatibility facade for the legacy set_active_course API.
+    """
+    from personal_learning_assistant.domain.course_models import (
+        SetActiveCourseCommand,
     )
-    if not normalised_status:
-        raise ValueError("Invalid course status.")
 
-    data = load_course_data()
-    for item in data["courses"]:
-        if item["id"] == course["id"]:
-            item["status"] = normalised_status
-            item["updated_at"] = _now()
-            course = item
-            break
-
-    save_course_data(data)
-    return course
-
-
-def add_topic(course_identifier, topic_name, status="not_started"):
-    course = find_course(course_identifier)
-    if course is None:
-        raise ValueError("Course not found.")
-
-    topic_name = _clean_text(topic_name)
-    if not topic_name:
-        raise ValueError("Topic name is required.")
-
-    data = load_course_data()
-    for item in data["courses"]:
-        if item["id"] != course["id"]:
-            continue
-
-        for topic in item["topics"]:
-            if topic["name"].lower() == topic_name.lower():
-                return topic, False
-
-        topic = _normalise_topic({
-            "name": topic_name,
-            "status": status,
-            "last_updated": _now()
-        })
-        item["topics"].append(topic)
-        item["updated_at"] = _now()
-        save_course_data(data)
-        return topic, True
-
-    raise ValueError("Course not found.")
-
-
-def update_topic_status(course_identifier, topic_name, status, confidence=None):
-    course = find_course(course_identifier)
-    if course is None:
-        raise ValueError("Course not found.")
-
-    normalised_status = _normalise_status(
-        status,
-        VALID_TOPIC_STATUSES,
-        ""
+    result = _build_course_service().set_active_course(
+        SetActiveCourseCommand(
+            identifier=identifier
+        )
     )
-    if not normalised_status:
-        raise ValueError("Invalid topic status.")
 
-    topic_name = _clean_text(topic_name)
-    if not topic_name:
-        raise ValueError("Topic name is required.")
+    return result.course.to_legacy_dict()
 
-    data = load_course_data()
-    for item in data["courses"]:
-        if item["id"] != course["id"]:
-            continue
 
-        selected = None
-        for topic in item["topics"]:
-            if topic["name"].lower() == topic_name.lower():
-                selected = topic
-                break
+def update_course_status(
+    identifier,
+    status,
+):
+    """
+    Compatibility facade for legacy course status updates.
+    """
+    from personal_learning_assistant.domain.course_models import (
+        UpdateCourseStatusCommand,
+    )
 
-        if selected is None:
-            selected = _normalise_topic({"name": topic_name})
-            item["topics"].append(selected)
+    result = (
+        _build_course_service()
+        .update_course_status(
+            UpdateCourseStatusCommand(
+                identifier=identifier,
+                status=status,
+            )
+        )
+    )
 
-        selected["status"] = normalised_status
-        selected["last_updated"] = _now()
-        if confidence is not None:
-            try:
-                selected["confidence"] = max(0, min(5, int(confidence)))
-            except (TypeError, ValueError):
-                raise ValueError("Confidence must be a number from 0 to 5.")
+    return result.course.to_legacy_dict()
 
-        item["updated_at"] = _now()
-        save_course_data(data)
-        return selected
 
-    raise ValueError("Course not found.")
+def add_topic(
+    course_identifier,
+    topic_name,
+    status="not_started",
+):
+    """
+    Compatibility facade for the legacy add_topic API.
+    """
+    from personal_learning_assistant.domain.course_models import (
+        AddTopicCommand,
+    )
+
+    result = _build_course_service().add_topic(
+        AddTopicCommand(
+            course_identifier=course_identifier,
+            topic_name=topic_name,
+            status=status,
+        )
+    )
+
+    return (
+        result.topic.to_legacy_dict(),
+        bool(result.created),
+    )
+
+
+def update_topic_status(
+    course_identifier,
+    topic_name,
+    status,
+    confidence=None,
+):
+    """
+    Compatibility facade for the legacy update_topic_status API.
+    """
+    from personal_learning_assistant.domain.course_models import (
+        UpdateTopicStatusCommand,
+    )
+
+    result = (
+        _build_course_service()
+        .update_topic_status(
+            UpdateTopicStatusCommand(
+                course_identifier=course_identifier,
+                topic_name=topic_name,
+                status=status,
+                confidence=confidence,
+            )
+        )
+    )
+
+    return result.topic.to_legacy_dict()
 
 
 def get_course_progress(course_identifier):
