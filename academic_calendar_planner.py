@@ -135,6 +135,60 @@ def assessments_in_window(days):
     return rows
 
 
+def overdue_assessments():
+    """
+    Return pending assessments whose due date is
+    before today.
+
+    This keeps overdue work separate from normal
+    future calendar windows while still allowing
+    recovery planning to see it.
+    """
+    today = _today()
+    rows = []
+
+    for item in pending_assessments():
+        due = _parse_date(
+            item.get("due_date")
+        )
+
+        if due is None:
+            continue
+
+        if due < today:
+            rows.append(item)
+
+    rows.sort(
+        key=lambda item: (
+            _parse_date(
+                item.get("due_date")
+            ),
+            -assessment_priority(
+                item
+            ),
+        )
+    )
+
+    return rows
+
+
+def assessments_for_deadline_study_plan(days):
+    """
+    Return overdue plus upcoming assessments for
+    deadline-aware study-block generation.
+
+    Normal calendar views stay half-open and future
+    facing. Study-block planning also includes overdue
+    items so that the immediate recovery logic can run.
+    """
+    return (
+        overdue_assessments()
+        + assessments_in_window(days)
+    )
+
+
+
+
 def deadline_pressure(item):
     """
     Relative planning pressure from deadline + academic impact.
@@ -625,7 +679,7 @@ def recommended_blocks_for_assessment(
 
 
 def print_deadline_study_plan():
-    rows = assessments_in_window(
+    rows = assessments_for_deadline_study_plan(
         14
     )
 

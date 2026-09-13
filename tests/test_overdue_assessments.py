@@ -16,8 +16,8 @@ def _assessment(title, due_date):
 
 def test_overdue_block_logic_exists_when_called_directly(monkeypatch):
     """
-    Characterization: the study-block engine already knows how to
-    handle an overdue assessment if that assessment reaches it.
+    Regression protection: the study-block engine knows how
+    to handle an overdue assessment if the assessment reaches it.
     """
     today = date(2026, 9, 13)
     overdue = _assessment(
@@ -50,15 +50,13 @@ def test_overdue_block_logic_exists_when_called_directly(monkeypatch):
     ]
 
 
-def test_calendar_window_currently_filters_overdue_before_block_logic(
-    monkeypatch,
-):
+def test_future_calendar_window_still_excludes_overdue(monkeypatch):
     """
-    Characterization of the current defect:
+    Regression protection for Fix 3 + Fix 4 together:
 
-    assessments_in_window() begins at today, so an overdue assessment
-    is removed before print_deadline_study_plan() can pass it to
-    recommended_blocks_for_assessment().
+    normal calendar windows remain future-facing and half-open.
+    Overdue work is handled by the recovery/study-plan path,
+    not mixed into the normal 14-day window.
     """
     today = date(2026, 9, 13)
 
@@ -97,4 +95,71 @@ def test_calendar_window_currently_filters_overdue_before_block_logic(
     assert titles == [
         "Today Quiz",
         "Upcoming Quiz",
+    ]
+
+
+def test_deadline_study_plan_source_includes_overdue_for_recovery(
+    monkeypatch,
+):
+    """
+    Regression test for the overdue filtering defect.
+
+    The old print_deadline_study_plan() path used
+    assessments_in_window(14), so overdue assessments were
+    filtered out before recovery blocks could be generated.
+    The fixed source includes overdue items separately.
+    """
+    today = date(2026, 9, 13)
+
+    overdue = _assessment(
+        "Overdue Quiz",
+        today - timedelta(days=1),
+    )
+    due_today = _assessment(
+        "Today Quiz",
+        today,
+    )
+    upcoming = _assessment(
+        "Upcoming Quiz",
+        today + timedelta(days=3),
+    )
+
+    monkeypatch.setattr(
+        academic_calendar_planner,
+        "_today",
+        lambda: today,
+    )
+    monkeypatch.setattr(
+        academic_calendar_planner,
+        "pending_assessments",
+        lambda: [
+            overdue,
+            due_today,
+            upcoming,
+        ],
+    )
+
+    rows = (
+        academic_calendar_planner
+        .assessments_for_deadline_study_plan(14)
+    )
+    titles = [item["title"] for item in rows]
+
+    assert titles == [
+        "Overdue Quiz",
+        "Today Quiz",
+        "Upcoming Quiz",
+    ]
+
+    overdue_blocks = (
+        academic_calendar_planner
+        .recommended_blocks_for_assessment(overdue)
+    )
+
+    assert overdue_blocks == [
+        (
+            today,
+            90,
+            "Immediate overdue recovery",
+        )
     ]
