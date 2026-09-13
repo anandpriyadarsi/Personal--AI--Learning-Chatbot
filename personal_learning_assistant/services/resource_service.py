@@ -7,6 +7,10 @@ record shape and status labels.
 
 from typing import Optional
 
+from personal_learning_assistant.repositories.interfaces import (
+    ResourceRepository,
+)
+
 from personal_learning_assistant.domain.resource_models import (
     CreateResourceCommand,
     ListResourcesQuery,
@@ -27,7 +31,7 @@ class ResourceService:
 
     def __init__(
         self,
-        repository,
+        repository: ResourceRepository,
     ):
         self.repository = repository
 

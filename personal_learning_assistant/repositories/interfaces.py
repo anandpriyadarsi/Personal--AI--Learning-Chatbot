@@ -40,3 +40,19 @@ class NoteRepository(Protocol):
         """Return legacy note dictionaries without mutating storage."""
         ...
 
+    def append_note(self, note):
+        # Persist one legacy-shaped note through an explicit command.
+        ...
+
+class ResourceRepository(Protocol):
+    # Persistence boundary required by the Phase 2 ResourceService.
+
+    def load_resources(self):
+        ...
+
+    def append_resource(self, resource):
+        ...
+
+    def replace_resource(self, position: int, resource):
+        ...
+
