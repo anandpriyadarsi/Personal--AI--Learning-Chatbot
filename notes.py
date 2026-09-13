@@ -86,64 +86,55 @@ def add_note():
 # -------------------------
 # View Notes
 # -------------------------
+def _build_notes_service():
+    """Build the Phase 2 read-only NotesService lazily."""
+    from config import NOTES_FILE as DEFAULT_NOTES_FILE
+    from personal_learning_assistant.repositories.json.note_repository import (
+        LegacyJsonNoteRepository,
+    )
+    from personal_learning_assistant.services.notes_service import (
+        NotesService,
+    )
+
+    note_path = globals().get(
+        "NOTES_FILE",
+        DEFAULT_NOTES_FILE,
+    )
+
+    return NotesService(
+        LegacyJsonNoteRepository(
+            note_path
+        )
+    )
+
+
+def _build_notes_cli():
+    """Build the terminal adapter lazily."""
+    from personal_learning_assistant.ui.cli.notes_cli import (
+        NotesCLI,
+    )
+
+    return NotesCLI(
+        _build_notes_service()
+    )
+
+
 def view_notes():
-
-    notes = load_notes()
-
-    if len(notes) == 0:
-        print("\nNo notes found.")
-        return
-
-    print("\n========== MY NOTES ==========")
-
-    for i, note in enumerate(notes, start=1):
-
-        print("\n----------------------------")
-        print(f"Note {i}")
-        print("----------------------------")
-        print("Title      :", note["title"])
-        print("Topic      :", note["topic"])
-        print("Difficulty :", note["difficulty"])
-        print("Content :")
-        print(note["content"])
+    """Compatibility wrapper for the extracted Notes CLI adapter."""
+    return _build_notes_cli().view_notes()
 
 
 # -------------------------
 # Count Notes
 # -------------------------
 def count_notes():
-
-    notes = load_notes()
-
-    print("\n========== NOTES SUMMARY ==========")
-    print(f"\n📝 Total Notes : {len(notes)}")
+    """Compatibility wrapper for the extracted Notes CLI adapter."""
+    return _build_notes_cli().count_notes()
 
 
 # -------------------------
 # Search Notes
 # -------------------------
 def search_notes():
-
-    keyword = input("\nEnter keyword to search : ").lower()
-
-    notes = load_notes()
-
-    found = False
-
-    for note in notes:
-
-        if (keyword in note["title"].lower() or
-                keyword in note["topic"].lower() or
-                keyword in note["content"].lower()):
-
-            found = True
-
-            print("\n----------------------------")
-            print("Title :", note["title"])
-            print("Topic :", note["topic"])
-            print("Difficulty :", note["difficulty"])
-            print("Content :")
-            print(note["content"])
-
-    if not found:
-        print("\n❌ No matching notes found.")
+    """Compatibility wrapper for the extracted Notes CLI adapter."""
+    return _build_notes_cli().search_notes()
