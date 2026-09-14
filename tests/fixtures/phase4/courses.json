@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "active_course_id": "fixture-ma103n",
+  "courses": [
+    {
+      "id": "fixture-ma103n",
+      "code": "MA103N",
+      "name": "Synthetic Linear Algebra",
+      "semester": "1",
+      "status": "active",
+      "topics": [
+        {
+          "id": "fixture-linear-systems",
+          "name": "Linear Systems",
+          "status": "in progress",
+          "confidence": 2,
+          "last_updated": "2026-01-02T00:00:00"
+        },
+        {
+          "id": "fixture-lu",
+          "name": "LU Factorization",
+          "status": "not_started",
+          "confidence": null,
+          "last_updated": null
+        }
+      ],
+      "created_at": "2026-01-01T00:00:00",
+      "updated_at": "2026-01-02T00:00:00"
+    },
+    {
+      "id": "fixture-cy100n",
+      "code": "CY100N",
+      "name": "Synthetic Engineering Chemistry",
+      "semester": "1",
+      "status": "planned",
+      "topics": [],
+      "created_at": "2026-01-01T00:00:00",
+      "updated_at": "2026-01-01T00:00:00"
+    }
+  ],
+  "document_links": {
+    "base:knowledge/documents/synthetic-linear-algebra.pdf": {
+      "course_id": "fixture-ma103n",
+      "topic": "Linear Systems",
+      "source_type": "course_pdf",
+      "display_path": "knowledge/documents/synthetic-linear-algebra.pdf",
+      "linked_at": "2026-01-03T00:00:00"
+    }
+  }
+}
