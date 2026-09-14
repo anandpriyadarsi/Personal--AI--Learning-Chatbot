@@ -17,6 +17,7 @@ EXPORT_PATH = BASE_PATH / "exports"
 
 NOTES_PATH = DATA_PATH / "notes.json"
 RESOURCES_PATH = DATA_PATH / "resources.json"
+DATABASE_PATH = DATA_PATH / "learning_assistant.db"
 
 # Compatibility strings for the existing V1-V13 modules.
 BASE_DIR = str(BASE_PATH)
