@@ -4,6 +4,7 @@ from typing import Any, Dict, Protocol
 
 
 CourseState = Dict[str, Any]
+AssessmentState = Dict[str, Any]
 
 
 class CourseRepository(Protocol):
@@ -33,6 +34,19 @@ class CourseRepository(Protocol):
         """Delete one document-link record if present."""
         ...
 
+
+class AssessmentRepository(Protocol):
+    """Persistence boundary for legacy-shaped assessment state."""
+
+    def load_state(self) -> AssessmentState:
+        """Return assessment state without mutating storage."""
+        ...
+
+    def save_state(self, state: AssessmentState) -> AssessmentState:
+        """Persist assessment state through the selected authoritative backend."""
+        ...
+
+
 class NoteRepository(Protocol):
     """Read boundary for the legacy notes store during Phase 2."""
 
@@ -43,6 +57,7 @@ class NoteRepository(Protocol):
     def append_note(self, note):
         # Persist one legacy-shaped note through an explicit command.
         ...
+
 
 class ResourceRepository(Protocol):
     # Persistence boundary required by the Phase 2 ResourceService.
@@ -56,6 +71,7 @@ class ResourceRepository(Protocol):
     def replace_resource(self, position: int, resource):
         ...
 
+
 class KnowledgeRepository(Protocol):
     # Read-only document discovery boundary.
 
@@ -64,6 +80,7 @@ class KnowledgeRepository(Protocol):
 
     def get_vault_path(self):
         ...
+
 
 class CourseKnowledgeContext(Protocol):
     # Read-only bridge used by Knowledge during Phase 2.
