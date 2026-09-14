@@ -340,6 +340,19 @@ class CourseCLI:
                 f"\n{error}"
             )
 
+    def _build_knowledge_service(self):
+        """Build the Phase 2 read-only knowledge discovery boundary."""
+        from personal_learning_assistant.repositories.filesystem.knowledge_repository import (
+            LegacyFileKnowledgeRepository,
+        )
+        from personal_learning_assistant.services.knowledge_service import (
+            KnowledgeService,
+        )
+
+        return KnowledgeService(
+            LegacyFileKnowledgeRepository()
+        )
+
     def link_document_interactive(self):
         course = self.choose_course(
             "Link Knowledge Source"
@@ -349,11 +362,11 @@ class CourseCLI:
             return
 
         try:
-            from knowledge import (
-                describe_source,
-                find_documents,
+            documents = (
+                self._build_knowledge_service()
+                .list_documents()
+                .documents
             )
-            documents = find_documents()
         except ImportError:
             self.output(
                 "\nKnowledge module is not available."
@@ -370,13 +383,13 @@ class CourseCLI:
             "\n========== KNOWLEDGE SOURCES =========="
         )
 
-        for number, path in enumerate(
+        for number, document in enumerate(
             documents,
             start=1,
         ):
             metadata = (
                 self.api.get_document_metadata(
-                    path
+                    document.path
                 )
             )
             current = (
@@ -387,7 +400,7 @@ class CourseCLI:
 
             self.output(
                 f"{number}. "
-                f"{describe_source(path)}"
+                f"{document.display_name}"
                 f"{current}"
             )
 
@@ -421,7 +434,7 @@ class CourseCLI:
         ).strip()
 
         self.api.link_document(
-            selected,
+            selected.path,
             course["id"],
             topic,
         )

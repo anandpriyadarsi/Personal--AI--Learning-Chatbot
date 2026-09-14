@@ -56,3 +56,12 @@ class ResourceRepository(Protocol):
     def replace_resource(self, position: int, resource):
         ...
 
+class KnowledgeRepository(Protocol):
+    # Read-only document discovery boundary.
+
+    def list_document_paths(self):
+        ...
+
+    def get_vault_path(self):
+        ...
+
