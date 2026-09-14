@@ -16,7 +16,7 @@ concurrency:
 jobs:
   validate:
     name: Phase 3.2 complete validation
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     timeout-minutes: 90
 
     steps:
@@ -45,7 +45,11 @@ jobs:
         run: python -m pytest tests/test_phase3_reverse_export_restore.py -q
 
       - name: Run all Phase 3 tests
-        run: python -m pytest tests/test_phase3_*.py -q
+        shell: pwsh
+        run: |
+          $phase3Tests = @(Get-ChildItem -Path tests -Filter "test_phase3_*.py" -File | Sort-Object Name | ForEach-Object { $_.FullName })
+          python -m pytest $phase3Tests -q
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Run full pytest regression suite
         run: python -m pytest -q
