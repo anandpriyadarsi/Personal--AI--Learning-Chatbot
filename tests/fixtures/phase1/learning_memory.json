@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "weak_topics": [
+    "Synthetic Weak Topic"
+  ],
+  "mastered_topics": [
+    "Synthetic Mastered Topic"
+  ],
+  "notes": [
+    "Synthetic learning-memory note one.",
+    "Synthetic learning-memory note two."
+  ],
+  "activities": []
+}

@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "history": {
+    "fixture-ma103n": [
+      {
+        "date": "2026-01-01",
+        "course_id": "fixture-ma103n",
+        "mastered_topics": 0,
+        "total_topics": 1,
+        "progress_percent": 0.0
+      }
+    ],
+    "fixture-cy100n": [
+      {
+        "date": "2026-01-01",
+        "course_id": "fixture-cy100n",
+        "mastered_topics": 0,
+        "total_topics": 0,
+        "progress_percent": 0.0
+      }
+    ]
+  }
+}

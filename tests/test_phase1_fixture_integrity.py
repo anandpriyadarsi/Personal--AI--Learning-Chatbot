@@ -2,6 +2,7 @@ import builtins
 import hashlib
 import importlib
 import os
+import shutil
 import sys
 from pathlib import Path
 
@@ -19,7 +20,6 @@ OPTIONAL_PACKAGES = {
     "PIL",
     "dotenv",
 }
-
 
 FIXTURE_LOADERS = [
     ("notes.json", "notes", ("load_notes",)),
@@ -42,6 +42,24 @@ FIXTURE_LOADERS = [
     ("obsidian_config.json", "obsidian_integration", ("load_config",)),
 ]
 
+FIXTURE_NAMES = {
+    file_name
+    for file_name, _module, _loaders
+    in FIXTURE_LOADERS
+}
+
+TESTS_DIR = Path(__file__).resolve().parent
+SANITIZED_FIXTURE_DIR = (
+    TESTS_DIR
+    / "fixtures"
+    / "phase1"
+)
+
+# Capture the real configured data directory before tests monkeypatch config.
+REAL_DATA_DIR = Path(
+    config.DATA_DIR
+).resolve()
+
 
 def _sha256(path):
     digest = hashlib.sha256()
@@ -56,62 +74,207 @@ def _sha256(path):
     return digest.hexdigest()
 
 
-def _data_manifest():
-    data_dir = Path(config.DATA_DIR)
+def _manifest(root):
+    root = Path(root)
+
+    if not root.exists():
+        return {}
 
     return {
-        path.relative_to(data_dir).as_posix(): (
+        path.relative_to(root).as_posix(): (
             path.stat().st_size,
             _sha256(path),
         )
-        for path in data_dir.rglob("*")
+        for path in root.rglob("*")
         if path.is_file()
     }
 
 
-def _is_inside_data(path_value):
+def _is_inside(path_value, root):
     try:
         path = Path(
             os.fspath(path_value)
         ).resolve()
-    except (TypeError, ValueError):
+        root = Path(root).resolve()
+    except (
+        TypeError,
+        ValueError,
+    ):
         return False
 
-    data_dir = Path(
-        config.DATA_DIR
-    ).resolve()
-
     try:
-        path.relative_to(data_dir)
+        path.relative_to(root)
         return True
     except ValueError:
         return False
 
 
+def _path_basename(value):
+    try:
+        return Path(
+            os.fspath(value)
+        ).name
+    except (
+        TypeError,
+        ValueError,
+    ):
+        return None
+
+
+def _redirect_config_paths(
+    monkeypatch,
+    isolated_data_dir,
+):
+    monkeypatch.setattr(
+        config,
+        "DATA_DIR",
+        str(isolated_data_dir),
+        raising=False,
+    )
+
+    for name, value in list(
+        vars(config).items()
+    ):
+        basename = _path_basename(
+            value
+        )
+
+        if basename in FIXTURE_NAMES:
+            monkeypatch.setattr(
+                config,
+                name,
+                str(
+                    isolated_data_dir
+                    / basename
+                ),
+                raising=False,
+            )
+
+
+def _redirect_module_paths(
+    monkeypatch,
+    module,
+    isolated_data_dir,
+):
+    """
+    Redirect legacy module-level file constants without hard-coding every
+    historical constant name.
+
+    Phase 1/2 modules use names such as NOTES_FILE, RESOURCES_FILE, HISTORY_FILE,
+    STORE_FILE, CONFIG_FILE, etc.  Matching by the known fixture basename keeps
+    this test compatible with those legacy names while guaranteeing no loader
+    reaches the developer's private data directory.
+    """
+    for name, value in list(
+        vars(module).items()
+    ):
+        if name == "DATA_DIR":
+            monkeypatch.setattr(
+                module,
+                name,
+                str(isolated_data_dir),
+                raising=False,
+            )
+            continue
+
+        basename = _path_basename(
+            value
+        )
+
+        if basename in FIXTURE_NAMES:
+            monkeypatch.setattr(
+                module,
+                name,
+                str(
+                    isolated_data_dir
+                    / basename
+                ),
+                raising=False,
+            )
+
+
 @pytest.fixture
-def protect_data_writes(monkeypatch):
+def isolated_data_dir(
+    tmp_path,
+    monkeypatch,
+):
+    assert SANITIZED_FIXTURE_DIR.is_dir(), (
+        "Tracked sanitized fixture directory is missing: "
+        f"{SANITIZED_FIXTURE_DIR}"
+    )
+
+    isolated = (
+        tmp_path
+        / "data"
+    )
+
+    shutil.copytree(
+        SANITIZED_FIXTURE_DIR,
+        isolated,
+    )
+
+    _redirect_config_paths(
+        monkeypatch,
+        isolated,
+    )
+
+    return isolated
+
+
+@pytest.fixture
+def protect_data_writes(
+    monkeypatch,
+    isolated_data_dir,
+):
     """
-    Fail immediately if a read-only fixture loader attempts
-    to write, replace, remove, or rename a file under data/.
+    Fail immediately if a read-only loader attempts to mutate either the
+    temporary fixture store or the developer's real configured data directory.
     """
+    protected_roots = {
+        Path(
+            isolated_data_dir
+        ).resolve(),
+        REAL_DATA_DIR,
+    }
+
     real_open = builtins.open
     real_replace = os.replace
     real_remove = os.remove
     real_unlink = os.unlink
     real_rename = os.rename
 
-    def guarded_open(file, mode="r", *args, **kwargs):
+    def protected(path):
+        return any(
+            _is_inside(
+                path,
+                root,
+            )
+            for root in protected_roots
+        )
+
+    def guarded_open(
+        file,
+        mode="r",
+        *args,
+        **kwargs,
+    ):
         is_write_mode = any(
             flag in mode
-            for flag in ("w", "a", "x", "+")
+            for flag in (
+                "w",
+                "a",
+                "x",
+                "+",
+            )
         )
 
         if (
             is_write_mode
-            and _is_inside_data(file)
+            and protected(file)
         ):
             raise AssertionError(
-                f"Read-only test attempted data write: {file} ({mode})"
+                "Read-only test attempted data write: "
+                f"{file} ({mode})"
             )
 
         return real_open(
@@ -121,10 +284,19 @@ def protect_data_writes(monkeypatch):
             **kwargs,
         )
 
-    def guarded_replace(src, dst, *args, **kwargs):
-        if _is_inside_data(src) or _is_inside_data(dst):
+    def guarded_replace(
+        src,
+        dst,
+        *args,
+        **kwargs,
+    ):
+        if (
+            protected(src)
+            or protected(dst)
+        ):
             raise AssertionError(
-                f"Read-only test attempted data replace: {src} -> {dst}"
+                "Read-only test attempted data replace: "
+                f"{src} -> {dst}"
             )
 
         return real_replace(
@@ -134,10 +306,15 @@ def protect_data_writes(monkeypatch):
             **kwargs,
         )
 
-    def guarded_remove(path, *args, **kwargs):
-        if _is_inside_data(path):
+    def guarded_remove(
+        path,
+        *args,
+        **kwargs,
+    ):
+        if protected(path):
             raise AssertionError(
-                f"Read-only test attempted data remove: {path}"
+                "Read-only test attempted data remove: "
+                f"{path}"
             )
 
         return real_remove(
@@ -146,10 +323,15 @@ def protect_data_writes(monkeypatch):
             **kwargs,
         )
 
-    def guarded_unlink(path, *args, **kwargs):
-        if _is_inside_data(path):
+    def guarded_unlink(
+        path,
+        *args,
+        **kwargs,
+    ):
+        if protected(path):
             raise AssertionError(
-                f"Read-only test attempted data unlink: {path}"
+                "Read-only test attempted data unlink: "
+                f"{path}"
             )
 
         return real_unlink(
@@ -158,10 +340,19 @@ def protect_data_writes(monkeypatch):
             **kwargs,
         )
 
-    def guarded_rename(src, dst, *args, **kwargs):
-        if _is_inside_data(src) or _is_inside_data(dst):
+    def guarded_rename(
+        src,
+        dst,
+        *args,
+        **kwargs,
+    ):
+        if (
+            protected(src)
+            or protected(dst)
+        ):
             raise AssertionError(
-                f"Read-only test attempted data rename: {src} -> {dst}"
+                "Read-only test attempted data rename: "
+                f"{src} -> {dst}"
             )
 
         return real_rename(
@@ -203,9 +394,8 @@ def test_core_notes_resources_courses_start_without_optional_ai_packages(
     monkeypatch,
 ):
     """
-    Phase 1 gate:
-    notes, resources and courses must import without optional
-    semantic/RAG/vision/YouTube packages.
+    Core notes/resources/courses must import without optional semantic,
+    RAG, vision, or YouTube packages.
     """
     for name in (
         "notes",
@@ -219,12 +409,20 @@ def test_core_notes_resources_courses_start_without_optional_ai_packages(
 
     real_import = builtins.__import__
 
-    def guarded_import(name, *args, **kwargs):
-        root_name = name.split(".", 1)[0]
+    def guarded_import(
+        name,
+        *args,
+        **kwargs,
+    ):
+        root_name = name.split(
+            ".",
+            1,
+        )[0]
 
         if root_name in OPTIONAL_PACKAGES:
             raise ModuleNotFoundError(
-                f"blocked optional package: {root_name}"
+                "blocked optional package: "
+                f"{root_name}"
             )
 
         return real_import(
@@ -250,13 +448,65 @@ def test_core_notes_resources_courses_start_without_optional_ai_packages(
     )
 
     assert callable(
-        getattr(notes, "load_notes")
+        getattr(
+            notes,
+            "load_notes",
+        )
     )
     assert callable(
-        getattr(resources, "load_resources")
+        getattr(
+            resources,
+            "load_resources",
+        )
     )
     assert callable(
-        getattr(courses, "load_course_data")
+        getattr(
+            courses,
+            "load_course_data",
+        )
+    )
+
+
+@pytest.mark.read_only
+def test_sanitized_fixture_set_is_complete_and_private_data_free():
+    names = {
+        path.name
+        for path in SANITIZED_FIXTURE_DIR.iterdir()
+        if path.is_file()
+        and path.suffix == ".json"
+    }
+
+    assert names == FIXTURE_NAMES
+
+    resources_path = (
+        SANITIZED_FIXTURE_DIR
+        / "resources.json"
+    )
+    assert resources_path.stat().st_size == 0
+
+    # The tracked fixture policy deliberately forbids obvious machine-private
+    # paths/secrets.  Fixtures use synthetic values only.
+    combined = "\n".join(
+        path.read_text(
+            encoding="utf-8",
+            errors="ignore",
+        )
+        for path in SANITIZED_FIXTURE_DIR.iterdir()
+        if path.is_file()
+    ).casefold()
+
+    forbidden = (
+        "\\users\\",
+        "/users/",
+        "api_key",
+        "api-key",
+        "sk-",
+        ".env",
+    )
+
+    assert not any(
+        token in combined
+        for token in forbidden
     )
 
 
@@ -265,33 +515,43 @@ def test_core_notes_resources_courses_start_without_optional_ai_packages(
     "file_name,module_name,loader_names",
     FIXTURE_LOADERS,
 )
-def test_existing_persisted_fixture_loads_without_data_write(
+def test_sanitized_persisted_fixture_loads_without_data_write(
     file_name,
     module_name,
     loader_names,
+    isolated_data_dir,
     protect_data_writes,
+    monkeypatch,
 ):
     """
-    Phase 1 gate:
-    every supplied persisted fixture must load and the complete
-    data/ file manifest must remain byte-for-byte unchanged.
+    Every legacy loader must read a tracked synthetic fixture without requiring
+    the ignored/private project data directory and without mutating either copy.
     """
-    data_dir = Path(
-        config.DATA_DIR
-    )
     fixture_path = (
-        data_dir
+        isolated_data_dir
         / file_name
     )
 
     assert fixture_path.exists(), (
-        f"Required Phase 1 fixture is missing: {fixture_path}"
+        "Required sanitized fixture is missing: "
+        f"{fixture_path}"
     )
 
-    before = _data_manifest()
+    real_before = _manifest(
+        REAL_DATA_DIR
+    )
+    isolated_before = _manifest(
+        isolated_data_dir
+    )
 
     module = importlib.import_module(
         module_name
+    )
+
+    _redirect_module_paths(
+        monkeypatch,
+        module,
+        isolated_data_dir,
     )
 
     loader = None
@@ -308,18 +568,26 @@ def test_existing_persisted_fixture_loads_without_data_write(
             break
 
     assert loader is not None, (
-        f"No expected fixture loader found in {module_name}: "
-        f"{loader_names}"
+        "No expected fixture loader found in "
+        f"{module_name}: {loader_names}"
     )
 
     loaded = loader()
 
     # Loading may legitimately normalize in memory or return an empty
-    # collection (resources.json is known to be a zero-byte legacy input).
+    # collection. resources.json is intentionally a zero-byte legacy input.
     assert loaded is not None
 
-    after = _data_manifest()
+    assert _manifest(
+        isolated_data_dir
+    ) == isolated_before, (
+        "Read-only loader changed isolated sanitized data "
+        f"while loading {file_name}"
+    )
 
-    assert after == before, (
-        f"Read-only loader changed data/ while loading {file_name}"
+    assert _manifest(
+        REAL_DATA_DIR
+    ) == real_before, (
+        "Read-only loader touched the developer's real data "
+        f"while loading {file_name}"
     )

@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "assessments": [
+    {
+      "id": "fixture-assessment-1",
+      "course_id": "fixture-ma103n",
+      "title": "Synthetic Quiz",
+      "type": "quiz",
+      "status": "pending",
+      "due_date": "2099-01-15",
+      "topics": [
+        "Linear Systems",
+        "Row Reduction"
+      ],
+      "weight": null,
+      "score": null,
+      "max_score": null
+    }
+  ]
+}

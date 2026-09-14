@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "plans": [
+    {
+      "id": "fixture-v92-plan",
+      "engine_version": "V9.2",
+      "created_at": "2026-01-01T00:00:00",
+      "requested_minutes": 120,
+      "stored_minutes": 108,
+      "items": [
+        {
+          "course_id": "fixture-ma103n",
+          "minutes": 72
+        },
+        {
+          "course_id": "fixture-cy100n",
+          "minutes": 36
+        }
+      ]
+    }
+  ]
+}

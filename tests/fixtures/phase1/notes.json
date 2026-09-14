@@ -1,0 +1,14 @@
+[
+  {
+    "title": "Synthetic Linear Algebra Note",
+    "topic": "Linear Algebra",
+    "difficulty": "Medium",
+    "content": "Synthetic fixture content for clean-clone testing."
+  },
+  {
+    "title": "Synthetic Blank Legacy Note",
+    "topic": "Testing",
+    "difficulty": "Easy",
+    "content": ""
+  }
+]

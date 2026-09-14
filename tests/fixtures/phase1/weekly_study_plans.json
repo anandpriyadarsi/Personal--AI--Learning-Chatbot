@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "plans": [
+    {
+      "id": "fixture-v91-plan",
+      "engine_version": "V9.1",
+      "course_id": "fixture-ma103n",
+      "created_at": "2026-01-01T00:00:00",
+      "days": [
+        {
+          "day": "Day 1",
+          "minutes": 60,
+          "tasks": [
+            "Linear Systems"
+          ]
+        },
+        {
+          "day": "Day 2",
+          "minutes": 60,
+          "tasks": [
+            "Row Reduction"
+          ]
+        },
+        {
+          "day": "Day 3",
+          "minutes": 60,
+          "tasks": [
+            "Rank"
+          ]
+        },
+        {
+          "day": "Day 4",
+          "minutes": 60,
+          "tasks": [
+            "Review"
+          ]
+        }
+      ],
+      "total_minutes": 240
+    }
+  ]
+}
