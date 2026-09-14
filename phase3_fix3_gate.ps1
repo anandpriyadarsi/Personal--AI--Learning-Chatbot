@@ -44,12 +44,27 @@ foreach ($path in $productionDbPaths) {
     }
 }
 
+$phase3Tests = @(
+    Get-ChildItem `
+        -Path "tests" `
+        -Filter "test_phase3_*.py" `
+        -File |
+        Sort-Object Name |
+        ForEach-Object { $_.FullName }
+)
+
+if ($phase3Tests.Count -eq 0) {
+    Stop-Gate "No Phase 3 test files were found under tests/."
+}
+
 Run-Step "[1/5] Phase 3.1 Fix 3 legacy scanner/ledger tests" {
-    & $PythonResolved -m pytest tests\test_phase3_legacy_migration_tooling.py -q
+    & $PythonResolved -m pytest `
+        tests\test_phase3_legacy_migration_tooling.py `
+        -q
 }
 
 Run-Step "[2/5] All Phase 3 tests" {
-    & $PythonResolved -m pytest tests\test_phase3_*.py -q
+    & $PythonResolved -m pytest $phase3Tests -q
 }
 
 Run-Step "[3/5] Full regression suite" {
