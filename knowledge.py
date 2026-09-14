@@ -68,57 +68,79 @@ STOP_WORDS = {
 }
 
 
-def find_documents(course_id=None):
-    documents = []
+def _build_knowledge_service():
+    """Build the Phase 2 read-only knowledge discovery service.
 
-    for folder in LOCAL_KNOWLEDGE_FOLDERS:
-        for root, dirs, files in os.walk(folder):
-            for file_name in files:
-                extension = os.path.splitext(
-                    file_name
-                )[1].lower()
-
-                if extension in SUPPORTED_EXTENSIONS:
-                    documents.append(
-                        os.path.join(
-                            root,
-                            file_name
-                        )
-                    )
-
-    # Direct Obsidian vault integration
-    documents.extend(
-        get_obsidian_markdown_files()
+    Pass the legacy module's current discovery configuration/providers
+    explicitly so existing monkeypatch/customization behavior remains
+    compatible during Phase 2.
+    """
+    from personal_learning_assistant.repositories.filesystem.knowledge_repository import (
+        LegacyFileKnowledgeRepository,
+    )
+    from personal_learning_assistant.services.knowledge_service import (
+        KnowledgeService,
     )
 
-    # Remove duplicates while preserving paths
-    unique_documents = list(
-        dict.fromkeys(
-            os.path.abspath(path)
-            for path in documents
+    return KnowledgeService(
+        LegacyFileKnowledgeRepository(
+            base_dir=BASE_DIR,
+            local_folders=LOCAL_KNOWLEDGE_FOLDERS,
+            obsidian_files_provider=get_obsidian_markdown_files,
+            vault_path_provider=get_vault_path,
         )
     )
 
-    documents = sorted(unique_documents)
+
+def find_documents(course_id=None):
+    """Compatibility facade over KnowledgeService document discovery."""
+    documents = [
+        item.path
+        for item in (
+            _build_knowledge_service()
+            .list_documents()
+            .documents
+        )
+    ]
 
     if course_id is None:
         return documents
 
+    # Phase 2 compatibility:
+    # course filtering still uses the existing course metadata facade.
+    # Raw filesystem/vault discovery is now owned by KnowledgeService.
     course = find_course(course_id)
     if course is None:
         return []
 
     course_documents = []
+
     for file_path in documents:
-        metadata = get_document_metadata(file_path)
-        extension = os.path.splitext(file_path)[1].lower()
-        if metadata["course_id"] is None and extension in {".md", ".txt"}:
+        metadata = get_document_metadata(
+            file_path
+        )
+        extension = os.path.splitext(
+            file_path
+        )[1].lower()
+
+        if (
+            metadata["course_id"] is None
+            and extension in {".md", ".txt"}
+        ):
             metadata = get_document_metadata(
                 file_path,
-                read_text_file(file_path)[:5000]
+                read_text_file(
+                    file_path
+                )[:5000],
             )
-        if metadata["course_id"] == course["id"]:
-            course_documents.append(file_path)
+
+        if (
+            metadata["course_id"]
+            == course["id"]
+        ):
+            course_documents.append(
+                file_path
+            )
 
     return course_documents
 
@@ -488,33 +510,12 @@ def retrieve_best_chunks(
 
 
 def describe_source(file_path):
-    vault_path = get_vault_path()
-
-    try:
-        inside_vault = (
-            vault_path
-            and os.path.commonpath([
-                os.path.abspath(file_path),
-                os.path.abspath(vault_path)
-            ]) == os.path.abspath(vault_path)
-        )
-    except (ValueError, OSError):
-        inside_vault = False
-
-    if inside_vault:
-        relative = os.path.relpath(
-            file_path,
-            vault_path
-        )
-
-        return (
-            f"Obsidian Vault: {relative}"
-        )
-
-    try:
-        return os.path.relpath(file_path, BASE_DIR)
-    except ValueError:
-        return os.path.abspath(file_path)
+    """Compatibility facade over KnowledgeService source description."""
+    return (
+        _build_knowledge_service()
+        .describe_document(file_path)
+        .display_name
+    )
 
 
 def show_knowledge_library(course_id=None):
