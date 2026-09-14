@@ -5,6 +5,7 @@ from typing import Any, Dict, Protocol
 
 CourseState = Dict[str, Any]
 AssessmentState = Dict[str, Any]
+QuestionState = Dict[str, Any]
 
 
 class CourseRepository(Protocol):
@@ -44,6 +45,18 @@ class AssessmentRepository(Protocol):
 
     def save_state(self, state: AssessmentState) -> AssessmentState:
         """Persist assessment state through the selected authoritative backend."""
+        ...
+
+
+class QuestionRepository(Protocol):
+    """Persistence boundary for the legacy assessment-question workspace."""
+
+    def load_state(self) -> QuestionState:
+        """Return question-workspace state without mutating storage."""
+        ...
+
+    def save_state(self, state: QuestionState) -> QuestionState:
+        """Persist question-workspace state through the selected authority."""
         ...
 
 

@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "workspaces": {
+    "fixture-assessment-quiz-1": {
+      "assessment_id": "fixture-assessment-quiz-1",
+      "created_at": "2026-09-15T00:00:00",
+      "updated_at": "2026-09-15T00:15:00",
+      "questions": [
+        {
+          "id": "fixture-question-1",
+          "text": "Solve the synthetic linear system.",
+          "topic": "Linear Systems",
+          "marks": 2.5,
+          "status": "attempted",
+          "notes": "Synthetic note only.",
+          "source_file": "Synthetic Problem Sheet.pdf",
+          "source_page": 3,
+          "source_question_number": "2(b)",
+          "created_at": "2026-09-15T00:01:00",
+          "updated_at": "2026-09-15T00:05:00",
+          "attempts": []
+        },
+        {
+          "id": "fixture-question-2",
+          "text": "Find the rank of the synthetic matrix.",
+          "topic": "",
+          "marks": null,
+          "status": "not_started",
+          "notes": "",
+          "source_file": "Synthetic Tutorial.md",
+          "source_page": 4,
+          "source_question_number": "4",
+          "created_at": "2026-09-15T00:02:00",
+          "updated_at": "2026-09-15T00:02:00",
+          "attempts": []
+        }
+      ]
+    },
+    "fixture-assessment-project-1": {
+      "assessment_id": "fixture-assessment-project-1",
+      "questions": [
+        {
+          "id": "fixture-question-3",
+          "text": "Explain the synthetic project result.",
+          "topic": null,
+          "marks": 5,
+          "status": "completed",
+          "notes": "",
+          "created_at": "2026-09-15T00:20:00",
+          "updated_at": "2026-09-15T00:25:00",
+          "attempts": []
+        }
+      ]
+    }
+  }
+}
