@@ -8,10 +8,6 @@ from obsidian_integration import (
     get_obsidian_markdown_files,
     get_vault_path
 )
-from course_manager import (
-    find_course,
-    get_document_metadata
-)
 
 
 KNOWLEDGE_DIR = os.path.join(
@@ -66,6 +62,45 @@ STOP_WORDS = {
     "would", "i", "me", "my", "we", "our", "you",
     "your"
 }
+
+
+def _build_course_knowledge_context():
+    """Build the Phase 2 read-only course context for knowledge filtering."""
+    from personal_learning_assistant.repositories.json.knowledge_course_context import (
+        LegacyJsonCourseKnowledgeContext,
+    )
+
+    return LegacyJsonCourseKnowledgeContext(
+        courses_file=os.path.join(
+            BASE_DIR,
+            "data",
+            "courses.json",
+        ),
+        base_dir=BASE_DIR,
+        vault_path_provider=get_vault_path,
+    )
+
+
+def find_course(identifier):
+    """Compatibility hook without importing legacy course_manager."""
+    return (
+        _build_course_knowledge_context()
+        .find_course(identifier)
+    )
+
+
+def get_document_metadata(
+    file_path,
+    content=None,
+):
+    """Compatibility hook without importing legacy course_manager."""
+    return (
+        _build_course_knowledge_context()
+        .get_document_metadata(
+            file_path,
+            content,
+        )
+    )
 
 
 def _build_knowledge_service():

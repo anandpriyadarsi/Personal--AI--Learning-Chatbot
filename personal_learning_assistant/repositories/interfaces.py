@@ -65,3 +65,18 @@ class KnowledgeRepository(Protocol):
     def get_vault_path(self):
         ...
 
+class CourseKnowledgeContext(Protocol):
+    # Read-only bridge used by Knowledge during Phase 2.
+
+    def find_course(
+        self,
+        identifier,
+    ):
+        ...
+
+    def get_document_metadata(
+        self,
+        file_path,
+        content=None,
+    ):
+        ...
