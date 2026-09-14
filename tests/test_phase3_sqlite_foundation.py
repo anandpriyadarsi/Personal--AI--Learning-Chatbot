@@ -100,13 +100,26 @@ def test_transaction_commits_and_rolls_back(tmp_path):
 
 def test_foundation_migration_is_idempotent(tmp_path):
     from personal_learning_assistant.repositories.sqlite.migration_runner import (
+        DEFAULT_MIGRATIONS_PATH,
         apply_migrations,
     )
 
+    migrations = tmp_path / "migrations"
+    migrations.mkdir()
+
+    foundation = DEFAULT_MIGRATIONS_PATH / "0001_foundation.sql"
+    (migrations / foundation.name).write_bytes(foundation.read_bytes())
+
     database_path = tmp_path / "learning_assistant.db"
 
-    assert apply_migrations(database_path) == (1,)
-    assert apply_migrations(database_path) == ()
+    assert apply_migrations(
+        database_path,
+        migrations_path=migrations,
+    ) == (1,)
+    assert apply_migrations(
+        database_path,
+        migrations_path=migrations,
+    ) == ()
 
     connection = sqlite3.connect(database_path)
     try:
