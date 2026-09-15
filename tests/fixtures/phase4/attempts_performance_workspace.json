@@ -1,0 +1,83 @@
+{
+  "version": 1,
+  "workspaces": {
+    "fixture-assessment-quiz-1": {
+      "assessment_id": "fixture-assessment-quiz-1",
+      "created_at": "2026-09-15T01:00:00",
+      "updated_at": "2026-09-15T01:30:00",
+      "questions": [
+        {
+          "id": "fixture-performance-question-1",
+          "text": "Solve the synthetic system and explain the pivot choice.",
+          "topic": "Linear Systems",
+          "marks": 4,
+          "status": "attempted",
+          "notes": "Synthetic performance fixture only.",
+          "created_at": "2026-09-15T01:01:00",
+          "updated_at": "2026-09-15T01:25:00",
+          "attempts": [
+            {
+              "time": "2026-09-15T01:05:00",
+              "outcome": "wrong",
+              "weight": 0.0,
+              "earned_marks": 0,
+              "max_marks": 4,
+              "mistake": "Synthetic top-level pivot mistake.",
+              "response_ref": "synthetic-response-top"
+            }
+          ],
+          "performance": {
+            "attempts": [
+              {
+                "time": "2026-09-15T01:10:00",
+                "outcome": "partially_correct",
+                "weight": 0.5,
+                "earned_marks": 2,
+                "max_marks": 4,
+                "mistake": "Synthetic row-operation mistake.",
+                "response": {"answer": "synthetic partial"},
+                "feedback": "Synthetic feedback."
+              },
+              {
+                "time": "2026-09-15T01:20:00",
+                "outcome": "correct",
+                "weight": 1.0,
+                "earned_marks": 4,
+                "max_marks": 4,
+                "mistake": ""
+              }
+            ],
+            "mistakes": [
+              {
+                "time": "2026-09-15T01:12:00",
+                "text": "Synthetic standalone mistake kept for review only."
+              }
+            ]
+          }
+        },
+        {
+          "id": "fixture-performance-question-2",
+          "text": "Find the rank of the synthetic matrix.",
+          "topic": "Matrix Rank",
+          "marks": 3,
+          "status": "stuck",
+          "notes": "",
+          "created_at": "2026-09-15T01:02:00",
+          "updated_at": "2026-09-15T01:28:00",
+          "performance": {
+            "attempts": [
+              {
+                "time": "2026-09-15T01:28:00",
+                "outcome": "stuck",
+                "earned_marks": null,
+                "max_marks": 3,
+                "mistake": "Synthetic rank setup difficulty."
+              }
+            ],
+            "mistakes": []
+          }
+        }
+      ]
+    }
+  }
+}
