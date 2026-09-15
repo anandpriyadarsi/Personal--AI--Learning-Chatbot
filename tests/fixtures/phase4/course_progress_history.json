@@ -1,0 +1,77 @@
+{
+  "version": 1,
+  "courses": {
+    "fixture-ma103n": [
+      {
+        "captured_at": "2026-09-01T18:00:00",
+        "date": "2026-09-01",
+        "course_id": "fixture-ma103n",
+        "course_code": "MA103N",
+        "course_name": "Synthetic Linear Algebra",
+        "total_topics": 2,
+        "mastered_topics": 0,
+        "progress_percent": 0,
+        "average_confidence": 1.0,
+        "status_counts": {
+          "not_started": 1,
+          "learning": 1,
+          "practiced": 0,
+          "review": 0,
+          "weak": 0,
+          "mastered": 0,
+          "other": 0
+        },
+        "weak_topics": [],
+        "missing_topics": [
+          "LU Factorization"
+        ]
+      },
+      {
+        "captured_at": "2026-09-08T18:00:00",
+        "date": "2026-09-08",
+        "course_id": "fixture-ma103n",
+        "course_code": "MA103N",
+        "course_name": "Synthetic Linear Algebra",
+        "total_topics": 2,
+        "mastered_topics": 1,
+        "progress_percent": 50,
+        "average_confidence": 2.5,
+        "status_counts": {
+          "not_started": 0,
+          "learning": 1,
+          "practiced": 0,
+          "review": 0,
+          "weak": 0,
+          "mastered": 1,
+          "other": 0
+        },
+        "weak_topics": [],
+        "missing_topics": []
+      }
+    ],
+    "fixture-cy100n": [
+      {
+        "captured_at": "2026-09-08T18:05:00",
+        "date": "2026-09-08",
+        "course_id": "fixture-cy100n",
+        "course_code": "CY100N",
+        "course_name": "Synthetic Engineering Chemistry",
+        "total_topics": 0,
+        "mastered_topics": 0,
+        "progress_percent": 0,
+        "average_confidence": 0,
+        "status_counts": {
+          "not_started": 0,
+          "learning": 0,
+          "practiced": 0,
+          "review": 0,
+          "weak": 0,
+          "mastered": 0,
+          "other": 0
+        },
+        "weak_topics": [],
+        "missing_topics": []
+      }
+    ]
+  }
+}

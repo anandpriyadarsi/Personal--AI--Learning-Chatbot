@@ -1,0 +1,58 @@
+{
+  "version": 2,
+  "weak_topics": [
+    "Global Raw Weak"
+  ],
+  "mastered_topics": [
+    "Global Mastered"
+  ],
+  "recent_activity": [
+    {
+      "mode": "Academic Study",
+      "question": "Reviewed a general study strategy.",
+      "topic": "",
+      "time": "2026-09-10T08:00:00"
+    }
+  ],
+  "notes": [
+    {
+      "text": "Synthetic global learning note.",
+      "created_at": "2026-09-10T08:05:00"
+    }
+  ],
+  "course_memory": {
+    "fixture-ma103n": {
+      "weak_topics": [
+        "Linear Systems"
+      ],
+      "mastered_topics": [
+        "LU Factorization"
+      ],
+      "recent_activity": [
+        {
+          "mode": "Academic Study",
+          "question": "Practiced two row-reduction questions.",
+          "topic": "Linear Systems",
+          "time": "2026-09-10T10:30:00"
+        }
+      ],
+      "notes": [
+        {
+          "text": "Review elimination pivoting carefully.",
+          "created_at": "2026-09-10T10:00:00"
+        }
+      ]
+    },
+    "fixture-cy100n": {
+      "weak_topics": [],
+      "mastered_topics": [],
+      "recent_activity": [],
+      "notes": [
+        {
+          "text": "Synthetic chemistry memory note.",
+          "created_at": "2026-09-11T09:00:00"
+        }
+      ]
+    }
+  }
+}
