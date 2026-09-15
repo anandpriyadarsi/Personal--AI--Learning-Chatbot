@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "semester_name": "Semester 1",
+  "target_sgpa": 8.5,
+  "grade_scale": [
+    {
+      "letter": "A",
+      "min_score": 80,
+      "grade_point": 9
+    },
+    {
+      "letter": "B",
+      "min_score": 60,
+      "grade_point": 7
+    },
+    {
+      "letter": "F",
+      "min_score": 0,
+      "grade_point": 0
+    }
+  ],
+  "courses": [
+    {
+      "course_id": "fixture-ma103n",
+      "credits": 4,
+      "manual_grade_point": 9,
+      "manual_letter_grade": "A"
+    },
+    {
+      "course_id": "fixture-cy100n",
+      "credits": 3,
+      "manual_grade_point": null,
+      "manual_letter_grade": null
+    }
+  ],
+  "semester_result": {
+    "earned_credits": 7,
+    "earned_grade_points": 60,
+    "sgpa": 8.571,
+    "verified": false,
+    "source": "synthetic Phase 4.8 fixture",
+    "recorded_at": "2026-09-15T09:00:00"
+  }
+}
