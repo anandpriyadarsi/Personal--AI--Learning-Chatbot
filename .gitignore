@@ -67,3 +67,8 @@ data/resources.json
 .venv/
 phase1_pip_freeze.txt
 
+# Phase 4 local authority/runtime state (never commit)
+.phase4_authority.json
+.phase4_cutover.lock
+.phase4_cutover_work/
+PROMOTION_REQUIRES_ATTENTION.json
