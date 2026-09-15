@@ -1,0 +1,65 @@
+{
+  "version": 1,
+  "plans": [
+    {
+      "id": "synthetic-v11-today",
+      "kind": "today",
+      "engine_version": "V11",
+      "created_at": "2026-09-15T06:10:00",
+      "date": "2026-09-15",
+      "available_minutes": 90,
+      "unused_minutes": 0,
+      "courses": [
+        {"id": "fixture-ma103n", "code": "MA103N", "name": "Synthetic Linear Algebra"}
+      ],
+      "sessions": [
+        {
+          "course_id": "fixture-ma103n",
+          "course_code": "MA103N",
+          "course_name": "Synthetic Linear Algebra",
+          "topic": "Linear Systems",
+          "status": "weak",
+          "score": 108.0,
+          "reasons": ["marked weak", "assessment evidence shows weakness"],
+          "assessments": ["Synthetic Quiz"],
+          "minutes": 90,
+          "actions": ["Repair the exact weak point", "Solve 2-3 questions"]
+        }
+      ]
+    },
+    {
+      "id": "synthetic-v11-week",
+      "kind": "week",
+      "engine_version": "V11",
+      "created_at": "2026-09-15T06:15:00",
+      "start_date": "2026-09-15",
+      "study_days": 1,
+      "minutes_per_day": 75,
+      "courses": [
+        {"id": "fixture-ma103n", "code": "MA103N", "name": "Synthetic Linear Algebra"}
+      ],
+      "days": [
+        {
+          "date": "2026-09-15",
+          "day": "Tuesday",
+          "available_minutes": 75,
+          "unused_minutes": 0,
+          "sessions": [
+            {
+              "course_id": "fixture-ma103n",
+              "course_code": "MA103N",
+              "course_name": "Synthetic Linear Algebra",
+              "topic": "Linear Systems",
+              "status": "weak",
+              "score": 100.0,
+              "reasons": ["marked weak"],
+              "assessments": [],
+              "minutes": 75,
+              "actions": ["Relearn the core idea", "Do two independent questions"]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
