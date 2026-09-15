@@ -15,6 +15,10 @@ from personal_learning_assistant.repositories.authority_guard import (
     guard_legacy_structured_write,
     infer_authority_control_path,
 )
+from personal_learning_assistant.repositories.structured_authority_router import (
+    maybe_load_sqlite_structured_store,
+    maybe_save_sqlite_structured_store,
+)
 from course_manager import find_course
 from assignment_exam_assistant import (
     choose_assessment,
@@ -55,6 +59,9 @@ def default_store():
 
 
 def load_store():
+    routed = maybe_load_sqlite_structured_store("assessment_workspace", WORKSPACE_FILE)
+    if routed is not None:
+        return routed
     os.makedirs(DATA_DIR, exist_ok=True)
 
     if not os.path.exists(WORKSPACE_FILE):
@@ -80,6 +87,8 @@ def load_store():
 
 
 def save_store(store):
+    if maybe_save_sqlite_structured_store("assessment_workspace", WORKSPACE_FILE, store):
+        return
     guard_legacy_structured_write(infer_authority_control_path(WORKSPACE_FILE))
     os.makedirs(DATA_DIR, exist_ok=True)
     temp_file = WORKSPACE_FILE + ".tmp"

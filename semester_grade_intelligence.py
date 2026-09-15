@@ -24,6 +24,10 @@ from personal_learning_assistant.repositories.authority_guard import (
     guard_legacy_structured_write,
     infer_authority_control_path,
 )
+from personal_learning_assistant.repositories.structured_authority_router import (
+    maybe_load_sqlite_structured_store,
+    maybe_save_sqlite_structured_store,
+)
 from course_manager import choose_course, find_course
 from assignment_exam_assistant import (
     list_assessments,
@@ -75,6 +79,16 @@ def default_config():
 
 
 def load_config():
+    routed = maybe_load_sqlite_structured_store("semester_grade_config", GRADE_CONFIG_FILE)
+    if routed is not None:
+        config = default_config()
+        if isinstance(routed, dict):
+            config.update(routed)
+        if not isinstance(config.get("courses"), list):
+            config["courses"] = []
+        if not isinstance(config.get("grade_scale"), list) or not config["grade_scale"]:
+            config["grade_scale"] = deepcopy(DEFAULT_GRADE_SCALE)
+        return config
     os.makedirs(
         DATA_DIR,
         exist_ok=True
@@ -119,6 +133,8 @@ def load_config():
 
 
 def save_config(config):
+    if maybe_save_sqlite_structured_store("semester_grade_config", GRADE_CONFIG_FILE, config):
+        return
     guard_legacy_structured_write(infer_authority_control_path(GRADE_CONFIG_FILE))
     os.makedirs(
         DATA_DIR,

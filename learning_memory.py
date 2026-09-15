@@ -15,6 +15,10 @@ from personal_learning_assistant.repositories.authority_guard import (
     guard_legacy_structured_write,
     infer_authority_control_path,
 )
+from personal_learning_assistant.repositories.structured_authority_router import (
+    maybe_load_sqlite_structured_store,
+    maybe_save_sqlite_structured_store,
+)
 
 
 DATA_DIR = os.path.join(BASE_DIR, "data")
@@ -149,6 +153,9 @@ def ensure_memory_file():
 
 
 def load_memory():
+    routed = maybe_load_sqlite_structured_store("learning_memory", MEMORY_FILE)
+    if routed is not None:
+        return _normalise_memory(routed)
     ensure_memory_file()
 
     try:
@@ -159,9 +166,11 @@ def load_memory():
 
 
 def save_memory(memory):
+    normalised = _normalise_memory(memory)
+    if maybe_save_sqlite_structured_store("learning_memory", MEMORY_FILE, normalised):
+        return
     guard_legacy_structured_write(infer_authority_control_path(MEMORY_FILE))
     os.makedirs(os.path.dirname(MEMORY_FILE), exist_ok=True)
-    normalised = _normalise_memory(memory)
     temporary_file = MEMORY_FILE + ".tmp"
 
     with open(temporary_file, "w", encoding="utf-8") as file:

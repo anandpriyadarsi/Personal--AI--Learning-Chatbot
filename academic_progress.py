@@ -15,6 +15,10 @@ from personal_learning_assistant.repositories.authority_guard import (
     guard_legacy_structured_write,
     infer_authority_control_path,
 )
+from personal_learning_assistant.repositories.structured_authority_router import (
+    maybe_load_sqlite_structured_store,
+    maybe_save_sqlite_structured_store,
+)
 from course_manager import (
     choose_course,
     find_course,
@@ -57,6 +61,14 @@ def default_history():
 
 
 def load_history():
+    routed = maybe_load_sqlite_structured_store("course_progress_history", HISTORY_FILE)
+    if routed is not None:
+        if not isinstance(routed, dict):
+            return default_history()
+        courses = routed.get("courses")
+        if not isinstance(courses, dict):
+            courses = {}
+        return {"version": HISTORY_VERSION, "courses": courses}
     if not os.path.exists(HISTORY_FILE):
         return default_history()
 
@@ -80,6 +92,8 @@ def load_history():
 
 
 def save_history(data):
+    if maybe_save_sqlite_structured_store("course_progress_history", HISTORY_FILE, data):
+        return
     guard_legacy_structured_write(infer_authority_control_path(HISTORY_FILE))
     os.makedirs(DATA_DIR, exist_ok=True)
     temporary = HISTORY_FILE + ".tmp"

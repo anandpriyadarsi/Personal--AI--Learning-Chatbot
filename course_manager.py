@@ -15,6 +15,10 @@ from personal_learning_assistant.repositories.authority_guard import (
     guard_legacy_structured_write,
     infer_authority_control_path,
 )
+from personal_learning_assistant.repositories.structured_authority_router import (
+    maybe_load_sqlite_structured_store,
+    maybe_save_sqlite_structured_store,
+)
 
 
 DATA_DIR = os.path.join(BASE_DIR, "data")
@@ -199,6 +203,9 @@ def ensure_courses_file():
 
 
 def load_course_data():
+    routed = maybe_load_sqlite_structured_store("courses", COURSES_FILE)
+    if routed is not None:
+        return routed
     ensure_courses_file()
 
     try:
@@ -209,6 +216,8 @@ def load_course_data():
 
 
 def save_course_data(data):
+    if maybe_save_sqlite_structured_store("courses", COURSES_FILE, data):
+        return
     guard_legacy_structured_write(infer_authority_control_path(COURSES_FILE))
     os.makedirs(os.path.dirname(COURSES_FILE), exist_ok=True)
     normalised = _normalise_data(data)
@@ -229,15 +238,15 @@ def _build_course_service():
     A fresh service is returned on every call so tests and callers that
     temporarily replace COURSES_FILE continue to work correctly.
     """
-    from personal_learning_assistant.repositories.json.course_repository import (
-        LegacyJsonCourseRepository,
+    from personal_learning_assistant.repositories.routed_course_repository import (
+        RoutedCourseRepository,
     )
     from personal_learning_assistant.services.course_service import (
         CourseService,
     )
 
     return CourseService(
-        LegacyJsonCourseRepository(
+        RoutedCourseRepository(
             COURSES_FILE
         ),
         now=_now,

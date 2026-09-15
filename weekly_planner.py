@@ -15,6 +15,10 @@ from personal_learning_assistant.repositories.authority_guard import (
     guard_legacy_structured_write,
     infer_authority_control_path,
 )
+from personal_learning_assistant.repositories.structured_authority_router import (
+    maybe_load_sqlite_structured_store,
+    maybe_save_sqlite_structured_store,
+)
 from course_manager import choose_course, find_course, get_active_course
 from academic_progress import (
     rank_course_topics,
@@ -49,6 +53,10 @@ def default_store():
 
 
 def load_store():
+    routed = maybe_load_sqlite_structured_store("weekly_study_plans", PLANS_FILE)
+    if routed is not None:
+        plans = routed.get("plans", []) if isinstance(routed, dict) else []
+        return {"version": PLAN_VERSION, "plans": plans[-MAX_SAVED_PLANS:] if isinstance(plans, list) else []}
     os.makedirs(DATA_DIR, exist_ok=True)
 
     if not os.path.exists(PLANS_FILE):
@@ -74,6 +82,8 @@ def load_store():
 
 
 def save_store(store):
+    if maybe_save_sqlite_structured_store("weekly_study_plans", PLANS_FILE, store):
+        return
     guard_legacy_structured_write(infer_authority_control_path(PLANS_FILE))
     os.makedirs(DATA_DIR, exist_ok=True)
     temporary = PLANS_FILE + ".tmp"

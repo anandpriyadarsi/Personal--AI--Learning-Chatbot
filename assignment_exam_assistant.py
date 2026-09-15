@@ -13,6 +13,10 @@ from personal_learning_assistant.repositories.authority_guard import (
     guard_legacy_structured_write,
     infer_authority_control_path,
 )
+from personal_learning_assistant.repositories.structured_authority_router import (
+    maybe_load_sqlite_structured_store,
+    maybe_save_sqlite_structured_store,
+)
 from course_manager import choose_course, find_course
 from academic_progress import rank_course_topics, print_progress_dashboard
 from rag_answer import (
@@ -63,6 +67,9 @@ def default_store():
 
 
 def load_store():
+    routed = maybe_load_sqlite_structured_store("assessments", ASSESSMENTS_FILE)
+    if routed is not None:
+        return routed
     os.makedirs(DATA_DIR, exist_ok=True)
 
     if not os.path.exists(ASSESSMENTS_FILE):
@@ -88,6 +95,8 @@ def load_store():
 
 
 def save_store(store):
+    if maybe_save_sqlite_structured_store("assessments", ASSESSMENTS_FILE, store):
+        return
     guard_legacy_structured_write(infer_authority_control_path(ASSESSMENTS_FILE))
     os.makedirs(DATA_DIR, exist_ok=True)
     temp_file = ASSESSMENTS_FILE + ".tmp"
