@@ -12,17 +12,31 @@ from typing import Optional
 
 import personal_learning_assistant.domain.course_normalization as course_manager
 
+from personal_learning_assistant.repositories.authority_guard import (
+    guard_legacy_structured_write,
+    infer_authority_control_path,
+)
 from personal_learning_assistant.repositories.interfaces import CourseState
 
 
 class LegacyJsonCourseRepository:
     """Read/write adapter for the existing ``data/courses.json`` store."""
 
-    def __init__(self, path: Optional[os.PathLike] = None):
+    def __init__(
+        self,
+        path: Optional[os.PathLike] = None,
+        *,
+        authority_control_path: Optional[os.PathLike] = None,
+    ):
         self.path = Path(
             path
             if path is not None
             else course_manager.COURSES_FILE
+        )
+        self.authority_control_path = Path(
+            authority_control_path
+            if authority_control_path is not None
+            else infer_authority_control_path(self.path)
         )
 
     def load_state(self) -> CourseState:
@@ -56,6 +70,7 @@ class LegacyJsonCourseRepository:
         state: CourseState,
     ) -> CourseState:
         """Explicitly persist using the current legacy normalization rules."""
+        guard_legacy_structured_write(self.authority_control_path)
         normalized = course_manager._normalise_data(
             state
         )

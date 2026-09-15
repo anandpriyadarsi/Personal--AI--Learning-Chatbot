@@ -11,6 +11,10 @@ import os
 from datetime import date, datetime, timedelta
 
 from knowledge_paths import BASE_DIR
+from personal_learning_assistant.repositories.authority_guard import (
+    guard_legacy_structured_write,
+    infer_authority_control_path,
+)
 from course_manager import choose_course, find_course, get_active_course
 from academic_progress import (
     rank_course_topics,
@@ -70,6 +74,7 @@ def load_store():
 
 
 def save_store(store):
+    guard_legacy_structured_write(infer_authority_control_path(PLANS_FILE))
     os.makedirs(DATA_DIR, exist_ok=True)
     temporary = PLANS_FILE + ".tmp"
 

@@ -13,6 +13,11 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any, Dict, Mapping, Optional, Union
 
+from personal_learning_assistant.repositories.authority_guard import (
+    guard_legacy_structured_write,
+    infer_authority_control_path,
+)
+
 
 GRADE_CONFIG_VERSION = 1
 ASSESSMENT_VERSION = 2
@@ -66,9 +71,17 @@ class LegacyJsonGradeCalendarRepository:
         *,
         grade_config_path: Union[str, Path] = "data/semester_grade_config.json",
         assessments_path: Union[str, Path] = "data/assessments.json",
+        authority_control_path: Optional[Union[str, Path]] = None,
     ) -> None:
         self.grade_config_path = Path(grade_config_path)
         self.assessments_path = Path(assessments_path)
+        self.authority_control_path = Path(
+            authority_control_path
+            if authority_control_path is not None
+            else infer_authority_control_path(
+                self.grade_config_path, self.assessments_path
+            )
+        )
 
     def grade_source_present(self) -> bool:
         return self.grade_config_path.exists()
@@ -133,6 +146,7 @@ class LegacyJsonGradeCalendarRepository:
         }
 
     def save_grade_config(self, config: Mapping[str, Any]) -> Dict[str, Any]:
+        guard_legacy_structured_write(self.authority_control_path)
         payload = deepcopy(dict(config))
         self.grade_config_path.parent.mkdir(parents=True, exist_ok=True)
         temporary = Path(str(self.grade_config_path) + ".tmp")

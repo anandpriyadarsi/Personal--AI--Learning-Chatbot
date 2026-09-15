@@ -11,6 +11,10 @@ import os
 from datetime import datetime, timedelta
 
 from knowledge_paths import BASE_DIR
+from personal_learning_assistant.repositories.authority_guard import (
+    guard_legacy_structured_write,
+    infer_authority_control_path,
+)
 from course_manager import (
     choose_course,
     find_course,
@@ -76,6 +80,7 @@ def load_history():
 
 
 def save_history(data):
+    guard_legacy_structured_write(infer_authority_control_path(HISTORY_FILE))
     os.makedirs(DATA_DIR, exist_ok=True)
     temporary = HISTORY_FILE + ".tmp"
 

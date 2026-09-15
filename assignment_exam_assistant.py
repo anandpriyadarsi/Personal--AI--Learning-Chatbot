@@ -9,6 +9,10 @@ import os
 from datetime import date, datetime
 
 from knowledge_paths import BASE_DIR
+from personal_learning_assistant.repositories.authority_guard import (
+    guard_legacy_structured_write,
+    infer_authority_control_path,
+)
 from course_manager import choose_course, find_course
 from academic_progress import rank_course_topics, print_progress_dashboard
 from rag_answer import (
@@ -84,6 +88,7 @@ def load_store():
 
 
 def save_store(store):
+    guard_legacy_structured_write(infer_authority_control_path(ASSESSMENTS_FILE))
     os.makedirs(DATA_DIR, exist_ok=True)
     temp_file = ASSESSMENTS_FILE + ".tmp"
 

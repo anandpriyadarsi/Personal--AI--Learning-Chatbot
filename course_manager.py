@@ -11,6 +11,10 @@ import re
 from datetime import datetime
 
 from knowledge_paths import BASE_DIR
+from personal_learning_assistant.repositories.authority_guard import (
+    guard_legacy_structured_write,
+    infer_authority_control_path,
+)
 
 
 DATA_DIR = os.path.join(BASE_DIR, "data")
@@ -205,6 +209,7 @@ def load_course_data():
 
 
 def save_course_data(data):
+    guard_legacy_structured_write(infer_authority_control_path(COURSES_FILE))
     os.makedirs(os.path.dirname(COURSES_FILE), exist_ok=True)
     normalised = _normalise_data(data)
     temporary_file = COURSES_FILE + ".tmp"

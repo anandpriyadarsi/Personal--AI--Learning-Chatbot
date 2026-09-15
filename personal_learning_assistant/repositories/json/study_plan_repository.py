@@ -13,6 +13,11 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any, Dict, Mapping, Optional, Union
 
+from personal_learning_assistant.repositories.authority_guard import (
+    guard_legacy_structured_write,
+    infer_authority_control_path,
+)
+
 
 DEFAULT_STORE = {"version": 1, "plans": []}
 
@@ -31,10 +36,18 @@ class LegacyJsonStudyPlanRepository:
         weekly_path: Union[str, Path] = "data/weekly_study_plans.json",
         multi_course_path: Union[str, Path] = "data/multi_course_weekly_plans.json",
         intelligent_path: Union[str, Path] = "data/intelligent_study_plans.json",
+        authority_control_path: Optional[Union[str, Path]] = None,
     ) -> None:
         self.weekly_path = Path(weekly_path)
         self.multi_course_path = Path(multi_course_path)
         self.intelligent_path = Path(intelligent_path)
+        self.authority_control_path = Path(
+            authority_control_path
+            if authority_control_path is not None
+            else infer_authority_control_path(
+                self.weekly_path, self.multi_course_path, self.intelligent_path
+            )
+        )
 
     @staticmethod
     def _read_store(path: Path, *, optional: bool = False) -> Optional[Dict[str, Any]]:
@@ -82,12 +95,15 @@ class LegacyJsonStudyPlanRepository:
         }
 
     def save_weekly_store(self, value: Mapping[str, Any]) -> None:
+        guard_legacy_structured_write(self.authority_control_path)
         self._write_store(self.weekly_path, value)
 
     def save_multi_course_store(self, value: Mapping[str, Any]) -> None:
+        guard_legacy_structured_write(self.authority_control_path)
         self._write_store(self.multi_course_path, value)
 
     def save_intelligent_store(self, value: Mapping[str, Any]) -> None:
+        guard_legacy_structured_write(self.authority_control_path)
         self._write_store(self.intelligent_path, value)
 
     def save_state(self, state: Mapping[str, Any]) -> None:

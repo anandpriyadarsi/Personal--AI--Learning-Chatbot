@@ -20,6 +20,10 @@ import os
 from copy import deepcopy
 
 from knowledge_paths import BASE_DIR
+from personal_learning_assistant.repositories.authority_guard import (
+    guard_legacy_structured_write,
+    infer_authority_control_path,
+)
 from course_manager import choose_course, find_course
 from assignment_exam_assistant import (
     list_assessments,
@@ -115,6 +119,7 @@ def load_config():
 
 
 def save_config(config):
+    guard_legacy_structured_write(infer_authority_control_path(GRADE_CONFIG_FILE))
     os.makedirs(
         DATA_DIR,
         exist_ok=True

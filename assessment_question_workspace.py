@@ -11,6 +11,10 @@ import re
 from datetime import datetime
 
 from knowledge_paths import BASE_DIR
+from personal_learning_assistant.repositories.authority_guard import (
+    guard_legacy_structured_write,
+    infer_authority_control_path,
+)
 from course_manager import find_course
 from assignment_exam_assistant import (
     choose_assessment,
@@ -76,6 +80,7 @@ def load_store():
 
 
 def save_store(store):
+    guard_legacy_structured_write(infer_authority_control_path(WORKSPACE_FILE))
     os.makedirs(DATA_DIR, exist_ok=True)
     temp_file = WORKSPACE_FILE + ".tmp"
 

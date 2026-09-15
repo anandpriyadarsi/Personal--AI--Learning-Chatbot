@@ -15,6 +15,11 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any, Dict, Mapping, Optional, Union
 
+from personal_learning_assistant.repositories.authority_guard import (
+    guard_legacy_structured_write,
+    infer_authority_control_path,
+)
+
 
 MEMORY_VERSION = 2
 HISTORY_VERSION = 1
@@ -191,10 +196,18 @@ class LegacyJsonLearningProgressRepository:
         memory_path: Optional[Union[str, Path]] = None,
         progress_path: Optional[Union[str, Path]] = None,
         courses_path: Optional[Union[str, Path]] = None,
+        authority_control_path: Optional[Union[str, Path]] = None,
     ):
         self.memory_path = Path(memory_path or "data/learning_memory.json")
         self.progress_path = Path(progress_path or "data/course_progress_history.json")
         self.courses_path = Path(courses_path or "data/courses.json")
+        self.authority_control_path = Path(
+            authority_control_path
+            if authority_control_path is not None
+            else infer_authority_control_path(
+                self.memory_path, self.progress_path, self.courses_path
+            )
+        )
 
     def load_memory(self) -> Dict[str, Any]:
         data = _load_json(self.memory_path)
@@ -309,9 +322,11 @@ class LegacyJsonLearningProgressRepository:
         }
 
     def save_memory(self, memory: Mapping[str, Any]) -> None:
+        guard_legacy_structured_write(self.authority_control_path)
         _write_json_atomic(self.memory_path, _normalize_memory(memory))
 
     def save_progress_history(self, history: Mapping[str, Any]) -> None:
+        guard_legacy_structured_write(self.authority_control_path)
         courses = history.get("courses", {}) if isinstance(history, Mapping) else {}
         if not isinstance(courses, Mapping):
             courses = {}

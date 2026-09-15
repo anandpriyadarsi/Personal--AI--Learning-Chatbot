@@ -15,6 +15,10 @@ from pathlib import Path
 from typing import Optional
 
 from config import BASE_PATH
+from personal_learning_assistant.repositories.authority_guard import (
+    guard_legacy_structured_write,
+    infer_authority_control_path,
+)
 from personal_learning_assistant.repositories.interfaces import AssessmentState
 
 
@@ -25,9 +29,19 @@ MAX_ASSESSMENTS = 200
 class LegacyJsonAssessmentRepository:
     """Read/write adapter for the existing ``data/assessments.json`` store."""
 
-    def __init__(self, path: Optional[os.PathLike] = None):
+    def __init__(
+        self,
+        path: Optional[os.PathLike] = None,
+        *,
+        authority_control_path: Optional[os.PathLike] = None,
+    ):
         self.path = Path(
             path if path is not None else BASE_PATH / "data" / "assessments.json"
+        )
+        self.authority_control_path = Path(
+            authority_control_path
+            if authority_control_path is not None
+            else infer_authority_control_path(self.path)
         )
 
     @staticmethod
@@ -62,6 +76,7 @@ class LegacyJsonAssessmentRepository:
 
     def save_state(self, state: AssessmentState) -> AssessmentState:
         """Persist only through the legacy JSON authority."""
+        guard_legacy_structured_write(self.authority_control_path)
         payload = deepcopy(state)
         if not isinstance(payload, dict):
             raise TypeError("assessment state must be a dictionary")
