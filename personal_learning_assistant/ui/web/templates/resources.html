@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block title %}Resources · Personal AI Learning Assistant{% endblock %}
+
+{% block content %}
+<section class="hero dashboard-hero" aria-labelledby="resources-title">
+  <div>
+    <p class="eyebrow">Learning resource library</p>
+    <h2 id="resources-title">Resources</h2>
+    <p class="lede">Browse the resources and progress labels already stored in your learning assistant.</p>
+  </div>
+  {% if dashboard.available %}<p class="date-chip">{{ dashboard.summary.total }} resource{% if dashboard.summary.total != 1 %}s{% endif %}</p>{% endif %}
+</section>
+
+{% if not dashboard.available %}
+<section class="notice-panel" aria-live="polite">
+  <h3>Resources are temporarily unavailable</h3>
+  <p>{{ dashboard.message }}</p>
+</section>
+{% else %}
+<section class="metric-grid" aria-label="Resources summary">
+  <article class="metric-card"><span class="metric-label">Resources</span><strong>{{ dashboard.summary.total }}</strong><span>{{ dashboard.summary.types }} stored type{% if dashboard.summary.types != 1 %}s{% endif %}</span></article>
+  <article class="metric-card"><span class="metric-label">Not started</span><strong>{{ dashboard.summary.not_started }}</strong><span>Waiting to begin</span></article>
+  <article class="metric-card"><span class="metric-label">In progress</span><strong>{{ dashboard.summary.in_progress }}</strong><span>Currently using</span></article>
+  <article class="metric-card"><span class="metric-label">Completed</span><strong>{{ dashboard.summary.completed }}</strong><span>Finished resources</span></article>
+</section>
+
+<section class="dashboard-panel" aria-labelledby="resource-library-heading">
+  <div class="panel-heading">
+    <div><p class="eyebrow">Existing material</p><h3 id="resource-library-heading">Resource library</h3></div>
+    <span class="tag">Read only</span>
+  </div>
+
+  {% if not dashboard.resources %}
+    <p class="empty-state"><strong>No resources are stored yet.</strong> This page did not create or modify resource data.</p>
+  {% else %}
+    <ul class="dashboard-list" aria-label="Stored resources">
+      {% for resource in dashboard.resources %}
+      <li>
+        <div class="list-main">
+          <strong>{{ resource.title }}</strong>
+          <span>{{ resource.resource_type }} · {{ resource.status }}</span>
+          {% if resource.link %}
+            {% if resource.link_url %}
+              <a href="{{ resource.link_url }}" target="_blank" rel="noopener noreferrer">Open stored link</a>
+            {% else %}
+              <span>{{ resource.link }}</span>
+            {% endif %}
+          {% else %}
+            <span>No link stored</span>
+          {% endif %}
+        </div>
+        <span class="tag">{{ resource.status }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}

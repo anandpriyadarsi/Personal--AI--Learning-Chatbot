@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}Notes · Personal AI Learning Assistant{% endblock %}
+
+{% block content %}
+<section class="hero dashboard-hero" aria-labelledby="notes-title">
+  <div>
+    <p class="eyebrow">Academic notes library</p>
+    <h2 id="notes-title">Notes</h2>
+    <p class="lede">Read the notes already stored in your learning assistant. This page does not create or edit notes.</p>
+  </div>
+  {% if dashboard.available %}<p class="date-chip">{{ dashboard.summary.total }} note{% if dashboard.summary.total != 1 %}s{% endif %}</p>{% endif %}
+</section>
+
+{% if not dashboard.available %}
+<section class="notice-panel" aria-live="polite">
+  <h3>Notes are temporarily unavailable</h3>
+  <p>{{ dashboard.message }}</p>
+</section>
+{% else %}
+<section class="metric-grid" aria-label="Notes summary">
+  <article class="metric-card"><span class="metric-label">Notes</span><strong>{{ dashboard.summary.total }}</strong><span>Stored note records</span></article>
+  <article class="metric-card"><span class="metric-label">Topics</span><strong>{{ dashboard.summary.topics }}</strong><span>Distinct note topics</span></article>
+  <article class="metric-card"><span class="metric-label">Difficulty labels</span><strong>{{ dashboard.summary.difficulties }}</strong><span>As already stored</span></article>
+</section>
+
+<section class="dashboard-panel" aria-labelledby="notes-library-heading">
+  <div class="panel-heading">
+    <div><p class="eyebrow">Existing material</p><h3 id="notes-library-heading">Notes library</h3></div>
+    <span class="tag">Read only</span>
+  </div>
+
+  {% if not dashboard.notes %}
+    <p class="empty-state"><strong>No notes are stored yet.</strong> This page did not create or modify note data.</p>
+  {% else %}
+    <div class="dashboard-grid">
+      {% for note in dashboard.notes %}
+      <article class="dashboard-panel">
+        <div class="panel-heading">
+          <div><p class="eyebrow">{{ note.topic }}</p><h3>{{ note.title }}</h3></div>
+          <span class="tag">{{ note.difficulty }}</span>
+        </div>
+        {% if note.content %}
+          <details>
+            <summary>Read note</summary>
+            <p class="empty-state">{{ note.content }}</p>
+          </details>
+        {% else %}
+          <p class="empty-state">This note has no stored content.</p>
+        {% endif %}
+      </article>
+      {% endfor %}
+    </div>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}

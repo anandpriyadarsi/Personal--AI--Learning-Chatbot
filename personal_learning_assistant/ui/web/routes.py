@@ -20,6 +20,12 @@ from personal_learning_assistant.services.home_dashboard_service import (
     load_home_dashboard,
     unavailable_home_dashboard,
 )
+from personal_learning_assistant.services.notes_resources_dashboard_service import (
+    load_notes_dashboard,
+    load_resources_dashboard,
+    unavailable_notes_dashboard,
+    unavailable_resources_dashboard,
+)
 from personal_learning_assistant.services.planning_dashboard_service import (
     load_planning_dashboard,
     unavailable_planning_dashboard,
@@ -98,6 +104,33 @@ def _calendar_grades_dashboard():
         return unavailable_calendar_grades_dashboard()
 
 
+def _notes_dashboard():
+    provider = current_app.config.get("NOTES_DASHBOARD_PROVIDER") or load_notes_dashboard
+    try:
+        return provider()
+    except Exception as error:  # The web boundary must degrade safely on read failure.
+        current_app.logger.warning(
+            "Notes unavailable (%s).",
+            type(error).__name__,
+        )
+        return unavailable_notes_dashboard()
+
+
+def _resources_dashboard():
+    provider = (
+        current_app.config.get("RESOURCES_DASHBOARD_PROVIDER")
+        or load_resources_dashboard
+    )
+    try:
+        return provider()
+    except Exception as error:  # The web boundary must degrade safely on read failure.
+        current_app.logger.warning(
+            "Resources unavailable (%s).",
+            type(error).__name__,
+        )
+        return unavailable_resources_dashboard()
+
+
 @web_blueprint.get("/")
 def home():
     """Render the read-only academic Home dashboard."""
@@ -130,6 +163,18 @@ def planning():
 def calendar():
     """Render the read-only Calendar & Grades workspace."""
     return render_template("calendar.html", active_page="calendar", dashboard=_calendar_grades_dashboard())
+
+
+@web_blueprint.get("/notes")
+def notes():
+    """Render the read-only Notes library."""
+    return render_template("notes.html", active_page="notes", dashboard=_notes_dashboard())
+
+
+@web_blueprint.get("/resources")
+def resources():
+    """Render the read-only Resources library."""
+    return render_template("resources.html", active_page="resources", dashboard=_resources_dashboard())
 
 
 @web_blueprint.get("/healthz")
