@@ -55,6 +55,7 @@ backups/
 
 # Generated caches / indexes
 semantic_index/
+.phase5_retrieval/
 __pycache__/
 *.pyc
 
