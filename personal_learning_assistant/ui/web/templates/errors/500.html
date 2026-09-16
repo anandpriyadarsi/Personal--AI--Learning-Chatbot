@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+
+{% block title %}Error · Personal AI Learning Assistant{% endblock %}
+
+{% block content %}
+<section class="error-panel" aria-labelledby="error-heading">
+  <p class="eyebrow">500</p>
+  <h2 id="error-heading">Something went wrong</h2>
+  <p>The local interface could not complete that request. Your academic data was not changed by this error page.</p>
+  <a class="button" href="{{ url_for('web.home') }}">Return home</a>
+</section>
+{% endblock %}

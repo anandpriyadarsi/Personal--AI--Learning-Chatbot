@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+
+{% block title %}Page not found · Personal AI Learning Assistant{% endblock %}
+
+{% block content %}
+<section class="error-panel" aria-labelledby="error-heading">
+  <p class="eyebrow">404</p>
+  <h2 id="error-heading">Page not found</h2>
+  <p>This interface section is not available yet.</p>
+  <a class="button" href="{{ url_for('web.home') }}">Return home</a>
+</section>
+{% endblock %}

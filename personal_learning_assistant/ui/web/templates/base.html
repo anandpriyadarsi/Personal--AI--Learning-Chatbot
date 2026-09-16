@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>{% block title %}Personal AI Learning Assistant{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Skip to content</a>
+  <header class="app-header">
+    <div>
+      <p class="eyebrow">Local academic workspace</p>
+      <h1>Personal AI Learning Assistant</h1>
+    </div>
+    <span class="phase-badge">Phase 7.5.1</span>
+  </header>
+
+  <div class="app-layout">
+    <nav class="sidebar" aria-label="Primary navigation">
+      <a class="nav-item{% if active_page == 'home' %} is-active{% endif %}" href="{{ url_for('web.home') }}">Home</a>
+      <span class="nav-item is-disabled" aria-disabled="true">Courses</span>
+      <span class="nav-item is-disabled" aria-disabled="true">Assessments</span>
+      <span class="nav-item is-disabled" aria-disabled="true">Planning</span>
+      <span class="nav-item is-disabled" aria-disabled="true">Calendar</span>
+      <span class="nav-item is-disabled" aria-disabled="true">Notes</span>
+      <span class="nav-item is-disabled" aria-disabled="true">Resources</span>
+      <span class="nav-item is-disabled" aria-disabled="true">Knowledge</span>
+      <span class="nav-item is-disabled" aria-disabled="true">Academic Agent</span>
+    </nav>
+
+    <main id="main-content" class="content" tabindex="-1">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+
+  <footer class="app-footer">
+    Runs locally. Existing CLI and academic services remain unchanged.
+  </footer>
+</body>
+</html>
