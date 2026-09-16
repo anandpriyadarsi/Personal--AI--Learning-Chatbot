@@ -231,7 +231,11 @@ def test_rag_context_preserves_source_identity_and_never_calls_llm(tmp_path):
         assert context.source_count == 1
         assert "chunk_id=k1" in context.context_text
         assert "MIT L04" in context.context_text
-        assert "source_url" in context.context_text
+        assert "source_url=https://ocw.mit.edu/l4" in context.context_text
+        assert "local_topic_ids=t-lu" in context.context_text
+        assert "retrieval=lexical_rank=1" in context.context_text
+        assert "locator=" not in context.context_text
+        assert "retrieval_queries" not in context.context_text
     finally:
         store.close()
         c.close()
