@@ -26,7 +26,7 @@
       <a class="nav-item{% if active_page == 'calendar' %} is-active{% endif %}" href="{{ url_for('web.calendar') }}">Calendar &amp; Grades</a>
       <a class="nav-item{% if active_page == 'notes' %} is-active{% endif %}" href="{{ url_for('web.notes') }}">Notes</a>
       <a class="nav-item{% if active_page == 'resources' %} is-active{% endif %}" href="{{ url_for('web.resources') }}">Resources</a>
-      <span class="nav-item is-disabled" aria-disabled="true">Knowledge</span>
+      <a class="nav-item{% if active_page == 'knowledge' %} is-active{% endif %}" href="{{ url_for('web.knowledge') }}">Knowledge</a>
       <span class="nav-item is-disabled" aria-disabled="true">Academic Agent</span>
     </nav>
 

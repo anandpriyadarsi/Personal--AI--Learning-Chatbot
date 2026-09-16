@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+
+{% block title %}Knowledge Base & RAG · Personal AI Learning Assistant{% endblock %}
+
+{% block content %}
+<section class="hero dashboard-hero" aria-labelledby="knowledge-title">
+  <div>
+    <p class="eyebrow">Indexed academic knowledge</p>
+    <h2 id="knowledge-title">Knowledge base &amp; RAG</h2>
+    <p class="lede">Inspect what the current Phase 5.8 retrieval index finds and the grounded context it can supply to a later tutor.</p>
+  </div>
+  {% if dashboard.available %}
+    <span class="tag">Read-only retrieval</span>
+  {% endif %}
+</section>
+
+{% if not dashboard.available %}
+<section class="notice-panel" aria-live="polite">
+  <h3>Knowledge base is temporarily unavailable</h3>
+  <p>{{ dashboard.message }}</p>
+</section>
+{% else %}
+<section class="metric-grid" aria-label="Knowledge index status">
+  <article class="metric-card">
+    <span class="metric-label">Generation</span>
+    <strong>{{ dashboard.index.generation_id }}</strong>
+    <span>Current retrieval generation</span>
+  </article>
+  <article class="metric-card">
+    <span class="metric-label">Indexed chunks</span>
+    <strong>{{ dashboard.index.chunk_count }}</strong>
+    <span>Read from the current index</span>
+  </article>
+  <article class="metric-card">
+    <span class="metric-label">Documents</span>
+    <strong>{{ dashboard.index.document_count }}</strong>
+    <span>Distinct indexed documents</span>
+  </article>
+  <article class="metric-card">
+    <span class="metric-label">Retrieval</span>
+    <strong>{% if dashboard.index.semantic_enabled %}Semantic enabled{% else %}Lexical only{% endif %}</strong>
+    <span>{{ dashboard.index.lexical_backend }}{% if dashboard.index.embedding_model %} · {{ dashboard.index.embedding_model }}{% endif %}</span>
+  </article>
+</section>
+
+<section class="dashboard-panel" aria-labelledby="knowledge-search-title">
+  <div class="panel-heading">
+    <div>
+      <p class="eyebrow">Retrieval query</p>
+      <h3 id="knowledge-search-title">Search your indexed academic sources</h3>
+    </div>
+    <span class="tag">No index rebuild</span>
+  </div>
+  <form method="get" action="{{ url_for('web.knowledge') }}">
+    <label for="knowledge-query">Question or topic</label>
+    <div class="tag-row">
+      <input id="knowledge-query" name="q" type="search" value="{{ dashboard.query }}" maxlength="500" placeholder="e.g. LU factorization intuition" required>
+      <button type="submit">Search knowledge</button>
+    </div>
+  </form>
+  <p class="empty-state">This page retrieves evidence and assembles RAG context only. It does not call an LLM or change the index.</p>
+</section>
+
+{% if dashboard.warning %}
+<section class="notice-panel" aria-live="polite">
+  <h3>Retrieval fallback</h3>
+  <p>{{ dashboard.warning }}</p>
+</section>
+{% endif %}
+
+{% if dashboard.searched %}
+<section class="dashboard-panel" aria-labelledby="retrieval-results-title">
+  <div class="panel-heading">
+    <div>
+      <p class="eyebrow">Source-grounded results</p>
+      <h3 id="retrieval-results-title">Results for “{{ dashboard.query }}”</h3>
+    </div>
+    <span class="score-badge">{{ dashboard.summary.result_count }} result{% if dashboard.summary.result_count != 1 %}s{% endif %}</span>
+  </div>
+
+  {% if not dashboard.results %}
+    <p class="empty-state"><strong>No matching indexed evidence was found.</strong> The current retrieval generation was not changed.</p>
+  {% else %}
+    <div class="dashboard-grid">
+      {% for result in dashboard.results %}
+      <article class="dashboard-panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">{{ result.provider or result.source_kind or "Indexed source" }}</p>
+            <h3>{{ result.topic or result.lecture_title or result.document_id }}</h3>
+          </div>
+          <span class="score-badge">{{ result.score_label }}</span>
+        </div>
+        <p class="empty-state">
+          <strong>{{ result.document_id }}</strong>
+          {% if result.page_number is not none %} · page {{ result.page_number }}{% endif %}
+          {% if result.lecture_number %} · lecture {{ result.lecture_number }}{% endif %}
+          {% if result.lecture_title %} · {{ result.lecture_title }}{% endif %}
+        </p>
+        <div class="tag-row">
+          {% if result.lexical_rank is not none %}<span class="tag">Lexical #{{ result.lexical_rank }}</span>{% endif %}
+          {% if result.semantic_rank is not none %}<span class="tag">Semantic #{{ result.semantic_rank }}</span>{% endif %}
+          {% for course_id in result.course_ids %}<span class="tag">Course {{ course_id }}</span>{% endfor %}
+        </div>
+        <p>{{ result.text }}</p>
+        {% if result.source_url %}<p><a href="{{ result.source_url }}" target="_blank" rel="noopener noreferrer">Open source URL</a></p>{% endif %}
+      </article>
+      {% endfor %}
+    </div>
+  {% endif %}
+</section>
+
+<section class="dashboard-panel" aria-labelledby="rag-context-title">
+  <div class="panel-heading">
+    <div>
+      <p class="eyebrow">Grounding payload</p>
+      <h3 id="rag-context-title">RAG context preview</h3>
+    </div>
+    <span class="tag">{{ dashboard.context.source_count }} source{% if dashboard.context.source_count != 1 %}s{% endif %} · {{ dashboard.context.total_characters }} chars</span>
+  </div>
+  {% if dashboard.context.text %}
+    <pre>{{ dashboard.context.text }}</pre>
+  {% else %}
+    <p class="empty-state">No grounded context was assembled for this query.</p>
+  {% endif %}
+</section>
+{% endif %}
+{% endif %}
+{% endblock %}

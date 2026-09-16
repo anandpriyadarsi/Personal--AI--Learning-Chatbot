@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from flask import Blueprint, current_app, jsonify, render_template
+from flask import Blueprint, current_app, jsonify, render_template, request
 
 from personal_learning_assistant.services.assessment_dashboard_service import (
     load_assessment_catalogue,
@@ -19,6 +19,10 @@ from personal_learning_assistant.services.course_dashboard_service import (
 from personal_learning_assistant.services.home_dashboard_service import (
     load_home_dashboard,
     unavailable_home_dashboard,
+)
+from personal_learning_assistant.services.knowledge_dashboard_service import (
+    load_knowledge_dashboard,
+    unavailable_knowledge_dashboard,
 )
 from personal_learning_assistant.services.notes_resources_dashboard_service import (
     load_notes_dashboard,
@@ -131,6 +135,21 @@ def _resources_dashboard():
         return unavailable_resources_dashboard()
 
 
+def _knowledge_dashboard(query):
+    provider = (
+        current_app.config.get("KNOWLEDGE_DASHBOARD_PROVIDER")
+        or load_knowledge_dashboard
+    )
+    try:
+        return provider(query)
+    except Exception as error:  # The web boundary must degrade safely on read failure.
+        current_app.logger.warning(
+            "Knowledge base unavailable (%s).",
+            type(error).__name__,
+        )
+        return unavailable_knowledge_dashboard(query)
+
+
 @web_blueprint.get("/")
 def home():
     """Render the read-only academic Home dashboard."""
@@ -175,6 +194,13 @@ def notes():
 def resources():
     """Render the read-only Resources library."""
     return render_template("resources.html", active_page="resources", dashboard=_resources_dashboard())
+
+
+@web_blueprint.get("/knowledge")
+def knowledge():
+    """Render read-only Phase 5.8 retrieval evidence and RAG context."""
+    query = request.args.get("q", "", type=str)
+    return render_template("knowledge.html", active_page="knowledge", dashboard=_knowledge_dashboard(query))
 
 
 @web_blueprint.get("/healthz")
