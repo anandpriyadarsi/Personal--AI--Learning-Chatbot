@@ -1,0 +1,229 @@
+{% extends "base.html" %}
+
+{% block title %}Calendar & Grades · Personal AI Learning Assistant{% endblock %}
+
+{% block content %}
+<section class="hero dashboard-hero" aria-labelledby="calendar-title">
+  <div>
+    <p class="eyebrow">Academic timeline &amp; recorded outcomes</p>
+    <h2 id="calendar-title">Calendar &amp; grades</h2>
+    <p class="lede">A read-only view of stored academic deadlines and grade evidence. Nothing is estimated or changed here.</p>
+  </div>
+  {% if dashboard.available %}
+    <p class="date-chip">{{ dashboard.date }} · next {{ dashboard.calendar.window_days }} days highlighted</p>
+  {% endif %}
+</section>
+
+{% if not dashboard.available %}
+<section class="notice-panel" aria-live="polite">
+  <h3>Calendar and grades are temporarily unavailable</h3>
+  <p>{{ dashboard.message }}</p>
+</section>
+{% else %}
+<section class="metric-grid" aria-label="Calendar and grade summary">
+  <article class="metric-card">
+    <span class="metric-label">Academic deadlines</span>
+    <strong>{{ dashboard.summary.calendar_events }}</strong>
+    <span>Stored assessment dates</span>
+  </article>
+  <article class="metric-card">
+    <span class="metric-label">Overdue</span>
+    <strong>{{ dashboard.summary.overdue }}</strong>
+    <span>Pending past due date</span>
+  </article>
+  <article class="metric-card">
+    <span class="metric-label">Upcoming</span>
+    <strong>{{ dashboard.summary.upcoming }}</strong>
+    <span>Within {{ dashboard.calendar.window_days }} days</span>
+  </article>
+  <article class="metric-card">
+    <span class="metric-label">Recorded grades</span>
+    <strong>{{ dashboard.summary.recorded_grades }}</strong>
+    <span>Explicit stored course grade evidence</span>
+  </article>
+</section>
+
+<section class="dashboard-panel" aria-labelledby="calendar-heading">
+  <div class="panel-heading">
+    <div>
+      <p class="eyebrow">Academic calendar</p>
+      <h3 id="calendar-heading">Deadlines &amp; events</h3>
+    </div>
+    <span class="tag">Read only</span>
+  </div>
+
+  {% if dashboard.summary.calendar_events == 0 %}
+    <p class="empty-state"><strong>No academic deadlines are stored yet.</strong> This page did not create or reschedule any calendar event.</p>
+  {% else %}
+    <div class="dashboard-grid">
+      {% set groups = [
+        ('overdue', 'Overdue'),
+        ('upcoming', 'Upcoming'),
+        ('later', 'Later'),
+        ('completed', 'Completed')
+      ] %}
+      {% for key, label in groups %}
+      <article class="dashboard-panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">{{ dashboard.calendar.groups[key]|length }} item{% if dashboard.calendar.groups[key]|length != 1 %}s{% endif %}</p>
+            <h3>{{ label }}</h3>
+          </div>
+        </div>
+
+        {% if dashboard.calendar.groups[key] %}
+        <ul class="dashboard-list" aria-label="{{ label }} academic events">
+          {% for event in dashboard.calendar.groups[key] %}
+          <li>
+            <div class="list-main">
+              <strong>{{ event.course_code }} · {{ event.title }}</strong>
+              <span>
+                {{ event.type_label }}
+                · {% if event.due_date %}{{ event.due_date }}{% else %}Date not set{% endif %}
+                {% if event.due_time %} {{ event.due_time }}{% endif %}
+                · {{ event.due_label }}
+              </span>
+              <span>{{ event.course_name }} · {{ event.status_label }}</span>
+            </div>
+            <div class="tag-row">
+              {% if event.weightage_percent is not none %}
+                <span class="tag">{{ "%g"|format(event.weightage_percent) }}% weight</span>
+              {% endif %}
+              <span class="tag">{{ event.status_label }}</span>
+            </div>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+          <p class="empty-state">No {{ label|lower }} academic events.</p>
+        {% endif %}
+      </article>
+      {% endfor %}
+    </div>
+  {% endif %}
+</section>
+
+<section class="dashboard-panel" aria-labelledby="grades-heading">
+  <div class="panel-heading">
+    <div>
+      <p class="eyebrow">Stored grade evidence</p>
+      <h3 id="grades-heading">Grades</h3>
+    </div>
+    <span class="tag">No grade inference</span>
+  </div>
+
+  {% if not dashboard.grades.source_present %}
+    <p class="empty-state"><strong>No semester grade configuration is stored.</strong> This page will not invent a grade or grading scale.</p>
+  {% else %}
+    <div class="metric-grid" aria-label="Semester grade configuration">
+      <article class="metric-card">
+        <span class="metric-label">Semester</span>
+        <strong>{{ dashboard.grades.semester_name or "Not recorded" }}</strong>
+        <span>Stored semester identity</span>
+      </article>
+      <article class="metric-card">
+        <span class="metric-label">Target SGPA</span>
+        <strong>{% if dashboard.grades.target_sgpa is not none %}{{ "%g"|format(dashboard.grades.target_sgpa) }}{% else %}—{% endif %}</strong>
+        <span>Planning target, if configured</span>
+      </article>
+      <article class="metric-card">
+        <span class="metric-label">Grade courses</span>
+        <strong>{{ dashboard.summary.grade_courses }}</strong>
+        <span>Courses in semester grade config</span>
+      </article>
+      <article class="metric-card">
+        <span class="metric-label">Scale status</span>
+        <strong>{% if dashboard.grades.scale.verified %}Verified{% else %}Unverified{% endif %}</strong>
+        <span>{{ dashboard.grades.scale.source or "Source not recorded" }}</span>
+      </article>
+    </div>
+
+    <div class="dashboard-grid">
+      <article class="dashboard-panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Course evidence</p>
+            <h3>Semester courses</h3>
+          </div>
+        </div>
+
+        {% if dashboard.grades.courses %}
+        <ul class="dashboard-list" aria-label="Semester course grades">
+          {% for course in dashboard.grades.courses %}
+          <li>
+            <div class="list-main">
+              <strong>{{ course.code }} · {{ course.name }}</strong>
+              <span>
+                {% if course.credits is not none %}{{ "%g"|format(course.credits) }} credits{% else %}Credits not recorded{% endif %}
+              </span>
+              {% if course.has_recorded_grade %}
+              <span>
+                {% if course.score is not none %}Score {{ "%g"|format(course.score) }}%{% endif %}
+                {% if course.letter_grade %}{% if course.score is not none %} · {% endif %}Letter {{ course.letter_grade }}{% endif %}
+                {% if course.grade_point is not none %}{% if course.score is not none or course.letter_grade %} · {% endif %}GP {{ "%g"|format(course.grade_point) }}{% endif %}
+              </span>
+              {% else %}
+              <span>No explicit grade is recorded for this course.</span>
+              {% endif %}
+            </div>
+            {% if course.has_recorded_grade %}<span class="tag">Recorded</span>{% endif %}
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+          <p class="empty-state"><strong>No semester course grades are recorded yet.</strong> The page does not estimate them from assessment performance.</p>
+        {% endif %}
+      </article>
+
+      <article class="dashboard-panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Explicit result</p>
+            <h3>Semester result</h3>
+          </div>
+          {% if dashboard.grades.semester_result and dashboard.grades.semester_result.verified %}
+            <span class="tag">Verified</span>
+          {% endif %}
+        </div>
+
+        {% if dashboard.grades.semester_result %}
+          {% set result = dashboard.grades.semester_result %}
+          <p class="empty-state">
+            {% if result.sgpa is not none %}<strong>SGPA {{ "%g"|format(result.sgpa) }}</strong>{% endif %}
+            {% if result.earned_credits is not none %} · {{ "%g"|format(result.earned_credits) }} earned credits{% endif %}
+            {% if result.earned_grade_points is not none %} · {{ "%g"|format(result.earned_grade_points) }} grade points{% endif %}
+          </p>
+          {% if result.source %}<p class="empty-state">Source: {{ result.source }}</p>{% endif %}
+        {% else %}
+          <p class="empty-state"><strong>No explicit semester result is stored yet.</strong> SGPA is not calculated on this page.</p>
+        {% endif %}
+      </article>
+    </div>
+
+    <article class="dashboard-panel" aria-labelledby="scale-heading">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">Planning configuration</p>
+          <h3 id="scale-heading">Grade scale</h3>
+        </div>
+        <span class="tag">{% if dashboard.grades.scale.verified %}Verified{% else %}Unverified{% endif %}</span>
+      </div>
+
+      {% if dashboard.grades.scale.bands %}
+      <div class="tag-row" aria-label="Stored grade scale">
+        {% for band in dashboard.grades.scale.bands %}
+          <span class="tag">
+            {{ band.letter }}
+            {% if band.minimum_score is not none %} ≥ {{ "%g"|format(band.minimum_score) }}%{% endif %}
+            {% if band.grade_point is not none %} · GP {{ "%g"|format(band.grade_point) }}{% endif %}
+          </span>
+        {% endfor %}
+      </div>
+      {% else %}
+        <p class="empty-state">No grade-scale bands are stored.</p>
+      {% endif %}
+    </article>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}

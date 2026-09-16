@@ -8,6 +8,10 @@ from personal_learning_assistant.services.assessment_dashboard_service import (
     load_assessment_catalogue,
     unavailable_assessment_catalogue,
 )
+from personal_learning_assistant.services.calendar_grades_dashboard_service import (
+    load_calendar_grades_dashboard,
+    unavailable_calendar_grades_dashboard,
+)
 from personal_learning_assistant.services.course_dashboard_service import (
     load_course_catalogue,
     unavailable_course_catalogue,
@@ -79,6 +83,21 @@ def _planning_dashboard():
         return unavailable_planning_dashboard()
 
 
+def _calendar_grades_dashboard():
+    provider = (
+        current_app.config.get("CALENDAR_GRADES_PROVIDER")
+        or load_calendar_grades_dashboard
+    )
+    try:
+        return provider()
+    except Exception as error:  # The web boundary must degrade safely on read failure.
+        current_app.logger.warning(
+            "Calendar and grades unavailable (%s).",
+            type(error).__name__,
+        )
+        return unavailable_calendar_grades_dashboard()
+
+
 @web_blueprint.get("/")
 def home():
     """Render the read-only academic Home dashboard."""
@@ -105,6 +124,12 @@ def assessments():
 def planning():
     """Render the read-only Progress & Planning workspace."""
     return render_template("planning.html", active_page="planning", dashboard=_planning_dashboard())
+
+
+@web_blueprint.get("/calendar")
+def calendar():
+    """Render the read-only Calendar & Grades workspace."""
+    return render_template("calendar.html", active_page="calendar", dashboard=_calendar_grades_dashboard())
 
 
 @web_blueprint.get("/healthz")
