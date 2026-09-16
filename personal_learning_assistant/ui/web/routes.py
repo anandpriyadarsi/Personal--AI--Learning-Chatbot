@@ -1,17 +1,38 @@
-"""Read-only routes for the Phase 7.5.1 web foundation."""
+"""Read-only routes for the local Personal AI Learning Assistant web UI."""
 
 from __future__ import annotations
 
-from flask import Blueprint, jsonify, render_template
+from flask import Blueprint, current_app, jsonify, render_template
+
+from personal_learning_assistant.services.home_dashboard_service import (
+    load_home_dashboard,
+    unavailable_home_dashboard,
+)
 
 
 web_blueprint = Blueprint("web", __name__)
 
 
+def _home_dashboard():
+    provider = current_app.config.get("HOME_DASHBOARD_PROVIDER") or load_home_dashboard
+    try:
+        return provider()
+    except Exception as error:  # The web boundary must degrade safely on read failure.
+        current_app.logger.warning(
+            "Home academic brief unavailable (%s).",
+            type(error).__name__,
+        )
+        return unavailable_home_dashboard()
+
+
 @web_blueprint.get("/")
 def home():
-    """Render the local application shell without touching academic data."""
-    return render_template("home.html", active_page="home")
+    """Render the read-only academic Home dashboard."""
+    return render_template(
+        "home.html",
+        active_page="home",
+        dashboard=_home_dashboard(),
+    )
 
 
 @web_blueprint.get("/healthz")
