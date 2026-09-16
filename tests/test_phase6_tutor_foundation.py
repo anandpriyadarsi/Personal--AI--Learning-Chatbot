@@ -42,7 +42,8 @@ def _ids():
 
 def _env(tmp_path):
     db = tmp_path / "learning_assistant.db"
-    assert apply_migrations(db) == (1, 2, 3)
+    applied = apply_migrations(db)
+    assert applied[:3] == (1, 2, 3)
     assert apply_migrations(db) == ()
     c = sqlite3.connect(str(db), isolation_level=None)
     c.row_factory = sqlite3.Row
@@ -136,7 +137,7 @@ def test_migration_0003_is_applied_and_idempotent(tmp_path):
             "SELECT version FROM schema_migrations ORDER BY version"
         )
     )
-    assert versions == (1, 2, 3)
+    assert versions[:3] == (1, 2, 3)
     tables = {
         row[0]
         for row in c.execute(

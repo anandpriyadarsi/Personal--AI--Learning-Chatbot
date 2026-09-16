@@ -1,4 +1,4 @@
-"""Explicit Phase 6.1 tutor-schema preview/apply operator."""
+"""Explicit Phase 6.5 practice-schema preview/apply operator."""
 
 from __future__ import annotations
 
@@ -15,12 +15,14 @@ from personal_learning_assistant.repositories.sqlite.migration_runner import (
 )
 
 
-CONFIRMATION_PHRASE = "APPLY_PHASE6_TUTOR_SCHEMA"
-TARGET_VERSION = 3
+CONFIRMATION_PHRASE = "APPLY_PHASE6_PRACTICE_SCHEMA"
+TARGET_VERSION = 4
 
 
 def _parser():
-    parser = argparse.ArgumentParser(description="Phase 6.1 tutor schema operator")
+    parser = argparse.ArgumentParser(
+        description="Phase 6.5 practice schema operator"
+    )
     parser.add_argument("--database", default="data/learning_assistant.db")
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("preview")
@@ -52,7 +54,7 @@ def main(argv=None):
     args = _parser().parse_args(argv)
     path = Path(args.database)
     if not path.is_file() or path.is_symlink():
-        print("PHASE 6.1 TUTOR SCHEMA: BLOCKED", file=sys.stderr)
+        print("PHASE 6.5 PRACTICE SCHEMA: BLOCKED", file=sys.stderr)
         print("database is missing or not a regular file", file=sys.stderr)
         return 1
 
@@ -61,7 +63,7 @@ def main(argv=None):
     pending = tuple(version for version in discovered if version not in before)
 
     if args.command == "preview":
-        print("PHASE 6.1 TUTOR SCHEMA PREVIEW: PASS")
+        print("PHASE 6.5 PRACTICE SCHEMA PREVIEW: PASS")
         print(
             json.dumps(
                 {
@@ -69,10 +71,7 @@ def main(argv=None):
                     "discovered_versions": discovered,
                     "pending_versions": pending,
                     "writes_performed": False,
-                    "tutor_schema_ready": TARGET_VERSION in before,
-                    "superseded_by_later_migrations": any(
-                        version > TARGET_VERSION for version in discovered
-                    ),
+                    "practice_schema_ready": TARGET_VERSION in before,
                 },
                 indent=2,
                 sort_keys=True,
@@ -82,15 +81,14 @@ def main(argv=None):
 
     later = tuple(version for version in discovered if version > TARGET_VERSION)
     if later:
-        print("PHASE 6.1 TUTOR SCHEMA: BLOCKED", file=sys.stderr)
+        print("PHASE 6.5 PRACTICE SCHEMA: BLOCKED", file=sys.stderr)
         print(
-            "Phase 6.1 apply is superseded by later migration(s) {}. "
-            "Use the newest schema operator instead.".format(later),
+            "this operator is superseded by later migration(s): {}".format(later),
             file=sys.stderr,
         )
         return 1
     if args.confirm != CONFIRMATION_PHRASE:
-        print("PHASE 6.1 TUTOR SCHEMA: BLOCKED", file=sys.stderr)
+        print("PHASE 6.5 PRACTICE SCHEMA: BLOCKED", file=sys.stderr)
         print(
             "apply requires --confirm {}".format(CONFIRMATION_PHRASE),
             file=sys.stderr,
@@ -103,14 +101,32 @@ def main(argv=None):
     try:
         integrity = connection.execute("PRAGMA integrity_check").fetchone()[0]
         foreign_keys = connection.execute("PRAGMA foreign_key_check").fetchall()
+        tables = {
+            str(row[0])
+            for row in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            )
+        }
     finally:
         connection.close()
-    if integrity != "ok" or foreign_keys or TARGET_VERSION not in after:
-        print("PHASE 6.1 TUTOR SCHEMA: BLOCKED", file=sys.stderr)
+
+    required = {
+        "practice_sessions",
+        "practice_items",
+        "practice_item_sources",
+        "practice_attempts",
+    }
+    if (
+        integrity != "ok"
+        or foreign_keys
+        or TARGET_VERSION not in after
+        or not required.issubset(tables)
+    ):
+        print("PHASE 6.5 PRACTICE SCHEMA: BLOCKED", file=sys.stderr)
         print("post-migration integrity/schema validation failed", file=sys.stderr)
         return 1
 
-    print("PHASE 6.1 TUTOR SCHEMA APPLY: PASS")
+    print("PHASE 6.5 PRACTICE SCHEMA APPLY: PASS")
     print(
         json.dumps(
             {
