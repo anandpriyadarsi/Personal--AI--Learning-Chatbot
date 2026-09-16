@@ -22,7 +22,7 @@
       <a class="nav-item{% if active_page == 'home' %} is-active{% endif %}" href="{{ url_for('web.home') }}">Home</a>
       <a class="nav-item{% if active_page == 'courses' %} is-active{% endif %}" href="{{ url_for('web.courses') }}">Courses</a>
       <a class="nav-item{% if active_page == 'assessments' %} is-active{% endif %}" href="{{ url_for('web.assessments') }}">Assessments</a>
-      <span class="nav-item is-disabled" aria-disabled="true">Planning</span>
+      <a class="nav-item{% if active_page == 'planning' %} is-active{% endif %}" href="{{ url_for('web.planning') }}">Planning</a>
       <span class="nav-item is-disabled" aria-disabled="true">Calendar</span>
       <span class="nav-item is-disabled" aria-disabled="true">Notes</span>
       <span class="nav-item is-disabled" aria-disabled="true">Resources</span>

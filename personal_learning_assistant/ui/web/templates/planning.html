@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+
+{% block title %}Progress & Planning · Personal AI Learning Assistant{% endblock %}
+
+{% block content %}
+<section class="hero dashboard-hero" aria-labelledby="planning-title">
+  <div>
+    <p class="eyebrow">Academic progress workspace</p>
+    <h2 id="planning-title">Progress &amp; planning</h2>
+    <p class="lede">A read-only view of course progress, priority topics, and study plans that already exist.</p>
+  </div>
+  {% if dashboard.available %}
+    <p class="date-chip">{{ dashboard.summary.courses }} course{% if dashboard.summary.courses != 1 %}s{% endif %} · {{ dashboard.summary.saved_plans }} saved plan{% if dashboard.summary.saved_plans != 1 %}s{% endif %}</p>
+  {% endif %}
+</section>
+
+{% if not dashboard.available %}
+<section class="notice-panel" aria-live="polite">
+  <h3>Progress and planning are temporarily unavailable</h3>
+  <p>{{ dashboard.message }}</p>
+</section>
+{% else %}
+<section class="metric-grid" aria-label="Progress summary">
+  <article class="metric-card">
+    <span class="metric-label">Average progress</span>
+    <strong>{{ dashboard.summary.average_progress }}%</strong>
+    <span>Across current courses</span>
+  </article>
+  <article class="metric-card">
+    <span class="metric-label">Mastered topics</span>
+    <strong>{{ dashboard.summary.mastered_topics }}</strong>
+    <span>Current stored mastery</span>
+  </article>
+  <article class="metric-card">
+    <span class="metric-label">Weak topics</span>
+    <strong>{{ dashboard.summary.weak_topics }}</strong>
+    <span>Need deliberate repair</span>
+  </article>
+  <article class="metric-card">
+    <span class="metric-label">Not started</span>
+    <strong>{{ dashboard.summary.missing_topics }}</strong>
+    <span>Missing / unfinished topics</span>
+  </article>
+</section>
+
+<section class="dashboard-panel" aria-labelledby="progress-heading">
+  <div class="panel-heading">
+    <div>
+      <p class="eyebrow">Progress evidence</p>
+      <h3 id="progress-heading">Course progress &amp; priorities</h3>
+    </div>
+    <span class="tag">Read only</span>
+  </div>
+
+  {% if not dashboard.courses %}
+    <p class="empty-state"><strong>No course progress is available yet.</strong> This page did not create snapshots or change topic state.</p>
+  {% else %}
+    <div class="dashboard-grid">
+      {% for course in dashboard.courses %}
+      <article class="dashboard-panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">{{ course.code }}</p>
+            <h3>{{ course.name }}</h3>
+          </div>
+          <span class="score-badge">{{ "%g"|format(course.progress_percent) }}%</span>
+        </div>
+
+        <p class="empty-state">
+          <strong>{{ course.mastered_topics }}/{{ course.total_topics }} mastered</strong>
+          · confidence {{ course.average_confidence }}/5
+          {% if course.has_history %}
+            · change {{ "%+g"|format(course.delta_progress) }} pts
+          {% else %}
+            · no earlier comparison snapshot
+          {% endif %}
+        </p>
+
+        {% if course.weak_topics or course.missing_topics %}
+        <div class="tag-row" aria-label="Course gaps">
+          {% for topic in course.weak_topics %}<span class="tag">Weak: {{ topic }}</span>{% endfor %}
+          {% for topic in course.missing_topics %}<span class="tag">Not started: {{ topic }}</span>{% endfor %}
+        </div>
+        {% endif %}
+
+        {% if course.priorities %}
+        <ul class="dashboard-list" aria-label="{{ course.code }} priority topics">
+          {% for topic in course.priorities %}
+          <li>
+            <div class="list-main">
+              <strong>{{ topic.name }}</strong>
+              <span>
+                {% if topic.reasons %}{{ topic.reasons|join(", ") }}{% else %}Continue current progress{% endif %}
+              </span>
+            </div>
+            <div class="tag-row">
+              <span class="tag">{{ topic.status_label }}</span>
+              <span class="score-badge">Priority {{ topic.score|int }}</span>
+              {% if topic.confidence %}<span class="tag">Confidence {{ topic.confidence }}/5</span>{% endif %}
+            </div>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+          <p class="empty-state">No unfinished priority topics are stored for this course.</p>
+        {% endif %}
+      </article>
+      {% endfor %}
+    </div>
+  {% endif %}
+</section>
+
+<section class="dashboard-panel" aria-labelledby="plans-heading">
+  <div class="panel-heading">
+    <div>
+      <p class="eyebrow">Existing plans</p>
+      <h3 id="plans-heading">Saved study plans</h3>
+    </div>
+    <span class="tag">No generation on this page</span>
+  </div>
+
+  {% if dashboard.summary.saved_plans == 0 %}
+    <p class="empty-state"><strong>No saved plans yet.</strong> Planning data was not changed; use the existing supported planner workflow when you want to create one.</p>
+  {% endif %}
+
+  <div class="dashboard-grid">
+    {% for plan in dashboard.plans %}
+    <article class="dashboard-panel">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">{{ plan.course_label if plan.exists else "Not created" }}</p>
+          <h3>{{ plan.title }}</h3>
+        </div>
+        {% if plan.exists %}<span class="tag">Saved</span>{% endif %}
+      </div>
+
+      {% if not plan.exists %}
+        <p class="empty-state">No saved plan of this type is available.</p>
+      {% else %}
+        <p class="empty-state">
+          <strong>{{ plan.total_minutes }} min</strong>
+          {% if plan.study_days %} · {{ plan.study_days }} study day{% if plan.study_days != 1 %}s{% endif %}{% endif %}
+          {% if plan.start_date %} · starts {{ plan.start_date }}{% endif %}
+        </p>
+        {% if plan.message %}<p class="empty-state">{{ plan.message }}</p>{% endif %}
+
+        {% if plan.sessions %}
+        <ul class="dashboard-list" aria-label="{{ plan.title }} sessions">
+          {% for session in plan.sessions %}
+          <li>
+            <div class="list-main">
+              <strong>{% if session.course_code %}{{ session.course_code }} · {% endif %}{{ session.topic }}</strong>
+              <span>{% if session.date %}{{ session.date }}{% else %}Date not recorded{% endif %}{% if session.status_label %} · {{ session.status_label }}{% endif %}</span>
+            </div>
+            {% if session.minutes %}<span class="score-badge">{{ session.minutes }} min</span>{% endif %}
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+          <p class="empty-state">This saved plan has no study sessions to display.</p>
+        {% endif %}
+      {% endif %}
+    </article>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+{% endblock %}

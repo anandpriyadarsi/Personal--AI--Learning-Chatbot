@@ -16,6 +16,10 @@ from personal_learning_assistant.services.home_dashboard_service import (
     load_home_dashboard,
     unavailable_home_dashboard,
 )
+from personal_learning_assistant.services.planning_dashboard_service import (
+    load_planning_dashboard,
+    unavailable_planning_dashboard,
+)
 
 
 web_blueprint = Blueprint("web", __name__)
@@ -60,6 +64,21 @@ def _assessment_catalogue():
         return unavailable_assessment_catalogue()
 
 
+def _planning_dashboard():
+    provider = (
+        current_app.config.get("PLANNING_DASHBOARD_PROVIDER")
+        or load_planning_dashboard
+    )
+    try:
+        return provider()
+    except Exception as error:  # The web boundary must degrade safely on read failure.
+        current_app.logger.warning(
+            "Progress and planning unavailable (%s).",
+            type(error).__name__,
+        )
+        return unavailable_planning_dashboard()
+
+
 @web_blueprint.get("/")
 def home():
     """Render the read-only academic Home dashboard."""
@@ -80,6 +99,12 @@ def courses():
 def assessments():
     """Render the read-only assessment timeline."""
     return render_template("assessments.html", active_page="assessments", catalogue=_assessment_catalogue())
+
+
+@web_blueprint.get("/planning")
+def planning():
+    """Render the read-only Progress & Planning workspace."""
+    return render_template("planning.html", active_page="planning", dashboard=_planning_dashboard())
 
 
 @web_blueprint.get("/healthz")
