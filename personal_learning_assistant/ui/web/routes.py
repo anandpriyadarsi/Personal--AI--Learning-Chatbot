@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from flask import Blueprint, current_app, jsonify, render_template
 
+from personal_learning_assistant.services.assessment_dashboard_service import (
+    load_assessment_catalogue,
+    unavailable_assessment_catalogue,
+)
 from personal_learning_assistant.services.course_dashboard_service import (
     load_course_catalogue,
     unavailable_course_catalogue,
@@ -41,6 +45,21 @@ def _course_catalogue():
         return unavailable_course_catalogue()
 
 
+def _assessment_catalogue():
+    provider = (
+        current_app.config.get("ASSESSMENT_CATALOGUE_PROVIDER")
+        or load_assessment_catalogue
+    )
+    try:
+        return provider()
+    except Exception as error:  # The web boundary must degrade safely on read failure.
+        current_app.logger.warning(
+            "Assessment catalogue unavailable (%s).",
+            type(error).__name__,
+        )
+        return unavailable_assessment_catalogue()
+
+
 @web_blueprint.get("/")
 def home():
     """Render the read-only academic Home dashboard."""
@@ -55,6 +74,12 @@ def home():
 def courses():
     """Render the read-only Courses & Topics catalogue."""
     return render_template("courses.html", active_page="courses", catalogue=_course_catalogue())
+
+
+@web_blueprint.get("/assessments")
+def assessments():
+    """Render the read-only assessment timeline."""
+    return render_template("assessments.html", active_page="assessments", catalogue=_assessment_catalogue())
 
 
 @web_blueprint.get("/healthz")

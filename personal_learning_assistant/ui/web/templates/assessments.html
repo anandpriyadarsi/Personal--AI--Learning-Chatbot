@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}Assessments · Personal AI Learning Assistant{% endblock %}
+{% block content %}
+<section class="hero dashboard-hero" aria-labelledby="assessments-title">
+  <div>
+    <p class="eyebrow">Assessment timeline</p>
+    <h2 id="assessments-title">Assessments</h2>
+    <p class="lede">A read-only view of assessment deadlines, status, course context, weightage and linked topics from the current academic store.</p>
+  </div>
+  {% if catalogue.date %}<p class="date-chip">{{ catalogue.date }}</p>{% endif %}
+</section>
+
+{% if not catalogue.available %}
+<section class="notice-panel" aria-live="polite">
+  <h3>Assessments are temporarily unavailable</h3>
+  <p>{{ catalogue.message }}</p>
+</section>
+{% elif catalogue.summary.total == 0 %}
+<section class="notice-panel">
+  <h3>No assessments are available yet</h3>
+  <p>This page is read-only; your assessment data was not changed.</p>
+</section>
+{% else %}
+<section class="metric-grid" aria-label="Assessment summary">
+  <article class="metric-card"><span class="metric-label">Total</span><strong>{{ catalogue.summary.total }}</strong><span>{{ catalogue.summary.total }} total</span></article>
+  <article class="metric-card"><span class="metric-label">Active</span><strong>{{ catalogue.summary.active }}</strong><span>pending or in progress</span></article>
+  <article class="metric-card"><span class="metric-label">Overdue</span><strong>{{ catalogue.summary.overdue }}</strong><span>{{ catalogue.summary.overdue }} overdue</span></article>
+  <article class="metric-card"><span class="metric-label">Completed</span><strong>{{ catalogue.summary.completed }}</strong><span>recorded as completed</span></article>
+</section>
+
+<div class="dashboard-grid">
+  <section class="dashboard-panel">
+    <div class="panel-heading">
+      <div><p class="eyebrow">Needs attention</p><h3>Overdue</h3></div>
+      <span class="count-badge">{{ catalogue.groups.overdue|length }}</span>
+    </div>
+    {% if catalogue.groups.overdue %}
+      <ul class="dashboard-list">
+      {% for item in catalogue.groups.overdue %}
+        <li>
+          <div class="list-main">
+            <strong>{{ item.course_code }} · {{ item.title }}</strong>
+            <span>{{ item.type_label }} · {{ item.status_label }} · {{ item.due_label }}{% if item.due_date %} · {{ item.due_date }}{% endif %}</span>
+            <div class="tag-row">
+              {% if item.weightage_percent is not none %}<span class="tag">{{ item.weightage_label }}% weightage</span>{% endif %}
+              {% for topic in item.topics %}<span class="tag">{{ topic }}</span>{% endfor %}
+            </div>
+          </div>
+        </li>
+      {% endfor %}
+      </ul>
+    {% else %}<p class="empty-state">No active assessment is overdue.</p>{% endif %}
+  </section>
+
+  <section class="dashboard-panel">
+    <div class="panel-heading">
+      <div><p class="eyebrow">Next deadlines</p><h3>Upcoming &amp; active</h3></div>
+      <span class="count-badge">{{ catalogue.groups.upcoming|length }}</span>
+    </div>
+    {% if catalogue.groups.upcoming %}
+      <ul class="dashboard-list">
+      {% for item in catalogue.groups.upcoming %}
+        <li>
+          <div class="list-main">
+            <strong>{{ item.course_code }} · {{ item.title }}</strong>
+            <span>{{ item.type_label }} · {{ item.status_label }} · {{ item.due_label }}{% if item.due_date %} · {{ item.due_date }}{% endif %}</span>
+            <div class="tag-row">
+              {% if item.weightage_percent is not none %}<span class="tag">{{ item.weightage_label }}% weightage</span>{% endif %}
+              {% for topic in item.topics %}<span class="tag">{{ topic }}</span>{% endfor %}
+            </div>
+          </div>
+        </li>
+      {% endfor %}
+      </ul>
+    {% else %}<p class="empty-state">No active upcoming assessment is recorded.</p>{% endif %}
+  </section>
+</div>
+
+<section class="dashboard-panel next-panel">
+  <div class="panel-heading">
+    <div><p class="eyebrow">History</p><h3>Completed</h3></div>
+    <span class="count-badge">{{ catalogue.groups.completed|length }}</span>
+  </div>
+  {% if catalogue.groups.completed %}
+    <ul class="dashboard-list">
+    {% for item in catalogue.groups.completed %}
+      <li>
+        <div class="list-main">
+          <strong>{{ item.course_code }} · {{ item.title }}</strong>
+          <span>{{ item.type_label }} · {{ item.status_label }}{% if item.due_date %} · {{ item.due_date }}{% endif %}</span>
+          <div class="tag-row">
+            {% if item.weightage_percent is not none %}<span class="tag">{{ item.weightage_label }}% weightage</span>{% endif %}
+            {% if item.obtained_marks is not none and item.total_marks is not none %}<span class="tag">{{ item.obtained_marks }}/{{ item.total_marks }} marks</span>{% endif %}
+            {% for topic in item.topics %}<span class="tag">{{ topic }}</span>{% endfor %}
+          </div>
+        </div>
+      </li>
+    {% endfor %}
+    </ul>
+  {% else %}<p class="empty-state">No completed assessment is recorded yet.</p>{% endif %}
+</section>
+{% endif %}
+{% endblock %}
