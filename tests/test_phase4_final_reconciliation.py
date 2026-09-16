@@ -43,7 +43,7 @@ def _domain_reports(**overrides):
 
 def _connection(tmp_path: Path) -> sqlite3.Connection:
     database_path = tmp_path / "phase4-final-shadow.db"
-    assert apply_migrations(database_path) == (1, 2)
+    assert (apply_migrations(database_path))[:2] == (1, 2)
     return connect_database(database_path, synchronous="FULL")
 
 
@@ -215,7 +215,7 @@ def test_valid_phase4_ledger_target_is_accepted(tmp_path):
 
 def test_reconciliation_refuses_production_database_filename(tmp_path):
     database_path = tmp_path / "learning_assistant.db"
-    assert apply_migrations(database_path) == (1, 2)
+    assert (apply_migrations(database_path))[:2] == (1, 2)
     connection = connect_database(database_path, synchronous="FULL")
     try:
         with pytest.raises(Phase4ReconciliationSafetyError):

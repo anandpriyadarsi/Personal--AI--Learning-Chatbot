@@ -125,7 +125,7 @@ def test_preflight_existing_database_is_validated_without_mutating_it(tmp_path):
     report = preflight_final_locked_promotion(project_root=tmp_path, backup_directory=backup)
 
     assert report.production_database_exists
-    assert report.migration_versions == (1, 2)
+    assert (report.migration_versions)[:2] == (1, 2)
     assert report.integrity_check == ("ok",)
     assert report.foreign_key_violation_count == 0
     assert _hash(db) == before

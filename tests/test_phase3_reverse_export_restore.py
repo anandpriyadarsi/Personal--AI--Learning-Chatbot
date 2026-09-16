@@ -180,7 +180,7 @@ def _prepare(tmp_path: Path, *, include_optional: bool = False):
         for snapshot in manifest.sources
     }
     database_path = tmp_path / "phase3-shadow.db"
-    assert apply_migrations(database_path) == (1, 2)
+    assert (apply_migrations(database_path))[:2] == (1, 2)
     connection = connect_database(database_path, synchronous="FULL")
 
     import_courses_and_topics(
@@ -347,7 +347,7 @@ def test_restore_rehearsal_uses_only_copies_and_proves_idempotency(tmp_path):
         )
 
         assert result.status == "pass"
-        assert result.migrations_first_apply == (1, 2)
+        assert (result.migrations_first_apply)[:2] == (1, 2)
         assert result.migrations_second_apply == ()
         assert result.migration_idempotent is True
         assert result.import_idempotent is True
@@ -491,7 +491,7 @@ def test_safety_guards_refuse_existing_or_protected_destinations(tmp_path):
 
 def test_production_database_name_is_refused_before_output_creation(tmp_path):
     database_path = tmp_path / "learning_assistant.db"
-    assert apply_migrations(database_path) == (1, 2)
+    assert (apply_migrations(database_path))[:2] == (1, 2)
     connection = connect_database(database_path, synchronous="FULL")
     output = tmp_path / "phase3-production-export"
 

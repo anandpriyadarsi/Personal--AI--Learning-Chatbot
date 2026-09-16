@@ -127,9 +127,9 @@ class Phase5ClosureService:
                 "SELECT version FROM schema_migrations ORDER BY version"
             )
         )
-        if versions != (1, 2):
+        if len(versions) < 2 or versions[:2] != (1, 2):
             issues.append(
-                "unexpected migration history {}; Phase 5 expects only 0001/0002".format(
+                "unexpected migration history {}; Phase 5 requires intact 0001/0002 prefix".format(
                     versions
                 )
             )

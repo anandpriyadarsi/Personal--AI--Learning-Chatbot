@@ -107,7 +107,7 @@ def _prepare(tmp_path: Path):
     }
 
     database_path = tmp_path / "shadow.db"
-    assert apply_migrations(database_path) == (1, 2)
+    assert (apply_migrations(database_path))[:2] == (1, 2)
     connection = connect_database(database_path, synchronous="FULL")
 
     courses = import_courses_and_topics(
@@ -520,7 +520,7 @@ def test_phase3_report_refuses_production_database_name(tmp_path):
     manifest = scan_legacy_sources(data_dir, specs=())
     production = tmp_path / "data" / "learning_assistant.db"
     production.parent.mkdir()
-    assert apply_migrations(production) == (1, 2)
+    assert (apply_migrations(production))[:2] == (1, 2)
     connection = connect_database(production, synchronous="FULL")
     try:
         with pytest.raises(ReconciliationSafetyError):

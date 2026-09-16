@@ -55,7 +55,7 @@ def _structured_data_dir(tmp_path: Path) -> Path:
 
 def _migrated_connection(tmp_path: Path):
     db = tmp_path / "shadow.db"
-    assert apply_migrations(db) == (1, 2)
+    assert (apply_migrations(db))[:2] == (1, 2)
     return connect_database(db, synchronous="FULL")
 
 

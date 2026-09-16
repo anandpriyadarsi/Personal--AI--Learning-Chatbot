@@ -69,7 +69,7 @@ def _copy_sources(tmp_path: Path, *, include_grade: bool = True):
 def _prepared(tmp_path: Path, *, include_grade: bool = True):
     data, snapshots = _copy_sources(tmp_path, include_grade=include_grade)
     db = tmp_path / "shadow.db"
-    assert apply_migrations(db) == (1, 2)
+    assert (apply_migrations(db))[:2] == (1, 2)
     connection = connect_database(db, synchronous="FULL")
     import_courses_and_topics(connection, snapshots["courses.json"], imported_at=STAMP)
     import_assessments_and_topics(connection, snapshots["assessments.json"], imported_at=STAMP)

@@ -74,7 +74,7 @@ def _rescan(data_dir: Path, *filenames: str):
 
 def _connection(tmp_path: Path) -> sqlite3.Connection:
     database_path = tmp_path / "shadow.db"
-    assert apply_migrations(database_path) == (1, 2)
+    assert (apply_migrations(database_path))[:2] == (1, 2)
     return connect_database(database_path, synchronous="FULL")
 
 

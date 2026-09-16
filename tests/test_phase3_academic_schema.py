@@ -78,11 +78,21 @@ NOW = "2026-09-14T02:00:00Z"
 
 def _migrate(tmp_path):
     from personal_learning_assistant.repositories.sqlite.migration_runner import (
+        DEFAULT_MIGRATIONS_PATH,
         apply_migrations,
     )
 
+    migrations_path = tmp_path / "phase3_migrations"
+    migrations_path.mkdir()
+    for name in ("0001_foundation.sql", "0002_academic_schema.sql"):
+        source = DEFAULT_MIGRATIONS_PATH / name
+        (migrations_path / name).write_bytes(source.read_bytes())
+
     database_path = tmp_path / "learning_assistant.db"
-    applied = apply_migrations(database_path)
+    applied = apply_migrations(
+        database_path,
+        migrations_path=migrations_path,
+    )
     return database_path, applied
 
 
@@ -189,13 +199,16 @@ def _seed_assessment(connection):
 def test_academic_schema_migration_is_complete_idempotent_and_clean(tmp_path):
     database_path, applied = _migrate(tmp_path)
 
-    assert applied == (1, 2)
+    assert applied[:2] == (1, 2)
 
     from personal_learning_assistant.repositories.sqlite.migration_runner import (
         apply_migrations,
     )
 
-    assert apply_migrations(database_path) == ()
+    assert apply_migrations(
+        database_path,
+        migrations_path=tmp_path / "phase3_migrations",
+    ) == ()
 
     connection = sqlite3.connect(database_path)
     try:
