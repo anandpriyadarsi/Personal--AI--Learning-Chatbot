@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block title %}Courses & Topics · Personal AI Learning Assistant{% endblock %}
+
+{% block content %}
+<section class="hero dashboard-hero" aria-labelledby="courses-title">
+  <div>
+    <p class="eyebrow">Academic catalogue</p>
+    <h2 id="courses-title">Courses & topics</h2>
+    <p class="lede">A read-only view of your current courses, topic status, confidence, and mastery progress.</p>
+  </div>
+  {% if catalogue.available %}
+    <p class="date-chip">{{ catalogue.summary.courses }} course{% if catalogue.summary.courses != 1 %}s{% endif %} · {{ catalogue.summary.topics }} topic{% if catalogue.summary.topics != 1 %}s{% endif %}</p>
+  {% endif %}
+</section>
+
+{% if not catalogue.available %}
+<section class="notice-panel" aria-live="polite">
+  <h3>Courses are temporarily unavailable</h3>
+  <p>{{ catalogue.message }}</p>
+</section>
+{% elif not catalogue.courses %}
+<section class="notice-panel">
+  <h3>No courses are available yet</h3>
+  <p>This page is read-only, so course data was not changed. Add or import courses through the existing supported workflow first.</p>
+</section>
+{% else %}
+<section class="metric-grid" aria-label="Course summary">
+  <article class="metric-card">
+    <span class="metric-label">Courses</span>
+    <strong>{{ catalogue.summary.courses }}</strong>
+    <span>Current catalogue</span>
+  </article>
+  <article class="metric-card">
+    <span class="metric-label">Topics</span>
+    <strong>{{ catalogue.summary.topics }}</strong>
+    <span>Across all courses</span>
+  </article>
+  <article class="metric-card">
+    <span class="metric-label">Mastered</span>
+    <strong>{{ catalogue.summary.mastered_topics }}</strong>
+    <span>Topics marked mastered</span>
+  </article>
+  <article class="metric-card">
+    <span class="metric-label">Weak</span>
+    <strong>{{ catalogue.summary.weak_topics }}</strong>
+    <span>Topics needing attention</span>
+  </article>
+</section>
+
+<section class="dashboard-grid" aria-label="Courses and topics">
+  {% for course in catalogue.courses %}
+  <article class="dashboard-panel">
+    <div class="panel-heading">
+      <div>
+        <p class="eyebrow">{{ course.code }}{% if course.semester %} · {{ course.semester }}{% endif %}</p>
+        <h3>{{ course.name }}</h3>
+      </div>
+      <div class="tag-row" aria-label="Course status">
+        {% if course.is_active %}<span class="tag">Active course</span>{% endif %}
+        <span class="tag">{{ course.status_label }}</span>
+      </div>
+    </div>
+
+    <p class="empty-state"><strong>{{ course.progress_percent }}% mastered</strong> · {{ course.mastered_count }}/{{ course.topic_count }} topics</p>
+
+    {% if course.topics %}
+    <ul class="dashboard-list" aria-label="{{ course.code }} topics">
+      {% for topic in course.topics %}
+      <li>
+        <div class="list-main">
+          <strong>{{ topic.name }}</strong>
+          <span>{% if topic.last_updated %}Updated {{ topic.last_updated }}{% else %}No update date recorded{% endif %}</span>
+        </div>
+        <div class="tag-row">
+          <span class="tag">{{ topic.status_label }}</span>
+          <span class="score-badge">Confidence {{ topic.confidence }}/5</span>
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="empty-state">No topics are recorded for this course yet.</p>
+    {% endif %}
+  </article>
+  {% endfor %}
+</section>
+{% endif %}
+{% endblock %}

@@ -20,7 +20,7 @@
   <div class="app-layout">
     <nav class="sidebar" aria-label="Primary navigation">
       <a class="nav-item{% if active_page == 'home' %} is-active{% endif %}" href="{{ url_for('web.home') }}">Home</a>
-      <span class="nav-item is-disabled" aria-disabled="true">Courses</span>
+      <a class="nav-item{% if active_page == 'courses' %} is-active{% endif %}" href="{{ url_for('web.courses') }}">Courses</a>
       <span class="nav-item is-disabled" aria-disabled="true">Assessments</span>
       <span class="nav-item is-disabled" aria-disabled="true">Planning</span>
       <span class="nav-item is-disabled" aria-disabled="true">Calendar</span>
