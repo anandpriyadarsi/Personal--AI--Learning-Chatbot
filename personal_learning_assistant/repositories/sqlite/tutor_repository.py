@@ -191,6 +191,17 @@ class SQLiteTutorRepository:
             ),
         )
 
+    def list_sessions(self, limit: int = 20):
+        limit = int(limit)
+        if limit < 1 or limit > 100:
+            raise ValueError("session limit must be between 1 and 100")
+        rows = self.connection.execute(
+            "SELECT id FROM tutor_sessions "
+            "ORDER BY updated_at DESC, created_at DESC, id DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+        return tuple(self.get_session(str(row[0])) for row in rows)
+
     def _next_ordinal(self, session_id: str) -> int:
         row = self.connection.execute(
             "SELECT COALESCE(MAX(ordinal),0)+1 FROM tutor_turns WHERE session_id=?",

@@ -27,7 +27,7 @@
       <a class="nav-item{% if active_page == 'notes' %} is-active{% endif %}" href="{{ url_for('web.notes') }}">Notes</a>
       <a class="nav-item{% if active_page == 'resources' %} is-active{% endif %}" href="{{ url_for('web.resources') }}">Resources</a>
       <a class="nav-item{% if active_page == 'knowledge' %} is-active{% endif %}" href="{{ url_for('web.knowledge') }}">Knowledge</a>
-      <span class="nav-item is-disabled" aria-disabled="true">Academic Agent</span>
+      <a class="nav-item{% if active_page == 'agent' %} is-active{% endif %}" href="{{ url_for('web.academic_agent') }}">Academic Agent</a>
     </nav>
 
     <main id="main-content" class="content" tabindex="-1">

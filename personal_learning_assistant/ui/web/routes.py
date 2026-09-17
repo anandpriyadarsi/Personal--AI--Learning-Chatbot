@@ -1,9 +1,23 @@
-"""Read-only routes for the local Personal AI Learning Assistant web UI."""
+"""Routes for the local Personal AI Learning Assistant web UI."""
 
 from __future__ import annotations
 
-from flask import Blueprint, current_app, jsonify, render_template, request
+from flask import (
+    Blueprint,
+    current_app,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    url_for,
+)
 
+from personal_learning_assistant.services.academic_agent_web_service import (
+    AcademicAgentWebNotFoundError,
+    AcademicAgentWebUnavailableError,
+    AcademicAgentWebValidationError,
+    build_academic_agent_web_service,
+)
 from personal_learning_assistant.services.assessment_dashboard_service import (
     load_assessment_catalogue,
     unavailable_assessment_catalogue,
@@ -150,6 +164,46 @@ def _knowledge_dashboard(query):
         return unavailable_knowledge_dashboard(query)
 
 
+def _academic_agent_service():
+    factory = (
+        current_app.config.get("ACADEMIC_AGENT_WEB_SERVICE_FACTORY")
+        or build_academic_agent_web_service
+    )
+    return factory()
+
+
+def _unavailable_agent_workspace(message="Academic Agent is temporarily unavailable."):
+    return {
+        "available": False,
+        "message": message,
+        "provider_configured": False,
+        "courses": [],
+        "selected_course_code": "",
+        "mentor": None,
+        "sessions": [],
+        "modes": [],
+        "source_policies": [],
+    }
+
+
+def _render_session_error(service, session_id, message, status):
+    session = None
+    if status != 404:
+        try:
+            session = service.session_view(session_id)
+        except Exception:
+            session = None
+    return (
+        render_template(
+            "agent_session.html",
+            active_page="agent",
+            session=session,
+            error_message=message,
+        ),
+        status,
+    )
+
+
 @web_blueprint.get("/")
 def home():
     """Render the read-only academic Home dashboard."""
@@ -201,6 +255,145 @@ def knowledge():
     """Render read-only Phase 5.8 retrieval evidence and RAG context."""
     query = request.args.get("q", "", type=str)
     return render_template("knowledge.html", active_page="knowledge", dashboard=_knowledge_dashboard(query))
+
+
+@web_blueprint.get("/agent")
+def academic_agent():
+    """Render mentor advice, provider readiness, and recent tutor sessions."""
+    course_code = request.args.get("course", "", type=str)
+    service = _academic_agent_service()
+    try:
+        workspace = service.workspace(course_code)
+        return render_template(
+            "agent.html",
+            active_page="agent",
+            workspace=workspace,
+            error_message="",
+        )
+    except Exception as error:  # Never expose raw backend/provider details.
+        current_app.logger.warning(
+            "Academic Agent workspace unavailable (%s).",
+            type(error).__name__,
+        )
+        return (
+            render_template(
+                "agent.html",
+                active_page="agent",
+                workspace=_unavailable_agent_workspace(),
+                error_message="",
+            ),
+            503,
+        )
+
+
+@web_blueprint.post("/agent/sessions")
+def academic_agent_create_session():
+    """Create tutor conversation scope without invoking the tutor provider."""
+    service = _academic_agent_service()
+    try:
+        session_id = service.create_session(
+            course_id=request.form.get("course_id", ""),
+            mode=request.form.get("mode", "concept"),
+            source_policy=request.form.get("source_policy", "source_only"),
+            title=request.form.get("title", ""),
+        )
+        return redirect(
+            url_for("web.academic_agent_session", session_id=session_id),
+            code=303,
+        )
+    except AcademicAgentWebValidationError:
+        try:
+            workspace = service.workspace("")
+        except Exception:
+            workspace = _unavailable_agent_workspace()
+        return (
+            render_template(
+                "agent.html",
+                active_page="agent",
+                workspace=workspace,
+                error_message="The selected tutor session settings are invalid.",
+            ),
+            400,
+        )
+    except AcademicAgentWebUnavailableError:
+        return (
+            render_template(
+                "agent.html",
+                active_page="agent",
+                workspace=_unavailable_agent_workspace(),
+                error_message="Academic Agent is temporarily unavailable.",
+            ),
+            503,
+        )
+
+
+@web_blueprint.get("/agent/sessions/<session_id>")
+def academic_agent_session(session_id):
+    """Reopen a persisted tutor transcript without invoking the provider."""
+    service = _academic_agent_service()
+    try:
+        session = service.session_view(session_id)
+        return render_template(
+            "agent_session.html",
+            active_page="agent",
+            session=session,
+            error_message="",
+        )
+    except AcademicAgentWebNotFoundError:
+        return _render_session_error(
+            service,
+            session_id,
+            "Tutor session was not found.",
+            404,
+        )
+    except AcademicAgentWebUnavailableError:
+        return _render_session_error(
+            service,
+            session_id,
+            "Tutor session history is temporarily unavailable.",
+            503,
+        )
+
+
+@web_blueprint.post("/agent/sessions/<session_id>/ask")
+def academic_agent_ask(session_id):
+    """Run one explicit grounded tutor question and redirect to the transcript."""
+    service = _academic_agent_service()
+    try:
+        service.ask(session_id, request.form.get("question", ""))
+        return redirect(
+            url_for("web.academic_agent_session", session_id=session_id),
+            code=303,
+        )
+    except AcademicAgentWebValidationError:
+        return _render_session_error(
+            service,
+            session_id,
+            "Question cannot be empty or the tutor session is not active.",
+            400,
+        )
+    except AcademicAgentWebNotFoundError:
+        return _render_session_error(
+            service,
+            session_id,
+            "Tutor session was not found.",
+            404,
+        )
+    except AcademicAgentWebUnavailableError as error:
+        safe_messages = {
+            "AI tutor is not configured on this machine.",
+            "The AI tutor could not complete this request. Your academic data was not changed.",
+            "Grounded academic sources are temporarily unavailable.",
+            "Tutor session history is temporarily unavailable.",
+            "Academic Agent storage is temporarily unavailable.",
+        }
+        message = str(error)
+        if message not in safe_messages:
+            message = (
+                "The AI tutor could not complete this request. "
+                "Your academic data was not changed."
+            )
+        return _render_session_error(service, session_id, message, 503)
 
 
 @web_blueprint.get("/healthz")
