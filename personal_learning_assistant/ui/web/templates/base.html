@@ -3,40 +3,89 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="light dark">
-  <title>{% block title %}Personal AI Learning Assistant{% endblock %}</title>
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#0B0F14">
+  {% set page_title %}{% block title %}ANVAYA · Personal Learning Intelligence{% endblock %}{% endset %}
+  <title>{{ page_title|replace("Personal AI Learning Assistant", "ANVAYA") }}</title>
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='brand/anvaya-mark.png') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+  <script defer src="{{ url_for('static', filename='js/app.js') }}"></script>
 </head>
 <body>
   <a class="skip-link" href="#main-content">Skip to content</a>
-  <header class="app-header">
-    <div>
-      <p class="eyebrow">Local academic workspace</p>
-      <h1>Personal AI Learning Assistant</h1>
+
+  <div class="app-shell">
+    <aside id="app-sidebar" class="app-sidebar" aria-label="ANVAYA navigation">
+      <a class="brand-link" href="{{ url_for('web.home') }}" aria-label="ANVAYA home">
+        <img class="brand-wordmark" src="{{ url_for('static', filename='brand/anvaya-wordmark-white.png') }}" alt="ANVAYA">
+        <span class="brand-descriptor">Personal Learning Intelligence</span>
+      </a>
+
+      <nav class="primary-nav" aria-label="Primary navigation">
+        <div class="nav-section">
+          <a class="nav-item{% if active_page == 'home' %} is-active{% endif %}" href="{{ url_for('web.home') }}"{% if active_page == 'home' %} aria-current="page"{% endif %}>Home</a>
+        </div>
+
+        <div class="nav-section">
+          <p class="nav-section-label">ANVAYA</p>
+          <a class="nav-item{% if active_page == 'agent' %} is-active{% endif %}" href="{{ url_for('web.academic_agent') }}"{% if active_page == 'agent' %} aria-current="page"{% endif %}>Tutor</a>
+        </div>
+
+        <div class="nav-section">
+          <p class="nav-section-label">Learning</p>
+          <a class="nav-item{% if active_page == 'notes' %} is-active{% endif %}" href="{{ url_for('web.notes') }}"{% if active_page == 'notes' %} aria-current="page"{% endif %}>Notes</a>
+          <span class="nav-item is-disabled" aria-disabled="true"><span class="nav-label">Obsidian</span><span class="nav-status">Soon</span></span>
+          <a class="nav-item{% if active_page == 'resources' %} is-active{% endif %}" href="{{ url_for('web.resources') }}"{% if active_page == 'resources' %} aria-current="page"{% endif %}>Resources</a>
+          <a class="nav-item{% if active_page == 'knowledge' %} is-active{% endif %}" href="{{ url_for('web.knowledge') }}"{% if active_page == 'knowledge' %} aria-current="page"{% endif %}>Knowledge</a>
+        </div>
+
+        <div class="nav-section">
+          <p class="nav-section-label">Academics</p>
+          <a class="nav-item{% if active_page == 'courses' %} is-active{% endif %}" href="{{ url_for('web.courses') }}"{% if active_page == 'courses' %} aria-current="page"{% endif %}>Courses</a>
+          <a class="nav-item{% if active_page == 'assessments' %} is-active{% endif %}" href="{{ url_for('web.assessments') }}"{% if active_page == 'assessments' %} aria-current="page"{% endif %}>Assessments</a>
+          <a class="nav-item{% if active_page == 'calendar' %} is-active{% endif %}" href="{{ url_for('web.calendar') }}"{% if active_page == 'calendar' %} aria-current="page"{% endif %}>Calendar</a>
+          <a class="nav-item{% if active_page == 'planning' %} is-active{% endif %}" href="{{ url_for('web.planning') }}"{% if active_page == 'planning' %} aria-current="page"{% endif %}>Planning</a>
+          <span class="nav-item is-disabled" aria-disabled="true"><span class="nav-label">Progress</span><span class="nav-status">Soon</span></span>
+          <span class="nav-item is-disabled" aria-disabled="true"><span class="nav-label">Grades</span><span class="nav-status">Soon</span></span>
+        </div>
+
+        <div class="nav-section">
+          <p class="nav-section-label">System</p>
+          <span class="nav-item is-disabled" aria-disabled="true"><span class="nav-label">Settings</span><span class="nav-status">Soon</span></span>
+        </div>
+      </nav>
+
+      <p class="sidebar-footer">Local-first academic workspace. Existing CLI and academic services remain available.</p>
+    </aside>
+
+    <div class="app-main">
+      <header class="topbar">
+        <div class="topbar-title">
+          <button id="nav-toggle" class="nav-toggle" type="button" aria-controls="app-sidebar" aria-expanded="false" aria-label="Open navigation">
+            <span class="nav-toggle-lines" aria-hidden="true"></span>
+          </button>
+          <div class="mobile-brand" aria-label="ANVAYA">
+            <img src="{{ url_for('static', filename='brand/anvaya-mark.png') }}" alt="">
+            <span class="mobile-brand-name">ANVAYA</span>
+          </div>
+          <div class="topbar-copy">
+            <strong>Personal Learning Intelligence</strong>
+            <span class="shell-status">Local workspace</span>
+          </div>
+        </div>
+        <div class="topbar-actions">
+          <a class="topbar-link" href="{{ url_for('web.academic_agent') }}">Ask ANVAYA</a>
+        </div>
+      </header>
+
+      <main id="main-content" class="content" tabindex="-1">
+        {% block content %}{% endblock %}
+      </main>
+
+      <footer class="app-footer">ANVAYA runs locally. Academic engines and storage authority remain unchanged.</footer>
     </div>
-    <span class="phase-badge">Phase 7.5.1</span>
-  </header>
-
-  <div class="app-layout">
-    <nav class="sidebar" aria-label="Primary navigation">
-      <a class="nav-item{% if active_page == 'home' %} is-active{% endif %}" href="{{ url_for('web.home') }}">Home</a>
-      <a class="nav-item{% if active_page == 'courses' %} is-active{% endif %}" href="{{ url_for('web.courses') }}">Courses</a>
-      <a class="nav-item{% if active_page == 'assessments' %} is-active{% endif %}" href="{{ url_for('web.assessments') }}">Assessments</a>
-      <a class="nav-item{% if active_page == 'planning' %} is-active{% endif %}" href="{{ url_for('web.planning') }}">Planning</a>
-      <a class="nav-item{% if active_page == 'calendar' %} is-active{% endif %}" href="{{ url_for('web.calendar') }}">Calendar &amp; Grades</a>
-      <a class="nav-item{% if active_page == 'notes' %} is-active{% endif %}" href="{{ url_for('web.notes') }}">Notes</a>
-      <a class="nav-item{% if active_page == 'resources' %} is-active{% endif %}" href="{{ url_for('web.resources') }}">Resources</a>
-      <a class="nav-item{% if active_page == 'knowledge' %} is-active{% endif %}" href="{{ url_for('web.knowledge') }}">Knowledge</a>
-      <a class="nav-item{% if active_page == 'agent' %} is-active{% endif %}" href="{{ url_for('web.academic_agent') }}">Academic Agent</a>
-    </nav>
-
-    <main id="main-content" class="content" tabindex="-1">
-      {% block content %}{% endblock %}
-    </main>
   </div>
 
-  <footer class="app-footer">
-    Runs locally. Existing CLI and academic services remain unchanged.
-  </footer>
+  <button id="nav-backdrop" class="nav-backdrop" type="button" aria-label="Close navigation" hidden></button>
 </body>
 </html>

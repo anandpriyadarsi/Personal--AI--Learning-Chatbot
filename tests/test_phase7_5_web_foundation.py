@@ -26,17 +26,18 @@ def test_home_route_renders_local_navigation_shell():
     response = client.get("/")
     text = response.get_data(as_text=True)
     assert response.status_code == 200
-    assert "Personal AI Learning Assistant" in text
+    assert "ANVAYA" in text
+    assert "Personal Learning Intelligence" in text
     for label in (
         "Home",
-        "Courses",
-        "Assessments",
-        "Planning",
-        "Calendar",
+        "Tutor",
         "Notes",
         "Resources",
         "Knowledge",
-        "Academic Agent",
+        "Courses",
+        "Assessments",
+        "Calendar",
+        "Planning",
     ):
         assert label in text
     assert "https://" not in text
