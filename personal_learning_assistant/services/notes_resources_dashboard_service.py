@@ -39,9 +39,9 @@ def _safe_external_link(value: Any) -> str:
 
 
 def build_notes_dashboard(result: Any) -> dict[str, Any]:
-    """Normalize a NotesService list result without mutating note storage."""
+    """Normalize a NotesService list/search result without mutating note storage."""
     raw_notes = tuple(_value(result, "notes", ()) or ())
-    notes: list[dict[str, str]] = []
+    notes: list[dict[str, Any]] = []
     topics: set[str] = set()
     difficulties: set[str] = set()
 
@@ -50,6 +50,9 @@ def build_notes_dashboard(result: Any) -> dict[str, Any]:
         difficulty = _text(_value(raw, "difficulty"), "Unspecified")
         notes.append(
             {
+                "position": int(
+                    _value(raw, "position", len(notes) + 1) or len(notes) + 1
+                ),
                 "title": _text(_value(raw, "title"), "Untitled note"),
                 "topic": topic,
                 "difficulty": difficulty,
@@ -93,7 +96,10 @@ def build_resources_dashboard(result: Any) -> dict[str, Any]:
         link = _text(_value(raw, "link"))
         resources.append(
             {
-                "position": int(_value(raw, "position", len(resources) + 1) or len(resources) + 1),
+                "position": int(
+                    _value(raw, "position", len(resources) + 1)
+                    or len(resources) + 1
+                ),
                 "title": _text(_value(raw, "title"), "Untitled resource"),
                 "resource_type": resource_type,
                 "link": link,

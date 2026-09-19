@@ -9,171 +9,94 @@ from personal_learning_assistant.domain.note_models import (
     NoteCreateResult,
     NoteListResult,
     NoteSearchResult,
+    NoteUpdateResult,
     NoteView,
     SearchNotesQuery,
+    UpdateNoteCommand,
 )
-from personal_learning_assistant.repositories.interfaces import (
-    NoteRepository,
-)
+from personal_learning_assistant.repositories.interfaces import NoteRepository
 
 
 class NotesService:
-    """
-    Phase 2 Notes service over the current JSON authority.
+    """Application service over the legacy-compatible Notes repository."""
 
-    Reads are side-effect free. Create-note is an explicit command routed to
-    the legacy JSON repository; it does not introduce a second persistence
-    format or migrate note bodies.
-    """
-
-    def __init__(
-        self,
-        repository: NoteRepository,
-    ):
+    def __init__(self, repository: NoteRepository):
         self.repository = repository
 
-    def create_note(
-        self,
-        command: CreateNoteCommand,
-    ) -> NoteCreateResult:
+    def create_note(self, command: CreateNoteCommand) -> NoteCreateResult:
         note = NoteView(
             title=str(command.title),
             topic=str(command.topic),
             difficulty=str(command.difficulty),
             content=str(command.content),
         )
+        stored = self.repository.append_note(note.to_legacy_dict())
+        return NoteCreateResult(note=NoteView.from_legacy(stored))
 
-        stored = self.repository.append_note(
-            note.to_legacy_dict()
-        )
-
-        return NoteCreateResult(
-            note=NoteView.from_legacy(
-                stored
-            )
-        )
-
-    def list_notes(
-        self,
-        query: Optional[ListNotesQuery] = None,
-    ) -> NoteListResult:
+    def list_notes(self, query: Optional[ListNotesQuery] = None) -> NoteListResult:
         query = query or ListNotesQuery()
-
         notes = [
-            NoteView.from_legacy(item)
-            for item in self.repository.load_notes()
+            NoteView.from_legacy(item, position=position)
+            for position, item in enumerate(self.repository.load_notes(), start=1)
         ]
+        notes = self._apply_filters(notes, topic=query.topic, difficulty=query.difficulty)
+        return NoteListResult(notes=tuple(notes))
 
-        notes = self._apply_filters(
-            notes,
-            topic=query.topic,
-            difficulty=query.difficulty,
+    def get_note(self, position: int):
+        if position < 1:
+            return None
+        notes = self.list_notes().notes
+        if position > len(notes):
+            return None
+        return notes[position - 1]
+
+    def update_note(self, command: UpdateNoteCommand) -> NoteUpdateResult:
+        position = int(command.position)
+        if self.get_note(position) is None:
+            raise IndexError("Note position is out of range.")
+        note = NoteView(
+            title=str(command.title),
+            topic=str(command.topic),
+            difficulty=str(command.difficulty),
+            content=str(command.content),
+            position=position,
         )
+        stored = self.repository.replace_note(position, note.to_legacy_dict())
+        return NoteUpdateResult(note=NoteView.from_legacy(stored, position=position))
 
-        return NoteListResult(
-            notes=tuple(notes)
-        )
+    def count_notes(self, query: Optional[ListNotesQuery] = None) -> NoteCountResult:
+        result = self.list_notes(query)
+        return NoteCountResult(count=len(result.notes))
 
-    def count_notes(
-        self,
-        query: Optional[ListNotesQuery] = None,
-    ) -> NoteCountResult:
-        result = self.list_notes(
-            query
-        )
-
-        return NoteCountResult(
-            count=len(
-                result.notes
-            )
-        )
-
-    def search_notes(
-        self,
-        query: SearchNotesQuery,
-    ) -> NoteSearchResult:
-        search_text = (
-            query.text
-            .strip()
-            .casefold()
-        )
-
+    def search_notes(self, query: SearchNotesQuery) -> NoteSearchResult:
+        search_text = query.text.strip().casefold()
         candidates = list(
             self.list_notes(
-                ListNotesQuery(
-                    topic=query.topic,
-                    difficulty=query.difficulty,
-                )
+                ListNotesQuery(topic=query.topic, difficulty=query.difficulty)
             ).notes
         )
-
         if not search_text:
-            return NoteSearchResult(
-                query=query.text,
-                notes=(),
-            )
-
+            return NoteSearchResult(query=query.text, notes=())
         matches = []
-
         for note in candidates:
-            searchable = "\n".join(
-                (
-                    note.title,
-                    note.topic,
-                    note.content,
-                )
-            ).casefold()
-
+            searchable = "\n".join((note.title, note.topic, note.content)).casefold()
             if search_text in searchable:
-                matches.append(
-                    note
-                )
-
-        return NoteSearchResult(
-            query=query.text,
-            notes=tuple(matches),
-        )
+                matches.append(note)
+        return NoteSearchResult(query=query.text, notes=tuple(matches))
 
     @staticmethod
-    def _apply_filters(
-        notes,
-        topic=None,
-        difficulty=None,
-    ):
+    def _apply_filters(notes, topic=None, difficulty=None):
         filtered = list(notes)
-
         if topic is not None:
-            wanted_topic = (
-                str(topic)
-                .strip()
-                .casefold()
-            )
+            wanted_topic = str(topic).strip().casefold()
             filtered = [
-                note
-                for note in filtered
-                if (
-                    note.topic
-                    .strip()
-                    .casefold()
-                    == wanted_topic
-                )
+                note for note in filtered
+                if note.topic.strip().casefold() == wanted_topic
             ]
-
         if difficulty is not None:
-            wanted_difficulty = (
-                str(difficulty)
-                .strip()
-                .casefold()
-            )
+            wanted_difficulty = str(difficulty).strip().casefold()
             filtered = [
-                note
-                for note in filtered
-                if (
-                    note.difficulty
-                    .strip()
-                    .casefold()
-                    == wanted_difficulty
-                )
+                note for note in filtered
+                if note.difficulty.strip().casefold() == wanted_difficulty
             ]
-
         return filtered

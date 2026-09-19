@@ -61,14 +61,18 @@ class QuestionRepository(Protocol):
 
 
 class NoteRepository(Protocol):
-    """Read boundary for the legacy notes store during Phase 2."""
+    """Persistence boundary for the legacy notes store during Phase 2."""
 
     def load_notes(self):
         """Return legacy note dictionaries without mutating storage."""
         ...
 
     def append_note(self, note):
-        # Persist one legacy-shaped note through an explicit command.
+        """Persist one legacy-shaped note through an explicit command."""
+        ...
+
+    def replace_note(self, position: int, note):
+        """Replace one 1-based legacy note row through an explicit command."""
         ...
 
 

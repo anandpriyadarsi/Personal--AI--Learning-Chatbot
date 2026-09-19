@@ -1,8 +1,7 @@
 """Legacy adapter for the existing ``data/notes.json`` store.
 
-Reads remain side-effect free. Phase 2 Fix 8 adds the explicit append command
-needed by NotesService while keeping the legacy JSON list as the only
-structured authority.
+Reads remain side-effect free. Explicit commands use atomic replacement while
+preserving the four-field legacy note shape.
 """
 
 import json
@@ -15,113 +14,58 @@ from config import NOTES_FILE
 
 
 class LegacyJsonNoteRepository:
-    """
-    Legacy Notes repository for Phase 2.
+    """Repository over the current V1 notes JSON list."""
 
-    Missing, empty, invalid, or non-list stores are represented as an empty
-    note collection, matching the old loader behavior. Reads never create,
-    rewrite, or normalize the source file.
-    """
-
-    def __init__(
-        self,
-        path: Optional[str] = None,
-    ):
-        self.path = Path(
-            path
-            if path is not None
-            else NOTES_FILE
-        )
+    def __init__(self, path: Optional[str] = None):
+        self.path = Path(path if path is not None else NOTES_FILE)
 
     def load_notes(self):
         if not self.path.exists():
             return []
-
         try:
-            raw_text = self.path.read_text(
-                encoding="utf-8"
-            )
+            raw_text = self.path.read_text(encoding="utf-8")
         except OSError:
             return []
-
         if not raw_text.strip():
             return []
-
         try:
-            data = json.loads(
-                raw_text
-            )
+            data = json.loads(raw_text)
         except json.JSONDecodeError:
             return []
-
-        if not isinstance(
-            data,
-            list,
-        ):
+        if not isinstance(data, list):
             return []
+        return [deepcopy(item) for item in data if isinstance(item, dict)]
 
-        notes = []
-
-        for item in data:
-            if isinstance(
-                item,
-                dict,
-            ):
-                notes.append(
-                    deepcopy(item)
-                )
-
-        return notes
-
-    def append_note(
-        self,
-        note,
-    ):
-        """
-        Append one legacy-shaped note and atomically replace the JSON file.
-
-        The stored record stays exactly in the V1 shape:
-        title/topic/difficulty/content.
-        """
-        notes = self.load_notes()
-        stored_note = deepcopy(
-            dict(note)
-        )
-        notes.append(
-            stored_note
-        )
-
-        self.path.parent.mkdir(
-            parents=True,
-            exist_ok=True,
-        )
-
-        temporary_path = self.path.with_name(
-            self.path.name + ".tmp"
-        )
-
+    def _save_notes(self, notes):
+        payload = [deepcopy(dict(note)) for note in notes]
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        temporary_path = self.path.with_name(self.path.name + ".tmp")
         try:
-            payload = json.dumps(
-                notes,
-                indent=4,
-            )
-
             temporary_path.write_text(
-                payload,
+                json.dumps(payload, indent=4),
                 encoding="utf-8",
             )
-
-            os.replace(
-                temporary_path,
-                self.path,
-            )
+            os.replace(temporary_path, self.path)
         finally:
             if temporary_path.exists():
                 try:
                     temporary_path.unlink()
                 except OSError:
                     pass
+        return [deepcopy(item) for item in payload]
 
-        return deepcopy(
-            stored_note
-        )
+    def append_note(self, note):
+        notes = self.load_notes()
+        stored_note = deepcopy(dict(note))
+        notes.append(stored_note)
+        self._save_notes(notes)
+        return deepcopy(stored_note)
+
+    def replace_note(self, position: int, note):
+        notes = self.load_notes()
+        if position < 1 or position > len(notes):
+            raise IndexError("Note position is out of range.")
+        stored_note = deepcopy(dict(note))
+        notes[position - 1] = stored_note
+        self._save_notes(notes)
+        return deepcopy(stored_note)

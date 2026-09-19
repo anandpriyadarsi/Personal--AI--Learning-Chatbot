@@ -15,14 +15,16 @@ class NoteView:
     topic: str
     difficulty: str
     content: str
+    position: int = 0
 
     @classmethod
-    def from_legacy(cls, data):
+    def from_legacy(cls, data, position=0):
         return cls(
             title=str(data.get("title", "")),
             topic=str(data.get("topic", "")),
             difficulty=str(data.get("difficulty", "")),
             content=str(data.get("content", "")),
+            position=int(position or 0),
         )
 
     def to_legacy_dict(self):
@@ -36,6 +38,15 @@ class NoteView:
 
 @dataclass(frozen=True)
 class CreateNoteCommand:
+    title: str
+    topic: str
+    difficulty: str
+    content: str
+
+
+@dataclass(frozen=True)
+class UpdateNoteCommand:
+    position: int
     title: str
     topic: str
     difficulty: str
@@ -57,6 +68,11 @@ class SearchNotesQuery:
 
 @dataclass(frozen=True)
 class NoteCreateResult:
+    note: NoteView
+
+
+@dataclass(frozen=True)
+class NoteUpdateResult:
     note: NoteView
 
 

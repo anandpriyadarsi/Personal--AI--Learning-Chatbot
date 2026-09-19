@@ -1,16 +1,26 @@
 {% extends "base.html" %}
 
-{% block title %}Notes · Personal AI Learning Assistant{% endblock %}
+{% block title %}Notes · ANVAYA{% endblock %}
 
 {% block content %}
-<section class="hero dashboard-hero" aria-labelledby="notes-title">
+<section class="workspace-header" aria-labelledby="notes-title">
   <div>
-    <p class="eyebrow">Academic notes library</p>
+    <p class="eyebrow">Learning workspace</p>
     <h2 id="notes-title">Notes</h2>
-    <p class="lede">Read the notes already stored in your learning assistant. This page does not create or edit notes.</p>
+    <p class="lede">Create, search, read, and edit your ANVAYA notes.</p>
   </div>
-  {% if dashboard.available %}<p class="date-chip">{{ dashboard.summary.total }} note{% if dashboard.summary.total != 1 %}s{% endif %}</p>{% endif %}
+  <a class="button secondary-button" href="#new-note">+ New Note</a>
 </section>
+
+{% if error_message %}
+<section class="notice-panel error-panel" role="alert">
+  <strong>{{ error_message }}</strong>
+</section>
+{% elif request.args.get('created') %}
+<section class="notice-panel compact-notice" role="status">Note created.</section>
+{% elif request.args.get('updated') %}
+<section class="notice-panel compact-notice" role="status">Note updated.</section>
+{% endif %}
 
 {% if not dashboard.available %}
 <section class="notice-panel" aria-live="polite">
@@ -18,36 +28,116 @@
   <p>{{ dashboard.message }}</p>
 </section>
 {% else %}
-<section class="metric-grid" aria-label="Notes summary">
-  <article class="metric-card"><span class="metric-label">Notes</span><strong>{{ dashboard.summary.total }}</strong><span>Stored note records</span></article>
-  <article class="metric-card"><span class="metric-label">Topics</span><strong>{{ dashboard.summary.topics }}</strong><span>Distinct note topics</span></article>
-  <article class="metric-card"><span class="metric-label">Difficulty labels</span><strong>{{ dashboard.summary.difficulties }}</strong><span>As already stored</span></article>
+<section class="dashboard-panel operational-toolbar" aria-label="Search and filter notes">
+  <form class="filter-form" method="get" action="{{ url_for('web.notes') }}">
+    <label class="form-field form-field-grow">
+      <span>Search</span>
+      <input type="search" name="q" value="{{ dashboard.query.search }}" placeholder="Search title, topic, or note content">
+    </label>
+    <label class="form-field">
+      <span>Topic</span>
+      <input type="text" name="topic" value="{{ dashboard.query.topic }}" placeholder="All topics">
+    </label>
+    <label class="form-field">
+      <span>Difficulty</span>
+      <input type="text" name="difficulty" value="{{ dashboard.query.difficulty }}" placeholder="All">
+    </label>
+    <div class="form-actions filter-actions">
+      <button class="button" type="submit">Search</button>
+      {% if dashboard.query.search or dashboard.query.topic or dashboard.query.difficulty %}
+        <a class="button secondary-button" href="{{ url_for('web.notes') }}">Clear</a>
+      {% endif %}
+    </div>
+  </form>
 </section>
 
-<section class="dashboard-panel" aria-labelledby="notes-library-heading">
-  <div class="panel-heading">
-    <div><p class="eyebrow">Existing material</p><h3 id="notes-library-heading">Notes library</h3></div>
-    <span class="tag">Read only</span>
+<details id="new-note" class="dashboard-panel create-panel">
+  <summary class="details-action">+ New Note</summary>
+  <form class="operational-form" method="post" action="{{ url_for('web.notes_create') }}">
+    <div class="form-grid">
+      <label class="form-field form-field-wide">
+        <span>Title</span>
+        <input name="title" required maxlength="200" autocomplete="off">
+      </label>
+      <label class="form-field">
+        <span>Topic</span>
+        <input name="topic" placeholder="Uncategorized" autocomplete="off">
+      </label>
+      <label class="form-field">
+        <span>Difficulty</span>
+        <input name="difficulty" placeholder="Unspecified" autocomplete="off">
+      </label>
+      <label class="form-field form-field-full">
+        <span>Content</span>
+        <textarea name="content" rows="8" placeholder="Write your note in plain text or Markdown..."></textarea>
+      </label>
+    </div>
+    <div class="form-actions">
+      <button class="button" type="submit">Save note</button>
+    </div>
+  </form>
+</details>
+
+<section class="workspace-summary" aria-label="Notes summary">
+  <span><strong>{{ dashboard.summary.total }}</strong> note{% if dashboard.summary.total != 1 %}s{% endif %}</span>
+  <span>{{ dashboard.summary.topics }} topic{% if dashboard.summary.topics != 1 %}s{% endif %}</span>
+  <span>{{ dashboard.summary.difficulties }} difficulty label{% if dashboard.summary.difficulties != 1 %}s{% endif %}</span>
+</section>
+
+<section class="operational-list" aria-labelledby="notes-library-heading">
+  <div class="section-heading-row">
+    <div>
+      <p class="eyebrow">Your material</p>
+      <h3 id="notes-library-heading">Notes library</h3>
+    </div>
   </div>
 
   {% if not dashboard.notes %}
-    <p class="empty-state"><strong>No notes are stored yet.</strong> This page did not create or modify note data.</p>
+    <div class="dashboard-panel">
+      <p class="empty-state"><strong>No matching notes.</strong> Create a note or change the search filters.</p>
+    </div>
   {% else %}
-    <div class="dashboard-grid">
+    <div class="note-card-grid">
       {% for note in dashboard.notes %}
-      <article class="dashboard-panel">
+      <article class="dashboard-panel operational-card" id="note-{{ note.position }}">
         <div class="panel-heading">
-          <div><p class="eyebrow">{{ note.topic }}</p><h3>{{ note.title }}</h3></div>
+          <div>
+            <p class="eyebrow">Note {{ note.position }} · {{ note.topic }}</p>
+            <h3>{{ note.title }}</h3>
+          </div>
           <span class="tag">{{ note.difficulty }}</span>
         </div>
         {% if note.content %}
-          <details>
-            <summary>Read note</summary>
-            <p class="empty-state">{{ note.content }}</p>
-          </details>
+          <pre class="note-content">{{ note.content }}</pre>
         {% else %}
           <p class="empty-state">This note has no stored content.</p>
         {% endif %}
+        <details class="inline-editor">
+          <summary class="details-action">Edit note</summary>
+          <form class="operational-form" method="post" action="{{ url_for('web.notes_update', position=note.position) }}">
+            <div class="form-grid">
+              <label class="form-field form-field-wide">
+                <span>Title</span>
+                <input name="title" value="{{ note.title }}" required maxlength="200">
+              </label>
+              <label class="form-field">
+                <span>Topic</span>
+                <input name="topic" value="{{ note.topic }}">
+              </label>
+              <label class="form-field">
+                <span>Difficulty</span>
+                <input name="difficulty" value="{{ note.difficulty }}">
+              </label>
+              <label class="form-field form-field-full">
+                <span>Content</span>
+                <textarea name="content" rows="8">{{ note.content }}</textarea>
+              </label>
+            </div>
+            <div class="form-actions">
+              <button class="button" type="submit">Save changes</button>
+            </div>
+          </form>
+        </details>
       </article>
       {% endfor %}
     </div>

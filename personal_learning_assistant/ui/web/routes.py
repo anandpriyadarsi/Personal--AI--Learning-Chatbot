@@ -44,6 +44,12 @@ from personal_learning_assistant.services.notes_resources_dashboard_service impo
     unavailable_notes_dashboard,
     unavailable_resources_dashboard,
 )
+from personal_learning_assistant.services.notes_resources_web_service import (
+    NotesResourcesWebNotFoundError,
+    NotesResourcesWebUnavailableError,
+    NotesResourcesWebValidationError,
+    build_notes_resources_web_service,
+)
 from personal_learning_assistant.services.planning_dashboard_service import (
     load_planning_dashboard,
     unavailable_planning_dashboard,
@@ -172,6 +178,100 @@ def _academic_agent_service():
     return factory()
 
 
+def _notes_resources_service():
+    factory = (
+        current_app.config.get("NOTES_RESOURCES_WEB_SERVICE_FACTORY")
+        or build_notes_resources_web_service
+    )
+    return factory()
+
+
+def _legacy_notes_workspace_if_configured(query):
+    provider = current_app.config.get("NOTES_DASHBOARD_PROVIDER")
+    if provider is None:
+        return None
+    workspace = _notes_dashboard()
+    workspace["query"] = dict(query)
+    return workspace
+
+
+def _legacy_resources_workspace_if_configured(query):
+    provider = current_app.config.get("RESOURCES_DASHBOARD_PROVIDER")
+    if provider is None:
+        return None
+    workspace = _resources_dashboard()
+    workspace["query"] = dict(query)
+    return workspace
+
+
+def _notes_workspace(service, query):
+    legacy = _legacy_notes_workspace_if_configured(query)
+    if legacy is not None:
+        return legacy
+    return service.notes_workspace(
+        search=query["search"],
+        topic=query["topic"],
+        difficulty=query["difficulty"],
+    )
+
+
+def _resources_workspace(service, query):
+    legacy = _legacy_resources_workspace_if_configured(query)
+    if legacy is not None:
+        return legacy
+    return service.resources_workspace(
+        search=query["search"],
+        resource_type=query["type"],
+        status=query["status"],
+    )
+
+
+def _safe_notes_workspace(service, query):
+    try:
+        return _notes_workspace(service, query)
+    except Exception as error:
+        current_app.logger.warning("Notes unavailable (%s).", type(error).__name__)
+        workspace = unavailable_notes_dashboard()
+        workspace["query"] = dict(query)
+        return workspace
+
+
+def _safe_resources_workspace(service, query):
+    try:
+        return _resources_workspace(service, query)
+    except Exception as error:
+        current_app.logger.warning("Resources unavailable (%s).", type(error).__name__)
+        workspace = unavailable_resources_dashboard()
+        workspace["query"] = dict(query)
+        return workspace
+
+
+def _render_notes_command_error(service, message, status):
+    query = {"search": "", "topic": "", "difficulty": ""}
+    return (
+        render_template(
+            "notes.html",
+            active_page="notes",
+            dashboard=_safe_notes_workspace(service, query),
+            error_message=message,
+        ),
+        status,
+    )
+
+
+def _render_resources_command_error(service, message, status):
+    query = {"search": "", "type": "", "status": ""}
+    return (
+        render_template(
+            "resources.html",
+            active_page="resources",
+            dashboard=_safe_resources_workspace(service, query),
+            error_message=message,
+        ),
+        status,
+    )
+
+
 def _unavailable_agent_workspace(message="Academic Agent is temporarily unavailable."):
     return {
         "available": False,
@@ -240,14 +340,141 @@ def calendar():
 
 @web_blueprint.get("/notes")
 def notes():
-    """Render the read-only Notes library."""
-    return render_template("notes.html", active_page="notes", dashboard=_notes_dashboard())
+    """Render the operational Notes workspace."""
+    query = {
+        "search": request.args.get("q", "", type=str),
+        "topic": request.args.get("topic", "", type=str),
+        "difficulty": request.args.get("difficulty", "", type=str),
+    }
+    service = _notes_resources_service()
+    workspace = _safe_notes_workspace(service, query)
+    return render_template(
+        "notes.html",
+        active_page="notes",
+        dashboard=workspace,
+        error_message="",
+    )
+
+
+@web_blueprint.post("/notes")
+def notes_create():
+    """Create a note through the operational service boundary."""
+    service = _notes_resources_service()
+    try:
+        service.create_note(
+            request.form.get("title", ""),
+            request.form.get("topic", ""),
+            request.form.get("difficulty", ""),
+            request.form.get("content", ""),
+        )
+        return redirect(url_for("web.notes", created="1"), code=303)
+    except NotesResourcesWebValidationError:
+        return _render_notes_command_error(
+            service,
+            "Enter a title before saving the note.",
+            400,
+        )
+    except NotesResourcesWebUnavailableError:
+        return _render_notes_command_error(
+            service,
+            "The note could not be saved. Your existing notes were not changed.",
+            503,
+        )
+
+
+@web_blueprint.post("/notes/<int:position>")
+def notes_update(position):
+    """Update one note by its current 1-based position."""
+    service = _notes_resources_service()
+    try:
+        service.update_note(
+            position,
+            request.form.get("title", ""),
+            request.form.get("topic", ""),
+            request.form.get("difficulty", ""),
+            request.form.get("content", ""),
+        )
+        return redirect(url_for("web.notes", updated="1"), code=303)
+    except NotesResourcesWebValidationError:
+        return _render_notes_command_error(service, "The note update is invalid.", 400)
+    except NotesResourcesWebNotFoundError:
+        return _render_notes_command_error(service, "That note no longer exists.", 404)
+    except NotesResourcesWebUnavailableError:
+        return _render_notes_command_error(
+            service,
+            "The note could not be updated. Your existing notes were not changed.",
+            503,
+        )
 
 
 @web_blueprint.get("/resources")
 def resources():
-    """Render the read-only Resources library."""
-    return render_template("resources.html", active_page="resources", dashboard=_resources_dashboard())
+    """Render the operational Resources workspace."""
+    query = {
+        "search": request.args.get("q", "", type=str),
+        "type": request.args.get("type", "", type=str),
+        "status": request.args.get("status", "", type=str),
+    }
+    service = _notes_resources_service()
+    workspace = _safe_resources_workspace(service, query)
+    return render_template(
+        "resources.html",
+        active_page="resources",
+        dashboard=workspace,
+        error_message="",
+    )
+
+
+@web_blueprint.post("/resources")
+def resources_create():
+    """Create a resource through the operational service boundary."""
+    service = _notes_resources_service()
+    try:
+        service.create_resource(
+            request.form.get("title", ""),
+            request.form.get("resource_type", ""),
+            request.form.get("link", ""),
+        )
+        return redirect(url_for("web.resources", created="1"), code=303)
+    except NotesResourcesWebValidationError:
+        return _render_resources_command_error(
+            service,
+            "Enter a title before adding the resource.",
+            400,
+        )
+    except NotesResourcesWebUnavailableError:
+        return _render_resources_command_error(
+            service,
+            "The resource could not be saved. Your existing resources were not changed.",
+            503,
+        )
+
+
+@web_blueprint.post("/resources/<int:position>/status")
+def resources_update_status(position):
+    """Update one resource learning status by its current 1-based position."""
+    service = _notes_resources_service()
+    try:
+        service.update_resource_status(position, request.form.get("status", ""))
+        return redirect(url_for("web.resources", updated="1"), code=303)
+    except NotesResourcesWebValidationError:
+        return _render_resources_command_error(
+            service,
+            "Choose a valid resource status.",
+            400,
+        )
+    except NotesResourcesWebNotFoundError:
+        return _render_resources_command_error(
+            service,
+            "That resource no longer exists.",
+            404,
+        )
+    except NotesResourcesWebUnavailableError:
+        return _render_resources_command_error(
+            service,
+            "The resource status could not be updated. Your existing resources were not changed.",
+            503,
+        )
 
 
 @web_blueprint.get("/knowledge")

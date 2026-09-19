@@ -1,16 +1,26 @@
 {% extends "base.html" %}
 
-{% block title %}Resources · Personal AI Learning Assistant{% endblock %}
+{% block title %}Resources · ANVAYA{% endblock %}
 
 {% block content %}
-<section class="hero dashboard-hero" aria-labelledby="resources-title">
+<section class="workspace-header" aria-labelledby="resources-title">
   <div>
-    <p class="eyebrow">Learning resource library</p>
+    <p class="eyebrow">Learning workspace</p>
     <h2 id="resources-title">Resources</h2>
-    <p class="lede">Browse the resources and progress labels already stored in your learning assistant.</p>
+    <p class="lede">Add, search, open, and track the learning material you use.</p>
   </div>
-  {% if dashboard.available %}<p class="date-chip">{{ dashboard.summary.total }} resource{% if dashboard.summary.total != 1 %}s{% endif %}</p>{% endif %}
+  <a class="button secondary-button" href="#new-resource">+ Add Resource</a>
 </section>
+
+{% if error_message %}
+<section class="notice-panel error-panel" role="alert">
+  <strong>{{ error_message }}</strong>
+</section>
+{% elif request.args.get('created') %}
+<section class="notice-panel compact-notice" role="status">Resource added.</section>
+{% elif request.args.get('updated') %}
+<section class="notice-panel compact-notice" role="status">Resource status updated.</section>
+{% endif %}
 
 {% if not dashboard.available %}
 <section class="notice-panel" aria-live="polite">
@@ -18,39 +28,102 @@
   <p>{{ dashboard.message }}</p>
 </section>
 {% else %}
-<section class="metric-grid" aria-label="Resources summary">
-  <article class="metric-card"><span class="metric-label">Resources</span><strong>{{ dashboard.summary.total }}</strong><span>{{ dashboard.summary.types }} stored type{% if dashboard.summary.types != 1 %}s{% endif %}</span></article>
-  <article class="metric-card"><span class="metric-label">Not started</span><strong>{{ dashboard.summary.not_started }}</strong><span>Waiting to begin</span></article>
-  <article class="metric-card"><span class="metric-label">In progress</span><strong>{{ dashboard.summary.in_progress }}</strong><span>Currently using</span></article>
-  <article class="metric-card"><span class="metric-label">Completed</span><strong>{{ dashboard.summary.completed }}</strong><span>Finished resources</span></article>
+<section class="dashboard-panel operational-toolbar" aria-label="Search and filter resources">
+  <form class="filter-form" method="get" action="{{ url_for('web.resources') }}">
+    <label class="form-field form-field-grow">
+      <span>Search</span>
+      <input type="search" name="q" value="{{ dashboard.query.search }}" placeholder="Search title or resource type">
+    </label>
+    <label class="form-field">
+      <span>Type</span>
+      <input type="text" name="type" value="{{ dashboard.query.type }}" placeholder="All types">
+    </label>
+    <label class="form-field">
+      <span>Status</span>
+      <select name="status">
+        <option value=""{% if not dashboard.query.status %} selected{% endif %}>All statuses</option>
+        {% for option in ("Not Started", "In Progress", "Completed") %}
+          <option value="{{ option }}"{% if dashboard.query.status == option %} selected{% endif %}>{{ option }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <div class="form-actions filter-actions">
+      <button class="button" type="submit">Search</button>
+      {% if dashboard.query.search or dashboard.query.type or dashboard.query.status %}
+        <a class="button secondary-button" href="{{ url_for('web.resources') }}">Clear</a>
+      {% endif %}
+    </div>
+  </form>
+</section>
+
+<details id="new-resource" class="dashboard-panel create-panel">
+  <summary class="details-action">+ Add Resource</summary>
+  <form class="operational-form" method="post" action="{{ url_for('web.resources_create') }}">
+    <div class="form-grid">
+      <label class="form-field form-field-wide">
+        <span>Title</span>
+        <input name="title" required maxlength="200" autocomplete="off">
+      </label>
+      <label class="form-field">
+        <span>Type</span>
+        <input name="resource_type" placeholder="Resource" autocomplete="off">
+      </label>
+      <label class="form-field form-field-full">
+        <span>Link or path</span>
+        <input name="link" placeholder="https://... or a local reference path" autocomplete="off">
+      </label>
+    </div>
+    <div class="form-actions">
+      <button class="button" type="submit">Add resource</button>
+    </div>
+  </form>
+</details>
+
+<section class="workspace-summary" aria-label="Resources summary">
+  <span><strong>{{ dashboard.summary.total }}</strong> resource{% if dashboard.summary.total != 1 %}s{% endif %}</span>
+  <span>{{ dashboard.summary.not_started }} not started</span>
+  <span>{{ dashboard.summary.in_progress }} in progress</span>
+  <span>{{ dashboard.summary.completed }} completed</span>
 </section>
 
 <section class="dashboard-panel" aria-labelledby="resource-library-heading">
-  <div class="panel-heading">
-    <div><p class="eyebrow">Existing material</p><h3 id="resource-library-heading">Resource library</h3></div>
-    <span class="tag">Read only</span>
+  <div class="section-heading-row">
+    <div>
+      <p class="eyebrow">Your material</p>
+      <h3 id="resource-library-heading">Resource library</h3>
+    </div>
   </div>
 
   {% if not dashboard.resources %}
-    <p class="empty-state"><strong>No resources are stored yet.</strong> This page did not create or modify resource data.</p>
+    <p class="empty-state"><strong>No matching resources.</strong> Add a resource or change the search filters.</p>
   {% else %}
-    <ul class="dashboard-list" aria-label="Stored resources">
+    <ul class="dashboard-list operational-resource-list" aria-label="Stored resources">
       {% for resource in dashboard.resources %}
-      <li>
+      <li id="resource-{{ resource.position }}">
         <div class="list-main">
           <strong>{{ resource.title }}</strong>
-          <span>{{ resource.resource_type }} · {{ resource.status }}</span>
+          <span>Resource {{ resource.position }} · {{ resource.resource_type }}</span>
           {% if resource.link %}
             {% if resource.link_url %}
-              <a href="{{ resource.link_url }}" target="_blank" rel="noopener noreferrer">Open stored link</a>
+              <a class="safe-resource-link" href="{{ resource.link_url }}" target="_blank" rel="noopener noreferrer">Open resource ↗</a>
             {% else %}
-              <span>{{ resource.link }}</span>
+              <span class="resource-path">{{ resource.link }}</span>
             {% endif %}
           {% else %}
             <span>No link stored</span>
           {% endif %}
         </div>
-        <span class="tag">{{ resource.status }}</span>
+        <form class="status-form" method="post" action="{{ url_for('web.resources_update_status', position=resource.position) }}">
+          <label>
+            <span class="visually-hidden">Status for {{ resource.title }}</span>
+            <select name="status">
+              {% for option in ("Not Started", "In Progress", "Completed") %}
+                <option value="{{ option }}"{% if resource.status == option %} selected{% endif %}>{{ option }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <button class="button secondary-button compact-button" type="submit">Update</button>
+        </form>
       </li>
       {% endfor %}
     </ul>

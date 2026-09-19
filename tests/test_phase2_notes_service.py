@@ -4,6 +4,7 @@ import json
 from personal_learning_assistant.domain.note_models import (
     ListNotesQuery,
     SearchNotesQuery,
+    UpdateNoteCommand,
 )
 from personal_learning_assistant.repositories.json.note_repository import (
     LegacyJsonNoteRepository,
@@ -303,3 +304,113 @@ def test_missing_empty_invalid_and_non_list_stores_are_read_only_empty(
 
         if content is None:
             assert not path.exists()
+
+
+
+def test_list_notes_exposes_nonpersisted_one_based_positions(tmp_path):
+    notes_file = tmp_path / "notes.json"
+    _write_fixture(notes_file)
+
+    result = _service(notes_file).list_notes()
+
+    assert [note.position for note in result.notes] == [1, 2, 3]
+    assert [note.to_legacy_dict() for note in result.notes] == FIXTURE
+
+
+def test_get_note_uses_position_without_mutating_store(tmp_path):
+    notes_file = tmp_path / "notes.json"
+    _write_fixture(notes_file)
+    service = _service(notes_file)
+    before = _hash(notes_file)
+
+    assert service.get_note(2).title == "Vector Spaces"
+    assert service.get_note(0) is None
+    assert service.get_note(99) is None
+    assert _hash(notes_file) == before
+
+
+def test_search_preserves_original_positions(tmp_path):
+    notes_file = tmp_path / "notes.json"
+    _write_fixture(notes_file)
+    service = _service(notes_file)
+
+    matches = service.search_notes(SearchNotesQuery(text="linear algebra"))
+
+    assert [note.position for note in matches.notes] == [1, 2]
+
+
+def test_update_note_replaces_exact_position_and_preserves_v1_shape(tmp_path):
+    notes_file = tmp_path / "notes.json"
+    _write_fixture(notes_file)
+    service = _service(notes_file)
+
+    result = service.update_note(
+        UpdateNoteCommand(
+            position=2,
+            title="Vector Spaces revised",
+            topic="Linear Algebra",
+            difficulty="Medium",
+            content="Updated body",
+        )
+    )
+
+    assert result.note.position == 2
+    stored = json.loads(notes_file.read_text(encoding="utf-8"))
+    assert stored[1] == {
+        "title": "Vector Spaces revised",
+        "topic": "Linear Algebra",
+        "difficulty": "Medium",
+        "content": "Updated body",
+    }
+    assert "position" not in stored[1]
+
+
+def test_update_note_targets_position_even_when_titles_are_duplicate(tmp_path):
+    notes_file = tmp_path / "notes.json"
+    notes_file.write_text(
+        json.dumps(
+            [
+                {"title": "Same", "topic": "Math", "difficulty": "Easy", "content": "one"},
+                {"title": "Same", "topic": "Math", "difficulty": "Hard", "content": "two"},
+            ],
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    service = _service(notes_file)
+
+    service.update_note(
+        UpdateNoteCommand(
+            position=2,
+            title="Same",
+            topic="Math",
+            difficulty="Medium",
+            content="updated",
+        )
+    )
+
+    stored = json.loads(notes_file.read_text(encoding="utf-8"))
+    assert stored[0]["content"] == "one"
+    assert stored[1]["content"] == "updated"
+
+
+def test_invalid_update_position_preserves_store_hash(tmp_path):
+    import pytest
+
+    notes_file = tmp_path / "notes.json"
+    _write_fixture(notes_file)
+    service = _service(notes_file)
+    before = _hash(notes_file)
+
+    with pytest.raises(IndexError, match="out of range"):
+        service.update_note(
+            UpdateNoteCommand(
+                position=99,
+                title="Nope",
+                topic="Math",
+                difficulty="Hard",
+                content="No write",
+            )
+        )
+
+    assert _hash(notes_file) == before
