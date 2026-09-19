@@ -65,12 +65,12 @@ def test_real_destinations_are_links_and_future_destinations_are_disabled():
         "web.assessments",
         "web.calendar",
         "web.planning",
+        "web.obsidian",
     ):
         assert "url_for('{}')".format(endpoint) in source
-    for label in ("Obsidian", "Progress", "Grades", "Settings"):
+    for label in ("Progress", "Grades", "Settings"):
         assert 'aria-disabled="true"' in source
         assert label in source
-    assert "web.obsidian" not in source
     assert "web.progress" not in source
     assert "web.grades" not in source
     assert "web.settings" not in source
@@ -130,5 +130,6 @@ def test_existing_phase75_get_routes_keep_working():
         "/assessments",
         "/calendar",
         "/planning",
+        "/obsidian",
     ):
         assert client.get(path).status_code == 200, path

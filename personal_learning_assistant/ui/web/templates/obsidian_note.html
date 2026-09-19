@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}{{ note.title }} · Obsidian · ANVAYA{% endblock %}
+
+{% block content %}
+<nav class="obsidian-back" aria-label="Obsidian note navigation">
+  <a href="{{ url_for('web.obsidian') }}">← Back to Obsidian</a>
+</nav>
+
+{% if error_message %}
+<section class="notice-panel obsidian-warning" aria-live="assertive">
+  <h3>Note preview unavailable</h3>
+  <p>{{ error_message }}</p>
+</section>
+{% elif note %}
+<section class="workspace-header" aria-labelledby="obsidian-note-title">
+  <div>
+    <p class="eyebrow">Obsidian Markdown</p>
+    <h2 id="obsidian-note-title">{{ note.title }}</h2>
+    <p class="obsidian-path">{{ note.relative_path }}</p>
+  </div>
+  <span class="tag">Preview only</span>
+</section>
+
+<section class="dashboard-panel obsidian-note-meta" aria-label="Note metadata">
+  <div class="tag-row">
+    <span class="tag">{{ note.note_type }}</span>
+    <span class="tag">{{ note.revision_status|replace('_', ' ') }}</span>
+    {% for tag in note.tags %}<span class="tag">#{{ tag }}</span>{% endfor %}
+  </div>
+  <p class="empty-state">{{ note.size_bytes }} bytes · Markdown remains authoritative in your vault.</p>
+</section>
+
+<section class="dashboard-panel" aria-labelledby="obsidian-source-title">
+  <div class="panel-heading">
+    <div>
+      <p class="eyebrow">Markdown source</p>
+      <h3 id="obsidian-source-title">Read-only preview</h3>
+    </div>
+  </div>
+  <pre class="obsidian-preview">{{ note.text }}</pre>
+</section>
+{% endif %}
+{% endblock %}

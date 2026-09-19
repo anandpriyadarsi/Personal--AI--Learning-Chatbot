@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+
+{% block title %}Obsidian · ANVAYA{% endblock %}
+
+{% block content %}
+<section class="workspace-header" aria-labelledby="obsidian-title">
+  <div>
+    <p class="eyebrow">Live Markdown workspace</p>
+    <h2 id="obsidian-title">Obsidian</h2>
+    <p class="lede">Browse and search your configured Obsidian vault inside ANVAYA without changing the vault or rebuilding the knowledge index.</p>
+  </div>
+  {% if dashboard.configured %}
+    <span class="tag">{% if dashboard.enabled and dashboard.valid %}Connected{% elif dashboard.enabled %}Needs attention{% else %}Disabled{% endif %}</span>
+  {% endif %}
+</section>
+
+{% if notice_message %}
+<section class="notice-panel compact-notice" aria-live="polite">
+  <p>{{ notice_message }}</p>
+</section>
+{% endif %}
+
+{% if error_message %}
+<section class="notice-panel compact-notice obsidian-warning" aria-live="assertive">
+  <p>{{ error_message }}</p>
+</section>
+{% endif %}
+
+{% if not dashboard.available %}
+<section class="notice-panel obsidian-warning" aria-live="polite">
+  <h3>Obsidian workspace is temporarily unavailable</h3>
+  <p>{{ dashboard.message }}</p>
+</section>
+{% elif not dashboard.configured %}
+<section class="dashboard-panel obsidian-status" aria-labelledby="obsidian-connect-title">
+  <div class="panel-heading">
+    <div>
+      <p class="eyebrow">Connection</p>
+      <h3 id="obsidian-connect-title">No vault connected</h3>
+    </div>
+  </div>
+  <p class="empty-state">Connect your Obsidian vault to browse and search Markdown inside ANVAYA.</p>
+  <form method="post" action="{{ url_for('web.obsidian_connect') }}" class="obsidian-connect-form">
+    <label class="form-field form-field-grow" for="obsidian-vault-path">
+      <span>Vault folder</span>
+      <input id="obsidian-vault-path" name="vault_path" type="text" maxlength="1000" placeholder="C:\\...\\NIT KARNATAKA 2026-30" autocomplete="off" required>
+    </label>
+    <button class="button" type="submit">Connect Vault</button>
+  </form>
+</section>
+{% else %}
+<section class="dashboard-panel obsidian-status" aria-labelledby="obsidian-status-title">
+  <div class="panel-heading">
+    <div>
+      <p class="eyebrow">Vault status</p>
+      <h3 id="obsidian-status-title">{{ dashboard.vault_name or "Configured vault" }}</h3>
+    </div>
+    <span class="tag">{% if dashboard.enabled and dashboard.valid %}Connected{% elif dashboard.enabled %}Unavailable{% else %}Disabled{% endif %}</span>
+  </div>
+
+  <dl class="obsidian-status-grid">
+    <div>
+      <dt>Configured path</dt>
+      <dd class="obsidian-path">{{ dashboard.vault_path }}</dd>
+    </div>
+    <div>
+      <dt>Markdown notes</dt>
+      <dd>{{ dashboard.summary.markdown_files }}</dd>
+    </div>
+  </dl>
+
+  {% if dashboard.message %}<p class="empty-state">{{ dashboard.message }}</p>{% endif %}
+
+  <div class="form-actions">
+    {% if dashboard.enabled %}
+      <form method="post" action="{{ url_for('web.obsidian_disable') }}">
+        <button class="button secondary-button" type="submit">Disable Vault</button>
+      </form>
+    {% else %}
+      <form method="post" action="{{ url_for('web.obsidian_enable') }}">
+        <button class="button" type="submit">Enable Vault</button>
+      </form>
+    {% endif %}
+  </div>
+
+  <details class="inline-editor obsidian-change-vault">
+    <summary class="details-action">Change vault</summary>
+    <form method="post" action="{{ url_for('web.obsidian_connect') }}" class="operational-form">
+      <div class="form-grid">
+        <label class="form-field form-field-full" for="obsidian-change-path">
+          <span>Vault folder</span>
+          <input id="obsidian-change-path" name="vault_path" type="text" maxlength="1000" value="{{ dashboard.vault_path }}" autocomplete="off" required>
+        </label>
+      </div>
+      <div class="form-actions">
+        <button class="button" type="submit">Connect Vault</button>
+      </div>
+    </form>
+  </details>
+</section>
+
+{% if dashboard.enabled and dashboard.valid %}
+<section class="dashboard-panel obsidian-search" aria-labelledby="obsidian-search-title">
+  <div class="panel-heading">
+    <div>
+      <p class="eyebrow">Live vault search</p>
+      <h3 id="obsidian-search-title">Search your Obsidian vault</h3>
+    </div>
+    {% if dashboard.searched %}<span class="score-badge">{{ dashboard.summary.result_count }} match{% if dashboard.summary.result_count != 1 %}es{% endif %}</span>{% endif %}
+  </div>
+  <form method="get" action="{{ url_for('web.obsidian') }}" class="obsidian-search-form">
+    <label class="form-field form-field-grow" for="obsidian-query">
+      <span>Title, path, tag, or Markdown text</span>
+      <input id="obsidian-query" name="q" type="search" maxlength="300" value="{{ dashboard.query }}" placeholder="e.g. LU factorization">
+    </label>
+    <button class="button" type="submit">Search vault</button>
+    {% if dashboard.query %}<a class="button secondary-button" href="{{ url_for('web.obsidian') }}">Clear</a>{% endif %}
+  </form>
+  <p class="empty-state">Searches Markdown directly. It does not rebuild or change the ANVAYA knowledge index.</p>
+</section>
+
+{% if dashboard.issues.blocking or dashboard.issues.warnings or dashboard.issues.ignored_symlinks or dashboard.issues.search_skipped %}
+<section class="notice-panel obsidian-warning" aria-live="polite">
+  <h3>Vault scan notices</h3>
+  <p>
+    {% if dashboard.issues.blocking %}{{ dashboard.issues.blocking }} blocking note issue{% if dashboard.issues.blocking != 1 %}s{% endif %}. {% endif %}
+    {% if dashboard.issues.warnings %}{{ dashboard.issues.warnings }} metadata warning{% if dashboard.issues.warnings != 1 %}s{% endif %}. {% endif %}
+    {% if dashboard.issues.ignored_symlinks %}{{ dashboard.issues.ignored_symlinks }} symlink item{% if dashboard.issues.ignored_symlinks != 1 %}s{% endif %} ignored. {% endif %}
+    {% if dashboard.issues.search_skipped %}{{ dashboard.issues.search_skipped }} note{% if dashboard.issues.search_skipped != 1 %}s{% endif %} changed or could not be searched safely.{% endif %}
+  </p>
+</section>
+{% endif %}
+
+<section class="dashboard-panel" aria-labelledby="obsidian-notes-title">
+  <div class="section-heading-row">
+    <div>
+      <p class="eyebrow">{% if dashboard.searched %}Search results{% else %}Vault browser{% endif %}</p>
+      <h3 id="obsidian-notes-title">{% if dashboard.searched %}Matches for “{{ dashboard.query }}”{% else %}Browse notes{% endif %}</h3>
+    </div>
+    <span class="tag">{{ dashboard.summary.displayed_count }} shown</span>
+  </div>
+
+  {% if dashboard.summary.truncated %}
+    <p class="empty-state">Showing the first {{ dashboard.summary.displayed_count }} notes. Use search to narrow the vault.</p>
+  {% endif %}
+
+  {% if not dashboard.notes %}
+    <p class="empty-state">{% if dashboard.searched %}No Markdown notes matched this search.{% else %}No readable Markdown notes were found in the configured vault.{% endif %}</p>
+  {% else %}
+    <div class="obsidian-note-list">
+      {% for note in dashboard.notes %}
+      <article class="obsidian-note-row">
+        <div class="obsidian-note-main">
+          <h4>{{ note.title }}</h4>
+          <p class="obsidian-path">{{ note.relative_path }}</p>
+          <div class="tag-row">
+            <span class="tag">{{ note.note_type }}</span>
+            <span class="tag">{{ note.revision_status|replace('_', ' ') }}</span>
+            {% for tag in note.tags %}<span class="tag">#{{ tag }}</span>{% endfor %}
+            {% if dashboard.searched and note.match_scope %}<span class="tag">{{ note.match_scope }} match</span>{% endif %}
+          </div>
+          {% if dashboard.searched and note.excerpt %}<p class="obsidian-excerpt">{{ note.excerpt }}</p>{% endif %}
+        </div>
+        <a class="button secondary-button compact-button" href="{{ url_for('web.obsidian_note', path=note.relative_path) }}">Open note</a>
+      </article>
+      {% endfor %}
+    </div>
+  {% endif %}
+</section>
+{% endif %}
+{% endif %}
+{% endblock %}

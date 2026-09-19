@@ -50,6 +50,13 @@ from personal_learning_assistant.services.notes_resources_web_service import (
     NotesResourcesWebValidationError,
     build_notes_resources_web_service,
 )
+from personal_learning_assistant.services.obsidian_workspace_service import (
+    ObsidianWorkspaceNotFoundError,
+    ObsidianWorkspaceUnavailableError,
+    ObsidianWorkspaceValidationError,
+    build_obsidian_workspace_service,
+    unavailable_obsidian_workspace,
+)
 from personal_learning_assistant.services.planning_dashboard_service import (
     load_planning_dashboard,
     unavailable_planning_dashboard,
@@ -184,6 +191,38 @@ def _notes_resources_service():
         or build_notes_resources_web_service
     )
     return factory()
+
+
+def _obsidian_workspace_service():
+    factory = (
+        current_app.config.get("OBSIDIAN_WORKSPACE_SERVICE_FACTORY")
+        or build_obsidian_workspace_service
+    )
+    return factory()
+
+
+def _safe_obsidian_workspace(service, query=""):
+    try:
+        return service.workspace(query)
+    except Exception as error:
+        current_app.logger.warning(
+            "Obsidian workspace unavailable (%s).",
+            type(error).__name__,
+        )
+        return unavailable_obsidian_workspace()
+
+
+def _render_obsidian_command_error(service, message, status):
+    return (
+        render_template(
+            "obsidian.html",
+            active_page="obsidian",
+            dashboard=_safe_obsidian_workspace(service),
+            error_message=message,
+            notice_message="",
+        ),
+        status,
+    )
 
 
 def _legacy_notes_workspace_if_configured(query):
@@ -473,6 +512,148 @@ def resources_update_status(position):
         return _render_resources_command_error(
             service,
             "The resource status could not be updated. Your existing resources were not changed.",
+            503,
+        )
+
+
+@web_blueprint.get("/obsidian")
+def obsidian():
+    """Render the live read-only Obsidian workspace."""
+    query = request.args.get("q", "", type=str)
+    service = _obsidian_workspace_service()
+    notice_message = ""
+    if request.args.get("connected") == "1":
+        notice_message = "Obsidian vault connected."
+    elif request.args.get("enabled") == "1":
+        notice_message = "Obsidian vault enabled."
+    elif request.args.get("disabled") == "1":
+        notice_message = "Obsidian vault disabled."
+    try:
+        dashboard = service.workspace(query)
+        status = 200
+    except ObsidianWorkspaceUnavailableError as error:
+        current_app.logger.warning(
+            "Obsidian workspace unavailable (%s).",
+            type(error).__name__,
+        )
+        dashboard = unavailable_obsidian_workspace()
+        status = 503
+    except Exception as error:
+        current_app.logger.warning(
+            "Obsidian workspace unavailable (%s).",
+            type(error).__name__,
+        )
+        dashboard = unavailable_obsidian_workspace()
+        status = 503
+    return (
+        render_template(
+            "obsidian.html",
+            active_page="obsidian",
+            dashboard=dashboard,
+            error_message="",
+            notice_message=notice_message,
+        ),
+        status,
+    )
+
+
+@web_blueprint.get("/obsidian/note")
+def obsidian_note():
+    """Preview one current Markdown note without mutating the vault."""
+    service = _obsidian_workspace_service()
+    try:
+        note = service.note_preview(request.args.get("path", "", type=str))
+        return render_template(
+            "obsidian_note.html",
+            active_page="obsidian",
+            note=note,
+            error_message="",
+        )
+    except ObsidianWorkspaceValidationError:
+        return (
+            render_template(
+                "obsidian_note.html",
+                active_page="obsidian",
+                note=None,
+                error_message="Choose a valid Markdown note inside the configured vault.",
+            ),
+            400,
+        )
+    except ObsidianWorkspaceNotFoundError:
+        return (
+            render_template(
+                "obsidian_note.html",
+                active_page="obsidian",
+                note=None,
+                error_message="That Markdown note was not found in the current vault.",
+            ),
+            404,
+        )
+    except ObsidianWorkspaceUnavailableError:
+        return (
+            render_template(
+                "obsidian_note.html",
+                active_page="obsidian",
+                note=None,
+                error_message="The note changed or could not be read safely. Refresh the Obsidian workspace and try again.",
+            ),
+            503,
+        )
+
+
+@web_blueprint.post("/obsidian/connect")
+def obsidian_connect():
+    """Connect or change the configured vault using explicit POST + PRG."""
+    service = _obsidian_workspace_service()
+    try:
+        service.connect_vault(request.form.get("vault_path", ""))
+        return redirect(url_for("web.obsidian", connected="1"), code=303)
+    except ObsidianWorkspaceValidationError:
+        return _render_obsidian_command_error(
+            service,
+            "Choose an existing Obsidian vault folder containing a .obsidian directory.",
+            400,
+        )
+    except ObsidianWorkspaceUnavailableError:
+        return _render_obsidian_command_error(
+            service,
+            "Obsidian configuration could not be updated. Your vault was not changed.",
+            503,
+        )
+
+
+@web_blueprint.post("/obsidian/enable")
+def obsidian_enable():
+    """Enable the existing configured vault using explicit POST + PRG."""
+    service = _obsidian_workspace_service()
+    try:
+        service.enable_vault()
+        return redirect(url_for("web.obsidian", enabled="1"), code=303)
+    except ObsidianWorkspaceValidationError:
+        return _render_obsidian_command_error(
+            service,
+            "Reconnect a valid Obsidian vault before enabling it.",
+            400,
+        )
+    except ObsidianWorkspaceUnavailableError:
+        return _render_obsidian_command_error(
+            service,
+            "Obsidian configuration could not be updated. Your vault was not changed.",
+            503,
+        )
+
+
+@web_blueprint.post("/obsidian/disable")
+def obsidian_disable():
+    """Disable Obsidian configuration without touching Markdown."""
+    service = _obsidian_workspace_service()
+    try:
+        service.disable_vault()
+        return redirect(url_for("web.obsidian", disabled="1"), code=303)
+    except ObsidianWorkspaceUnavailableError:
+        return _render_obsidian_command_error(
+            service,
+            "Obsidian configuration could not be updated. Your vault was not changed.",
             503,
         )
 

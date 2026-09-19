@@ -44,12 +44,12 @@
           <a class="nav-item{% if active_page == 'calendar' %} is-active{% endif %}" href="{{ url_for('web.calendar') }}"{% if active_page == 'calendar' %} aria-current="page"{% endif %}>Calendar</a>
         </div>
 
-        <details class="nav-more"{% if active_page in ('knowledge', 'planning') %} open{% endif %}>
+        <details class="nav-more"{% if active_page in ('knowledge', 'planning', 'obsidian') %} open{% endif %}>
           <summary class="nav-more-summary">More <span aria-hidden="true">⌄</span></summary>
           <div class="nav-more-items">
             <a class="nav-item{% if active_page == 'knowledge' %} is-active{% endif %}" href="{{ url_for('web.knowledge') }}"{% if active_page == 'knowledge' %} aria-current="page"{% endif %}>Knowledge</a>
             <a class="nav-item{% if active_page == 'planning' %} is-active{% endif %}" href="{{ url_for('web.planning') }}"{% if active_page == 'planning' %} aria-current="page"{% endif %}>Planning</a>
-            <span class="nav-item is-disabled" aria-disabled="true"><span class="nav-label">Obsidian</span><span class="nav-status">Soon</span></span>
+            <a class="nav-item{% if active_page == 'obsidian' %} is-active{% endif %}" href="{{ url_for('web.obsidian') }}"{% if active_page == 'obsidian' %} aria-current="page"{% endif %}>Obsidian</a>
             <span class="nav-item is-disabled" aria-disabled="true"><span class="nav-label">Progress</span><span class="nav-status">Soon</span></span>
             <span class="nav-item is-disabled" aria-disabled="true"><span class="nav-label">Grades</span><span class="nav-status">Soon</span></span>
             <span class="nav-item is-disabled" aria-disabled="true"><span class="nav-label">Settings</span><span class="nav-status">Soon</span></span>
