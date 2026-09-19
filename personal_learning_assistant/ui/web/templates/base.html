@@ -22,7 +22,7 @@
       </a>
 
       <nav class="primary-nav" aria-label="Primary navigation">
-        <div class="nav-section">
+        <div class="nav-section nav-section-home">
           <a class="nav-item{% if active_page == 'home' %} is-active{% endif %}" href="{{ url_for('web.home') }}"{% if active_page == 'home' %} aria-current="page"{% endif %}>Home</a>
         </div>
 
@@ -34,9 +34,7 @@
         <div class="nav-section">
           <p class="nav-section-label">Learning</p>
           <a class="nav-item{% if active_page == 'notes' %} is-active{% endif %}" href="{{ url_for('web.notes') }}"{% if active_page == 'notes' %} aria-current="page"{% endif %}>Notes</a>
-          <span class="nav-item is-disabled" aria-disabled="true"><span class="nav-label">Obsidian</span><span class="nav-status">Soon</span></span>
           <a class="nav-item{% if active_page == 'resources' %} is-active{% endif %}" href="{{ url_for('web.resources') }}"{% if active_page == 'resources' %} aria-current="page"{% endif %}>Resources</a>
-          <a class="nav-item{% if active_page == 'knowledge' %} is-active{% endif %}" href="{{ url_for('web.knowledge') }}"{% if active_page == 'knowledge' %} aria-current="page"{% endif %}>Knowledge</a>
         </div>
 
         <div class="nav-section">
@@ -44,18 +42,22 @@
           <a class="nav-item{% if active_page == 'courses' %} is-active{% endif %}" href="{{ url_for('web.courses') }}"{% if active_page == 'courses' %} aria-current="page"{% endif %}>Courses</a>
           <a class="nav-item{% if active_page == 'assessments' %} is-active{% endif %}" href="{{ url_for('web.assessments') }}"{% if active_page == 'assessments' %} aria-current="page"{% endif %}>Assessments</a>
           <a class="nav-item{% if active_page == 'calendar' %} is-active{% endif %}" href="{{ url_for('web.calendar') }}"{% if active_page == 'calendar' %} aria-current="page"{% endif %}>Calendar</a>
-          <a class="nav-item{% if active_page == 'planning' %} is-active{% endif %}" href="{{ url_for('web.planning') }}"{% if active_page == 'planning' %} aria-current="page"{% endif %}>Planning</a>
-          <span class="nav-item is-disabled" aria-disabled="true"><span class="nav-label">Progress</span><span class="nav-status">Soon</span></span>
-          <span class="nav-item is-disabled" aria-disabled="true"><span class="nav-label">Grades</span><span class="nav-status">Soon</span></span>
         </div>
 
-        <div class="nav-section">
-          <p class="nav-section-label">System</p>
-          <span class="nav-item is-disabled" aria-disabled="true"><span class="nav-label">Settings</span><span class="nav-status">Soon</span></span>
-        </div>
+        <details class="nav-more"{% if active_page in ('knowledge', 'planning') %} open{% endif %}>
+          <summary class="nav-more-summary">More <span aria-hidden="true">⌄</span></summary>
+          <div class="nav-more-items">
+            <a class="nav-item{% if active_page == 'knowledge' %} is-active{% endif %}" href="{{ url_for('web.knowledge') }}"{% if active_page == 'knowledge' %} aria-current="page"{% endif %}>Knowledge</a>
+            <a class="nav-item{% if active_page == 'planning' %} is-active{% endif %}" href="{{ url_for('web.planning') }}"{% if active_page == 'planning' %} aria-current="page"{% endif %}>Planning</a>
+            <span class="nav-item is-disabled" aria-disabled="true"><span class="nav-label">Obsidian</span><span class="nav-status">Soon</span></span>
+            <span class="nav-item is-disabled" aria-disabled="true"><span class="nav-label">Progress</span><span class="nav-status">Soon</span></span>
+            <span class="nav-item is-disabled" aria-disabled="true"><span class="nav-label">Grades</span><span class="nav-status">Soon</span></span>
+            <span class="nav-item is-disabled" aria-disabled="true"><span class="nav-label">Settings</span><span class="nav-status">Soon</span></span>
+          </div>
+        </details>
       </nav>
 
-      <p class="sidebar-footer">Local-first academic workspace. Existing CLI and academic services remain available.</p>
+      <p class="sidebar-footer">Local-first · Private workspace</p>
     </aside>
 
     <div class="app-main">
@@ -69,8 +71,7 @@
             <span class="mobile-brand-name">ANVAYA</span>
           </div>
           <div class="topbar-copy">
-            <strong>Personal Learning Intelligence</strong>
-            <span class="shell-status">Local workspace</span>
+            <strong>Academic workspace</strong>
           </div>
         </div>
         <div class="topbar-actions">
@@ -82,7 +83,7 @@
         {% block content %}{% endblock %}
       </main>
 
-      <footer class="app-footer">ANVAYA runs locally. Academic engines and storage authority remain unchanged.</footer>
+      <footer class="app-footer">ANVAYA · Personal Learning Intelligence</footer>
     </div>
   </div>
 

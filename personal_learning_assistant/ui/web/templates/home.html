@@ -3,18 +3,34 @@
 {% block title %}Home · Personal AI Learning Assistant{% endblock %}
 
 {% block content %}
-<section class="hero dashboard-hero" aria-labelledby="home-heading">
-  <div>
-    <p class="eyebrow">Phase 7.5.2 · Academic brief</p>
-    <h2 id="home-heading">Today at a glance.</h2>
-    <p class="lede">
-      A read-only view of your existing deadlines, study blocks, priorities,
-      and academic risk signals. The web layer does not change your academic data.
-    </p>
+<section class="home-command-center" aria-labelledby="home-heading">
+  <div class="home-command-heading">
+    <div>
+      <p class="eyebrow">ANVAYA</p>
+      <h2 id="home-heading">What do you want to work on?</h2>
+      <p class="lede">Ask a question, open a study workspace, or continue with the academic item that needs your attention most.</p>
+    </div>
+    {% if dashboard.date %}
+      <p class="date-chip" aria-label="Academic brief date">{{ dashboard.date }}</p>
+    {% endif %}
   </div>
-  {% if dashboard.date %}
-    <p class="date-chip" aria-label="Brief date">{{ dashboard.date }}</p>
-  {% endif %}
+
+  <a class="anvaya-launch" href="{{ url_for('web.academic_agent') }}">
+    <span class="anvaya-launch-copy">
+      <strong class="anvaya-launch-title">Open ANVAYA Tutor</strong>
+      <span class="anvaya-launch-prompt">Ask questions, explain concepts, or continue a study conversation.</span>
+    </span>
+    <span class="anvaya-launch-action">Open Tutor <span aria-hidden="true">→</span></span>
+  </a>
+
+  <div class="quick-actions" aria-label="Quick academic actions">
+    <a class="quick-action" href="{{ url_for('web.notes') }}">Notes</a>
+    <span class="quick-action is-disabled" aria-disabled="true">+ Task <small>Soon</small></span>
+    <a class="quick-action" href="{{ url_for('web.resources') }}">Resources</a>
+    <a class="quick-action" href="{{ url_for('web.assessments') }}">Assessments</a>
+    <a class="quick-action" href="{{ url_for('web.planning') }}">Planning</a>
+    <a class="quick-action" href="{{ url_for('web.knowledge') }}">Search knowledge</a>
+  </div>
 </section>
 
 {% if not dashboard.available %}
@@ -23,48 +39,61 @@
   <p>{{ dashboard.message }}</p>
 </section>
 {% else %}
-<section class="metric-grid" aria-label="Academic summary">
+<section class="action-panel home-next-action" aria-labelledby="best-next-heading">
+  <div class="home-next-copy">
+    <p class="eyebrow">ANVAYA recommends</p>
+    <h3 id="best-next-heading">
+      {% if dashboard.best_next_action %}
+        {{ dashboard.best_next_action.title }}
+      {% else %}
+        No urgent action detected
+      {% endif %}
+    </h3>
+    <p>
+      {% if dashboard.best_next_action %}
+        {{ dashboard.best_next_action.reason }}
+      {% else %}
+        Use the available time for revision, projects, or rest.
+      {% endif %}
+    </p>
+  </div>
+  <div class="home-next-actions">
+    <a class="button" href="{{ url_for('web.academic_agent') }}">Ask ANVAYA</a>
+    <a class="button button-secondary" href="{{ url_for('web.planning') }}">Open planning</a>
+  </div>
+</section>
+
+<div class="home-section-heading">
+  <div>
+    <p class="eyebrow">Today</p>
+    <h3>Today at a glance</h3>
+  </div>
+</div>
+
+<section class="metric-grid home-summary" aria-label="Academic summary">
   <article class="metric-card">
     <span class="metric-label">Urgent deadlines</span>
     <strong>{{ dashboard.summary.urgent_deadlines }}</strong>
-    <span>due within the Daily Brief window</span>
+    <span>near-term</span>
   </article>
   <article class="metric-card">
     <span class="metric-label">Study blocks</span>
     <strong>{{ dashboard.summary.scheduled_minutes }} min</strong>
-    <span>deadline-based time scheduled today</span>
+    <span>scheduled today</span>
   </article>
   <article class="metric-card">
     <span class="metric-label">Priority topics</span>
     <strong>{{ dashboard.summary.priority_topics }}</strong>
-    <span>current unresolved study priorities</span>
+    <span>need attention</span>
   </article>
   <article class="metric-card">
     <span class="metric-label">Risk watch</span>
     <strong>{{ dashboard.summary.risk_courses }}</strong>
-    <span>courses with a meaningful risk signal</span>
+    <span>courses flagged</span>
   </article>
 </section>
 
-<section class="action-panel" aria-labelledby="best-next-heading">
-  <p class="eyebrow">Best next action</p>
-  <h3 id="best-next-heading">
-    {% if dashboard.best_next_action %}
-      {{ dashboard.best_next_action.title }}
-    {% else %}
-      No urgent action detected
-    {% endif %}
-  </h3>
-  <p>
-    {% if dashboard.best_next_action %}
-      {{ dashboard.best_next_action.reason }}
-    {% else %}
-      Use the available time for revision, projects, or rest.
-    {% endif %}
-  </p>
-</section>
-
-<div class="dashboard-grid">
+<div class="dashboard-grid home-detail-grid">
   <section class="dashboard-panel" aria-labelledby="deadlines-heading">
     <div class="panel-heading">
       <div>

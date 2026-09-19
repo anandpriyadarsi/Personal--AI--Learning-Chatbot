@@ -27,7 +27,7 @@ def test_home_renders_anvaya_identity_and_local_brand_assets():
     assert "http://" not in text
 
 
-def test_primary_navigation_follows_approved_group_order():
+def test_primary_navigation_keeps_core_workspaces_visible_and_uses_more_for_secondary_items():
     source = (WEB / "templates" / "base.html").read_text(encoding="utf-8")
     markers = (
         ">Home<",
@@ -35,21 +35,22 @@ def test_primary_navigation_follows_approved_group_order():
         ">Tutor<",
         ">Learning<",
         ">Notes<",
-        ">Obsidian<",
         ">Resources<",
-        ">Knowledge<",
         ">Academics<",
         ">Courses<",
         ">Assessments<",
         ">Calendar<",
+        ">More <span",
+        ">Knowledge<",
         ">Planning<",
+        ">Obsidian<",
         ">Progress<",
         ">Grades<",
-        ">System<",
         ">Settings<",
     )
     positions = [source.index(marker) for marker in markers]
     assert positions == sorted(positions)
+    assert '<details class="nav-more"' in source
 
 
 def test_real_destinations_are_links_and_future_destinations_are_disabled():

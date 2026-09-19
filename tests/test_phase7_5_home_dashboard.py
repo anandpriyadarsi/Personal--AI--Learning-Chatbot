@@ -125,7 +125,7 @@ def test_home_renders_academic_summary_from_injected_read_provider():
         "Today at a glance",
         "Urgent deadlines",
         "75 min",
-        "Best next action",
+        "ANVAYA recommends",
         "MA103N · LU Factorization",
         "Deadline alerts",
         "Quiz 1",
