@@ -57,6 +57,13 @@ from personal_learning_assistant.services.obsidian_workspace_service import (
     build_obsidian_workspace_service,
     unavailable_obsidian_workspace,
 )
+from personal_learning_assistant.services.obsidian_study_companion_service import (
+    ObsidianStudyConflictError,
+    ObsidianStudyNotFoundError,
+    ObsidianStudyUnavailableError,
+    ObsidianStudyValidationError,
+    build_obsidian_study_companion_service,
+)
 from personal_learning_assistant.services.planning_dashboard_service import (
     load_planning_dashboard,
     unavailable_planning_dashboard,
@@ -199,6 +206,85 @@ def _obsidian_workspace_service():
         or build_obsidian_workspace_service
     )
     return factory()
+
+
+def _obsidian_study_service():
+    factory = current_app.config.get("OBSIDIAN_STUDY_SERVICE_FACTORY")
+    if factory is not None:
+        return factory()
+    return build_obsidian_study_companion_service(
+        workspace_service=_obsidian_workspace_service()
+    )
+
+
+def _render_obsidian_note_error(message, status):
+    return (
+        render_template(
+            "obsidian_note.html",
+            active_page="obsidian",
+            note=None,
+            error_message=message,
+        ),
+        status,
+    )
+
+
+def _study_error_status(error):
+    if isinstance(
+        error,
+        (ObsidianWorkspaceValidationError, ObsidianStudyValidationError),
+    ):
+        return 400, "invalid_request"
+    if isinstance(
+        error,
+        (ObsidianWorkspaceNotFoundError, ObsidianStudyNotFoundError),
+    ):
+        return 404, "not_found"
+    if isinstance(error, ObsidianStudyConflictError):
+        return 409, "conflict"
+    return 503, "unavailable"
+
+
+def _tracking_error(error):
+    status, code = _study_error_status(error)
+    current_app.logger.warning(
+        "Obsidian reading command rejected (%s).",
+        type(error).__name__,
+    )
+    return jsonify(ok=False, error=code), status
+
+
+def _tracking_payload(required):
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict) or any(key not in payload for key in required):
+        raise ObsidianStudyValidationError("The tracking request is incomplete.")
+    return payload
+
+
+def _companion_redirect(relative_path, result):
+    return redirect(
+        url_for(
+            "web.obsidian_note",
+            path=relative_path,
+            companion_saved=result,
+        ),
+        code=303,
+    )
+
+
+def _companion_error(error):
+    status, _code = _study_error_status(error)
+    messages = {
+        400: "The Companion entry is invalid or too long.",
+        404: "That note or Companion entry was not found.",
+        409: "The note changed. Refresh the Reader and try again.",
+        503: "Study history and Companion are temporarily unavailable.",
+    }
+    current_app.logger.warning(
+        "Obsidian Companion command rejected (%s).",
+        type(error).__name__,
+    )
+    return _render_obsidian_note_error(messages[status], status)
 
 
 def _safe_obsidian_workspace(service, query=""):
@@ -559,46 +645,174 @@ def obsidian():
 
 @web_blueprint.get("/obsidian/note")
 def obsidian_note():
-    """Preview one current Markdown note without mutating the vault."""
-    service = _obsidian_workspace_service()
+    """Render one current Markdown note without mutating history or the vault."""
     try:
-        note = service.note_preview(request.args.get("path", "", type=str))
+        service = _obsidian_study_service()
+        note = service.reader_view(request.args.get("path", "", type=str))
         return render_template(
             "obsidian_note.html",
             active_page="obsidian",
             note=note,
             error_message="",
         )
-    except ObsidianWorkspaceValidationError:
-        return (
-            render_template(
-                "obsidian_note.html",
-                active_page="obsidian",
-                note=None,
-                error_message="Choose a valid Markdown note inside the configured vault.",
-            ),
-            400,
+    except (
+        ObsidianWorkspaceValidationError,
+        ObsidianWorkspaceNotFoundError,
+        ObsidianWorkspaceUnavailableError,
+        ObsidianStudyValidationError,
+        ObsidianStudyNotFoundError,
+        ObsidianStudyConflictError,
+        ObsidianStudyUnavailableError,
+    ) as error:
+        status, _code = _study_error_status(error)
+        messages = {
+            400: "Choose a valid Markdown note inside the configured vault.",
+            404: "That Markdown note was not found in the current vault.",
+            409: "The note changed. Refresh the Reader and try again.",
+            503: "The note changed or could not be read safely. Refresh the Obsidian workspace and try again.",
+        }
+        current_app.logger.warning(
+            "Obsidian Reader unavailable (%s).",
+            type(error).__name__,
         )
-    except ObsidianWorkspaceNotFoundError:
-        return (
-            render_template(
-                "obsidian_note.html",
-                active_page="obsidian",
-                note=None,
-                error_message="That Markdown note was not found in the current vault.",
-            ),
-            404,
+        return _render_obsidian_note_error(messages[status], status)
+    except Exception as error:
+        current_app.logger.warning(
+            "Obsidian Reader unavailable (%s).",
+            type(error).__name__,
         )
-    except ObsidianWorkspaceUnavailableError:
-        return (
-            render_template(
-                "obsidian_note.html",
-                active_page="obsidian",
-                note=None,
-                error_message="The note changed or could not be read safely. Refresh the Obsidian workspace and try again.",
-            ),
+        return _render_obsidian_note_error(
+            "The note changed or could not be read safely. Refresh the Obsidian workspace and try again.",
             503,
         )
+
+
+@web_blueprint.post("/obsidian/note/reading/start")
+def obsidian_reading_start():
+    """Start an explicit browser-owned active-reading session."""
+    try:
+        payload = _tracking_payload(("path", "source_hash"))
+        result = _obsidian_study_service().start_reading(
+            relative_path=payload["path"],
+            source_hash=payload["source_hash"],
+        )
+        return jsonify(ok=True, **result), 201
+    except (
+        ObsidianStudyValidationError,
+        ObsidianStudyNotFoundError,
+        ObsidianStudyConflictError,
+        ObsidianStudyUnavailableError,
+    ) as error:
+        return _tracking_error(error)
+    except Exception as error:
+        return _tracking_error(error)
+
+
+def _reading_update(command_name, *, include_replayed_delta=False):
+    try:
+        payload = _tracking_payload(
+            (
+                "path",
+                "source_hash",
+                "session_id",
+                "sequence",
+                "delta_seconds",
+                "scroll_bps",
+            )
+        )
+        command = getattr(_obsidian_study_service(), command_name)
+        command_values = {
+            "relative_path": payload["path"],
+            "source_hash": payload["source_hash"],
+            "session_id": payload["session_id"],
+            "sequence": payload["sequence"],
+            "delta_seconds": payload["delta_seconds"],
+            "scroll_bps": payload["scroll_bps"],
+        }
+        if include_replayed_delta:
+            command_values["replayed_delta_seconds"] = payload.get(
+                "replayed_delta_seconds"
+            )
+        result = command(
+            **command_values
+        )
+        return jsonify(ok=True, **result), 200
+    except (
+        ObsidianStudyValidationError,
+        ObsidianStudyNotFoundError,
+        ObsidianStudyConflictError,
+        ObsidianStudyUnavailableError,
+    ) as error:
+        return _tracking_error(error)
+    except Exception as error:
+        return _tracking_error(error)
+
+
+@web_blueprint.post("/obsidian/note/reading/heartbeat")
+def obsidian_reading_heartbeat():
+    """Accept one bounded active-reading heartbeat."""
+    return _reading_update("heartbeat")
+
+
+@web_blueprint.post("/obsidian/note/reading/end")
+def obsidian_reading_end():
+    """End an active-reading session with one final bounded delta."""
+    return _reading_update("end_reading", include_replayed_delta=True)
+
+
+def _add_companion_entry(entry_type, saved_label):
+    relative_path = request.form.get("path", "")
+    try:
+        _obsidian_study_service().add_companion_entry(
+            relative_path=relative_path,
+            source_hash=request.form.get("source_hash", ""),
+            entry_type=entry_type,
+            entry_text=request.form.get("entry_text", ""),
+        )
+        return _companion_redirect(relative_path, saved_label)
+    except (
+        ObsidianStudyValidationError,
+        ObsidianStudyNotFoundError,
+        ObsidianStudyConflictError,
+        ObsidianStudyUnavailableError,
+    ) as error:
+        return _companion_error(error)
+    except Exception as error:
+        return _companion_error(error)
+
+
+@web_blueprint.post("/obsidian/note/companion/key-points")
+def obsidian_companion_key_point():
+    """Persist one user-authored key point, then return to the Reader."""
+    return _add_companion_entry("key_point", "key_point")
+
+
+@web_blueprint.post("/obsidian/note/companion/doubts")
+def obsidian_companion_doubt():
+    """Persist one user-authored doubt, then return to the Reader."""
+    return _add_companion_entry("doubt", "doubt")
+
+
+@web_blueprint.post("/obsidian/note/companion/<entry_id>/archive")
+def obsidian_companion_archive(entry_id):
+    """Archive one Companion entry scoped to the current note."""
+    relative_path = request.form.get("path", "")
+    try:
+        _obsidian_study_service().archive_companion_entry(
+            relative_path=relative_path,
+            source_hash=request.form.get("source_hash", ""),
+            entry_id=entry_id,
+        )
+        return _companion_redirect(relative_path, "archived")
+    except (
+        ObsidianStudyValidationError,
+        ObsidianStudyNotFoundError,
+        ObsidianStudyConflictError,
+        ObsidianStudyUnavailableError,
+    ) as error:
+        return _companion_error(error)
+    except Exception as error:
+        return _companion_error(error)
 
 
 @web_blueprint.post("/obsidian/connect")

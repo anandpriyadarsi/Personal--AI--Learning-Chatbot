@@ -5,7 +5,10 @@ Obsidian configuration module or filesystem reader until the factory is called.
 """
 from __future__ import annotations
 
+import hashlib
+import os
 import re
+import unicodedata
 from importlib import import_module
 from pathlib import Path
 from typing import Any, Dict
@@ -102,6 +105,18 @@ def _normalize_requested_note_path(value: Any) -> str:
     if not normalized.lower().endswith(".md"):
         raise ObsidianWorkspaceValidationError("Only Markdown notes can be opened.")
     return normalized
+
+
+def _vault_identity(vault_path: str) -> str:
+    resolved = str(Path(vault_path).resolve(strict=False))
+    normalized = unicodedata.normalize(
+        "NFC",
+        os.path.normcase(resolved),
+    ).replace("\\", "/")
+    if len(normalized) > 1 and not re.fullmatch(r"[A-Za-z]:/", normalized):
+        normalized = normalized.rstrip("/")
+    digest = hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+    return "vault:" + digest
 
 
 class ObsidianWorkspaceService:
@@ -268,6 +283,11 @@ class ObsidianWorkspaceService:
         return {
             "title": str(note.title),
             "relative_path": str(note.relative_path),
+            "assistant_id": (
+                None if note.assistant_id is None else str(note.assistant_id)
+            ),
+            "vault_name": str(scan.vault_name),
+            "vault_identity": _vault_identity(vault_path),
             "tags": [str(item) for item in (note.tags or ())],
             "note_type": str(note.note_type or "note"),
             "revision_status": str(note.revision_status or "unreviewed"),

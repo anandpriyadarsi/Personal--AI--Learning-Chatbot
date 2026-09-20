@@ -10,6 +10,7 @@
   <link rel="icon" type="image/png" href="{{ url_for('static', filename='brand/anvaya-mark.png') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
   <script defer src="{{ url_for('static', filename='js/app.js') }}"></script>
+  {% block page_scripts %}{% endblock %}
 </head>
 <body>
   <a class="skip-link" href="#main-content">Skip to content</a>

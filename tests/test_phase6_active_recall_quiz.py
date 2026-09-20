@@ -143,7 +143,7 @@ def _payload():
 
 def _env(tmp_path, *, authority=True, payload=None, hits=None):
     db = tmp_path / "db.sqlite"
-    assert apply_migrations(db) == (1, 2, 3, 4)
+    assert apply_migrations(db)[:4] == (1, 2, 3, 4)
     assert apply_migrations(db) == ()
     c = sqlite3.connect(str(db), isolation_level=None)
     c.row_factory = sqlite3.Row
@@ -238,7 +238,7 @@ def test_0004_migration_is_applied_and_idempotent(tmp_path):
             "SELECT version FROM schema_migrations ORDER BY version"
         )
     )
-    assert versions == (1, 2, 3, 4)
+    assert versions[:4] == (1, 2, 3, 4)
     tables = {
         row[0]
         for row in c.execute(

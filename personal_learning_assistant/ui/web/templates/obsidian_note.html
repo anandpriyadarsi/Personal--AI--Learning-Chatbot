@@ -1,6 +1,10 @@
 {% extends "base.html" %}
 
-{% block title %}{{ note.title }} · Obsidian · ANVAYA{% endblock %}
+{% block title %}{% if note %}{{ note.title }} · {% endif %}Obsidian · ANVAYA{% endblock %}
+
+{% block page_scripts %}
+<script defer src="{{ url_for('static', filename='js/obsidian_reader.js') }}"></script>
+{% endblock %}
 
 {% block content %}
 <nav class="obsidian-back" aria-label="Obsidian note navigation">
@@ -9,18 +13,20 @@
 
 {% if error_message %}
 <section class="notice-panel obsidian-warning" aria-live="assertive">
-  <h3>Note preview unavailable</h3>
+  <h3>Reader unavailable</h3>
   <p>{{ error_message }}</p>
 </section>
 {% elif note %}
-<section class="workspace-header" aria-labelledby="obsidian-note-title">
+<header class="workspace-header obsidian-reader-header" aria-labelledby="obsidian-note-title">
   <div>
-    <p class="eyebrow">Obsidian Markdown</p>
+    <p class="eyebrow">Obsidian Reader</p>
     <h2 id="obsidian-note-title">{{ note.title }}</h2>
     <p class="obsidian-path">{{ note.relative_path }}</p>
   </div>
-  <span class="tag">Preview only</span>
-</section>
+  {% if note.open_in_obsidian_url %}
+  <a class="button secondary-button" href="{{ note.open_in_obsidian_url }}">Open in Obsidian ↗</a>
+  {% endif %}
+</header>
 
 <section class="dashboard-panel obsidian-note-meta" aria-label="Note metadata">
   <div class="tag-row">
@@ -31,14 +37,134 @@
   <p class="empty-state">{{ note.size_bytes }} bytes · Markdown remains authoritative in your vault.</p>
 </section>
 
-<section class="dashboard-panel" aria-labelledby="obsidian-source-title">
-  <div class="panel-heading">
-    <div>
-      <p class="eyebrow">Markdown source</p>
-      <h3 id="obsidian-source-title">Read-only preview</h3>
-    </div>
-  </div>
-  <pre class="obsidian-preview">{{ note.text }}</pre>
+{% if request.args.get('companion_saved') %}
+<section class="notice-panel compact-notice" aria-live="polite">
+  {% if request.args.get('companion_saved') == 'archived' %}
+  Companion entry archived.
+  {% else %}
+  Companion entry saved.
+  {% endif %}
 </section>
+{% endif %}
+
+<div class="obsidian-reader-layout">
+  <article class="dashboard-panel obsidian-reading-view" aria-label="Rendered Markdown note">
+    {{ note.rendered_html }}
+  </article>
+
+  <aside class="dashboard-panel obsidian-companion" aria-labelledby="obsidian-companion-title">
+    <div class="panel-heading">
+      <div>
+        <p class="eyebrow">Study tools</p>
+        <h3 id="obsidian-companion-title">ANVAYA Companion</h3>
+      </div>
+    </div>
+
+    {% if not note.companion.available %}
+    <p class="notice-panel compact-notice">{{ note.companion.message }}</p>
+    {% else %}
+    <section class="obsidian-history" aria-labelledby="obsidian-history-title">
+      <h4 id="obsidian-history-title">Reading history</h4>
+      <dl class="obsidian-history-grid">
+        <div><dt>Last read</dt><dd>{{ note.history.last_read_at or 'Not yet' }}</dd></div>
+        <div><dt>Times opened</dt><dd>{{ note.history.times_opened }}</dd></div>
+        <div><dt>Total active</dt><dd>{{ note.history.total_active_seconds }} seconds</dd></div>
+        <div><dt>Last session</dt><dd>{{ note.history.last_session_active_seconds }} seconds</dd></div>
+        <div><dt>Highest progress</dt><dd>{{ (note.history.max_scroll_bps / 100)|round|int }}%</dd></div>
+      </dl>
+      {% if note.history.recent_sessions %}
+      <details class="obsidian-session-history">
+        <summary>Recent reading sessions</summary>
+        <ol>
+          {% for session in note.history.recent_sessions %}
+          <li>{{ session.started_at }} · {{ session.active_seconds }} seconds · {{ (session.max_scroll_bps / 100)|round|int }}%</li>
+          {% endfor %}
+        </ol>
+      </details>
+      {% endif %}
+    </section>
+
+    <section class="obsidian-companion-section" aria-labelledby="obsidian-key-points-title">
+      <h4 id="obsidian-key-points-title">Key points</h4>
+      {% if note.companion.key_points %}
+      <ul class="obsidian-companion-list">
+        {% for entry in note.companion.key_points %}
+        <li>
+          <p>{{ entry.entry_text }}</p>
+          <form method="post" action="{{ url_for('web.obsidian_companion_archive', entry_id=entry.id) }}">
+            <input type="hidden" name="path" value="{{ note.relative_path }}">
+            <input type="hidden" name="source_hash" value="{{ note.source_hash }}">
+            <button class="button secondary-button compact-button" type="submit">Archive</button>
+          </form>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="empty-state">No saved key points yet.</p>
+      {% endif %}
+      <form class="obsidian-companion-form" method="post" action="{{ url_for('web.obsidian_companion_key_point') }}">
+        <input type="hidden" name="path" value="{{ note.relative_path }}">
+        <input type="hidden" name="source_hash" value="{{ note.source_hash }}">
+        <label class="form-field">
+          <span>Add key point</span>
+          <textarea name="entry_text" rows="3" maxlength="2000" required></textarea>
+        </label>
+        <button class="button compact-button" type="submit">Save key point</button>
+      </form>
+    </section>
+
+    <section class="obsidian-companion-section" aria-labelledby="obsidian-doubts-title">
+      <h4 id="obsidian-doubts-title">Doubts</h4>
+      {% if note.companion.doubts %}
+      <ul class="obsidian-companion-list">
+        {% for entry in note.companion.doubts %}
+        <li>
+          <p>{{ entry.entry_text }}</p>
+          <form method="post" action="{{ url_for('web.obsidian_companion_archive', entry_id=entry.id) }}">
+            <input type="hidden" name="path" value="{{ note.relative_path }}">
+            <input type="hidden" name="source_hash" value="{{ note.source_hash }}">
+            <button class="button secondary-button compact-button" type="submit">Archive</button>
+          </form>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="empty-state">No saved doubts yet.</p>
+      {% endif %}
+      <form class="obsidian-companion-form" method="post" action="{{ url_for('web.obsidian_companion_doubt') }}">
+        <input type="hidden" name="path" value="{{ note.relative_path }}">
+        <input type="hidden" name="source_hash" value="{{ note.source_hash }}">
+        <label class="form-field">
+          <span>Add doubt</span>
+          <textarea name="entry_text" rows="3" maxlength="2000" required></textarea>
+        </label>
+        <button class="button compact-button" type="submit">Save doubt</button>
+      </form>
+    </section>
+    {% endif %}
+  </aside>
+</div>
+
+<details class="obsidian-source">
+  <summary>
+    <span class="eyebrow">Markdown source</span>
+    <strong>Show read-only source</strong>
+  </summary>
+  <pre class="obsidian-preview">{{ note.text }}</pre>
+</details>
+
+<noscript>
+  <p class="notice-panel compact-notice">Reading-time tracking requires JavaScript. The note and Companion forms remain usable without it.</p>
+</noscript>
+
+<div
+  id="obsidian-reader-data"
+  hidden
+  data-path="{{ note.relative_path }}"
+  data-source-hash="{{ note.source_hash }}"
+  data-start-url="{{ url_for('web.obsidian_reading_start') }}"
+  data-heartbeat-url="{{ url_for('web.obsidian_reading_heartbeat') }}"
+  data-end-url="{{ url_for('web.obsidian_reading_end') }}"
+></div>
 {% endif %}
 {% endblock %}

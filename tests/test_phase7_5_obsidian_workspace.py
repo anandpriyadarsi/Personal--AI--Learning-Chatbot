@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import subprocess
 import sys
@@ -345,6 +346,47 @@ def test_note_preview_scans_first_and_reads_with_expected_hash(tmp_path):
     assert len(preview["source_hash"]) == 64
 
 
+def test_note_preview_returns_safe_deterministic_identity_evidence(tmp_path):
+    assistant_id = "11111111-1111-4111-8111-111111111111"
+    first_vault = _vault(tmp_path / "first")
+    _write(
+        first_vault / "Math" / "LU.md",
+        "---\nassistant_id: {}\n---\n# LU\n".format(assistant_id),
+    )
+    service, _ = _service(first_vault)
+
+    first = service.note_preview("Math/LU.md")
+    repeated = service.note_preview("Math/LU.md")
+
+    assert first["assistant_id"] == assistant_id
+    assert first["vault_name"] == "Vault"
+    assert first["vault_identity"].startswith("vault:")
+    assert len(first["vault_identity"]) == len("vault:") + 64
+    assert first["vault_identity"] == repeated["vault_identity"]
+    assert str(first_vault) not in json.dumps(first, sort_keys=True)
+
+    second_vault = _vault(tmp_path / "second")
+    _write(second_vault / "Math" / "LU.md", "# LU\n")
+    second_service, _ = _service(second_vault)
+    second = second_service.note_preview("Math/LU.md")
+    assert second["assistant_id"] is None
+    assert second["vault_identity"] != first["vault_identity"]
+
+
+def test_vault_identity_normalizes_equivalent_configured_root_text(tmp_path):
+    vault = _vault(tmp_path)
+    _write(vault / "A.md", "# A\n")
+    ordinary, _ = _service(vault)
+    with_separator = ObsidianWorkspaceService(
+        FakeConfig({"vault_path": str(vault) + os.sep, "enabled": True}),
+        ObsidianWorkspaceReader,
+    )
+
+    assert ordinary.note_preview("A.md")["vault_identity"] == with_separator.note_preview(
+        "A.md"
+    )["vault_identity"]
+
+
 def test_note_preview_maps_traversal_missing_and_external_change_safely(tmp_path):
     vault = _vault(tmp_path)
     note = vault / "A.md"
@@ -476,6 +518,9 @@ class FakeWebService:
         return {
             "title": "Unsafe",
             "relative_path": "Math/LU.md",
+            "assistant_id": None,
+            "vault_name": "Test Vault",
+            "vault_identity": "vault:" + "b" * 64,
             "tags": ["linear-algebra"],
             "note_type": "concept",
             "revision_status": "needs_practice",
