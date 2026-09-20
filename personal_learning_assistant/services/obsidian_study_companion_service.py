@@ -8,7 +8,7 @@ import unicodedata
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 
 from markupsafe import Markup, escape
 
@@ -447,7 +447,8 @@ class ObsidianStudyCompanionService:
         deep_link = ""
         if vault_name:
             deep_link = "obsidian://open?" + urlencode(
-                {"vault": vault_name, "file": path}
+                {"vault": vault_name, "file": path},
+                quote_via=quote,
             )
         note.update(
             {

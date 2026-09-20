@@ -188,8 +188,8 @@ def test_reader_view_uses_assistant_identity_safe_rendering_and_deep_link():
     assert "title: LU Factorization" not in str(view["rendered_html"])
     assert view["text"].startswith("---\ntitle:")
     assert view["open_in_obsidian_url"].startswith("obsidian://open?")
-    assert "vault=My+Vault" in view["open_in_obsidian_url"]
-    assert "file=Math%2FLU+Factorization.md" in view["open_in_obsidian_url"]
+    assert "vault=My%20Vault" in view["open_in_obsidian_url"]
+    assert "file=Math%2FLU%20Factorization.md" in view["open_in_obsidian_url"]
     assert "/home/" not in view["open_in_obsidian_url"]
     assert view["history"]["times_opened"] == 2
     assert view["history"]["total_active_seconds"] == 125
