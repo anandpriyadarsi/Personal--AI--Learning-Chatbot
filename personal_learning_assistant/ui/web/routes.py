@@ -1354,6 +1354,7 @@ def knowledge():
                 source_types=(source_type,) if source_type else (),
                 providers=(provider,) if provider else (),
             )
+            warning = str(getattr(service, "last_warning", "") or "")
         except UnifiedSearchStaleIndexError:
             warning = (
                 "Learning material changed since the current knowledge index. "
