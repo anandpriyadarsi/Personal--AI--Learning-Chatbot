@@ -194,9 +194,11 @@ class MoodleSyncService:
                     and item["external_modified_at"]
                     != str(existing.get("external_modified_at") or "")
                 )
-                local_ok = bool(existing.get("local_path")) and Path(
-                    str(existing["local_path"])
-                ).is_file()
+                local_ok = (
+                    str(existing.get("status") or "") == "downloaded"
+                    and bool(existing.get("local_path"))
+                    and Path(str(existing["local_path"])).is_file()
+                )
                 state = "changed" if (hash_changed or time_changed or not local_ok) else "current"
             rows.append({**item, "state": state})
         return {
@@ -305,7 +307,10 @@ class MoodleSyncService:
         now = self._now()
         downloaded = 0
         failures = []
-        for item in targets:
+
+        # Sync records every remote file as seen, while preserving existing
+        # downloaded status on conflict. Preview itself remains side-effect free.
+        for item in preview["files"]:
             target = self._target_path(item)
             row = {
                 "id": _file_id(
@@ -318,6 +323,12 @@ class MoodleSyncService:
             }
             try:
                 self.repository.upsert_seen(row)
+            except MoodleSyncRepositoryError as error:
+                raise MoodleSyncError(str(error)) from error
+
+        for item in targets:
+            target = self._target_path(item)
+            try:
                 payload = self.client.download_file(item["file_url"])
                 self._write_download(item, payload)
                 self.repository.mark_downloaded(
