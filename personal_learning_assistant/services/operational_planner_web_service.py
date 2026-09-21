@@ -154,6 +154,30 @@ class OperationalPlannerWebService:
         except MonthPlanImportError as error:
             raise _translate(error)
 
+    def routines_workspace(self):
+        try:
+            return self.calendar.routines_workspace()
+        except OperationalCalendarError as error:
+            raise _translate(error)
+
+    def create_routine(self, **payload):
+        try:
+            return self.calendar.create_routine(**payload)
+        except OperationalCalendarError as error:
+            raise _translate(error)
+
+    def update_routine(self, routine_id, **payload):
+        try:
+            return self.calendar.update_routine(routine_id, **payload)
+        except OperationalCalendarError as error:
+            raise _translate(error)
+
+    def set_routine_status(self, routine_id, status):
+        try:
+            return self.calendar.set_routine_status(routine_id, status)
+        except OperationalCalendarError as error:
+            raise _translate(error)
+
     def calendar_view(self, *, view="month", anchor_date=None):
         try:
             return self.calendar.view(view=view, anchor_date=anchor_date)
