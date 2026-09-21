@@ -642,6 +642,31 @@ def planning_tasks_create():
         )
 
 
+@web_blueprint.post("/planning/tasks/<task_id>")
+def planning_task_update(task_id):
+    """Edit one existing operational task through the planner service boundary."""
+    try:
+        _operational_planner_service().update_task(
+            task_id,
+            title=request.form.get("title", ""),
+            description=request.form.get("description", ""),
+            priority=request.form.get("priority", "P1"),
+            estimated_minutes=request.form.get("estimated_minutes", ""),
+            due_on=request.form.get("due_on", ""),
+            preferred_day=request.form.get("preferred_day", ""),
+            preferred_window=request.form.get("preferred_window", ""),
+            rollover_policy=request.form.get("rollover_policy", ""),
+        )
+        return redirect(url_for("web.planning_tasks", updated="1"), code=303)
+    except (
+        OperationalPlannerWebValidationError,
+        OperationalPlannerWebNotFoundError,
+        OperationalPlannerWebConflictError,
+        OperationalPlannerWebUnavailableError,
+    ) as error:
+        return str(error), _planner_error_status(error)
+
+
 @web_blueprint.post("/planning/tasks/<task_id>/status")
 def planning_task_transition(task_id):
     try:
