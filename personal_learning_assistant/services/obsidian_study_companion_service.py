@@ -409,7 +409,14 @@ class ObsidianStudyCompanionService:
         vault_identity, note_identity, path, _source_hash = self._identity(note)
         source = str(note.get("text") or "")
         try:
-            rendered = self._renderer(source)
+            try:
+                rendered = self._renderer(
+                    source,
+                    wikilinks=tuple(note.get("wikilinks", ()) or ()),
+                )
+            except TypeError:
+                # Preserve small injected test renderers that still accept one argument.
+                rendered = self._renderer(source)
             if not isinstance(rendered, Markup):
                 rendered = Markup(escape(str(rendered)))
         except Exception:
