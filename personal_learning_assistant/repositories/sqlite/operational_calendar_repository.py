@@ -99,6 +99,25 @@ class SQLiteOperationalCalendarRepository:
         finally:
             c.close()
 
+    def list_planner_tasks(self, starts_on, ends_on):
+        c = self._connect(writable=False)
+        try:
+            return tuple(
+                dict(row)
+                for row in c.execute(
+                    "SELECT * FROM planner_tasks "
+                    "WHERE status NOT IN ('completed','skipped','archived') "
+                    "AND due_on IS NOT NULL AND due_on<>'' "
+                    "AND due_on>=? AND due_on<=? "
+                    "ORDER BY due_on,"
+                    "CASE priority WHEN 'P0' THEN 0 WHEN 'P1' THEN 1 ELSE 2 END,"
+                    "title,id",
+                    (starts_on, ends_on),
+                ).fetchall()
+            )
+        finally:
+            c.close()
+
     def list_assessments(self):
         c = self._connect(writable=False)
         try:
