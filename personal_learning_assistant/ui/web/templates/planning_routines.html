@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% block title %}Schedules · ANVAYA{% endblock %}
+{% block content %}
+<section class="hero dashboard-hero">
+  <div>
+    <p class="eyebrow">Operational planner</p>
+    <h2>Recurring schedules</h2>
+    <p class="lede">Create and edit recurring routines without touching the month-plan YAML.</p>
+  </div>
+  <div class="planner-inline-actions">
+    <a class="button button-secondary" href="{{ url_for('web.calendar') }}">Calendar</a>
+    <a class="button button-secondary" href="{{ url_for('web.planning_tasks') }}">Tasks</a>
+  </div>
+</section>
+
+{% if error_message %}
+<section class="notice-panel" role="alert"><p>{{ error_message }}</p></section>
+{% endif %}
+{% if request.args.get('created') == '1' %}
+<section class="notice-panel compact-notice">Schedule created.</section>
+{% endif %}
+{% if request.args.get('updated') == '1' %}
+<section class="notice-panel compact-notice">Schedule updated.</section>
+{% endif %}
+
+<section class="metric-grid">
+  <article class="metric-card"><span class="metric-label">Active</span><strong>{{ workspace.summary.active }}</strong></article>
+  <article class="metric-card"><span class="metric-label">Paused</span><strong>{{ workspace.summary.paused }}</strong></article>
+</section>
+
+<section class="dashboard-panel">
+  <div class="panel-heading">
+    <div>
+      <p class="eyebrow">New recurring schedule</p>
+      <h3>Create routine</h3>
+    </div>
+  </div>
+  <form method="post" action="{{ url_for('web.planning_routines_create') }}" class="planner-form">
+    <label>Title <input name="title" required maxlength="300" placeholder="Swimming / Linear Algebra revision"></label>
+    <label>Category <input name="category" value="routine" maxlength="80" placeholder="study / health / routine"></label>
+    <label>Priority
+      <select name="priority"><option>P0</option><option selected>P1</option><option>P2</option></select>
+    </label>
+    <label>Frequency
+      <select name="frequency">
+        <option value="weekly" selected>Weekly</option>
+        <option value="daily">Daily</option>
+      </select>
+    </label>
+
+    <fieldset class="planner-span-2 planner-weekdays">
+      <legend>Weekdays for weekly schedules</legend>
+      {% for value,label in (('MO','Mon'),('TU','Tue'),('WE','Wed'),('TH','Thu'),('FR','Fri'),('SA','Sat'),('SU','Sun')) %}
+      <label><input type="checkbox" name="weekdays" value="{{ value }}"> {{ label }}</label>
+      {% endfor %}
+    </fieldset>
+
+    <label>Start date <input name="active_from" type="date"></label>
+    <label>End date <input name="active_to" type="date"></label>
+    <label>Start time <input name="start_time" type="time"></label>
+    <label>End time <input name="end_time" type="time"></label>
+    <label>Duration (minutes) <input name="duration_minutes" type="number" min="0" max="1440"></label>
+    <label>Preferred window <input name="preferred_window" placeholder="morning / afternoon / evening"></label>
+    <label>Location <input name="preferred_location" placeholder="Library / Swimming pool"></label>
+    <label class="planner-span-2">Condition / note <textarea name="condition_text" rows="2" maxlength="1000" placeholder="Skip on exam day, only after classes, etc."></textarea></label>
+    <button class="button" type="submit">Create schedule</button>
+  </form>
+</section>
+
+<section class="dashboard-panel">
+  <div class="panel-heading">
+    <div><p class="eyebrow">Current recurring work</p><h3>Schedules</h3></div>
+  </div>
+  {% if not workspace.routines %}
+  <p class="empty-state">No recurring schedules yet.</p>
+  {% else %}
+  <ul class="planner-task-list">
+    {% for routine in workspace.routines %}
+    <li class="planner-task-card">
+      <div class="list-main">
+        <strong>{{ routine.priority }} · {{ routine.title }}</strong>
+        <span>{{ routine.status|title }} · {{ routine.category|replace('_',' ')|title }}</span>
+        <span class="microcopy">{{ routine.recurrence_rule }}</span>
+        {% if routine.start_time %}<span>{{ routine.start_time }}{% if routine.end_time %}–{{ routine.end_time }}{% endif %}</span>{% endif %}
+        {% if routine.active_from or routine.active_to %}<span>{{ routine.active_from or 'Any date' }} → {{ routine.active_to or 'No end date' }}</span>{% endif %}
+        {% if routine.condition_text %}<p>{{ routine.condition_text }}</p>{% endif %}
+      </div>
+      <div class="planner-inline-actions">
+        <form method="post" action="{{ url_for('web.planning_routine_status', routine_id=routine.id) }}">
+          {% if routine.status == 'active' %}
+          <input type="hidden" name="status" value="paused">
+          <button class="button button-secondary" type="submit">Pause</button>
+          {% else %}
+          <input type="hidden" name="status" value="active">
+          <button class="button button-secondary" type="submit">Resume</button>
+          {% endif %}
+        </form>
+        <form method="post" action="{{ url_for('web.planning_routine_status', routine_id=routine.id) }}">
+          <input type="hidden" name="status" value="archived">
+          <button class="button button-quiet" type="submit">Archive</button>
+        </form>
+      </div>
+
+      <details class="planner-task-editor">
+        <summary>Edit schedule</summary>
+        <form method="post" action="{{ url_for('web.planning_routine_update', routine_id=routine.id) }}" class="planner-form">
+          <label>Title <input name="title" value="{{ routine.title }}" required maxlength="300"></label>
+          <label>Category <input name="category" value="{{ routine.category or 'routine' }}" maxlength="80"></label>
+          <label>Priority
+            <select name="priority">
+              {% for value in ('P0','P1','P2') %}
+              <option value="{{ value }}"{% if routine.priority == value %} selected{% endif %}>{{ value }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label>Frequency
+            <select name="frequency">
+              <option value="weekly"{% if 'FREQ=WEEKLY' in routine.recurrence_rule %} selected{% endif %}>Weekly</option>
+              <option value="daily"{% if 'FREQ=DAILY' in routine.recurrence_rule %} selected{% endif %}>Daily</option>
+            </select>
+          </label>
+
+          <fieldset class="planner-span-2 planner-weekdays">
+            <legend>Weekdays</legend>
+            {% set rule = routine.recurrence_rule %}
+            {% for value,label in (('MO','Mon'),('TU','Tue'),('WE','Wed'),('TH','Thu'),('FR','Fri'),('SA','Sat'),('SU','Sun')) %}
+            <label><input type="checkbox" name="weekdays" value="{{ value }}"{% if value in rule %} checked{% endif %}> {{ label }}</label>
+            {% endfor %}
+          </fieldset>
+
+          <label>Start date <input name="active_from" type="date" value="{{ routine.active_from or '' }}"></label>
+          <label>End date <input name="active_to" type="date" value="{{ routine.active_to or '' }}"></label>
+          <label>Start time <input name="start_time" type="time" value="{{ routine.start_time or '' }}"></label>
+          <label>End time <input name="end_time" type="time" value="{{ routine.end_time or '' }}"></label>
+          <label>Duration (minutes) <input name="duration_minutes" type="number" min="0" max="1440" value="{{ routine.duration_minutes if routine.duration_minutes is not none else '' }}"></label>
+          <label>Preferred window <input name="preferred_window" value="{{ routine.preferred_window or '' }}"></label>
+          <label>Location <input name="preferred_location" value="{{ routine.preferred_location or '' }}"></label>
+          <label class="planner-span-2">Condition / note <textarea name="condition_text" rows="2" maxlength="1000">{{ routine.condition_text or '' }}</textarea></label>
+          <button class="button" type="submit">Save changes</button>
+        </form>
+      </details>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</section>
+{% endblock %}
