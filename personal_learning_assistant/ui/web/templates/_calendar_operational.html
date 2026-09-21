@@ -7,7 +7,16 @@
     <a class="quick-action{% if operational_calendar and operational_calendar.view == 'month' %} is-active{% endif %}" href="{{ url_for('web.calendar', view='month', date=(operational_calendar.anchor_date if operational_calendar else dashboard.date)) }}">Month</a>
     <a class="quick-action{% if operational_calendar and operational_calendar.view == 'week' %} is-active{% endif %}" href="{{ url_for('web.calendar', view='week', date=(operational_calendar.anchor_date if operational_calendar else dashboard.date)) }}">Week</a>
     <a class="quick-action{% if operational_calendar and operational_calendar.view == 'day' %} is-active{% endif %}" href="{{ url_for('web.calendar', view='day', date=(operational_calendar.anchor_date if operational_calendar else dashboard.date)) }}">Day</a>
+    <a class="quick-action" href="{{ url_for('web.planning_tasks') }}">Tasks</a>
   </nav>
+
+  {% if operational_calendar and operational_calendar.available %}
+  <nav class="planner-calendar-navigation" aria-label="Move through calendar">
+    <a class="button button-secondary compact-button" href="{{ url_for('web.calendar', view=operational_calendar.view, date=operational_calendar.previous_anchor) }}">← Previous</a>
+    <a class="button button-quiet compact-button" href="{{ url_for('web.calendar', view=operational_calendar.view, date=operational_calendar.today) }}">Today</a>
+    <a class="button button-secondary compact-button" href="{{ url_for('web.calendar', view=operational_calendar.view, date=operational_calendar.next_anchor) }}">Next →</a>
+  </nav>
+  {% endif %}
 
   {% if not operational_calendar or not operational_calendar.available %}
     <p class="empty-state">Operational calendar is unavailable until migration 0006 is applied.</p>
