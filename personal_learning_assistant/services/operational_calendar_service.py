@@ -94,6 +94,71 @@ def _decode_dates(raw):
     return {str(x) for x in value if isinstance(x, str)}
 
 
+def _optional_date(value):
+    text = str(value or "").strip()
+    return None if not text else _parse_date(text).isoformat()
+
+
+def _clean_time(value, *, label):
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    try:
+        datetime.strptime(text, "%H:%M")
+    except ValueError as error:
+        raise OperationalCalendarValidationError(
+            "{} must be HH:MM.".format(label)
+        ) from error
+    return text
+
+
+def _duration(value):
+    if value in (None, ""):
+        return None
+    try:
+        minutes = int(value)
+    except (TypeError, ValueError) as error:
+        raise OperationalCalendarValidationError(
+            "Duration must be an integer number of minutes."
+        ) from error
+    if minutes < 0 or minutes > 1440:
+        raise OperationalCalendarValidationError(
+            "Duration is outside the accepted range."
+        )
+    return minutes
+
+
+def _routine_rule(frequency, weekdays, active_to):
+    token = str(frequency or "weekly").strip().lower()
+    if token not in {"daily", "weekly"}:
+        raise OperationalCalendarValidationError(
+            "Routine frequency must be daily or weekly."
+        )
+    parts = ["RRULE:FREQ={}".format(token.upper())]
+    if token == "weekly":
+        days = tuple(
+            dict.fromkeys(
+                str(day or "").strip().upper()
+                for day in tuple(weekdays or ())
+                if str(day or "").strip()
+            )
+        )
+        if not days or any(day not in _WEEKDAY for day in days):
+            raise OperationalCalendarValidationError(
+                "Choose at least one valid weekday for a weekly routine."
+            )
+        parts.append("BYDAY=" + ",".join(days))
+    if active_to:
+        end = _parse_date(active_to)
+        parts.append("UNTIL=" + end.strftime("%Y%m%d"))
+    rule = ";".join(parts)
+    try:
+        parse_rrule(rule)
+    except MonthPlanImportValidationError as error:
+        raise OperationalCalendarValidationError(str(error)) from error
+    return rule
+
+
 def materialize_occurrences(
     *,
     recurrence_rule,
@@ -254,6 +319,36 @@ class OperationalCalendarService:
                 })
         return items
 
+    def _agenda_occurrences(self, start: date, end: date):
+        try:
+            rows = self.repository.list_daily_agenda_items(
+                start.isoformat(), end.isoformat()
+            )
+        except OperationalCalendarRepositoryError as error:
+            raise OperationalCalendarUnavailableError(
+                "Operational calendar is temporarily unavailable."
+            ) from error
+        items = []
+        for row in rows:
+            start_time, end_time = _event_time_parts(row)
+            items.append(
+                {
+                    "id": row["id"],
+                    "source": "daily_agenda",
+                    "date": str(row["agenda_date"]),
+                    "title": row["title"],
+                    "kind": "agenda_" + str(row.get("item_kind") or "item"),
+                    "priority": row.get("priority"),
+                    "start_time": start_time,
+                    "end_time": end_time,
+                    "planned_minutes": row.get("planned_minutes"),
+                    "agenda_status": row.get("agenda_status"),
+                    "item_status": row.get("item_status"),
+                    "all_day": not bool(start_time),
+                }
+            )
+        return items
+
     def _range(self, anchor: date, view: str):
         if view == "day":
             return anchor, anchor
@@ -299,6 +394,7 @@ class OperationalCalendarService:
             self._event_occurrences(start, end)
             + self._routine_occurrences(start, end)
             + self._task_occurrences(start, end)
+            + self._agenda_occurrences(start, end)
         )
         items.sort(key=lambda item: (item["date"], item.get("start_time") or "", item["title"]))
         grouped = {}
@@ -332,6 +428,140 @@ class OperationalCalendarService:
             "days": grouped,
             "waiting_exam_slots": waiting,
         }
+
+    def routines_workspace(self):
+        try:
+            rows = self.repository.list_routine_templates()
+        except OperationalCalendarRepositoryError as error:
+            raise OperationalCalendarUnavailableError(
+                "Schedules are temporarily unavailable."
+            ) from error
+        return {
+            "available": True,
+            "routines": rows,
+            "summary": {
+                "active": sum(1 for row in rows if row.get("status") == "active"),
+                "paused": sum(1 for row in rows if row.get("status") == "paused"),
+            },
+        }
+
+    def _routine_fields(
+        self,
+        *,
+        title,
+        category="routine",
+        priority="P1",
+        frequency="weekly",
+        weekdays=(),
+        active_from="",
+        active_to="",
+        start_time="",
+        end_time="",
+        duration_minutes=None,
+        preferred_window="",
+        preferred_location="",
+        condition_text="",
+    ):
+        clean_title = " ".join(str(title or "").strip().split())
+        if not clean_title or len(clean_title) > 300:
+            raise OperationalCalendarValidationError(
+                "Enter a valid schedule title."
+            )
+        clean_priority = str(priority or "P1").strip().upper()
+        if clean_priority not in {"P0", "P1", "P2"}:
+            raise OperationalCalendarValidationError(
+                "Priority must be P0, P1, or P2."
+            )
+        start_date = _optional_date(active_from)
+        end_date = _optional_date(active_to)
+        if start_date and end_date and end_date < start_date:
+            raise OperationalCalendarValidationError(
+                "Schedule end date cannot be before its start date."
+            )
+        start_clock = _clean_time(start_time, label="Start time")
+        end_clock = _clean_time(end_time, label="End time")
+        if start_clock and end_clock:
+            if _time_minutes(end_clock) <= _time_minutes(start_clock):
+                raise OperationalCalendarValidationError(
+                    "End time must be after start time."
+                )
+        return {
+            "title": clean_title,
+            "category": " ".join(str(category or "routine").strip().split())[:80] or "routine",
+            "priority": clean_priority,
+            "recurrence_rule": _routine_rule(frequency, weekdays, end_date),
+            "active_from": start_date,
+            "active_to": end_date,
+            "start_time": start_clock or None,
+            "end_time": end_clock or None,
+            "duration_minutes": _duration(duration_minutes),
+            "preferred_window": " ".join(str(preferred_window or "").strip().split())[:200] or None,
+            "preferred_location": " ".join(str(preferred_location or "").strip().split())[:300] or None,
+            "condition_text": str(condition_text or "").strip()[:1000],
+        }
+
+    def create_routine(self, **payload):
+        fields = self._routine_fields(**payload)
+        now = self._now()
+        row = {
+            "id": str(self._id_factory()),
+            **fields,
+            "created_at": now,
+            "updated_at": now,
+        }
+        try:
+            created = self.repository.create_manual_routine(row)
+            self.repository.mark_future_agendas_stale(
+                fields.get("active_from") or date.today().isoformat()
+            )
+            return created
+        except OperationalCalendarRepositoryError as error:
+            raise OperationalCalendarUnavailableError(
+                "The schedule could not be saved."
+            ) from error
+
+    def update_routine(self, routine_id, **payload):
+        fields = self._routine_fields(**payload)
+        fields["updated_at"] = self._now()
+        try:
+            updated = self.repository.update_manual_routine(routine_id, fields)
+            self.repository.mark_future_agendas_stale(
+                fields.get("active_from") or date.today().isoformat()
+            )
+            return updated
+        except OperationalCalendarRepositoryNotFoundError as error:
+            raise OperationalCalendarNotFoundError(
+                "Schedule was not found."
+            ) from error
+        except OperationalCalendarRepositoryError as error:
+            raise OperationalCalendarUnavailableError(
+                "The schedule could not be updated."
+            ) from error
+
+    def set_routine_status(self, routine_id, status):
+        token = str(status or "").strip().lower()
+        if token not in {"active", "paused", "archived"}:
+            raise OperationalCalendarValidationError(
+                "Schedule status must be active, paused, or archived."
+            )
+        try:
+            current = self.repository.get_routine(routine_id)
+            updated = self.repository.update_manual_routine(
+                routine_id,
+                {"status": token, "updated_at": self._now()},
+            )
+            self.repository.mark_future_agendas_stale(
+                current.get("active_from") or date.today().isoformat()
+            )
+            return updated
+        except OperationalCalendarRepositoryNotFoundError as error:
+            raise OperationalCalendarNotFoundError(
+                "Schedule was not found."
+            ) from error
+        except OperationalCalendarRepositoryError as error:
+            raise OperationalCalendarUnavailableError(
+                "The schedule status could not be changed."
+            ) from error
 
     def day_items(self, agenda_date):
         return tuple(self.view(view="day", anchor_date=agenda_date)["items"])
