@@ -18,6 +18,7 @@ MAX_QUERY_CHARS = 300
 MAX_BROWSE_NOTES = 500
 MAX_SEARCH_RESULTS = 100
 _WINDOWS_ABSOLUTE = re.compile(r"^[A-Za-z]:[\\/]")
+_WIKILINK = re.compile(r"(?<!!)\[\[([^\[\]\r\n]+)\]\]")
 
 
 class ObsidianWorkspaceError(RuntimeError):
@@ -235,6 +236,137 @@ class ObsidianWorkspaceService:
         workspace["summary"]["truncated"] = scan.note_count > MAX_BROWSE_NOTES
         return workspace
 
+    @staticmethod
+    def _wikilink_parts(raw_value: str):
+        raw = str(raw_value or "").strip()
+        target_part, separator, alias = raw.partition("|")
+        target_part = target_part.strip()
+        alias = alias.strip() if separator else ""
+        path_part, heading_separator, heading = target_part.partition("#")
+        return {
+            "raw": raw,
+            "target": path_part.strip(),
+            "heading": heading.strip() if heading_separator else "",
+            "label": alias or target_part.strip(),
+        }
+
+    @staticmethod
+    def _link_lookup(scan):
+        lookup = {}
+        for item in scan.notes:
+            relative_path = str(item.relative_path).replace("\\", "/")
+            without_suffix = (
+                relative_path[:-3]
+                if relative_path.lower().endswith(".md")
+                else relative_path
+            )
+            keys = {
+                str(item.title or "").strip(),
+                Path(relative_path).stem,
+                relative_path,
+                without_suffix,
+            }
+            for key in keys:
+                normalized = unicodedata.normalize(
+                    "NFC", str(key or "").strip()
+                ).casefold()
+                if normalized:
+                    lookup.setdefault(normalized, []).append(item)
+        return lookup
+
+    @staticmethod
+    def _resolve_link(target: str, lookup):
+        normalized = unicodedata.normalize(
+            "NFC", str(target or "").strip().replace("\\", "/")
+        ).casefold()
+        if normalized.endswith(".md"):
+            without_suffix = normalized[:-3]
+        else:
+            without_suffix = normalized
+        candidates = list(lookup.get(normalized, ()))
+        if not candidates and without_suffix != normalized:
+            candidates = list(lookup.get(without_suffix, ()))
+        if not candidates and normalized and not normalized.endswith(".md"):
+            candidates = list(lookup.get(normalized + ".md", ()))
+        unique = {
+            str(item.relative_path).replace("\\", "/").casefold(): item
+            for item in candidates
+        }
+        if len(unique) != 1:
+            return None, len(unique) > 1
+        return next(iter(unique.values())), False
+
+    def _link_context(self, reader, scan, current_path: str, source: str):
+        lookup = self._link_lookup(scan)
+        outgoing = []
+        seen_outgoing = set()
+        for match in _WIKILINK.finditer(str(source or "")):
+            parts = self._wikilink_parts(match.group(1))
+            resolved, ambiguous = self._resolve_link(parts["target"], lookup)
+            resolved_path = (
+                ""
+                if resolved is None
+                else str(resolved.relative_path).replace("\\", "/")
+            )
+            key = (parts["raw"], resolved_path)
+            if key in seen_outgoing:
+                continue
+            seen_outgoing.add(key)
+            outgoing.append(
+                {
+                    **parts,
+                    "resolved_path": resolved_path,
+                    "resolved_title": (
+                        "" if resolved is None else str(resolved.title)
+                    ),
+                    "ambiguous": bool(ambiguous),
+                }
+            )
+
+        backlinks = []
+        current_key = str(current_path).replace("\\", "/").casefold()
+        for candidate in scan.notes:
+            candidate_path = str(candidate.relative_path).replace("\\", "/")
+            if candidate_path.casefold() == current_key:
+                continue
+            try:
+                payload = reader.read_note(
+                    candidate_path,
+                    expected_hash=str(candidate.source_hash or ""),
+                )
+            except Exception:
+                continue
+            linked = False
+            for match in _WIKILINK.finditer(str(payload.get("text") or "")):
+                parts = self._wikilink_parts(match.group(1))
+                resolved, _ambiguous = self._resolve_link(parts["target"], lookup)
+                if (
+                    resolved is not None
+                    and str(resolved.relative_path)
+                    .replace("\\", "/")
+                    .casefold()
+                    == current_key
+                ):
+                    linked = True
+                    break
+            if linked:
+                backlinks.append(
+                    {
+                        "relative_path": candidate_path,
+                        "title": str(candidate.title or Path(candidate_path).stem),
+                    }
+                )
+        backlinks.sort(
+            key=lambda item: (
+                item["title"].casefold(),
+                item["relative_path"].casefold(),
+            )
+        )
+        return {
+            "outgoing": tuple(outgoing),
+            "backlinks": tuple(backlinks),
+        }
+
     def note_preview(self, relative_path: Any) -> Dict[str, Any]:
         requested = _normalize_requested_note_path(relative_path)
         config = self._load_config()
@@ -280,6 +412,12 @@ class ObsidianWorkspaceService:
                 "The selected note changed or could not be read safely. Refresh the vault and try again."
             ) from error
 
+        link_context = self._link_context(
+            reader,
+            scan,
+            str(note.relative_path),
+            str(payload["text"]),
+        )
         return {
             "title": str(note.title),
             "relative_path": str(note.relative_path),
@@ -294,6 +432,8 @@ class ObsidianWorkspaceService:
             "source_hash": str(payload["source_hash"]),
             "size_bytes": int(payload["size_bytes"]),
             "text": str(payload["text"]),
+            "wikilinks": link_context["outgoing"],
+            "backlinks": link_context["backlinks"],
         }
 
     def connect_vault(self, vault_path: Any) -> Dict[str, Any]:
