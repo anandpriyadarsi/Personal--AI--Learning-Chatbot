@@ -242,6 +242,29 @@ class OperationalCalendarService:
             return start, next_month - timedelta(days=1)
         raise OperationalCalendarValidationError("Calendar view must be month, week, or day.")
 
+    @staticmethod
+    def _navigation(anchor: date, view: str):
+        if view == "day":
+            return anchor - timedelta(days=1), anchor + timedelta(days=1)
+        if view == "week":
+            return anchor - timedelta(days=7), anchor + timedelta(days=7)
+        if view == "month":
+            current = anchor.replace(day=1)
+            previous = (
+                current.replace(year=current.year - 1, month=12)
+                if current.month == 1
+                else current.replace(month=current.month - 1)
+            )
+            following = (
+                current.replace(year=current.year + 1, month=1)
+                if current.month == 12
+                else current.replace(month=current.month + 1)
+            )
+            return previous, following
+        raise OperationalCalendarValidationError(
+            "Calendar view must be month, week, or day."
+        )
+
     def view(self, *, view="month", anchor_date=None):
         anchor = _parse_date(anchor_date or date.today().isoformat())
         start, end = self._range(anchor, view)
@@ -264,12 +287,16 @@ class OperationalCalendarService:
             if a.get("due_on") in (None, "")
             and "mid" in str(a.get("assessment_type") or a.get("title") or "").lower()
         )
+        previous_anchor, next_anchor = self._navigation(anchor, view)
         return {
             "available": True,
             "view": view,
             "anchor_date": anchor.isoformat(),
             "starts_on": start.isoformat(),
             "ends_on": end.isoformat(),
+            "previous_anchor": previous_anchor.isoformat(),
+            "next_anchor": next_anchor.isoformat(),
+            "today": date.today().isoformat(),
             "items": tuple(items),
             "days": grouped,
             "waiting_exam_slots": waiting,
