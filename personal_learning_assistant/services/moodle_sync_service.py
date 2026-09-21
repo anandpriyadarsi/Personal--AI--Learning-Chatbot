@@ -351,8 +351,8 @@ class MoodleSyncService:
                 exact = tuple(
                     candidate
                     for candidate in candidates
-                    if "provider_external" in candidate.reasons
-                    or "document" in candidate.reasons
+                    if "provider_external_id" in candidate.reasons
+                    or "document_content_hash" in candidate.reasons
                 )
                 if exact:
                     resource_id = exact[0].resource_id
