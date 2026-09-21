@@ -148,22 +148,27 @@ ANVAYA remains the local authority. The returned ZIP will be previewed before an
 
             if include_full_vault:
                 seen = {selected_path.casefold()}
-                for row in note_rows[:MAX_FULL_VAULT_NOTES]:
-                    raw_path = str(row.get("relative_path") or "")
+                try:
+                    snapshot = self.workspace_service.markdown_snapshot(
+                        max_notes=MAX_FULL_VAULT_NOTES,
+                        max_bytes=MAX_UNCOMPRESSED_BYTES,
+                    )
+                except Exception as error:
+                    raise AlexHandoffError(
+                        "The full vault snapshot could not be prepared safely."
+                    ) from error
+                for note in snapshot:
                     try:
-                        path = _safe_note_path(raw_path)
+                        path = _safe_note_path(note.get("relative_path", ""))
                     except AlexHandoffError:
                         continue
                     if path.casefold() in seen:
-                        continue
-                    try:
-                        note = self.workspace_service.note_preview(path)
-                    except Exception:
                         continue
                     payload = str(note.get("text") or "").encode("utf-8")
                     if total + len(payload) > MAX_UNCOMPRESSED_BYTES:
                         break
                     archive.writestr("NITK 2026-30/" + path, payload)
+                    seen.add(path.casefold())
                     total += len(payload)
                     included += 1
 
