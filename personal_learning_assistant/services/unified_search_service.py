@@ -49,6 +49,30 @@ def _snippet(value, limit=360):
     return text if len(text) <= limit else text[: limit - 1] + "…"
 
 
+_SEARCH_EQUIVALENTS = (
+    ("factorisation", "factorization"),
+    ("factorise", "factorize"),
+    ("normalisation", "normalization"),
+    ("optimisation", "optimization"),
+    ("organisation", "organization"),
+    ("visualisation", "visualization"),
+)
+
+
+def _search_variants(value):
+    clean = " ".join(str(value or "").split())[:500]
+    if not clean:
+        return ()
+    folded = clean.casefold()
+    variants = [clean]
+    for british, american in _SEARCH_EQUIVALENTS:
+        if british in folded:
+            variants.append(folded.replace(british, american))
+        if american in folded:
+            variants.append(folded.replace(american, british))
+    return tuple(dict.fromkeys(variants))
+
+
 class UnifiedSearchService:
     def __init__(
         self,
@@ -58,8 +82,11 @@ class UnifiedSearchService:
         obsidian_workspace_factory=None,
     ):
         self.database_path = Path(database_path)
-        self.runtime = runtime or get_unified_search_runtime()
+        self.runtime = runtime or get_unified_search_runtime(
+            database_path=self.database_path
+        )
         self._obsidian_workspace_factory = obsidian_workspace_factory
+        self.last_warning = ""
 
     def _obsidian(self):
         if self._obsidian_workspace_factory is not None:
@@ -77,39 +104,52 @@ class UnifiedSearchService:
             con.close()
 
     def suggest(self, query, *, limit=8):
-        clean = " ".join(str(query or "").split())[:200]
-        if len(clean) < 2:
+        variants = _search_variants(query)
+        if not variants or len(variants[0]) < 2:
             return ()
         con = _open_ro(self.database_path)
         try:
             repo = SQLiteSearchMetadataRepository(con)
             results = []
-            try:
-                vault = self._obsidian().workspace(clean)
-                for note in tuple(vault.get("notes", ()) or ())[: int(limit)]:
-                    path = str(note.get("relative_path") or "")
+            seen = set()
+            for variant in variants:
+                try:
+                    vault = self._obsidian().workspace(variant)
+                    for note in tuple(vault.get("notes", ()) or ())[: int(limit)]:
+                        path = str(note.get("relative_path") or "")
+                        label = str(note.get("title") or path)
+                        key = ("obsidian_note", label.casefold())
+                        if key in seen:
+                            continue
+                        seen.add(key)
+                        results.append(
+                            SearchSuggestion(
+                                kind="obsidian_note",
+                                label=label,
+                                subtitle="Obsidian note",
+                                value=label,
+                                open_target="/obsidian/note?path={}".format(
+                                    quote(path, safe="")
+                                ),
+                            )
+                        )
+                except Exception:
+                    pass
+                for kind, label, subtitle in repo.metadata_suggestions(
+                    variant, limit=limit
+                ):
+                    key = (kind, label.casefold())
+                    if key in seen:
+                        continue
+                    seen.add(key)
                     results.append(
                         SearchSuggestion(
-                            kind="obsidian_note",
-                            label=str(note.get("title") or path),
-                            subtitle="Obsidian note",
-                            value=str(note.get("title") or path),
-                            open_target="/obsidian/note?path={}".format(
-                                quote(path, safe="")
-                            ),
+                            kind=kind,
+                            label=label,
+                            subtitle=subtitle,
+                            value=label,
                         )
                     )
-            except Exception:
-                pass
-            for kind, label, subtitle in repo.metadata_suggestions(clean, limit=limit):
-                results.append(
-                    SearchSuggestion(
-                        kind=kind,
-                        label=label,
-                        subtitle=subtitle,
-                        value=label,
-                    )
-                )
             return tuple(results[: int(limit)])
         finally:
             con.close()
@@ -153,6 +193,93 @@ class UnifiedSearchService:
             return ()
         return tuple(results)
 
+    def _metadata_results(
+        self,
+        meta_repo,
+        interaction,
+        queries,
+        *,
+        course_ids=(),
+        topic_ids=(),
+        providers=(),
+        source_filter=(),
+        limit=12,
+        degraded=False,
+    ):
+        rows = []
+        document_ids = meta_repo.metadata_document_matches(
+            queries,
+            course_ids=course_ids,
+            topic_ids=topic_ids,
+            providers=providers,
+            limit=limit,
+        )
+        for document_id in document_ids:
+            item = meta_repo.document(document_id)
+            if item is None:
+                continue
+            if (
+                source_filter
+                and "knowledge_document" not in source_filter
+                and item["source_kind"] not in source_filter
+            ):
+                continue
+            chunks = meta_repo.document_chunks(document_id)
+            first = chunks[0] if chunks else None
+            snippet = "" if first is None else _snippet(first["chunk_text"])
+            from personal_learning_assistant.domain.study_item_models import (
+                StudyItemIdentity,
+            )
+            identity = StudyItemIdentity(
+                "knowledge_document",
+                document_id,
+                item["version_hash"],
+            )
+            history = interaction.history(identity)
+            reasons = ["Academic metadata match"]
+            if degraded:
+                reasons.append("Retrieval index unavailable")
+            rows.append(
+                (
+                    0.080 + min(history["times_opened"], 3) * 0.0005,
+                    StudySearchResult(
+                        item_kind="knowledge_document",
+                        item_id=document_id,
+                        version_hash=item["version_hash"],
+                        title=item["title"],
+                        subtitle=" · ".join(
+                            item["course_labels"][:1]
+                            + item["topic_labels"][:1]
+                        ),
+                        source_label=item["source_label"],
+                        snippet=snippet,
+                        course_ids=item["course_ids"],
+                        course_labels=item["course_labels"],
+                        topic_ids=item["topic_ids"],
+                        topic_labels=item["topic_labels"],
+                        provider=item["provider"],
+                        open_target="/knowledge/item/{}".format(
+                            quote(document_id, safe="")
+                        ),
+                        matched_chunk_ids=(
+                            ()
+                            if first is None
+                            else (str(first["id"]),)
+                        ),
+                        page_numbers=(
+                            ()
+                            if first is None or first["page_number"] is None
+                            else (int(first["page_number"]),)
+                        ),
+                        relevance_reasons=tuple(reasons),
+                        times_opened=history["times_opened"],
+                        total_active_seconds=history["total_active_seconds"],
+                        last_read_at=history["last_read_at"],
+                    ),
+                )
+            )
+        return tuple(rows)
+
     def search(
         self,
         query,
@@ -163,9 +290,12 @@ class UnifiedSearchService:
         providers=(),
         top_k=8,
     ):
-        clean = " ".join(str(query or "").split())[:500]
-        if not clean:
+        variants = _search_variants(query)
+        if not variants:
+            self.last_warning = ""
             return ()
+        clean = variants[0]
+        self.last_warning = ""
         source_filter = {str(x).strip() for x in source_types if str(x).strip()}
         con = _open_ro(self.database_path)
         try:
@@ -174,6 +304,7 @@ class UnifiedSearchService:
                 SQLiteStudyInteractionRepository(con)
             )
             output = []
+
             allow_obsidian = (
                 (not source_filter or "obsidian_note" in source_filter)
                 and not course_ids
@@ -181,41 +312,66 @@ class UnifiedSearchService:
                 and not providers
             )
             if allow_obsidian:
-                for item in self._obsidian_results(
-                    clean, interaction, limit=max(3, int(top_k))
-                ):
-                    output.append((0.030, item))
+                seen_obsidian = set()
+                for variant in variants:
+                    for item in self._obsidian_results(
+                        variant, interaction, limit=max(3, int(top_k))
+                    ):
+                        key = (item.item_kind, item.item_id)
+                        if key in seen_obsidian:
+                            continue
+                        seen_obsidian.add(key)
+                        output.append((0.030, item))
 
-            if not source_filter or any(
-                kind in source_filter
-                for kind in (
-                    "knowledge_document",
-                    "pdf",
-                    "textbook",
-                    "resource",
-                    "youtube",
-                    "lecture",
-                    "external_lecture",
-                )
-            ):
-                try:
-                    hits = self.runtime.search(
-                        clean,
-                        course_ids=tuple(course_ids),
-                        topic_ids=tuple(topic_ids),
-                        providers=tuple(providers),
-                        top_k=max(12, int(top_k) * 4),
+            retrieval_allowed = (
+                not source_filter
+                or any(
+                    kind in source_filter
+                    for kind in (
+                        "knowledge_document",
+                        "pdf",
+                        "textbook",
+                        "resource",
+                        "youtube",
+                        "lecture",
+                        "external_lecture",
                     )
+                )
+            )
+            degraded = False
+            grouped = defaultdict(list)
+            if retrieval_allowed:
+                seen_chunks = set()
+                try:
+                    for variant in variants:
+                        hits = self.runtime.search(
+                            variant,
+                            course_ids=tuple(course_ids),
+                            topic_ids=tuple(topic_ids),
+                            providers=tuple(providers),
+                            top_k=max(12, int(top_k) * 4),
+                        )
+                        for hit in hits:
+                            key = str(hit.chunk_id)
+                            if key in seen_chunks:
+                                continue
+                            seen_chunks.add(key)
+                            grouped[str(hit.document_id)].append(hit)
                 except UnifiedSearchStaleIndexError:
-                    raise
-                except Exception as error:
-                    raise UnifiedSearchError(
-                        "study search is temporarily unavailable"
-                    ) from error
+                    degraded = True
+                    self.last_warning = (
+                        "Learning material changed since the current retrieval index. "
+                        "ANVAYA is showing current vault and academic metadata matches; "
+                        "rebuild the index before grounded tutor use."
+                    )
+                except Exception:
+                    degraded = True
+                    self.last_warning = (
+                        "The retrieval index is temporarily unavailable. "
+                        "ANVAYA is showing current vault and academic metadata matches instead."
+                    )
 
-                grouped = defaultdict(list)
-                for hit in hits:
-                    grouped[str(hit.document_id)].append(hit)
+            if grouped:
                 metadata = meta_repo.documents(grouped)
                 query_fold = clean.casefold()
                 for document_id, local_hits in grouped.items():
@@ -242,10 +398,16 @@ class UnifiedSearchService:
                     history = interaction.history(identity)
                     reasons = []
                     title_fold = item["title"].casefold()
+                    topic_folds = tuple(x.casefold() for x in item["topic_labels"])
                     if title_fold == query_fold:
                         reasons.append("Exact title match")
                     elif query_fold in title_fold or title_fold in query_fold:
                         reasons.append("Strong title match")
+                    elif any(
+                        query_fold == topic or query_fold in topic
+                        for topic in topic_folds
+                    ):
+                        reasons.append("Academic topic match")
                     if item["topic_labels"]:
                         reasons.append("Linked academic topic")
                     if best.semantic_rank is not None:
@@ -302,6 +464,21 @@ class UnifiedSearchService:
                         )
                     )
 
+            if retrieval_allowed:
+                output.extend(
+                    self._metadata_results(
+                        meta_repo,
+                        interaction,
+                        variants,
+                        course_ids=tuple(course_ids),
+                        topic_ids=tuple(topic_ids),
+                        providers=tuple(providers),
+                        source_filter=source_filter,
+                        limit=max(12, int(top_k) * 2),
+                        degraded=degraded,
+                    )
+                )
+
             output.sort(
                 key=lambda pair: (
                     -pair[0],
@@ -309,7 +486,17 @@ class UnifiedSearchService:
                     pair[1].item_id,
                 )
             )
-            return tuple(item for _score, item in output[: int(top_k)])
+            seen = set()
+            results = []
+            for _score, item in output:
+                key = (item.item_kind, item.item_id)
+                if key in seen:
+                    continue
+                seen.add(key)
+                results.append(item)
+                if len(results) >= int(top_k):
+                    break
+            return tuple(results)
         finally:
             con.close()
 
