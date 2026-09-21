@@ -24,6 +24,24 @@ class FakeWorkspace:
             )
         }
 
+    def markdown_snapshot(self, *, max_notes=500, max_bytes=32 * 1024 * 1024):
+        return (
+            {
+                "relative_path": "MA103N/LU Factorization.md",
+                "title": "LU Factorization",
+                "source_hash": "a" * 64,
+                "text": "# LU Factorization\n\nPA = LU\n",
+                "size_bytes": 29,
+            },
+            {
+                "relative_path": "MA103N/Row Operations.md",
+                "title": "Row Operations",
+                "source_hash": "b" * 64,
+                "text": "# Row Operations\n",
+                "size_bytes": 17,
+            },
+        )
+
     def note_preview(self, path):
         notes = {
             "MA103N/LU Factorization.md": {
