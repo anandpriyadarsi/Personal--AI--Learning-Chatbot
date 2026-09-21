@@ -88,6 +88,7 @@ def test_moodle_sync_downloads_registers_and_ingests_learning_file(tmp_path):
     assert result["downloaded"] == 1
     assert result["ingestion"]["registered"] == 1
     assert result["ingestion"]["ingested"] == 1
+    assert result["ingestion"]["resources_linked"] == 1
     assert result["index_rebuild_required"] is True
 
     stored = root / "MA103N" / "LU notes" / "LU Factorization.md"
@@ -103,6 +104,15 @@ def test_moodle_sync_downloads_registers_and_ingests_learning_file(tmp_path):
     assert c.execute(
         "SELECT COUNT(*) FROM knowledge_chunks"
     ).fetchone()[0] >= 1
+    assert c.execute(
+        "SELECT COUNT(*) FROM resources WHERE provider='moodle'"
+    ).fetchone()[0] == 1
+    assert c.execute(
+        "SELECT COUNT(*) FROM resource_documents"
+    ).fetchone()[0] == 1
+    assert c.execute(
+        "SELECT COUNT(*) FROM resource_courses WHERE course_id='c-ma'"
+    ).fetchone()[0] == 1
     c.close()
 
 
