@@ -50,6 +50,26 @@
 <div class="obsidian-reader-layout">
   <article class="dashboard-panel obsidian-reading-view" aria-label="Rendered Markdown note">
     {{ note.rendered_html }}
+
+    {% if note.backlinks %}
+    <section class="obsidian-backlinks" aria-labelledby="obsidian-backlinks-title">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">Linked knowledge</p>
+          <h3 id="obsidian-backlinks-title">Backlinks</h3>
+        </div>
+        <span class="tag">{{ note.backlinks|length }}</span>
+      </div>
+      <ul class="obsidian-link-list">
+        {% for backlink in note.backlinks %}
+        <li>
+          <a href="{{ url_for('web.obsidian_note', path=backlink.relative_path) }}">{{ backlink.title }}</a>
+          <span class="microcopy">{{ backlink.relative_path }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endif %}
   </article>
 
   <aside class="dashboard-panel obsidian-companion" aria-labelledby="obsidian-companion-title">
