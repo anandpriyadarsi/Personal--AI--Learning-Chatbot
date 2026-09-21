@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% block title %}Moodle · ANVAYA{% endblock %}
+{% block content %}
+<section class="hero dashboard-hero">
+  <div>
+    <p class="eyebrow">Read-only external integration</p>
+    <h2>Moodle → ANVAYA</h2>
+    <p class="lede">Check your enrolled Moodle courses for new PDFs, PPTs and notes, then explicitly download them into ANVAYA's local knowledge folder.</p>
+  </div>
+  <span class="tag">Moodle is never modified</span>
+</section>
+
+{% if error_message %}
+<section class="error-panel" role="alert">
+  <h3>Moodle request could not be completed</h3>
+  <p>{{ error_message }}</p>
+</section>
+{% endif %}
+
+<section class="metric-grid">
+  <article class="metric-card">
+    <span class="metric-label">Configuration</span>
+    <strong>{% if status.configured %}Ready{% else %}Not configured{% endif %}</strong>
+    <span>Runtime environment only</span>
+  </article>
+  <article class="metric-card">
+    <span class="metric-label">Database</span>
+    <strong>{% if status.migration_ready %}Ready{% else %}Migration needed{% endif %}</strong>
+    <span>Moodle sync ledger</span>
+  </article>
+  <article class="metric-card">
+    <span class="metric-label">Local folder</span>
+    <strong>{{ status.recent|length }}</strong>
+    <span>{{ status.root_path }}</span>
+  </article>
+</section>
+
+<section class="dashboard-panel moodle-control-panel">
+  <div class="panel-heading">
+    <div>
+      <p class="eyebrow">Connector controls</p>
+      <h3>Check before downloading</h3>
+    </div>
+  </div>
+
+  {% if not status.migration_ready %}
+  <p class="notice-panel compact-notice">Migration 0008 must be applied before Moodle sync can store provenance.</p>
+  {% elif not status.configured %}
+  <div class="notice-panel">
+    <strong>Moodle credentials are not stored inside ANVAYA.</strong>
+    <p>Configure <code>ANVAYA_MOODLE_BASE_URL</code> and <code>ANVAYA_MOODLE_TOKEN</code> in your local environment, then restart ANVAYA. The token is used only for the current local process and is never written to SQLite.</p>
+  </div>
+  {% else %}
+  <div class="planner-inline-actions">
+    <form method="post" action="{{ url_for('web.moodle_preview') }}">
+      <button class="button button-secondary" type="submit">Check Moodle for changes</button>
+    </form>
+    <form method="post" action="{{ url_for('web.moodle_sync') }}">
+      <button class="button" type="submit">Sync new / changed files</button>
+    </form>
+  </div>
+  <p class="microcopy">Sync is explicit. ANVAYA downloads supported learning files, registers them with the existing knowledge registry, and runs the current extraction pipeline. It does not submit work, change Moodle, or post grades.</p>
+  {% endif %}
+</section>
+
+{% if preview %}
+<section class="dashboard-panel">
+  <div class="panel-heading">
+    <div><p class="eyebrow">Remote preview</p><h3>Learning files</h3></div>
+    <div class="tag-row">
+      <span class="tag">{{ preview.summary.new }} new</span>
+      <span class="tag">{{ preview.summary.changed }} changed</span>
+      <span class="tag">{{ preview.summary.current }} current</span>
+    </div>
+  </div>
+  {% if preview.files %}
+  <ul class="dashboard-list">
+    {% for item in preview.files %}
+    <li>
+      <div class="list-main">
+        <strong>{{ item.course_shortname or item.course_name }} · {{ item.file_name }}</strong>
+        <span>{{ item.module_name or 'Course material' }} · {{ item.mime_type or 'file' }}</span>
+        {% if item.anvaya_course_id %}<span>Mapped to ANVAYA course {{ item.anvaya_course_id }}</span>{% endif %}
+      </div>
+      <span class="tag moodle-state-{{ item.state }}">{{ item.state }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="empty-state">No supported Moodle learning files were returned.</p>
+  {% endif %}
+</section>
+{% endif %}
+
+{% if sync_result %}
+<section class="dashboard-panel">
+  <div class="panel-heading">
+    <div><p class="eyebrow">Sync result</p><h3>Stored locally</h3></div>
+    <span class="tag">{{ sync_result.downloaded }} downloaded</span>
+  </div>
+  <div class="metric-grid">
+    <article class="metric-card"><span class="metric-label">Downloaded</span><strong>{{ sync_result.downloaded }}</strong></article>
+    <article class="metric-card"><span class="metric-label">Registered</span><strong>{{ sync_result.ingestion.registered }}</strong></article>
+    <article class="metric-card"><span class="metric-label">Ingested / current</span><strong>{{ sync_result.ingestion.ingested }}</strong></article>
+    <article class="metric-card"><span class="metric-label">Extraction failures</span><strong>{{ sync_result.ingestion.failed }}</strong></article>
+  </div>
+  {% if sync_result.failures %}
+  <div class="notice-panel">
+    <strong>{{ sync_result.failures|length }} file(s) could not be downloaded.</strong>
+    <ul>
+      {% for failure in sync_result.failures %}<li>{{ failure.file_name }} · {{ failure.message }}</li>{% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+  {% if sync_result.index_rebuild_required %}
+  <div class="notice-panel">
+    <strong>Retrieval index rebuild required</strong>
+    <p>The authoritative local files and extracted chunks are updated. Rebuild the disposable retrieval index before using the grounded Tutor with the new Moodle material.</p>
+    <a class="button button-secondary" href="{{ url_for('web.retrieval_diagnostics') }}">Open retrieval diagnostics</a>
+  </div>
+  {% endif %}
+</section>
+{% endif %}
+
+<section class="dashboard-panel">
+  <div class="panel-heading">
+    <div><p class="eyebrow">Local provenance</p><h3>Recent Moodle files</h3></div>
+  </div>
+  {% if status.recent %}
+  <ul class="dashboard-list">
+    {% for item in status.recent %}
+    <li>
+      <div class="list-main">
+        <strong>{{ item.course_shortname or item.course_name }} · {{ item.file_name }}</strong>
+        <span>{{ item.module_name }}{% if item.local_path %} · {{ item.local_path }}{% endif %}</span>
+      </div>
+      <span class="tag">{{ item.status }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="empty-state">No Moodle file has been synced yet.</p>
+  {% endif %}
+</section>
+{% endblock %}
