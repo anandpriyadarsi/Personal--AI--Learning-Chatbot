@@ -190,6 +190,33 @@ class OperationalCalendarService:
                 })
         return items
 
+    def _task_occurrences(self, start: date, end: date):
+        try:
+            rows = self.repository.list_planner_tasks(
+                start.isoformat(), end.isoformat()
+            )
+        except OperationalCalendarRepositoryError as error:
+            raise OperationalCalendarUnavailableError(
+                "Operational calendar is temporarily unavailable."
+            ) from error
+        items = []
+        for row in rows:
+            items.append(
+                {
+                    "id": row["id"],
+                    "source": "task",
+                    "date": str(row["due_on"]),
+                    "title": row["title"],
+                    "kind": "task",
+                    "priority": row.get("priority"),
+                    "start_time": "",
+                    "end_time": "",
+                    "preferred_window": row.get("preferred_window") or "",
+                    "all_day": True,
+                }
+            )
+        return items
+
     def _routine_occurrences(self, start: date, end: date):
         try:
             routines = self.repository.list_routines()
@@ -268,7 +295,11 @@ class OperationalCalendarService:
     def view(self, *, view="month", anchor_date=None):
         anchor = _parse_date(anchor_date or date.today().isoformat())
         start, end = self._range(anchor, view)
-        items = self._event_occurrences(start, end) + self._routine_occurrences(start, end)
+        items = (
+            self._event_occurrences(start, end)
+            + self._routine_occurrences(start, end)
+            + self._task_occurrences(start, end)
+        )
         items.sort(key=lambda item: (item["date"], item.get("start_time") or "", item["title"]))
         grouped = {}
         for item in items:
