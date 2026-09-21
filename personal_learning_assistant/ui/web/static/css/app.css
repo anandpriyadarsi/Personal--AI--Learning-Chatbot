@@ -844,3 +844,49 @@ details[open] > .details-action::after { content: " −"; }
 @media (max-width: 560px) {
   .knowledge-filter-grid { grid-template-columns: 1fr; }
 }
+
+/* Phase 7.5.12.3 live UX fixes. */
+.obsidian-backlinks {
+  margin-top: 2rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border);
+}
+
+.obsidian-link-list {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.obsidian-link-list li {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.planner-calendar-navigation {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  align-items: center;
+  margin: 0.75rem 0 1rem;
+}
+
+.planner-task-editor {
+  width: 100%;
+  margin-top: 0.75rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.75rem;
+}
+
+.planner-task-editor summary {
+  cursor: pointer;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.planner-task-editor[open] summary {
+  margin-bottom: 0.75rem;
+}
+
