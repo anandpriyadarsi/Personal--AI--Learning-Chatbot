@@ -11,6 +11,8 @@
 </section>
 
 {% if error_message %}<section class="notice-panel" role="alert"><p>{{ error_message }}</p></section>{% endif %}
+{% if request.args.get('created') == '1' %}<section class="notice-panel compact-notice">Task added.</section>{% endif %}
+{% if request.args.get('updated') == '1' %}<section class="notice-panel compact-notice">Task updated.</section>{% endif %}
 
 <section class="dashboard-panel">
   <div class="panel-heading">
@@ -51,6 +53,9 @@
         {% if task.description %}<p>{{ task.description }}</p>{% endif %}
       </div>
       <div class="planner-inline-actions">
+        {% if task.due_on %}
+        <a class="button button-quiet" href="{{ url_for('web.calendar', view='day', date=task.due_on) }}">Calendar</a>
+        {% endif %}
         {% if task.status != 'completed' %}
         <form method="post" action="{{ url_for('web.planning_task_transition', task_id=task.id) }}">
           <input type="hidden" name="status" value="completed">
@@ -62,6 +67,26 @@
           <button class="button button-quiet" type="submit">Archive</button>
         </form>
       </div>
+      <details class="planner-task-editor">
+        <summary>Edit task</summary>
+        <form method="post" action="{{ url_for('web.planning_task_update', task_id=task.id) }}" class="planner-form">
+          <label>Task title <input name="title" value="{{ task.title }}" required maxlength="300"></label>
+          <label>Priority
+            <select name="priority">
+              {% for value in ('P0','P1','P2') %}
+              <option value="{{ value }}"{% if task.priority == value %} selected{% endif %}>{{ value }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label>Estimated minutes <input name="estimated_minutes" type="number" min="0" max="1440" value="{{ task.estimated_minutes if task.estimated_minutes is not none else '' }}"></label>
+          <label>Due date <input name="due_on" type="date" value="{{ task.due_on or '' }}"></label>
+          <label class="planner-span-2">Description <textarea name="description" rows="2" maxlength="4000">{{ task.description or '' }}</textarea></label>
+          <label>Preferred day <input name="preferred_day" value="{{ task.preferred_day or '' }}"></label>
+          <label>Preferred window <input name="preferred_window" value="{{ task.preferred_window or '' }}" placeholder="morning / afternoon / evening"></label>
+          <label class="planner-span-2">Rollover policy <input name="rollover_policy" value="{{ task.rollover_policy or '' }}"></label>
+          <button class="button" type="submit">Save changes</button>
+        </form>
+      </details>
     </li>
     {% endfor %}
   </ul>
