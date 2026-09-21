@@ -683,6 +683,123 @@ def planning_task_transition(task_id):
         return str(error), _planner_error_status(error)
 
 
+def _routine_form_payload():
+    return {
+        "title": request.form.get("title", ""),
+        "category": request.form.get("category", "routine"),
+        "priority": request.form.get("priority", "P1"),
+        "frequency": request.form.get("frequency", "weekly"),
+        "weekdays": tuple(request.form.getlist("weekdays")),
+        "active_from": request.form.get("active_from", ""),
+        "active_to": request.form.get("active_to", ""),
+        "start_time": request.form.get("start_time", ""),
+        "end_time": request.form.get("end_time", ""),
+        "duration_minutes": request.form.get("duration_minutes", ""),
+        "preferred_window": request.form.get("preferred_window", ""),
+        "preferred_location": request.form.get("preferred_location", ""),
+        "condition_text": request.form.get("condition_text", ""),
+    }
+
+
+@web_blueprint.get("/planning/routines")
+def planning_routines():
+    """Render recurring schedules using the existing routine_templates authority."""
+    service = _operational_planner_service()
+    try:
+        workspace = service.routines_workspace()
+        return render_template(
+            "planning_routines.html",
+            active_page="planning",
+            workspace=workspace,
+            error_message="",
+        )
+    except Exception as error:
+        current_app.logger.warning(
+            "Operational schedules unavailable (%s).",
+            type(error).__name__,
+        )
+        return (
+            render_template(
+                "planning_routines.html",
+                active_page="planning",
+                workspace={
+                    "available": False,
+                    "routines": (),
+                    "summary": {"active": 0, "paused": 0},
+                },
+                error_message=(
+                    "Schedules are temporarily unavailable. "
+                    "Existing planner data was not changed."
+                ),
+            ),
+            503,
+        )
+
+
+@web_blueprint.post("/planning/routines")
+def planning_routines_create():
+    service = _operational_planner_service()
+    try:
+        service.create_routine(**_routine_form_payload())
+        return redirect(url_for("web.planning_routines", created="1"), code=303)
+    except (
+        OperationalPlannerWebValidationError,
+        OperationalPlannerWebNotFoundError,
+        OperationalPlannerWebConflictError,
+        OperationalPlannerWebUnavailableError,
+    ) as error:
+        status = _planner_error_status(error)
+        try:
+            workspace = service.routines_workspace()
+        except Exception:
+            workspace = {
+                "available": False,
+                "routines": (),
+                "summary": {"active": 0, "paused": 0},
+            }
+        return (
+            render_template(
+                "planning_routines.html",
+                active_page="planning",
+                workspace=workspace,
+                error_message=str(error),
+            ),
+            status,
+        )
+
+
+@web_blueprint.post("/planning/routines/<routine_id>")
+def planning_routine_update(routine_id):
+    try:
+        _operational_planner_service().update_routine(
+            routine_id, **_routine_form_payload()
+        )
+        return redirect(url_for("web.planning_routines", updated="1"), code=303)
+    except (
+        OperationalPlannerWebValidationError,
+        OperationalPlannerWebNotFoundError,
+        OperationalPlannerWebConflictError,
+        OperationalPlannerWebUnavailableError,
+    ) as error:
+        return str(error), _planner_error_status(error)
+
+
+@web_blueprint.post("/planning/routines/<routine_id>/status")
+def planning_routine_status(routine_id):
+    try:
+        _operational_planner_service().set_routine_status(
+            routine_id, request.form.get("status", "")
+        )
+        return redirect(url_for("web.planning_routines", updated="1"), code=303)
+    except (
+        OperationalPlannerWebValidationError,
+        OperationalPlannerWebNotFoundError,
+        OperationalPlannerWebConflictError,
+        OperationalPlannerWebUnavailableError,
+    ) as error:
+        return str(error), _planner_error_status(error)
+
+
 @web_blueprint.get("/planning/month-plan")
 def planning_month_plan():
     return render_template(
