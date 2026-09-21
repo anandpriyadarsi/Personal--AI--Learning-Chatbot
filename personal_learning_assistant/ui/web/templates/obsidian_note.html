@@ -23,10 +23,32 @@
     <h2 id="obsidian-note-title">{{ note.title }}</h2>
     <p class="obsidian-path">{{ note.relative_path }}</p>
   </div>
-  {% if note.open_in_obsidian_url %}
-  <a class="button secondary-button" href="{{ note.open_in_obsidian_url }}">Open in Obsidian ↗</a>
-  {% endif %}
+  <div class="planner-inline-actions">
+    {% if note.open_in_obsidian_url %}
+    <a class="button secondary-button" href="{{ note.open_in_obsidian_url }}">Open in Obsidian ↗</a>
+    {% endif %}
+    <a class="button secondary-button" href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">Open ChatGPT ↗</a>
+  </div>
 </header>
+
+<section class="dashboard-panel alex-handoff-panel" aria-labelledby="alex-handoff-title">
+  <div class="panel-heading">
+    <div>
+      <p class="eyebrow">External study handoff</p>
+      <h3 id="alex-handoff-title">Prepare for Alex</h3>
+    </div>
+    <span class="tag">Local ZIP · no API</span>
+  </div>
+  <p class="empty-state">ANVAYA creates a read-only ZIP with a prompt, this note, vault link context, and a vault manifest. Nothing is uploaded automatically.</p>
+  <form method="post" action="{{ url_for('web.obsidian_alex_handoff') }}" class="alex-handoff-form">
+    <input type="hidden" name="path" value="{{ note.relative_path }}">
+    <label class="alex-handoff-check">
+      <input type="checkbox" name="include_full_vault" value="1">
+      Include the full connected Markdown vault snapshot (up to the safety limit)
+    </label>
+    <button class="button" type="submit">Download Alex handoff ZIP</button>
+  </form>
+</section>
 
 <section class="dashboard-panel obsidian-note-meta" aria-label="Note metadata">
   <div class="tag-row">
