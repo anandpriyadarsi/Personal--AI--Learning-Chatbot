@@ -56,7 +56,7 @@ def _session_id():
 def test_0005_obsidian_study_migration_is_complete_idempotent_and_clean(tmp_path):
     database_path, applied = _migrated_database(tmp_path)
 
-    assert applied == (1, 2, 3, 4, 5)
+    assert applied[:5] == (1, 2, 3, 4, 5)
     assert apply_migrations(database_path) == ()
 
     connection = sqlite3.connect(str(database_path))
@@ -65,7 +65,8 @@ def test_0005_obsidian_study_migration_is_complete_idempotent_and_clean(tmp_path
             "SELECT version,name,length(checksum) "
             "FROM schema_migrations ORDER BY version"
         ).fetchall()
-        assert migrations[-1] == (5, "obsidian_study_companion", 64)
+        migration_0005 = next(row for row in migrations if row[0] == 5)
+        assert migration_0005 == (5, "obsidian_study_companion", 64)
 
         sessions = _table_columns(connection, "obsidian_reading_sessions")
         assert set(sessions) == {

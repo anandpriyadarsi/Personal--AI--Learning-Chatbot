@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Tasks · ANVAYA{% endblock %}
+{% block content %}
+<section class="hero dashboard-hero">
+  <div>
+    <p class="eyebrow">Operational planner</p>
+    <h2>Tasks</h2>
+    <p class="lede">Capture work first, then schedule it when a real free window exists.</p>
+  </div>
+  <a class="button button-secondary" href="{{ url_for('web.planning') }}">Back to planning</a>
+</section>
+
+{% if error_message %}<section class="notice-panel" role="alert"><p>{{ error_message }}</p></section>{% endif %}
+
+<section class="dashboard-panel">
+  <div class="panel-heading">
+    <div><p class="eyebrow">New task</p><h3>Add to ANVAYA</h3></div>
+  </div>
+  <form method="post" action="{{ url_for('web.planning_tasks_create') }}" class="planner-form">
+    <label>Task title <input name="title" required maxlength="300"></label>
+    <label>Priority
+      <select name="priority"><option>P0</option><option selected>P1</option><option>P2</option></select>
+    </label>
+    <label>Estimated minutes <input name="estimated_minutes" type="number" min="0" max="1440"></label>
+    <label>Due date <input name="due_on" type="date"></label>
+    <label class="planner-span-2">Description <textarea name="description" rows="2" maxlength="4000"></textarea></label>
+    <label>Preferred day <input name="preferred_day"></label>
+    <label>Preferred window <input name="preferred_window" placeholder="morning / afternoon / evening"></label>
+    <button class="button" type="submit">Add task</button>
+  </form>
+</section>
+
+<section class="metric-grid">
+  <article class="metric-card"><span class="metric-label">Open</span><strong>{{ workspace.summary.open }}</strong></article>
+  <article class="metric-card"><span class="metric-label">P0</span><strong>{{ workspace.summary.p0 }}</strong></article>
+  <article class="metric-card"><span class="metric-label">P1</span><strong>{{ workspace.summary.p1 }}</strong></article>
+  <article class="metric-card"><span class="metric-label">P2</span><strong>{{ workspace.summary.p2 }}</strong></article>
+</section>
+
+<section class="dashboard-panel">
+  <div class="panel-heading"><div><p class="eyebrow">Current work</p><h3>Open tasks</h3></div></div>
+  {% if not workspace.tasks %}
+    <p class="empty-state">No open planner tasks.</p>
+  {% else %}
+  <ul class="planner-task-list">
+    {% for task in workspace.tasks %}
+    <li class="planner-task-card">
+      <div class="list-main">
+        <strong>{{ task.priority }} · {{ task.title }}</strong>
+        <span>{{ task.status|replace('_',' ')|title }}{% if task.due_on %} · due {{ task.due_on }}{% endif %}{% if task.estimated_minutes is not none %} · {{ task.estimated_minutes }} min{% endif %}</span>
+        {% if task.description %}<p>{{ task.description }}</p>{% endif %}
+      </div>
+      <div class="planner-inline-actions">
+        {% if task.status != 'completed' %}
+        <form method="post" action="{{ url_for('web.planning_task_transition', task_id=task.id) }}">
+          <input type="hidden" name="status" value="completed">
+          <button class="button button-secondary" type="submit">Complete</button>
+        </form>
+        {% endif %}
+        <form method="post" action="{{ url_for('web.planning_task_transition', task_id=task.id) }}">
+          <input type="hidden" name="status" value="archived">
+          <button class="button button-quiet" type="submit">Archive</button>
+        </form>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</section>
+{% endblock %}

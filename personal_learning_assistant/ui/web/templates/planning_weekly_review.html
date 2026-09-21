@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Weekly Review · ANVAYA{% endblock %}
+{% block content %}
+<section class="hero dashboard-hero">
+  <div><p class="eyebrow">Evidence review</p><h2>{{ workspace.week_start }} → {{ workspace.week_end }}</h2><p class="lede">Thirty minutes: evidence, one routine adjustment at most, and the next three priorities.</p></div>
+</section>
+{% if error_message %}<section class="notice-panel" role="alert"><p>{{ error_message }}</p></section>{% endif %}
+<section class="metric-grid">
+  <article class="metric-card"><span class="metric-label">Completed</span><strong>{{ workspace.evidence.completed_items }}/{{ workspace.evidence.planned_items }}</strong></article>
+  <article class="metric-card"><span class="metric-label">Focus</span><strong>{{ workspace.evidence.actual_focus_minutes }}/{{ workspace.evidence.planned_focus_minutes }} min</strong></article>
+  <article class="metric-card"><span class="metric-label">Carry-forward</span><strong>{{ workspace.evidence.carry_forward_count }}</strong></article>
+  <article class="metric-card"><span class="metric-label">Missed deadlines</span><strong>{{ workspace.evidence.missed_deadline_count }}</strong></article>
+</section>
+{% set review = workspace.review or {} %}
+<section class="dashboard-panel">
+<form method="post" action="{{ url_for('web.planning_weekly_review_save', anchor_date=workspace.week_end) }}" class="planner-form">
+  <label class="planner-span-2">What worked?<textarea name="what_worked" rows="3">{{ review.what_worked or '' }}</textarea></label>
+  <label class="planner-span-2">What failed?<textarea name="what_failed" rows="3">{{ review.what_failed or '' }}</textarea></label>
+  <label class="planner-span-2">What should be removed?<textarea name="remove_next_week" rows="2">{{ review.remove_next_week or '' }}</textarea></label>
+  <label>Next priority 1<input name="next_priority_1" value="{{ review.next_priority_1 or '' }}"></label>
+  <label>Next priority 2<input name="next_priority_2" value="{{ review.next_priority_2 or '' }}"></label>
+  <label>Next priority 3<input name="next_priority_3" value="{{ review.next_priority_3 or '' }}"></label>
+  {% if not review.closed_at %}
+    <button class="button button-secondary" name="action" value="save">Save review</button>
+    <button class="button" name="action" value="close">Close week</button>
+  {% else %}
+    <p class="empty-state planner-span-2">This weekly review is closed.</p>
+  {% endif %}
+</form>
+</section>
+{% endblock %}

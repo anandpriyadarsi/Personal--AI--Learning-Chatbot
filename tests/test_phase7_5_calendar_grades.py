@@ -264,7 +264,6 @@ def test_calendar_page_renders_calendar_and_recorded_grades():
         "Completed",
     ):
         assert expected in text
-    assert "<form" not in text.lower()
     assert 'href="/calendar"' in text
 
 

@@ -1,0 +1,58 @@
+<section class="dashboard-panel operational-calendar" aria-labelledby="operational-calendar-heading">
+  <div class="panel-heading">
+    <div><p class="eyebrow">Operational calendar</p><h3 id="operational-calendar-heading">Month · Week · Day</h3></div>
+    {% if operational_calendar and operational_calendar.available %}<span class="tag">{{ operational_calendar.starts_on }} → {{ operational_calendar.ends_on }}</span>{% endif %}
+  </div>
+  <nav class="planner-view-switcher" aria-label="Calendar views">
+    <a class="quick-action{% if operational_calendar and operational_calendar.view == 'month' %} is-active{% endif %}" href="{{ url_for('web.calendar', view='month', date=(operational_calendar.anchor_date if operational_calendar else dashboard.date)) }}">Month</a>
+    <a class="quick-action{% if operational_calendar and operational_calendar.view == 'week' %} is-active{% endif %}" href="{{ url_for('web.calendar', view='week', date=(operational_calendar.anchor_date if operational_calendar else dashboard.date)) }}">Week</a>
+    <a class="quick-action{% if operational_calendar and operational_calendar.view == 'day' %} is-active{% endif %}" href="{{ url_for('web.calendar', view='day', date=(operational_calendar.anchor_date if operational_calendar else dashboard.date)) }}">Day</a>
+  </nav>
+
+  {% if not operational_calendar or not operational_calendar.available %}
+    <p class="empty-state">Operational calendar is unavailable until migration 0006 is applied.</p>
+  {% else %}
+    {% if operational_calendar.waiting_exam_slots %}
+    <div class="notice-panel">
+      <strong>Official mid-sem datesheet pending</strong>
+      <p>{{ operational_calendar.waiting_exam_slots|length }} subject assessment slot(s) remain empty. ANVAYA will not infer them.</p>
+    </div>
+    {% endif %}
+    {% if operational_calendar.days %}
+      <div class="{% if operational_calendar.view == 'month' %}planner-month-grid{% else %}planner-calendar-list{% endif %}">
+      {% for day_key, items in operational_calendar.days|dictsort %}
+        <article class="planner-calendar-day">
+          <div class="panel-heading"><strong>{{ day_key }}</strong><span class="count-badge">{{ items|length }}</span></div>
+          <ul>
+          {% for item in items %}
+            <li>
+              <span class="planner-time">{% if item.start_time %}{{ item.start_time }}{% if item.end_time %}–{{ item.end_time }}{% endif %}{% else %}All day / flexible{% endif %}</span>
+              <strong>{{ item.title }}</strong>
+              <span class="tag">{{ item.kind }}</span>
+            </li>
+          {% endfor %}
+          </ul>
+        </article>
+      {% endfor %}
+      </div>
+    {% else %}
+      <p class="empty-state">No operational calendar items in this view.</p>
+    {% endif %}
+
+    {% if operational_calendar.waiting_exam_slots %}
+    <article class="dashboard-panel">
+      <div class="panel-heading"><div><p class="eyebrow">Later update</p><h3>Enter official exam slots</h3></div></div>
+      {% for assessment in operational_calendar.waiting_exam_slots %}
+      <form method="post" action="{{ url_for('web.calendar_assessment_schedule', assessment_id=assessment.id) }}" class="planner-form planner-exam-form">
+        <strong class="planner-span-2">{{ assessment.course_code }} · {{ assessment.title }}</strong>
+        <label>Date <input name="due_on" type="date" required></label>
+        <label>Start <input name="start_time" type="time" required></label>
+        <label>End <input name="end_time" type="time"></label>
+        <label>Venue <input name="venue"></label>
+        <button class="button button-secondary" type="submit">Save confirmed slot</button>
+      </form>
+      {% endfor %}
+    </article>
+    {% endif %}
+  {% endif %}
+</section>

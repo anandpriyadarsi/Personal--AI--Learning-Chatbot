@@ -68,6 +68,13 @@ from personal_learning_assistant.services.planning_dashboard_service import (
     load_planning_dashboard,
     unavailable_planning_dashboard,
 )
+from personal_learning_assistant.services.operational_planner_web_service import (
+    OperationalPlannerWebConflictError,
+    OperationalPlannerWebNotFoundError,
+    OperationalPlannerWebUnavailableError,
+    OperationalPlannerWebValidationError,
+    build_operational_planner_web_service,
+)
 
 
 web_blueprint = Blueprint("web", __name__)
@@ -215,6 +222,77 @@ def _obsidian_study_service():
     return build_obsidian_study_companion_service(
         workspace_service=_obsidian_workspace_service()
     )
+
+
+def _operational_planner_service():
+    factory = current_app.config.get("OPERATIONAL_PLANNER_WEB_SERVICE_FACTORY")
+    if factory is not None:
+        return factory()
+    return build_operational_planner_web_service()
+
+
+def _unavailable_operational_home():
+    return {
+        "available": False,
+        "today": "",
+        "task_summary": {"open": 0, "p0": 0, "p1": 0, "p2": 0},
+        "agenda": None,
+        "today_preview": {
+            "summary": {
+                "scheduled_focus_minutes": 0,
+                "fixed_count": 0,
+                "task_count": 0,
+                "p0": 0,
+            }
+        },
+        "daily_review_status": "unavailable",
+    }
+
+
+def _safe_operational_home():
+    try:
+        return _operational_planner_service().planning_home()
+    except Exception as error:
+        current_app.logger.warning(
+            "Operational planner unavailable (%s).", type(error).__name__
+        )
+        return _unavailable_operational_home()
+
+
+def _unavailable_operational_calendar(view="month", anchor_date=""):
+    return {
+        "available": False,
+        "view": view,
+        "anchor_date": anchor_date,
+        "starts_on": "",
+        "ends_on": "",
+        "items": (),
+        "days": {},
+        "waiting_exam_slots": (),
+    }
+
+
+def _safe_operational_calendar(view, anchor_date):
+    try:
+        return _operational_planner_service().calendar_view(
+            view=view,
+            anchor_date=anchor_date or None,
+        )
+    except Exception as error:
+        current_app.logger.warning(
+            "Operational calendar unavailable (%s).", type(error).__name__
+        )
+        return _unavailable_operational_calendar(view, anchor_date)
+
+
+def _planner_error_status(error):
+    if isinstance(error, OperationalPlannerWebValidationError):
+        return 400
+    if isinstance(error, OperationalPlannerWebNotFoundError):
+        return 404
+    if isinstance(error, OperationalPlannerWebConflictError):
+        return 409
+    return 503
 
 
 def _render_obsidian_note_error(message, status):
@@ -431,11 +509,12 @@ def _render_session_error(service, session_id, message, status):
 
 @web_blueprint.get("/")
 def home():
-    """Render the read-only academic Home dashboard."""
+    """Render Home with the academic brief plus a read-only operational Today summary."""
     return render_template(
         "home.html",
         active_page="home",
         dashboard=_home_dashboard(),
+        operational_today=_safe_operational_home(),
     )
 
 
@@ -453,14 +532,356 @@ def assessments():
 
 @web_blueprint.get("/planning")
 def planning():
-    """Render the read-only Progress & Planning workspace."""
-    return render_template("planning.html", active_page="planning", dashboard=_planning_dashboard())
+    """Render the Operational Planner landing page plus existing progress evidence."""
+    return render_template("planning.html", active_page="planning", dashboard=_planning_dashboard(), operational=_safe_operational_home())
 
 
 @web_blueprint.get("/calendar")
 def calendar():
-    """Render the read-only Calendar & Grades workspace."""
-    return render_template("calendar.html", active_page="calendar", dashboard=_calendar_grades_dashboard())
+    """Render Month/Week/Day operations while preserving the existing grade read model."""
+    view = request.args.get("view", "month", type=str).strip().lower() or "month"
+    anchor_date = request.args.get("date", "", type=str).strip()
+    return render_template("calendar.html", active_page="calendar", dashboard=_calendar_grades_dashboard(), operational_calendar=_safe_operational_calendar(view, anchor_date))
+
+
+@web_blueprint.get("/planning/tasks")
+def planning_tasks():
+    """Render operational tasks without creating or scheduling anything."""
+    service = _operational_planner_service()
+    try:
+        workspace = service.tasks_workspace(
+            status=request.args.get("status", "", type=str),
+            priority=request.args.get("priority", "", type=str),
+            course_id=request.args.get("course_id", "", type=str),
+        )
+        return render_template(
+            "planning_tasks.html",
+            active_page="planning",
+            workspace=workspace,
+            error_message="",
+        )
+    except Exception as error:
+        current_app.logger.warning("Operational tasks unavailable (%s).", type(error).__name__)
+        return (
+            render_template(
+                "planning_tasks.html",
+                active_page="planning",
+                workspace={
+                    "available": False,
+                    "tasks": (),
+                    "filters": {},
+                    "summary": {"open": 0, "p0": 0, "p1": 0, "p2": 0},
+                },
+                error_message="Tasks are temporarily unavailable. Existing planner data was not changed.",
+            ),
+            503,
+        )
+
+
+@web_blueprint.post("/planning/tasks")
+def planning_tasks_create():
+    service = _operational_planner_service()
+    try:
+        service.create_task(
+            title=request.form.get("title", ""),
+            description=request.form.get("description", ""),
+            priority=request.form.get("priority", "P1"),
+            estimated_minutes=request.form.get("estimated_minutes", ""),
+            due_on=request.form.get("due_on", ""),
+            preferred_day=request.form.get("preferred_day", ""),
+            preferred_window=request.form.get("preferred_window", ""),
+            rollover_policy=request.form.get("rollover_policy", ""),
+        )
+        return redirect(url_for("web.planning_tasks", created="1"), code=303)
+    except (
+        OperationalPlannerWebValidationError,
+        OperationalPlannerWebNotFoundError,
+        OperationalPlannerWebConflictError,
+        OperationalPlannerWebUnavailableError,
+    ) as error:
+        status = _planner_error_status(error)
+        try:
+            workspace = service.tasks_workspace()
+        except Exception:
+            workspace = {
+                "available": False,
+                "tasks": (),
+                "filters": {},
+                "summary": {"open": 0, "p0": 0, "p1": 0, "p2": 0},
+            }
+        return (
+            render_template(
+                "planning_tasks.html",
+                active_page="planning",
+                workspace=workspace,
+                error_message=str(error),
+            ),
+            status,
+        )
+
+
+@web_blueprint.post("/planning/tasks/<task_id>/status")
+def planning_task_transition(task_id):
+    try:
+        _operational_planner_service().transition_task(
+            task_id, request.form.get("status", "")
+        )
+        return redirect(url_for("web.planning_tasks", updated="1"), code=303)
+    except (
+        OperationalPlannerWebValidationError,
+        OperationalPlannerWebNotFoundError,
+        OperationalPlannerWebConflictError,
+        OperationalPlannerWebUnavailableError,
+    ) as error:
+        return str(error), _planner_error_status(error)
+
+
+@web_blueprint.get("/planning/month-plan")
+def planning_month_plan():
+    return render_template(
+        "planning_month_plan.html",
+        active_page="planning",
+        preview=None,
+        error_message="",
+        notice_message=(
+            "Monthly plan imported successfully."
+            if request.args.get("imported") == "1"
+            else ""
+        ),
+    )
+
+
+def _uploaded_month_plan():
+    uploaded = request.files.get("plan_file")
+    if uploaded is None or not uploaded.filename:
+        raise OperationalPlannerWebValidationError("Choose a YAML month-plan file.")
+    return uploaded.filename, uploaded.read()
+
+
+@web_blueprint.post("/planning/month-plan/preview")
+def planning_month_plan_preview():
+    try:
+        filename, payload = _uploaded_month_plan()
+        preview = _operational_planner_service().preview_month_plan(filename, payload)
+        return render_template(
+            "planning_month_plan.html",
+            active_page="planning",
+            preview=preview,
+            error_message="",
+            notice_message="",
+        )
+    except (
+        OperationalPlannerWebValidationError,
+        OperationalPlannerWebConflictError,
+        OperationalPlannerWebUnavailableError,
+    ) as error:
+        return (
+            render_template(
+                "planning_month_plan.html",
+                active_page="planning",
+                preview=None,
+                error_message=str(error),
+                notice_message="",
+            ),
+            _planner_error_status(error),
+        )
+
+
+@web_blueprint.post("/planning/month-plan/approve")
+def planning_month_plan_approve():
+    try:
+        filename, payload = _uploaded_month_plan()
+        _operational_planner_service().approve_month_plan(
+            filename,
+            payload,
+            request.form.get("expected_sha256", ""),
+        )
+        return redirect(url_for("web.planning_month_plan", imported="1"), code=303)
+    except (
+        OperationalPlannerWebValidationError,
+        OperationalPlannerWebConflictError,
+        OperationalPlannerWebUnavailableError,
+    ) as error:
+        return (
+            render_template(
+                "planning_month_plan.html",
+                active_page="planning",
+                preview=None,
+                error_message=str(error),
+                notice_message="",
+            ),
+            _planner_error_status(error),
+        )
+
+
+@web_blueprint.get("/planning/day/<agenda_date>")
+def planning_day(agenda_date):
+    try:
+        day = _operational_planner_service().day_view(agenda_date)
+        return render_template(
+            "planning_day.html",
+            active_page="planning",
+            day=day,
+            error_message=request.args.get("error", "", type=str),
+        )
+    except (
+        OperationalPlannerWebValidationError,
+        OperationalPlannerWebNotFoundError,
+        OperationalPlannerWebConflictError,
+        OperationalPlannerWebUnavailableError,
+    ) as error:
+        return str(error), _planner_error_status(error)
+
+
+@web_blueprint.post("/planning/day/<agenda_date>/generate")
+def planning_day_generate(agenda_date):
+    try:
+        _operational_planner_service().generate_day(agenda_date)
+        return redirect(url_for("web.planning_day", agenda_date=agenda_date), code=303)
+    except (
+        OperationalPlannerWebValidationError,
+        OperationalPlannerWebNotFoundError,
+        OperationalPlannerWebConflictError,
+        OperationalPlannerWebUnavailableError,
+    ) as error:
+        return str(error), _planner_error_status(error)
+
+
+@web_blueprint.post("/planning/day/<agenda_date>/approve")
+def planning_day_approve(agenda_date):
+    try:
+        _operational_planner_service().approve_day(agenda_date)
+        return redirect(url_for("web.planning_day", agenda_date=agenda_date), code=303)
+    except (
+        OperationalPlannerWebValidationError,
+        OperationalPlannerWebNotFoundError,
+        OperationalPlannerWebConflictError,
+        OperationalPlannerWebUnavailableError,
+    ) as error:
+        return str(error), _planner_error_status(error)
+
+
+@web_blueprint.post("/planning/day/<agenda_date>/items/<item_id>")
+def planning_day_item_update(agenda_date, item_id):
+    try:
+        _operational_planner_service().update_day_item(
+            agenda_date,
+            item_id,
+            status=request.form.get("status", ""),
+            actual_minutes=request.form.get("actual_minutes", ""),
+        )
+        return redirect(url_for("web.planning_day", agenda_date=agenda_date), code=303)
+    except (
+        OperationalPlannerWebValidationError,
+        OperationalPlannerWebNotFoundError,
+        OperationalPlannerWebConflictError,
+        OperationalPlannerWebUnavailableError,
+    ) as error:
+        return str(error), _planner_error_status(error)
+
+
+@web_blueprint.post("/planning/day/<agenda_date>/close")
+def planning_day_close(agenda_date):
+    try:
+        _operational_planner_service().close_day(
+            agenda_date,
+            {
+                "learned": request.form.get("learned", ""),
+                "biggest_confusion": request.form.get("biggest_confusion", ""),
+                "coding_completed": request.form.get("coding_completed") == "1",
+                "coding_independent": request.form.get("coding_independent") == "1",
+                "data_science_ai_assistance_level": request.form.get(
+                    "data_science_ai_assistance_level", ""
+                ),
+                "energy_1_to_5": request.form.get("energy_1_to_5", ""),
+                "sleep_target": request.form.get("sleep_target", ""),
+                "tomorrow_first_task": request.form.get("tomorrow_first_task", ""),
+            },
+        )
+        return redirect(url_for("web.planning_day", agenda_date=agenda_date), code=303)
+    except (
+        OperationalPlannerWebValidationError,
+        OperationalPlannerWebNotFoundError,
+        OperationalPlannerWebConflictError,
+        OperationalPlannerWebUnavailableError,
+    ) as error:
+        return str(error), _planner_error_status(error)
+
+
+@web_blueprint.get("/planning/review/week/<anchor_date>")
+def planning_weekly_review(anchor_date):
+    try:
+        workspace = _operational_planner_service().weekly_review(anchor_date)
+        return render_template(
+            "planning_weekly_review.html",
+            active_page="planning",
+            workspace=workspace,
+            error_message="",
+        )
+    except (
+        OperationalPlannerWebValidationError,
+        OperationalPlannerWebNotFoundError,
+        OperationalPlannerWebConflictError,
+        OperationalPlannerWebUnavailableError,
+    ) as error:
+        return str(error), _planner_error_status(error)
+
+
+@web_blueprint.post("/planning/review/week/<anchor_date>")
+def planning_weekly_review_save(anchor_date):
+    try:
+        payload = {
+            "what_worked": request.form.get("what_worked", ""),
+            "what_failed": request.form.get("what_failed", ""),
+            "remove_next_week": request.form.get("remove_next_week", ""),
+            "next_priority_1": request.form.get("next_priority_1", ""),
+            "next_priority_2": request.form.get("next_priority_2", ""),
+            "next_priority_3": request.form.get("next_priority_3", ""),
+        }
+        _operational_planner_service().save_weekly_review(
+            anchor_date,
+            payload,
+            close=request.form.get("action") == "close",
+        )
+        return redirect(
+            url_for("web.planning_weekly_review", anchor_date=anchor_date),
+            code=303,
+        )
+    except (
+        OperationalPlannerWebValidationError,
+        OperationalPlannerWebNotFoundError,
+        OperationalPlannerWebConflictError,
+        OperationalPlannerWebUnavailableError,
+    ) as error:
+        return str(error), _planner_error_status(error)
+
+
+@web_blueprint.post("/calendar/assessments/<assessment_id>/schedule")
+def calendar_assessment_schedule(assessment_id):
+    try:
+        _operational_planner_service().schedule_assessment(
+            assessment_id,
+            due_on=request.form.get("due_on", ""),
+            start_time=request.form.get("start_time", ""),
+            end_time=request.form.get("end_time", ""),
+            venue=request.form.get("venue", ""),
+        )
+        return redirect(
+            url_for(
+                "web.calendar",
+                view="day",
+                date=request.form.get("due_on", ""),
+                scheduled="1",
+            ),
+            code=303,
+        )
+    except (
+        OperationalPlannerWebValidationError,
+        OperationalPlannerWebNotFoundError,
+        OperationalPlannerWebConflictError,
+        OperationalPlannerWebUnavailableError,
+    ) as error:
+        return str(error), _planner_error_status(error)
 
 
 @web_blueprint.get("/notes")

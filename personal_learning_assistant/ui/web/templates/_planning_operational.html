@@ -1,0 +1,29 @@
+<section class="dashboard-panel operational-planner-launcher" aria-labelledby="operational-planner-heading">
+  <div class="panel-heading">
+    <div>
+      <p class="eyebrow">Phase 7.5.13 · Operational</p>
+      <h3 id="operational-planner-heading">Run the plan, not just read it</h3>
+    </div>
+    {% if operational and operational.available %}
+      <span class="tag">{{ operational.today }}</span>
+    {% endif %}
+  </div>
+  {% if not operational or not operational.available %}
+    <p class="empty-state">Operational planning is unavailable until SQLite migration 0006 is applied.</p>
+  {% else %}
+    <div class="metric-grid">
+      <article class="metric-card"><span class="metric-label">Open tasks</span><strong>{{ operational.task_summary.open }}</strong></article>
+      <article class="metric-card"><span class="metric-label">P0</span><strong>{{ operational.task_summary.p0 }}</strong></article>
+      <article class="metric-card"><span class="metric-label">Today's agenda</span><strong>{{ operational.daily_review_status|replace('_',' ')|title }}</strong></article>
+      <article class="metric-card"><span class="metric-label">Focus proposed</span><strong>{{ operational.today_preview.summary.scheduled_focus_minutes }} min</strong></article>
+    </div>
+  {% endif %}
+  <div class="quick-actions">
+    <a class="quick-action" href="{{ url_for('web.planning_day', agenda_date=(operational.today if operational and operational.available else dashboard.date if dashboard.date else '2026-10-01')) }}">Today</a>
+    <a class="quick-action" href="{{ url_for('web.planning_tasks') }}">Tasks</a>
+    <a class="quick-action" href="{{ url_for('web.planning_month_plan') }}">Month Plan</a>
+    <a class="quick-action" href="{{ url_for('web.planning_weekly_review', anchor_date=(operational.today if operational and operational.available else '2026-10-01')) }}">Reviews</a>
+    <a class="quick-action" href="#progress-heading">Progress</a>
+    <a class="quick-action" href="#plans-heading">Saved Study Plans</a>
+  </div>
+</section>

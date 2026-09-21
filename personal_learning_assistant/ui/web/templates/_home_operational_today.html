@@ -1,0 +1,14 @@
+{% if operational_today and operational_today.available %}
+<section class="dashboard-panel home-operational-today" aria-labelledby="operational-today-heading">
+  <div class="panel-heading">
+    <div><p class="eyebrow">Your operating day</p><h3 id="operational-today-heading">Today plan</h3></div>
+    <a class="button button-secondary" href="{{ url_for('web.planning_day', agenda_date=operational_today.today) }}">Open Today Plan</a>
+  </div>
+  <div class="metric-grid">
+    <article class="metric-card"><span class="metric-label">P0 tasks</span><strong>{{ operational_today.task_summary.p0 }}</strong></article>
+    <article class="metric-card"><span class="metric-label">Focus proposed</span><strong>{{ operational_today.today_preview.summary.scheduled_focus_minutes }} min</strong></article>
+    <article class="metric-card"><span class="metric-label">Fixed items</span><strong>{{ operational_today.today_preview.summary.fixed_count }}</strong></article>
+    <article class="metric-card"><span class="metric-label">Review</span><strong>{{ operational_today.daily_review_status|replace('_',' ')|title }}</strong></article>
+  </div>
+</section>
+{% endif %}

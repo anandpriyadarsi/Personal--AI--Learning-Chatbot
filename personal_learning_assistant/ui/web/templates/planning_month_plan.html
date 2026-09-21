@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Month Plan · ANVAYA{% endblock %}
+{% block content %}
+<section class="hero dashboard-hero">
+  <div>
+    <p class="eyebrow">Operational planner</p>
+    <h2>Import monthly plan</h2>
+    <p class="lede">Preview first. ANVAYA writes nothing until you explicitly approve a valid YAML plan.</p>
+  </div>
+  <a class="button button-secondary" href="{{ url_for('web.planning') }}">Back to planning</a>
+</section>
+
+{% if error_message %}<section class="notice-panel" role="alert"><p>{{ error_message }}</p></section>{% endif %}
+{% if notice_message %}<section class="notice-panel" role="status"><p>{{ notice_message }}</p></section>{% endif %}
+
+<section class="dashboard-panel">
+  <div class="panel-heading"><div><p class="eyebrow">Step 1</p><h3>Preview YAML</h3></div><span class="tag">No write</span></div>
+  <form method="post" enctype="multipart/form-data" action="{{ url_for('web.planning_month_plan_preview') }}" class="planner-form">
+    <label class="planner-span-2">ANVAYA month-plan YAML <input type="file" name="plan_file" accept=".yaml,.yml,text/yaml" required></label>
+    <button class="button" type="submit">Preview plan</button>
+  </form>
+</section>
+
+{% if preview %}
+<section class="dashboard-panel">
+  <div class="panel-heading">
+    <div><p class="eyebrow">Import preview</p><h3>{{ preview.plan.title }}</h3></div>
+    <span class="tag">{{ "Valid" if preview.valid else "Blocked" }}</span>
+  </div>
+  <p class="microcopy">{{ preview.plan.starts_on }} → {{ preview.plan.ends_on }} · {{ preview.plan.timezone }} · SHA256 {{ preview.source_sha256[:12] }}…</p>
+  <div class="metric-grid">
+    <article class="metric-card"><span class="metric-label">Days</span><strong>{{ preview.counts.days }}</strong></article>
+    <article class="metric-card"><span class="metric-label">Assessments</span><strong>{{ preview.counts.assessments }}</strong></article>
+    <article class="metric-card"><span class="metric-label">Events</span><strong>{{ preview.counts.fixed_and_class_events }}</strong></article>
+    <article class="metric-card"><span class="metric-label">Tasks</span><strong>{{ preview.counts.tasks }}</strong></article>
+  </div>
+  {% if preview.waiting_exam_slots %}
+  <div class="notice-panel">
+    <strong>Official mid-sem datesheet still pending</strong>
+    <p>{{ preview.waiting_exam_slots|length }} subject slot(s) remain intentionally empty. ANVAYA will not invent dates, times, or venues.</p>
+  </div>
+  {% endif %}
+  {% if preview.errors %}
+  <div class="notice-panel planner-error-list"><strong>Cannot import</strong><ul>{% for item in preview.errors %}<li>{{ item }}</li>{% endfor %}</ul></div>
+  {% endif %}
+  {% if preview.warnings %}
+  <div class="dashboard-panel"><strong>Warnings</strong><ul>{% for item in preview.warnings %}<li>{{ item }}</li>{% endfor %}</ul></div>
+  {% endif %}
+  {% if preview.valid and not preview.already_imported %}
+  <div class="planner-approval">
+    <p><strong>Step 2:</strong> re-select the same YAML file. The SHA-256 must match this preview before any write occurs.</p>
+    <form method="post" enctype="multipart/form-data" action="{{ url_for('web.planning_month_plan_approve') }}" class="planner-form">
+      <input type="hidden" name="expected_sha256" value="{{ preview.source_sha256 }}">
+      <label class="planner-span-2">Same reviewed YAML <input type="file" name="plan_file" accept=".yaml,.yml,text/yaml" required></label>
+      <button class="button" type="submit">Approve import</button>
+    </form>
+  </div>
+  {% elif preview.already_imported %}
+    <p class="empty-state">This exact plan hash is already imported. Approval would be a no-op.</p>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}

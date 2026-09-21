@@ -25,13 +25,15 @@
 
   <div class="quick-actions" aria-label="Quick academic actions">
     <a class="quick-action" href="{{ url_for('web.notes') }}">Notes</a>
-    <span class="quick-action is-disabled" aria-disabled="true">+ Task <small>Soon</small></span>
+    <a class="quick-action" href="{{ url_for('web.planning_tasks') }}">+ Task</a>
     <a class="quick-action" href="{{ url_for('web.resources') }}">Resources</a>
     <a class="quick-action" href="{{ url_for('web.assessments') }}">Assessments</a>
     <a class="quick-action" href="{{ url_for('web.planning') }}">Planning</a>
     <a class="quick-action" href="{{ url_for('web.knowledge') }}">Search knowledge</a>
   </div>
 </section>
+
+{% include "_home_operational_today.html" %}
 
 {% if not dashboard.available %}
 <section class="notice-panel" role="status" aria-live="polite">

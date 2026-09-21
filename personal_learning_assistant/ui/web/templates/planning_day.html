@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}Today Plan · ANVAYA{% endblock %}
+{% block content %}
+<section class="hero dashboard-hero">
+  <div>
+    <p class="eyebrow">Daily operating system</p>
+    <h2>{{ day.date }}</h2>
+    <p class="lede">Fixed commitments first, then a bounded list of work that fits around them.</p>
+  </div>
+  <a class="button button-secondary" href="{{ url_for('web.calendar', view='day', date=day.date) }}">Calendar day</a>
+</section>
+
+{% if error_message %}<section class="notice-panel" role="alert"><p>{{ error_message }}</p></section>{% endif %}
+
+{% set agenda = day.existing %}
+<section class="action-panel">
+  <div>
+    <p class="eyebrow">Agenda state</p>
+    <h3>{% if agenda %}{{ agenda.status|title }}{% else %}Not generated{% endif %}</h3>
+    <p>{{ day.summary.fixed_count }} fixed/routine · {{ day.summary.task_count }} task(s) · {{ day.summary.scheduled_focus_minutes }} scheduled focus min</p>
+  </div>
+  <div class="planner-inline-actions">
+    {% if not agenda or agenda.status == 'draft' %}
+    <form method="post" action="{{ url_for('web.planning_day_generate', agenda_date=day.date) }}"><button class="button" type="submit">{% if agenda %}Regenerate draft{% else %}Generate today{% endif %}</button></form>
+    {% endif %}
+    {% if agenda and agenda.status == 'draft' %}
+    <form method="post" action="{{ url_for('web.planning_day_approve', agenda_date=day.date) }}"><button class="button button-secondary" type="submit">Approve day</button></form>
+    {% endif %}
+  </div>
+</section>
+
+<section class="planner-day-grid">
+  <article class="dashboard-panel">
+    <div class="panel-heading"><div><p class="eyebrow">Fixed</p><h3>Commitments &amp; routines</h3></div></div>
+    {% if day.fixed %}
+    <ul class="dashboard-list">
+      {% for item in day.fixed %}
+      <li><div class="list-main"><strong>{{ item.title }}</strong><span>{% if item.starts_at %}{{ item.starts_at[11:16] }}{% if item.ends_at %}–{{ item.ends_at[11:16] }}{% endif %}{% else %}Flexible / all day{% endif %}</span></div></li>
+      {% endfor %}
+    </ul>
+    {% else %}<p class="empty-state">No fixed commitment found.</p>{% endif %}
+  </article>
+
+  <article class="dashboard-panel">
+    <div class="panel-heading"><div><p class="eyebrow">To-do</p><h3>P0 / P1 / P2</h3></div></div>
+    {% if day.tasks %}
+    <ul class="dashboard-list">
+      {% for item in day.tasks %}
+      <li>
+        <div class="list-main">
+          <strong>{{ item.priority }} · {{ item.title }}</strong>
+          <span>{% if item.starts_at %}{{ item.starts_at[11:16] }}–{{ item.ends_at[11:16] }}{% else %}Unscheduled today{% endif %} · {{ item.planned_minutes }} min</span>
+          <span>{{ item.reason }}</span>
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}<p class="empty-state">No flexible task selected for this day.</p>{% endif %}
+  </article>
+</section>
+
+{% if agenda %}
+<section class="dashboard-panel">
+  <div class="panel-heading"><div><p class="eyebrow">Saved agenda</p><h3>Track what actually happened</h3></div><span class="tag">{{ agenda.status }}</span></div>
+  <ul class="planner-agenda-items">
+  {% for item in agenda.items %}
+    <li>
+      <div class="list-main">
+        <strong>{{ item.title }}</strong>
+        <span>{{ item.item_kind|title }} · {{ item.status|replace('_',' ')|title }}{% if item.planned_minutes is not none %} · planned {{ item.planned_minutes }} min{% endif %}</span>
+      </div>
+      {% if agenda.status != 'closed' and item.item_kind in ['task','study','manual'] %}
+      <form method="post" action="{{ url_for('web.planning_day_item_update', agenda_date=day.date, item_id=item.id) }}" class="planner-inline-actions">
+        <input type="number" name="actual_minutes" min="0" max="1440" placeholder="actual min">
+        <button class="button button-secondary" name="status" value="completed">Complete</button>
+        <button class="button button-quiet" name="status" value="skipped">Skip</button>
+      </form>
+      {% endif %}
+    </li>
+  {% endfor %}
+  </ul>
+</section>
+
+{% if agenda.status != 'closed' %}
+<section class="dashboard-panel">
+  <div class="panel-heading"><div><p class="eyebrow">21:45 review</p><h3>Close the day</h3></div></div>
+  <form method="post" action="{{ url_for('web.planning_day_close', agenda_date=day.date) }}" class="planner-form">
+    <label class="planner-span-2">What did I genuinely learn?<textarea name="learned" rows="2"></textarea></label>
+    <label class="planner-span-2">Biggest confusion?<textarea name="biggest_confusion" rows="2"></textarea></label>
+    <label>Energy (1–5)<input name="energy_1_to_5" type="number" min="1" max="5"></label>
+    <label>DS AI assistance (0–7)<input name="data_science_ai_assistance_level" type="number" min="0" max="7"></label>
+    <label>Sleep target<input name="sleep_target" value="22:25-05:55"></label>
+    <label>Tomorrow's first task<input name="tomorrow_first_task"></label>
+    <label><input type="checkbox" name="coding_completed" value="1"> Coded today</label>
+    <label><input type="checkbox" name="coding_independent" value="1"> Independent coding</label>
+    <button class="button" type="submit">Close day &amp; prepare tomorrow</button>
+  </form>
+</section>
+{% else %}
+<section class="notice-panel"><strong>Day closed.</strong><p>Tomorrow remains a draft until you approve it.</p></section>
+{% endif %}
+{% endif %}
+{% endblock %}

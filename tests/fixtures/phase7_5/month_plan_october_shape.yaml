@@ -1,0 +1,67 @@
+schema_version: anvaya.external.month_plan/1.0.0
+plan_id: SHAPE-2026-10
+plan_metadata:
+  title: October Shape Fixture
+timezone: Asia/Kolkata
+date_range:
+  start: 2026-10-01
+  end: 2026-10-31
+exam_schedule:
+  official_datesheet_received: false
+assessments:
+  - id: ASM-MIDSEM-MA103N
+    title: MA103N Mid-Semester
+    course: MA103N
+    priority: P0
+    due_on:
+    start_time:
+    end_time:
+    location:
+fixed_events:
+  - id: EVT-HOLIDAY
+    title: Test Holiday
+    date: 2026-10-02
+    type: official_holiday
+    priority: P0
+recurring_routines:
+  class_timetable:
+    entries:
+      - id: CLS-MO-MA103N
+        title: MA103N Linear Algebra
+        course: MA103N
+        priority: P0
+        recurrence_rule: RRULE:FREQ=WEEKLY;BYDAY=MO;UNTIL=20261031
+        start_time: "09:00"
+        end_time: "09:45"
+        duration_minutes: 45
+        excluded_dates: [2026-10-05]
+        additional_dates: [2026-10-29]
+  personal_routines:
+    - id: ROUTINE-REVIEW
+      title: Daily operational review
+      priority: P1
+      recurrence_rule: RRULE:FREQ=DAILY;UNTIL=20261031
+      preferred_window: "21:45-21:55"
+      estimated_minutes: 10
+flexible_tasks:
+  backlog_ceiling: 5
+  tasks:
+    - id: TASK-LU
+      title: Revise LU Factorization
+      description: Solve and explain one LU set.
+      course: MA103N
+      priority: P0
+      estimated_minutes: 60
+      status: backlog
+      rollover: carry if still relevant
+planned_blocks: []
+weekly_reviews:
+  review_dates: [2026-10-04, 2026-10-11]
+daily_review_settings: {}
+rollover_policy:
+  P0: carry
+  P1: reconsider
+  P2: backlog_or_drop
+buffer_recovery_rules:
+  heavy_day_deep_work_limit: 1
+  normal_day_deep_work_limit: 3
