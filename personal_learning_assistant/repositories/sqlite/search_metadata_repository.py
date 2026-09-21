@@ -157,6 +157,77 @@ class SQLiteSearchMetadataRepository:
             results.append(("resource", str(row["title"]), subtitle))
         return tuple(results[: int(limit)])
 
+    def metadata_document_matches(
+        self,
+        queries,
+        *,
+        course_ids=(),
+        topic_ids=(),
+        providers=(),
+        limit=24,
+    ):
+        """Return current document ids whose academic metadata matches a query variant."""
+        variants = tuple(
+            dict.fromkeys(
+                str(value or "").strip()
+                for value in tuple(queries or ())
+                if str(value or "").strip()
+            )
+        )
+        if not variants:
+            return ()
+
+        clauses = []
+        params = []
+        for value in variants:
+            escaped = value.replace("%", r"\%").replace("_", r"\_")
+            pattern = "%{}%".format(escaped)
+            clauses.append(
+                "("
+                "lower(COALESCE(r.title,'')) LIKE lower(?) ESCAPE '\\' OR "
+                "lower(COALESCE(c.code,'')) LIKE lower(?) ESCAPE '\\' OR "
+                "lower(COALESCE(c.name,'')) LIKE lower(?) ESCAPE '\\' OR "
+                "lower(COALESCE(t.name,'')) LIKE lower(?) ESCAPE '\\' OR "
+                "lower(COALESCE(kd.path_key,'')) LIKE lower(?) ESCAPE '\\' OR "
+                "lower(COALESCE(kd.canonical_uri,'')) LIKE lower(?) ESCAPE '\\'"
+                ")"
+            )
+            params.extend((pattern,) * 6)
+
+        sql = (
+            "SELECT DISTINCT kd.id "
+            "FROM knowledge_documents kd "
+            "LEFT JOIN resource_documents rd ON rd.document_id=kd.id "
+            "LEFT JOIN resources r ON r.id=rd.resource_id AND r.deleted_at IS NULL "
+            "LEFT JOIN resource_courses rc ON rc.resource_id=r.id "
+            "LEFT JOIN courses c ON c.id=rc.course_id AND c.deleted_at IS NULL "
+            "LEFT JOIN resource_topics rt ON rt.resource_id=r.id "
+            "LEFT JOIN topics t ON t.id=rt.topic_id AND t.deleted_at IS NULL "
+            "WHERE kd.extraction_status='completed' AND (" + " OR ".join(clauses) + ")"
+        )
+
+        course_values = tuple(str(value) for value in course_ids if str(value).strip())
+        if course_values:
+            sql += " AND c.id IN ({})".format(",".join("?" for _ in course_values))
+            params.extend(course_values)
+
+        topic_values = tuple(str(value) for value in topic_ids if str(value).strip())
+        if topic_values:
+            sql += " AND t.id IN ({})".format(",".join("?" for _ in topic_values))
+            params.extend(topic_values)
+
+        provider_values = tuple(str(value) for value in providers if str(value).strip())
+        if provider_values:
+            sql += " AND r.provider IN ({})".format(",".join("?" for _ in provider_values))
+            params.extend(provider_values)
+
+        sql += " ORDER BY kd.updated_at DESC,kd.id LIMIT ?"
+        params.append(max(1, min(int(limit), 100)))
+        return tuple(
+            str(row[0])
+            for row in self.connection.execute(sql, tuple(params)).fetchall()
+        )
+
     def evidence_locator(self, chunk_id: str):
         row = self.connection.execute(
             "SELECT document_id,ordinal,page_number FROM knowledge_chunks WHERE id=?",
