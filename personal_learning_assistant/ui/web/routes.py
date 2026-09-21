@@ -38,6 +38,18 @@ from personal_learning_assistant.services.knowledge_dashboard_service import (
     load_knowledge_dashboard,
     unavailable_knowledge_dashboard,
 )
+from personal_learning_assistant.services.knowledge_reader_service import (
+    KnowledgeReaderNotFoundError,
+    KnowledgeReaderUnavailableError,
+    build_knowledge_reader_service,
+)
+from personal_learning_assistant.services.unified_search_runtime import (
+    UnifiedSearchStaleIndexError,
+)
+from personal_learning_assistant.services.unified_search_service import (
+    UnifiedSearchError,
+    build_unified_search_service,
+)
 from personal_learning_assistant.services.notes_resources_dashboard_service import (
     load_notes_dashboard,
     load_resources_dashboard,
@@ -189,6 +201,16 @@ def _knowledge_dashboard(query):
             type(error).__name__,
         )
         return unavailable_knowledge_dashboard(query)
+
+
+def _unified_search_service():
+    factory = current_app.config.get("UNIFIED_SEARCH_SERVICE_FACTORY")
+    return factory() if factory is not None else build_unified_search_service()
+
+
+def _knowledge_reader_service():
+    factory = current_app.config.get("KNOWLEDGE_READER_SERVICE_FACTORY")
+    return factory() if factory is not None else build_knowledge_reader_service()
 
 
 def _academic_agent_service():
@@ -1295,9 +1317,236 @@ def obsidian_disable():
 
 @web_blueprint.get("/knowledge")
 def knowledge():
-    """Render read-only Phase 5.8 retrieval evidence and RAG context."""
+    """Search current study material without mutating the retrieval index."""
     query = request.args.get("q", "", type=str)
-    return render_template("knowledge.html", active_page="knowledge", dashboard=_knowledge_dashboard(query))
+
+    # Preserve the Phase 7.5.8 injected-provider contract for regression tests
+    # and explicit diagnostic embeddings. Normal ANVAYA does not set this
+    # provider, so production continues into Unified Study Search below.
+    if current_app.config.get("KNOWLEDGE_DASHBOARD_PROVIDER") is not None:
+        dashboard = dict(_knowledge_dashboard(query))
+        dashboard["legacy_phase758"] = True
+        return render_template("knowledge.html", active_page="knowledge", dashboard=dashboard)
+
+    course_id = request.args.get("course_id", "", type=str).strip()
+    topic_id = request.args.get("topic_id", "", type=str).strip()
+    source_type = request.args.get("source_type", "", type=str).strip()
+    provider = request.args.get("provider", "", type=str).strip()
+    warning = ""
+    results = ()
+    service = _unified_search_service()
+    try:
+        filter_options = service.filter_options()
+    except Exception:
+        filter_options = {
+            "courses": (),
+            "topics": (),
+            "source_types": (),
+            "providers": (),
+        }
+
+    if str(query or "").strip():
+        try:
+            results = service.search(
+                query,
+                course_ids=(course_id,) if course_id else (),
+                topic_ids=(topic_id,) if topic_id else (),
+                source_types=(source_type,) if source_type else (),
+                providers=(provider,) if provider else (),
+            )
+        except UnifiedSearchStaleIndexError:
+            warning = (
+                "Learning material changed since the current knowledge index. "
+                "Rebuild the index before search or tutor use."
+            )
+        except UnifiedSearchError:
+            warning = (
+                "Study search is temporarily unavailable. "
+                "Your learning material and index were not changed."
+            )
+
+    dashboard = {
+        "query": str(query or "").strip(),
+        "searched": bool(str(query or "").strip()),
+        "results": results,
+        "warning": warning,
+        "filter_options": filter_options,
+        "filters": {
+            "course_id": course_id,
+            "topic_id": topic_id,
+            "source_type": source_type,
+            "provider": provider,
+        },
+        "legacy_phase758": False,
+    }
+    return render_template("knowledge.html", active_page="knowledge", dashboard=dashboard)
+
+
+@web_blueprint.get("/api/search/suggest")
+def search_suggest():
+    try:
+        results = _unified_search_service().suggest(
+            request.args.get("q", "", type=str),
+            limit=8,
+        )
+        return jsonify(
+            results=[
+                {
+                    "kind": item.kind,
+                    "label": item.label,
+                    "subtitle": item.subtitle,
+                    "value": item.value,
+                    "open_target": item.open_target,
+                }
+                for item in results
+            ]
+        )
+    except Exception:
+        return jsonify(results=[]), 200
+
+
+@web_blueprint.get("/retrieval/diagnostics")
+def retrieval_diagnostics():
+    return render_template(
+        "retrieval_diagnostics.html",
+        active_page="knowledge",
+        diagnostics=_knowledge_dashboard(""),
+    )
+
+
+@web_blueprint.get("/knowledge/item/<document_id>")
+def knowledge_item(document_id):
+    try:
+        item = _knowledge_reader_service().view(document_id)
+        return render_template(
+            "knowledge_item.html",
+            active_page="knowledge",
+            item=item,
+        )
+    except KnowledgeReaderNotFoundError:
+        return "Knowledge source was not found.", 404
+    except KnowledgeReaderUnavailableError:
+        return "Knowledge source is temporarily unavailable.", 503
+
+
+def _knowledge_tracking_payload():
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        raise ValueError("invalid tracking payload")
+    return payload
+
+
+@web_blueprint.post("/knowledge/item/<document_id>/reading/start")
+def knowledge_reading_start(document_id):
+    try:
+        payload = _knowledge_tracking_payload()
+        result = _knowledge_reader_service().start_reading(
+            document_id=document_id,
+            version_hash=payload.get("version_hash", ""),
+        )
+        return jsonify(ok=True, **result), 201
+    except (ValueError, KnowledgeReaderUnavailableError):
+        return jsonify(ok=False, error="conflict"), 409
+    except KnowledgeReaderNotFoundError:
+        return jsonify(ok=False, error="not_found"), 404
+
+
+@web_blueprint.post("/knowledge/item/<document_id>/reading/heartbeat")
+def knowledge_reading_heartbeat(document_id):
+    try:
+        payload = _knowledge_tracking_payload()
+        result = _knowledge_reader_service().heartbeat(
+            document_id=document_id,
+            version_hash=payload.get("version_hash", ""),
+            session_id=payload.get("session_id", ""),
+            sequence=payload.get("sequence", 0),
+            delta_seconds=payload.get("delta_seconds", 0),
+            scroll_bps=payload.get("scroll_bps", 0),
+        )
+        return jsonify(ok=True, **result), 200
+    except (ValueError, KnowledgeReaderUnavailableError):
+        return jsonify(ok=False, error="conflict"), 409
+    except KnowledgeReaderNotFoundError:
+        return jsonify(ok=False, error="not_found"), 404
+
+
+@web_blueprint.post("/knowledge/item/<document_id>/reading/end")
+def knowledge_reading_end(document_id):
+    try:
+        payload = _knowledge_tracking_payload()
+        result = _knowledge_reader_service().end_reading(
+            document_id=document_id,
+            version_hash=payload.get("version_hash", ""),
+            session_id=payload.get("session_id", ""),
+            sequence=payload.get("sequence", 0),
+            delta_seconds=payload.get("delta_seconds", 0),
+            scroll_bps=payload.get("scroll_bps", 0),
+            replayed_delta_seconds=payload.get("replayed_delta_seconds", 0),
+        )
+        return jsonify(ok=True, **result), 200
+    except (ValueError, KnowledgeReaderUnavailableError):
+        return jsonify(ok=False, error="conflict"), 409
+    except KnowledgeReaderNotFoundError:
+        return jsonify(ok=False, error="not_found"), 404
+
+
+@web_blueprint.post("/knowledge/item/<document_id>/companion/<entry_type>")
+def knowledge_companion_add(document_id, entry_type):
+    try:
+        _knowledge_reader_service().add_entry(
+            document_id=document_id,
+            version_hash=request.form.get("version_hash", ""),
+            entry_type=entry_type,
+            entry_text=request.form.get("entry_text", ""),
+        )
+        return redirect(
+            url_for("web.knowledge_item", document_id=document_id),
+            code=303,
+        )
+    except ValueError:
+        return "Companion entry is invalid.", 400
+    except KnowledgeReaderNotFoundError:
+        return "Knowledge source was not found.", 404
+    except KnowledgeReaderUnavailableError:
+        return "Knowledge source changed. Refresh and try again.", 409
+
+
+@web_blueprint.post("/knowledge/item/<document_id>/companion/<entry_id>/archive")
+def knowledge_companion_archive(document_id, entry_id):
+    try:
+        _knowledge_reader_service().archive_entry(
+            document_id=document_id,
+            version_hash=request.form.get("version_hash", ""),
+            entry_id=entry_id,
+        )
+        return redirect(
+            url_for("web.knowledge_item", document_id=document_id),
+            code=303,
+        )
+    except KnowledgeReaderNotFoundError:
+        return "Knowledge source or Companion entry was not found.", 404
+    except KnowledgeReaderUnavailableError:
+        return "Knowledge source changed. Refresh and try again.", 409
+
+
+@web_blueprint.post("/knowledge/item/<document_id>/ask")
+def knowledge_ask_source(document_id):
+    try:
+        session_id = _academic_agent_service().create_source_session(
+            document_id=document_id,
+            version_hash=request.form.get("version_hash", ""),
+            prefill_question=request.form.get("prefill_question", ""),
+        )
+        return redirect(
+            url_for("web.academic_agent_session", session_id=session_id),
+            code=303,
+        )
+    except AcademicAgentWebNotFoundError:
+        return "Knowledge source was not found.", 404
+    except AcademicAgentWebValidationError:
+        return "Knowledge source changed. Refresh it before asking ANVAYA.", 409
+    except AcademicAgentWebUnavailableError:
+        return "Academic Agent is temporarily unavailable.", 503
 
 
 @web_blueprint.get("/agent")
@@ -1427,6 +1676,7 @@ def academic_agent_ask(session_id):
             "AI tutor is not configured on this machine.",
             "The AI tutor could not complete this request. Your academic data was not changed.",
             "Grounded academic sources are temporarily unavailable.",
+            "Learning material changed. Rebuild the knowledge index before asking ANVAYA.",
             "Tutor session history is temporarily unavailable.",
             "Academic Agent storage is temporarily unavailable.",
         }

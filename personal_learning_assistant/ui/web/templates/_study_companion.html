@@ -1,0 +1,48 @@
+<aside class="dashboard-panel obsidian-companion">
+  <div class="panel-heading"><div><p class="eyebrow">Study tools</p><h3>ANVAYA Companion</h3></div></div>
+
+  <section class="obsidian-history">
+    <h4>Reading history</h4>
+    <dl class="obsidian-history-grid">
+      <div><dt>Last read</dt><dd>{{ item.history.last_read_at or 'Not yet' }}</dd></div>
+      <div><dt>Times opened</dt><dd>{{ item.history.times_opened }}</dd></div>
+      <div><dt>Total active</dt><dd>{{ item.history.total_active_seconds }} seconds</dd></div>
+      <div><dt>Highest progress</dt><dd>{{ (item.history.max_scroll_bps / 100)|round|int }}%</dd></div>
+    </dl>
+  </section>
+
+  {% for entry_type, title, values in [
+    ('key_point', 'Key points', item.companion.key_points),
+    ('doubt', 'Doubts', item.companion.doubts),
+    ('personal_note', 'Personal notes', item.companion.personal_notes)
+  ] %}
+  <section class="obsidian-companion-section">
+    <h4>{{ title }}</h4>
+    {% if values %}
+    <ul class="obsidian-companion-list">
+      {% for entry in values %}
+      <li>
+        <p>{{ entry.entry_text }}</p>
+        <form method="post" action="{{ url_for('web.knowledge_companion_archive', document_id=item.document_id, entry_id=entry.id) }}">
+          <input type="hidden" name="version_hash" value="{{ item.version_hash }}">
+          <button class="button secondary-button compact-button" type="submit">Archive</button>
+        </form>
+        {% if entry_type == 'doubt' %}
+        <form method="post" action="{{ url_for('web.knowledge_ask_source', document_id=item.document_id) }}">
+          <input type="hidden" name="version_hash" value="{{ item.version_hash }}">
+          <input type="hidden" name="prefill_question" value="{{ entry.entry_text }}">
+          <button class="button secondary-button compact-button" type="submit">Ask this doubt</button>
+        </form>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}<p class="empty-state">No saved {{ title|lower }} yet.</p>{% endif %}
+    <form method="post" action="{{ url_for('web.knowledge_companion_add', document_id=item.document_id, entry_type=entry_type) }}">
+      <input type="hidden" name="version_hash" value="{{ item.version_hash }}">
+      <textarea name="entry_text" rows="3" maxlength="4000" required></textarea>
+      <button class="button compact-button" type="submit">Save {{ title[:-1]|lower if title.endswith('s') else title|lower }}</button>
+    </form>
+  </section>
+  {% endfor %}
+</aside>

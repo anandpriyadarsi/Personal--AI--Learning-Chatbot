@@ -48,7 +48,7 @@ def _history_messages(turns, *, limit=8):
     )
 
 
-def _scope_text(*, course_id, topic_id, assessment_id, resource_id):
+def _scope_text(*, course_id, topic_id, assessment_id, resource_id, document_id=None):
     rows = []
     if course_id:
         rows.append("course_id={}".format(course_id))
@@ -58,6 +58,8 @@ def _scope_text(*, course_id, topic_id, assessment_id, resource_id):
         rows.append("assessment_id={}".format(assessment_id))
     if resource_id:
         rows.append("resource_id={}".format(resource_id))
+    if document_id:
+        rows.append("document_id={}".format(document_id))
     return "\n".join(rows) if rows else "unscoped"
 
 
@@ -131,6 +133,9 @@ def build_provider_request(
                     topic_id=session.topic_id,
                     assessment_id=session.assessment_id,
                     resource_id=session.resource_id,
+                    document_id=str(
+                        dict(session.metadata or {}).get("source_document_id") or ""
+                    ).strip() or None,
                 ),
                 question,
                 context_text,
@@ -177,11 +182,15 @@ class TutorGroundingPlanner:
         if context_max_chars < 500:
             raise TutorGroundingError("max_chars must be at least 500")
 
+        source_document_id = str(
+            dict(session.metadata or {}).get("source_document_id") or ""
+        ).strip()
         hits = self.retrieval_service.search(
             clean,
             course_ids=(session.course_id,) if session.course_id else (),
             topic_ids=(session.topic_id,) if session.topic_id else (),
             resource_ids=(session.resource_id,) if session.resource_id else (),
+            document_ids=(source_document_id,) if source_document_id else (),
             top_k=retrieval_top_k,
         )
         context = assemble_context(clean, hits, max_chars=context_max_chars)

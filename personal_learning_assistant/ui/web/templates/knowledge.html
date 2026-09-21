@@ -1,8 +1,15 @@
 {% extends "base.html" %}
 
-{% block title %}Knowledge Base & RAG · Personal AI Learning Assistant{% endblock %}
+{% block title %}{% if dashboard.legacy_phase758 %}Knowledge Base & RAG{% else %}Knowledge{% endif %} · ANVAYA{% endblock %}
+
+{% block page_scripts %}
+{% if not dashboard.legacy_phase758 %}
+<script defer src="{{ url_for('static', filename='js/knowledge_search.js') }}"></script>
+{% endif %}
+{% endblock %}
 
 {% block content %}
+{% if dashboard.legacy_phase758 %}
 <section class="hero dashboard-hero" aria-labelledby="knowledge-title">
   <div>
     <p class="eyebrow">Indexed academic knowledge</p>
@@ -125,5 +132,117 @@
   {% endif %}
 </section>
 {% endif %}
+{% endif %}
+
+{% else %}
+
+<section class="hero dashboard-hero" aria-labelledby="knowledge-title">
+  <div>
+    <p class="eyebrow">Study Search</p>
+    <h2 id="knowledge-title">Knowledge</h2>
+    <p class="lede">Search your notes, PDFs, lectures and learning resources. Open a source, study it, save key points or doubts, and ask ANVAYA from that evidence.</p>
+  </div>
+  <a class="button secondary-button" href="{{ url_for('web.retrieval_diagnostics') }}">Retrieval diagnostics</a>
+</section>
+
+<section class="dashboard-panel" aria-labelledby="knowledge-search-title">
+  <form method="get" action="{{ url_for('web.knowledge') }}" class="knowledge-search-form">
+    <label for="knowledge-query">What do you want to understand?</label>
+    <div class="tag-row">
+      <input id="knowledge-query" name="q" type="search" value="{{ dashboard.query }}" maxlength="500"
+             autocomplete="off" placeholder="e.g. why does LU factorization work?" required
+             data-suggest-url="{{ url_for('web.search_suggest') }}">
+      <button type="submit">Search</button>
+    </div>
+    <div class="knowledge-filter-grid">
+      <label>Course
+        <select name="course_id">
+          <option value="">All courses</option>
+          {% for course in dashboard.filter_options.courses %}
+          <option value="{{ course.id }}"{% if dashboard.filters.course_id == course.id %} selected{% endif %}>{{ course.code }} · {{ course.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Topic
+        <select name="topic_id">
+          <option value="">All topics</option>
+          {% for topic in dashboard.filter_options.topics %}
+          <option value="{{ topic.id }}"{% if dashboard.filters.topic_id == topic.id %} selected{% endif %}>{{ topic.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Source
+        <select name="source_type">
+          <option value="">All sources</option>
+          {% for source in dashboard.filter_options.source_types %}
+          <option value="{{ source }}"{% if dashboard.filters.source_type == source %} selected{% endif %}>{{ source|replace('_',' ')|title }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Provider
+        <select name="provider">
+          <option value="">All providers</option>
+          {% for provider in dashboard.filter_options.providers %}
+          <option value="{{ provider }}"{% if dashboard.filters.provider == provider %} selected{% endif %}>{{ provider }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+    <div id="knowledge-suggestions" class="knowledge-suggestions" hidden></div>
+  </form>
+</section>
+
+{% if dashboard.warning %}
+<section class="notice-panel"><h3>Knowledge needs attention</h3><p>{{ dashboard.warning }}</p></section>
+{% endif %}
+
+{% if dashboard.searched %}
+<section class="dashboard-panel">
+  <div class="panel-heading">
+    <div>
+      <p class="eyebrow">Best matching study material</p>
+      <h3>Results for “{{ dashboard.query }}”</h3>
+    </div>
+    <span class="tag">{{ dashboard.results|length }} source{% if dashboard.results|length != 1 %}s{% endif %}</span>
+  </div>
+
+  {% if dashboard.results %}
+  <div class="knowledge-result-list">
+    {% for result in dashboard.results %}
+    <article class="dashboard-panel knowledge-result-card">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">{{ result.source_label }}</p>
+          <h3>{{ result.title }}</h3>
+          {% if result.subtitle %}<p class="microcopy">{{ result.subtitle }}</p>{% endif %}
+        </div>
+        {% if result.times_opened %}
+        <span class="tag">Read {{ result.times_opened }}× · {{ (result.total_active_seconds / 60)|round(0, 'floor')|int }} min</span>
+        {% endif %}
+      </div>
+      <p>{{ result.snippet }}</p>
+      <div class="tag-row">
+        {% if result.page_numbers %}
+          <span class="tag">Page{% if result.page_numbers|length != 1 %}s{% endif %} {{ result.page_numbers|join(', ') }}</span>
+        {% endif %}
+        {% for reason in result.relevance_reasons %}<span class="tag">{{ reason }}</span>{% endfor %}
+      </div>
+      <div class="tag-row knowledge-actions">
+        <a class="button" href="{{ result.open_target }}">Open</a>
+        <form method="post" action="{{ url_for('web.knowledge_ask_source', document_id=result.item_id) }}">
+          <input type="hidden" name="version_hash" value="{{ result.version_hash }}">
+          <button class="button secondary-button" type="submit">Ask ANVAYA</button>
+        </form>
+        <a class="button secondary-button" href="{{ url_for('web.knowledge', q=result.title) }}">Related</a>
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="empty-state">No matching current study source was found. Try a course code, topic name, note title, or different wording.</p>
+  {% endif %}
+</section>
+{% endif %}
+
 {% endif %}
 {% endblock %}

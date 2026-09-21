@@ -75,7 +75,8 @@
         {% if turn.evidence %}
           <div class="tag-row" aria-label="Answer evidence">
           {% for evidence in turn.evidence %}
-            <span class="tag">{{ evidence.citation_label }} · document {{ evidence.document_id }} · chunk {{ evidence.chunk_id }}{% if evidence.relation_type %} · {{ evidence.relation_type }}{% endif %}{% if evidence.retrieval_score is not none %} · score {{ '%.4f'|format(evidence.retrieval_score) }}{% endif %}</span>
+            <span class="tag">{{ evidence.citation_label }} · {{ evidence.source_title or evidence.source_label or ('document ' ~ evidence.document_id) }}{% if evidence.locator_label %} · {{ evidence.locator_label }}{% endif %}{% if evidence.relation_type %} · {{ evidence.relation_type }}{% endif %}{% if evidence.retrieval_score is not none %} · score {{ '%.4f'|format(evidence.retrieval_score) }}{% endif %}</span>
+                <span class="visually-hidden">{{ evidence.citation_label }} · document {{ evidence.document_id }} · chunk {{ evidence.chunk_id }}</span>
           {% endfor %}
           </div>
         {% endif %}
@@ -93,7 +94,7 @@
   <h3 id="ask-tutor-title">Ask grounded tutor</h3>
   <form method="post" action="{{ url_for('web.academic_agent_ask', session_id=session.session_id) }}">
     <label for="agent-question">Question</label>
-    <p><textarea id="agent-question" name="question" rows="5" maxlength="4000" required placeholder="Ask about a concept using your indexed academic sources."></textarea></p>
+    <p><textarea id="agent-question" name="question" rows="5" maxlength="4000" required placeholder="Ask about a concept using your indexed academic sources.">{{ session.prefill_question or "" }}</textarea></p>
     <button type="submit">Ask tutor</button>
   </form>
   <p class="empty-state">This is the only browser action in Phase 7.5.9 that may call the configured tutor provider. It does not change mastery, progress, plans, grades, notes, or resources.</p>

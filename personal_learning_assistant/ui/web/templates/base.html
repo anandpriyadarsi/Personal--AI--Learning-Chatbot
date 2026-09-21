@@ -76,6 +76,17 @@
           </div>
         </div>
         <div class="topbar-actions">
+          <div class="global-search" role="search">
+            <label class="visually-hidden" for="global-study-search">Search learning material</label>
+            <input
+              id="global-study-search"
+              type="search"
+              maxlength="500"
+              placeholder="Search learning material"
+              data-search-url="{{ url_for('web.knowledge') }}"
+              aria-label="Search learning material"
+            >
+          </div>
           <a class="topbar-link" href="{{ url_for('web.academic_agent') }}">Ask ANVAYA</a>
         </div>
       </header>

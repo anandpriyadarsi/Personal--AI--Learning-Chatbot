@@ -1,4 +1,17 @@
 (() => {
+
+  const globalSearch = document.getElementById("global-study-search");
+  if (globalSearch) {
+    globalSearch.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      const query = globalSearch.value.trim();
+      if (!query) return;
+      const target = globalSearch.dataset.searchUrl || "/knowledge";
+      window.location.assign(`${target}?q=${encodeURIComponent(query)}`);
+    });
+  }
+
   const toggle = document.getElementById("nav-toggle");
   const sidebar = document.getElementById("app-sidebar");
   const backdrop = document.getElementById("nav-backdrop");

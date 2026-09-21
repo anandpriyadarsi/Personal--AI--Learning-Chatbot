@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Retrieval Diagnostics · ANVAYA{% endblock %}
+{% block content %}
+<section class="hero dashboard-hero">
+  <div><p class="eyebrow">Settings · Diagnostics</p><h2>Retrieval diagnostics</h2>
+  <p class="lede">Developer-level health information for the current local retrieval generation.</p></div>
+  <a class="button secondary-button" href="{{ url_for('web.knowledge') }}">Back to Knowledge</a>
+</section>
+{% if not diagnostics.available %}
+<section class="notice-panel"><h3>Retrieval unavailable</h3><p>{{ diagnostics.message }}</p></section>
+{% else %}
+<section class="metric-grid">
+  <article class="metric-card"><span class="metric-label">Generation</span><strong>{{ diagnostics.index.generation_id }}</strong></article>
+  <article class="metric-card"><span class="metric-label">Documents</span><strong>{{ diagnostics.index.document_count }}</strong></article>
+  <article class="metric-card"><span class="metric-label">Chunks</span><strong>{{ diagnostics.index.chunk_count }}</strong></article>
+  <article class="metric-card"><span class="metric-label">Mode</span><strong>{% if diagnostics.index.semantic_enabled %}Hybrid{% else %}Lexical{% endif %}</strong></article>
+</section>
+<section class="dashboard-panel">
+  <p><strong>Lexical backend:</strong> {{ diagnostics.index.lexical_backend }}</p>
+  <p><strong>Embedding model:</strong> {{ diagnostics.index.embedding_model or 'Not active' }}</p>
+  <p><strong>Source fingerprint:</strong> <code>{{ diagnostics.index.source_fingerprint }}</code></p>
+</section>
+{% endif %}
+{% endblock %}

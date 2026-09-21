@@ -507,6 +507,7 @@ class SQLiteObsidianStudyRepository:
         entry_type: str,
         entry_text: str,
         now: str,
+        source_hash=None,
     ):
         connection = self._connect(writable=True)
         try:

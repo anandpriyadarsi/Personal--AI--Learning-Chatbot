@@ -119,6 +119,10 @@ def _session_view(session, turns):
         "created_at": session.created_at,
         "updated_at": session.updated_at,
         "completed_at": session.completed_at,
+        "metadata": dict(session.metadata or {}),
+        "prefill_question": str(
+            dict(session.metadata or {}).get("prefill_question") or ""
+        ),
         "turns": [_turn_view(turn) for turn in turns],
     }
 
@@ -212,14 +216,13 @@ class AcademicAgentWebService:
     def _retrieval(self):
         if self._retrieval_service_factory is not None:
             return self._retrieval_service_factory(self.index_root), None
-        store_module = import_module(
-            "personal_learning_assistant.retrieval.index_store"
+        runtime_module = import_module(
+            "personal_learning_assistant.services.unified_search_runtime"
         )
-        service_module = import_module(
-            "personal_learning_assistant.services.retrieval_service"
-        )
-        store = store_module.RetrievalIndexStore(self.index_root)
-        return service_module.RetrievalService(store), store
+        return runtime_module.get_unified_search_runtime(
+            database_path=self.database_path,
+            index_root=self.index_root,
+        ), None
 
     def workspace(self, course_code=""):
         selected_course_code = str(course_code or "").strip()
@@ -345,6 +348,72 @@ class AcademicAgentWebService:
         finally:
             connection.close()
 
+    def create_source_session(
+        self,
+        *,
+        document_id,
+        version_hash,
+        prefill_question="",
+    ):
+        clean_document_id = str(document_id or "").strip()
+        clean_hash = str(version_hash or "").strip().lower()
+        connection = _open_database(self.database_path, writable=True)
+        try:
+            metadata_module = import_module(
+                "personal_learning_assistant.repositories.sqlite.search_metadata_repository"
+            )
+            item = metadata_module.SQLiteSearchMetadataRepository(
+                connection
+            ).document(clean_document_id)
+            if item is None:
+                raise AcademicAgentWebNotFoundError(
+                    "Knowledge source was not found."
+                )
+            if str(item["version_hash"]).lower() != clean_hash:
+                raise AcademicAgentWebValidationError(
+                    "Knowledge source changed. Refresh it before asking ANVAYA."
+                )
+            models_module = import_module(
+                "personal_learning_assistant.domain.tutor_models"
+            )
+            repository_module = import_module(
+                "personal_learning_assistant.repositories.sqlite.tutor_repository"
+            )
+            service_module = import_module(
+                "personal_learning_assistant.services.tutor_session_service"
+            )
+            repository = repository_module.SQLiteTutorRepository(connection)
+            sessions = service_module.TutorSessionService(repository)
+            spec = models_module.TutorSessionSpec(
+                mode="doubt",
+                source_policy="source_only",
+                course_id=(
+                    item["course_ids"][0]
+                    if len(item["course_ids"]) == 1
+                    else None
+                ),
+                title="Ask ANVAYA · {}".format(item["title"]),
+                metadata={
+                    "origin": "phase7.5.12.2_knowledge_reader",
+                    "source_document_id": clean_document_id,
+                    "source_version_hash": clean_hash,
+                    "source_title": item["title"],
+                    "prefill_question": str(prefill_question or "").strip()[:4000],
+                },
+            )
+            try:
+                return sessions.create_session(spec).session_id
+            except (
+                ValueError,
+                service_module.TutorSessionError,
+                repository_module.TutorRepositoryError,
+            ) as error:
+                raise AcademicAgentWebValidationError(
+                    "The source-grounded tutor session could not be created."
+                ) from error
+        finally:
+            connection.close()
+
     def session_view(self, session_id):
         clean_session_id = str(session_id or "").strip()
         if not clean_session_id:
@@ -370,7 +439,27 @@ class AcademicAgentWebService:
                 raise AcademicAgentWebUnavailableError(
                     "Tutor session history is temporarily unavailable."
                 ) from error
-            return _session_view(session, turns)
+            view = _session_view(session, turns)
+            metadata_module = import_module(
+                "personal_learning_assistant.repositories.sqlite.search_metadata_repository"
+            )
+            metadata_repo = metadata_module.SQLiteSearchMetadataRepository(connection)
+            document_cache = {}
+            for turn in view["turns"]:
+                for evidence in turn["evidence"]:
+                    document_id = evidence["document_id"]
+                    if document_id not in document_cache:
+                        document_cache[document_id] = metadata_repo.document(document_id)
+                    metadata = document_cache[document_id]
+                    locator = metadata_repo.evidence_locator(evidence["chunk_id"])
+                    evidence["source_title"] = (
+                        metadata["title"] if metadata is not None else ""
+                    )
+                    evidence["source_label"] = (
+                        metadata["source_label"] if metadata is not None else "Source"
+                    )
+                    evidence["locator_label"] = locator["locator_label"]
+            return view
         finally:
             connection.close()
 
@@ -403,6 +492,9 @@ class AcademicAgentWebService:
             grounding_module = import_module(
                 "personal_learning_assistant.tutor.grounding"
             )
+            runtime_module = import_module(
+                "personal_learning_assistant.services.unified_search_runtime"
+            )
 
             repository = repository_module.SQLiteTutorRepository(connection)
             sessions = session_service_module.TutorSessionService(repository)
@@ -430,6 +522,14 @@ class AcademicAgentWebService:
                     provider=provider,
                 )
                 engine.answer(session.session_id, clean_question)
+            except runtime_module.UnifiedSearchStaleIndexError as error:
+                raise AcademicAgentWebUnavailableError(
+                    "Learning material changed. Rebuild the knowledge index before asking ANVAYA."
+                ) from error
+            except runtime_module.UnifiedSearchRuntimeError as error:
+                raise AcademicAgentWebUnavailableError(
+                    "Grounded academic sources are temporarily unavailable."
+                ) from error
             except provider_module.TutorProviderUnavailableError as error:
                 raise AcademicAgentWebUnavailableError(
                     "AI tutor is not configured on this machine."

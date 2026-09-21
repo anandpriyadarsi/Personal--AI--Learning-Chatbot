@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}{{ item.title }} · Knowledge · ANVAYA{% endblock %}
+{% block page_scripts %}
+<script defer src="{{ url_for('static', filename='js/study_reader_tracker.js') }}"></script>
+{% endblock %}
+{% block content %}
+<nav class="obsidian-back"><a href="{{ url_for('web.knowledge') }}">← Back to Knowledge</a></nav>
+
+<header class="workspace-header">
+  <div>
+    <p class="eyebrow">{{ item.source_label }}</p>
+    <h2>{{ item.title }}</h2>
+    {% if item.course_labels or item.topic_labels %}
+    <p class="microcopy">{{ (item.course_labels + item.topic_labels)|join(' · ') }}</p>
+    {% endif %}
+  </div>
+  <div class="tag-row">
+    {% if item.open_original_url %}<a class="button secondary-button" href="{{ item.open_original_url }}" target="_blank" rel="noopener noreferrer">Open original ↗</a>{% endif %}
+    <form method="post" action="{{ url_for('web.knowledge_ask_source', document_id=item.document_id) }}">
+      <input type="hidden" name="version_hash" value="{{ item.version_hash }}">
+      <button class="button" type="submit">Ask ANVAYA</button>
+    </form>
+  </div>
+</header>
+
+<div class="obsidian-reader-layout">
+  <article class="dashboard-panel obsidian-reading-view">
+    {% for chunk in item.content %}
+      <section class="knowledge-reader-chunk">
+        {% if chunk.page_number %}<p class="eyebrow">Page {{ chunk.page_number }}</p>{% endif %}
+        <p>{{ chunk.text }}</p>
+      </section>
+    {% endfor %}
+  </article>
+
+  {% include "_study_companion.html" %}
+</div>
+
+<div id="study-reader-data" hidden
+ data-item-kind="knowledge_document"
+ data-item-id="{{ item.document_id }}"
+ data-version-hash="{{ item.version_hash }}"
+ data-start-url="{{ url_for('web.knowledge_reading_start', document_id=item.document_id) }}"
+ data-heartbeat-url="{{ url_for('web.knowledge_reading_heartbeat', document_id=item.document_id) }}"
+ data-end-url="{{ url_for('web.knowledge_reading_end', document_id=item.document_id) }}">
+</div>
+{% endblock %}

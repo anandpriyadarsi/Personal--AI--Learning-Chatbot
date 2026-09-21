@@ -18,6 +18,10 @@ from personal_learning_assistant.repositories.sqlite.obsidian_study_repository i
     ObsidianStudyRepositoryNotFoundError,
     SQLiteObsidianStudyRepository,
 )
+from personal_learning_assistant.repositories.sqlite.obsidian_study_repository_v2 import (
+    SQLiteObsidianStudyRepositoryV2,
+    supports_unified_study_schema,
+)
 from personal_learning_assistant.services.obsidian_markdown_renderer import (
     render_markdown,
 )
@@ -376,6 +380,7 @@ class ObsidianStudyCompanionService:
                 entry_type=normalized_type,
                 entry_text=normalized_text,
                 now=self._now(),
+                source_hash=identity[3],
             )
         except ObsidianStudyRepositoryError as error:
             raise self._translate_repository_error(error) from error
@@ -469,5 +474,9 @@ def build_obsidian_study_companion_service(
     database_path="data/learning_assistant.db",
 ):
     workspace = workspace_service or build_obsidian_workspace_service()
-    repository = SQLiteObsidianStudyRepository(Path(database_path))
+    database = Path(database_path)
+    if supports_unified_study_schema(database):
+        repository = SQLiteObsidianStudyRepositoryV2(database)
+    else:
+        repository = SQLiteObsidianStudyRepository(database)
     return ObsidianStudyCompanionService(workspace, repository)

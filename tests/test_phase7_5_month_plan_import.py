@@ -14,7 +14,8 @@ FIXTURE = ROOT / "tests/fixtures/phase7_5/month_plan_minimal.yaml"
 
 def _db(tmp_path):
     path = tmp_path / "planner.db"
-    assert apply_migrations(path) == (1, 2, 3, 4, 5, 6)
+    applied = apply_migrations(path)
+    assert applied[:6] == (1, 2, 3, 4, 5, 6)
     c = sqlite3.connect(path)
     c.execute(
         "INSERT INTO courses "
@@ -32,7 +33,7 @@ def test_0006_schema_and_fresh_integrity(tmp_path):
     versions = tuple(row[0] for row in c.execute(
         "SELECT version FROM schema_migrations ORDER BY version"
     ))
-    assert versions == (1, 2, 3, 4, 5, 6)
+    assert versions[:6] == (1, 2, 3, 4, 5, 6)
     tables = {row[0] for row in c.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     assert {
         "month_plan_imports", "month_plan_import_items", "planner_tasks",
