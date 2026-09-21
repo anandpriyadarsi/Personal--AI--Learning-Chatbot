@@ -57,6 +57,10 @@ from personal_learning_assistant.services.unified_search_service import (
     UnifiedSearchError,
     build_unified_search_service,
 )
+from personal_learning_assistant.services.moodle_sync_service import (
+    MoodleSyncError,
+    build_moodle_sync_service,
+)
 from personal_learning_assistant.services.notes_resources_dashboard_service import (
     load_notes_dashboard,
     load_resources_dashboard,
@@ -231,6 +235,11 @@ def _academic_agent_service():
         or build_academic_agent_web_service
     )
     return factory()
+
+
+def _moodle_sync_service():
+    factory = current_app.config.get("MOODLE_SYNC_SERVICE_FACTORY")
+    return factory() if factory is not None else build_moodle_sync_service()
 
 
 def _notes_resources_service():
@@ -1058,6 +1067,96 @@ def calendar_assessment_schedule(assessment_id):
         OperationalPlannerWebUnavailableError,
     ) as error:
         return str(error), _planner_error_status(error)
+
+
+@web_blueprint.get("/integrations/moodle")
+def moodle_integration():
+    """Show local Moodle connector status without making a remote request."""
+    service = _moodle_sync_service()
+    try:
+        status = service.status()
+        return render_template(
+            "moodle_integration.html",
+            active_page="integrations",
+            status=status,
+            preview=None,
+            sync_result=None,
+            error_message="",
+        )
+    except Exception as error:
+        current_app.logger.warning(
+            "Moodle integration status unavailable (%s).",
+            type(error).__name__,
+        )
+        return (
+            render_template(
+                "moodle_integration.html",
+                active_page="integrations",
+                status={
+                    "configured": False,
+                    "migration_ready": False,
+                    "root_path": "knowledge/moodle",
+                    "recent": (),
+                },
+                preview=None,
+                sync_result=None,
+                error_message="Moodle integration storage is temporarily unavailable.",
+            ),
+            503,
+        )
+
+
+@web_blueprint.post("/integrations/moodle/preview")
+def moodle_preview():
+    service = _moodle_sync_service()
+    try:
+        return render_template(
+            "moodle_integration.html",
+            active_page="integrations",
+            status=service.status(),
+            preview=service.preview(),
+            sync_result=None,
+            error_message="",
+        )
+    except MoodleSyncError as error:
+        return (
+            render_template(
+                "moodle_integration.html",
+                active_page="integrations",
+                status=service.status(),
+                preview=None,
+                sync_result=None,
+                error_message=str(error),
+            ),
+            400,
+        )
+
+
+@web_blueprint.post("/integrations/moodle/sync")
+def moodle_sync():
+    service = _moodle_sync_service()
+    try:
+        result = service.sync()
+        return render_template(
+            "moodle_integration.html",
+            active_page="integrations",
+            status=service.status(),
+            preview=result.get("preview"),
+            sync_result=result,
+            error_message="",
+        )
+    except MoodleSyncError as error:
+        return (
+            render_template(
+                "moodle_integration.html",
+                active_page="integrations",
+                status=service.status(),
+                preview=None,
+                sync_result=None,
+                error_message=str(error),
+            ),
+            400,
+        )
 
 
 @web_blueprint.get("/notes")
