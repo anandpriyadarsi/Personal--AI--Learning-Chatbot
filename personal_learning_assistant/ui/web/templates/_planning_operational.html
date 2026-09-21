@@ -21,6 +21,7 @@
   <div class="quick-actions">
     <a class="quick-action" href="{{ url_for('web.planning_day', agenda_date=(operational.today if operational and operational.available else dashboard.date if dashboard.date else '2026-10-01')) }}">Today</a>
     <a class="quick-action" href="{{ url_for('web.planning_tasks') }}">Tasks</a>
+    <a class="quick-action" href="{{ url_for('web.planning_routines') }}">Schedules</a>
     <a class="quick-action" href="{{ url_for('web.planning_month_plan') }}">Month Plan</a>
     <a class="quick-action" href="{{ url_for('web.planning_weekly_review', anchor_date=(operational.today if operational and operational.available else '2026-10-01')) }}">Reviews</a>
     <a class="quick-action" href="#progress-heading">Progress</a>
