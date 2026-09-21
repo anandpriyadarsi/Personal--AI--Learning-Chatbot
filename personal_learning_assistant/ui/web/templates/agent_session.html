@@ -1,109 +1,127 @@
 {% extends "base.html" %}
 
-{% block title %}Tutor Session · Academic Agent{% endblock %}
+{% block title %}Tutor · ANVAYA{% endblock %}
+
+{% block page_scripts %}
+<script defer src="{{ url_for('static', filename='js/tutor_chat.js') }}"></script>
+{% endblock %}
 
 {% block content %}
-<section class="hero dashboard-hero" aria-labelledby="agent-session-title">
-  <div>
-    <p class="eyebrow">Academic Agent · Tutor session</p>
-    <h2 id="agent-session-title">{% if session %}{{ session.title or 'Tutor session' }}{% else %}Tutor session{% endif %}</h2>
-    {% if session %}
-      <p class="lede">Persistent source-grounded conversation. The session scope is fixed: {{ session.mode|replace('_', ' ')|title }} · {% if session.source_policy == 'source_only' %}Source Only{% else %}Source First{% endif %}.</p>
-    {% else %}
-      <p class="lede">This tutor session is not available to display.</p>
-    {% endif %}
-  </div>
-  <a class="button" href="{{ url_for('web.academic_agent') }}">Back to Academic Agent</a>
-</section>
-
-{% if error_message %}
-<section class="error-panel" aria-live="polite">
-  <h3>Request could not be completed</h3>
-  <p>{{ error_message }}</p>
-</section>
-{% endif %}
-
-{% if session %}
-<section class="metric-grid" aria-label="Tutor session metadata">
-  <article class="metric-card">
-    <span class="metric-label">Mode</span>
-    <strong>{{ session.mode|replace('_', ' ')|title }}</strong>
-    <span>Fixed for this session</span>
-  </article>
-  <article class="metric-card">
-    <span class="metric-label">Source policy</span>
-    <strong>{% if session.source_policy == 'source_only' %}Source Only{% else %}Source First{% endif %}</strong>
-    <span>Fixed for this session</span>
-  </article>
-  <article class="metric-card">
-    <span class="metric-label">Status</span>
-    <strong>{{ session.status|title }}</strong>
-    <span>{{ session.turns|length }} persisted turn{% if session.turns|length != 1 %}s{% endif %}</span>
-  </article>
-  <article class="metric-card">
-    <span class="metric-label">Course scope</span>
-    <strong>{{ session.course_id or 'Unscoped' }}</strong>
-    <span>Session course identity</span>
-  </article>
-</section>
-
-<section class="dashboard-panel" aria-labelledby="transcript-title">
-  <div class="panel-heading">
+<div class="tutor-chat-shell">
+  <header class="tutor-chat-header">
     <div>
-      <p class="eyebrow">Persisted history</p>
-      <h3 id="transcript-title">Conversation</h3>
-    </div>
-    <span class="tag">Evidence shown per answer</span>
-  </div>
-
-  {% if session.turns %}
-    {% for turn in session.turns %}
-    <article class="dashboard-panel agent-turn agent-turn-{{ turn.role }}">
-      <div class="panel-heading">
-        <div>
-          <p class="eyebrow">{{ turn.role|capitalize }}</p>
-          <span class="microcopy">Turn {{ turn.ordinal }} · {{ turn.created_at }}</span>
-        </div>
-        {% if turn.role == 'assistant' %}<span class="tag">Support: {{ turn.support_level|replace('_', ' ')|title }}</span>{% endif %}
+      <p class="eyebrow">ANVAYA Tutor</p>
+      <h2>{% if session %}{{ session.title or 'New conversation' }}{% else %}Tutor session{% endif %}</h2>
+      {% if session %}
+      <div class="tag-row">
+        <span class="tag">{{ session.mode|replace('_', ' ')|title }}</span>
+        <span class="tag">{% if session.source_policy == 'source_only' %}Source Only{% else %}Source First{% endif %}</span>
+        <span class="tag">{{ session.course_id or 'All courses' }}</span>
       </div>
-      <div class="agent-message">{{ turn.content }}</div>
-      {% if turn.role == 'assistant' %}
-        <p class="empty-state">Support: {{ turn.support_level|replace('_', ' ')|title }}</p>
-        {% if turn.provider_model %}
-          <p class="microcopy">{{ turn.provider_name }} · {{ turn.provider_model }}</p>
-        {% endif %}
-        {% if turn.evidence %}
-          <div class="tag-row" aria-label="Answer evidence">
-          {% for evidence in turn.evidence %}
-            <span class="tag">{{ evidence.citation_label }} · {{ evidence.source_title or evidence.source_label or ('document ' ~ evidence.document_id) }}{% if evidence.locator_label %} · {{ evidence.locator_label }}{% endif %}{% if evidence.relation_type %} · {{ evidence.relation_type }}{% endif %}{% if evidence.retrieval_score is not none %} · score {{ '%.4f'|format(evidence.retrieval_score) }}{% endif %}</span>
-                <span class="visually-hidden">{{ evidence.citation_label }} · document {{ evidence.document_id }} · chunk {{ evidence.chunk_id }}</span>
-          {% endfor %}
-          </div>
-        {% endif %}
       {% endif %}
+    </div>
+    <div class="planner-inline-actions">
+      <a class="button button-secondary" href="{{ url_for('web.knowledge') }}">Search sources</a>
+      <a class="button button-secondary" href="{{ url_for('web.academic_agent') }}">All chats</a>
+    </div>
+  </header>
+
+  {% if error_message %}
+  <section class="error-panel tutor-inline-error" aria-live="polite">
+    <strong>ANVAYA could not complete that request.</strong>
+    <p>{{ error_message }}</p>
+  </section>
+  {% endif %}
+
+  {% if session %}
+  <section class="tutor-conversation" id="tutor-conversation" aria-label="Tutor conversation">
+    {% if not session.turns %}
+    <div class="tutor-empty-state">
+      <div class="tutor-avatar">A</div>
+      <div>
+        <h3>What do you want to understand?</h3>
+        <p>Ask a concept, doubt, revision, exam, lecture, or guidance question. ANVAYA will ground the answer in your configured academic sources.</p>
+      </div>
+    </div>
+    {% endif %}
+
+    {% for turn in session.turns %}
+    <article class="tutor-turn tutor-turn-{{ turn.role }}">
+      <div class="tutor-avatar" aria-hidden="true">{% if turn.role == 'assistant' %}A{% else %}Y{% endif %}</div>
+      <div class="tutor-bubble">
+        <div class="tutor-turn-meta">
+          <strong>{% if turn.role == 'assistant' %}ANVAYA{% else %}You{% endif %}</strong>
+          <span>Turn {{ turn.ordinal }} · {{ turn.created_at }}</span>
+        </div>
+        <div class="tutor-message">{{ turn.content }}</div>
+
+        {% if turn.role == 'assistant' %}
+        <div class="tutor-answer-meta">
+          <span class="tag">Support: {{ turn.support_level|replace('_', ' ')|title }}</span>
+          {% if turn.provider_model %}
+          <span class="microcopy">{{ turn.provider_name }} · {{ turn.provider_model }}</span>
+          {% endif %}
+        </div>
+
+        {% if turn.evidence %}
+        <details class="tutor-evidence">
+          <summary>{{ turn.evidence|length }} source{% if turn.evidence|length != 1 %}s{% endif %} used</summary>
+          <ol>
+            {% for evidence in turn.evidence %}
+            <li>
+              <strong>{{ evidence.citation_label }}</strong>
+              <span>{{ evidence.source_title or evidence.source_label or ('document ' ~ evidence.document_id) }}</span>
+              {% if evidence.locator_label %}<span class="microcopy">{{ evidence.locator_label }}</span>{% endif %}
+              {% if evidence.relation_type %}<span class="tag">{{ evidence.relation_type }}</span>{% endif %}
+            </li>
+            {% endfor %}
+          </ol>
+        </details>
+        {% endif %}
+        {% endif %}
+      </div>
     </article>
     {% endfor %}
-  {% else %}
-    <p class="empty-state">This session has no turns yet. Ask a question below.</p>
-  {% endif %}
-</section>
+  </section>
 
-{% if session.status == 'active' %}
-<section class="action-panel" aria-labelledby="ask-tutor-title">
-  <p class="eyebrow">Grounded tutor</p>
-  <h3 id="ask-tutor-title">Ask grounded tutor</h3>
-  <form method="post" action="{{ url_for('web.academic_agent_ask', session_id=session.session_id) }}">
-    <label for="agent-question">Question</label>
-    <p><textarea id="agent-question" name="question" rows="5" maxlength="4000" required placeholder="Ask about a concept using your indexed academic sources.">{{ session.prefill_question or "" }}</textarea></p>
-    <button type="submit">Ask tutor</button>
-  </form>
-  <p class="empty-state">This is the only browser action in Phase 7.5.9 that may call the configured tutor provider. It does not change mastery, progress, plans, grades, notes, or resources.</p>
-</section>
-{% else %}
-<section class="notice-panel">
-  <h3>Session is not active</h3>
-  <p>This transcript remains readable, but new tutor questions are disabled.</p>
-</section>
-{% endif %}
-{% endif %}
+  {% if session.status == 'active' %}
+  <section class="tutor-composer-wrap">
+    <form
+      id="tutor-chat-form"
+      class="tutor-composer"
+      method="post"
+      action="{{ url_for('web.academic_agent_ask', session_id=session.session_id) }}"
+    >
+      <label class="visually-hidden" for="agent-question">Ask ANVAYA Tutor</label>
+      <textarea
+        id="agent-question"
+        name="question"
+        rows="2"
+        maxlength="4000"
+        required
+        placeholder="Ask ANVAYA about this course…"
+      >{{ session.prefill_question or "" }}</textarea>
+      <button id="tutor-send-button" class="button tutor-send" type="submit" aria-label="Send question">Ask</button>
+    </form>
+    <div class="tutor-composer-tools" aria-label="Tutor hints">
+      <span>/Explain</span>
+      <span>/Practice</span>
+      <span>/Quiz</span>
+      <span>/Summarize</span>
+      <span>Enter to send · Shift+Enter for new line</span>
+    </div>
+  </section>
+  {% else %}
+  <section class="notice-panel">
+    <h3>Conversation is read-only</h3>
+    <p>This tutor session is no longer active, but its transcript and evidence remain available.</p>
+  </section>
+  {% endif %}
+  {% else %}
+  <section class="notice-panel">
+    <h3>Tutor session unavailable</h3>
+    <p>Return to Academic Agent and open another conversation.</p>
+  </section>
+  {% endif %}
+</div>
 {% endblock %}
