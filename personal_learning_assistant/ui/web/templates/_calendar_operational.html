@@ -8,6 +8,7 @@
     <a class="quick-action{% if operational_calendar and operational_calendar.view == 'week' %} is-active{% endif %}" href="{{ url_for('web.calendar', view='week', date=(operational_calendar.anchor_date if operational_calendar else dashboard.date)) }}">Week</a>
     <a class="quick-action{% if operational_calendar and operational_calendar.view == 'day' %} is-active{% endif %}" href="{{ url_for('web.calendar', view='day', date=(operational_calendar.anchor_date if operational_calendar else dashboard.date)) }}">Day</a>
     <a class="quick-action" href="{{ url_for('web.planning_tasks') }}">Tasks</a>
+    <a class="quick-action" href="{{ url_for('web.planning_routines') }}">Schedules</a>
   </nav>
 
   {% if operational_calendar and operational_calendar.available %}
@@ -36,8 +37,20 @@
           {% for item in items %}
             <li>
               <span class="planner-time">{% if item.start_time %}{{ item.start_time }}{% if item.end_time %}–{{ item.end_time }}{% endif %}{% else %}All day / flexible{% endif %}</span>
-              <strong>{{ item.title }}</strong>
-              <span class="tag">{{ item.kind }}</span>
+              <strong>
+                {% if item.source == 'daily_agenda' %}
+                <a href="{{ url_for('web.planning_day', agenda_date=day_key) }}">{{ item.title }}</a>
+                {% else %}
+                {{ item.title }}
+                {% endif %}
+              </strong>
+              <div class="tag-row">
+                <span class="tag">{{ item.kind|replace('_',' ') }}</span>
+                {% if item.source == 'daily_agenda' and item.agenda_status %}
+                <span class="tag">agenda {{ item.agenda_status }}</span>
+                {% endif %}
+                {% if item.planned_minutes %}<span class="tag">{{ item.planned_minutes }} min</span>{% endif %}
+              </div>
             </li>
           {% endfor %}
           </ul>
