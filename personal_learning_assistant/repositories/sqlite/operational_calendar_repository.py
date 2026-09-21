@@ -47,6 +47,7 @@ class SQLiteOperationalCalendarRepository:
         required = {
             "academic_events", "routine_templates", "assessments",
             "courses", "month_plan_import_items", "study_plan_items",
+            "daily_agendas", "daily_agenda_items",
         }
         if required - tables:
             c.close()
@@ -94,6 +95,114 @@ class SQLiteOperationalCalendarRepository:
                 for row in c.execute(
                     "SELECT * FROM routine_templates WHERE status='active' "
                     "ORDER BY title,id"
+                ).fetchall()
+            )
+        finally:
+            c.close()
+
+    def list_routine_templates(self):
+        """Return active and paused routines for the user-facing schedule editor."""
+        c = self._connect(writable=False)
+        try:
+            return tuple(
+                dict(row)
+                for row in c.execute(
+                    "SELECT * FROM routine_templates "
+                    "WHERE status<>'archived' "
+                    "ORDER BY CASE status WHEN 'active' THEN 0 ELSE 1 END,title,id"
+                ).fetchall()
+            )
+        finally:
+            c.close()
+
+    def get_routine(self, routine_id):
+        c = self._connect(writable=False)
+        try:
+            row = c.execute(
+                "SELECT * FROM routine_templates WHERE id=?",
+                (str(routine_id),),
+            ).fetchone()
+            if row is None:
+                raise OperationalCalendarRepositoryNotFoundError(
+                    "Routine was not found."
+                )
+            return dict(row)
+        finally:
+            c.close()
+
+    def create_manual_routine(self, row):
+        c = self._connect(writable=True)
+        try:
+            with transaction(c, immediate=True):
+                c.execute(
+                    "INSERT INTO routine_templates "
+                    "(id,source_import_id,external_id,title,category,priority,"
+                    "recurrence_rule,active_from,active_to,start_time,end_time,"
+                    "duration_minutes,preferred_window,preferred_location,"
+                    "condition_text,excluded_dates_json,additional_dates_json,status,"
+                    "manual_revision,created_at,updated_at) "
+                    "VALUES (?,NULL,NULL,?,?,?,?,?,?,?,?,?,?,?,?,?,'[]','[]','active',1,?,?)",
+                    (
+                        row["id"], row["title"], row.get("category", "routine"),
+                        row.get("priority", "P1"), row["recurrence_rule"],
+                        row.get("active_from"), row.get("active_to"),
+                        row.get("start_time"), row.get("end_time"),
+                        row.get("duration_minutes"), row.get("preferred_window"),
+                        row.get("preferred_location"), row.get("condition_text", ""),
+                        row["created_at"], row["updated_at"],
+                    ),
+                )
+        finally:
+            c.close()
+        return self.get_routine(row["id"])
+
+    def update_manual_routine(self, routine_id, fields):
+        allowed = {
+            "title", "category", "priority", "recurrence_rule", "active_from",
+            "active_to", "start_time", "end_time", "duration_minutes",
+            "preferred_window", "preferred_location", "condition_text", "status",
+            "updated_at",
+        }
+        changes = {key: value for key, value in dict(fields).items() if key in allowed}
+        if not changes:
+            return self.get_routine(routine_id)
+        assignments = ",".join("{}=?".format(key) for key in changes)
+        params = list(changes.values())
+        params.append(str(routine_id))
+        c = self._connect(writable=True)
+        try:
+            with transaction(c, immediate=True):
+                cur = c.execute(
+                    "UPDATE routine_templates SET "
+                    + assignments
+                    + ",manual_revision=manual_revision+1 WHERE id=?",
+                    tuple(params),
+                )
+                if cur.rowcount != 1:
+                    raise OperationalCalendarRepositoryNotFoundError(
+                        "Routine was not found."
+                    )
+        finally:
+            c.close()
+        return self.get_routine(routine_id)
+
+    def list_daily_agenda_items(self, starts_on, ends_on):
+        """Return generated agenda items so scheduled study work is visible on Calendar."""
+        c = self._connect(writable=False)
+        try:
+            return tuple(
+                dict(row)
+                for row in c.execute(
+                    "SELECT a.agenda_date,a.status AS agenda_status,"
+                    "i.id,i.item_kind,i.source_type,i.source_id,i.title,i.priority,"
+                    "i.starts_at,i.ends_at,i.planned_minutes,i.status AS item_status "
+                    "FROM daily_agendas a "
+                    "JOIN daily_agenda_items i ON i.agenda_id=a.id "
+                    "WHERE a.agenda_date>=? AND a.agenda_date<=? "
+                    "AND a.status IN ('draft','approved','active') "
+                    "AND i.status NOT IN ('completed','skipped','moved') "
+                    "ORDER BY a.agenda_date,i.ordinal,i.id",
+                    (starts_on, ends_on),
                 ).fetchall()
             )
         finally:
