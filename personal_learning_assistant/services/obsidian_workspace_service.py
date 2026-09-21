@@ -436,6 +436,53 @@ class ObsidianWorkspaceService:
             "backlinks": link_context["backlinks"],
         }
 
+    def markdown_snapshot(self, *, max_notes=500, max_bytes=32 * 1024 * 1024):
+        """Return a bounded read-only Markdown snapshot without backlink rescans."""
+        config = self._load_config()
+        vault_path = _configured_path(config)
+        if not vault_path or not bool(config.get("enabled", False)):
+            raise ObsidianWorkspaceValidationError(
+                "Connect and enable an Obsidian vault before exporting it."
+            )
+        if not self._path_is_valid(vault_path):
+            raise ObsidianWorkspaceValidationError(
+                "The configured Obsidian vault is unavailable."
+            )
+        reader = self._reader(vault_path)
+        try:
+            scan = reader.scan()
+        except Exception as error:
+            raise ObsidianWorkspaceUnavailableError(
+                "The Obsidian vault could not be scanned safely."
+            ) from error
+
+        rows = []
+        total_bytes = 0
+        bounded_notes = max(1, min(int(max_notes), MAX_BROWSE_NOTES))
+        bounded_bytes = max(1, int(max_bytes))
+        for note in scan.notes[:bounded_notes]:
+            try:
+                payload = reader.read_note(
+                    str(note.relative_path),
+                    expected_hash=str(note.source_hash or ""),
+                )
+            except Exception:
+                continue
+            size = int(payload.get("size_bytes") or 0)
+            if rows and total_bytes + size > bounded_bytes:
+                break
+            total_bytes += size
+            rows.append(
+                {
+                    "relative_path": str(note.relative_path),
+                    "title": str(note.title),
+                    "source_hash": str(payload.get("source_hash") or ""),
+                    "text": str(payload.get("text") or ""),
+                    "size_bytes": size,
+                }
+            )
+        return tuple(rows)
+
     def connect_vault(self, vault_path: Any) -> Dict[str, Any]:
         raw = str(vault_path or "").strip()
         if not raw:
