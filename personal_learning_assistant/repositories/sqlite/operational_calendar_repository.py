@@ -141,7 +141,7 @@ class SQLiteOperationalCalendarRepository:
                     "duration_minutes,preferred_window,preferred_location,"
                     "condition_text,excluded_dates_json,additional_dates_json,status,"
                     "manual_revision,created_at,updated_at) "
-                    "VALUES (?,NULL,NULL,?,?,?,?,?,?,?,?,?,?,?,?,?,'[]','[]','active',1,?,?)",
+                    "VALUES (?,NULL,NULL,?,?,?,?,?,?,?,?,?,?,?,?,'[]','[]','active',1,?,?)",
                     (
                         row["id"], row["title"], row.get("category", "routine"),
                         row.get("priority", "P1"), row["recurrence_rule"],
@@ -200,6 +200,7 @@ class SQLiteOperationalCalendarRepository:
                     "JOIN daily_agenda_items i ON i.agenda_id=a.id "
                     "WHERE a.agenda_date>=? AND a.agenda_date<=? "
                     "AND a.status IN ('draft','approved','active') "
+                    "AND i.item_kind IN ('task','study','manual') "
                     "AND i.status NOT IN ('completed','skipped','moved') "
                     "ORDER BY a.agenda_date,i.ordinal,i.id",
                     (starts_on, ends_on),
