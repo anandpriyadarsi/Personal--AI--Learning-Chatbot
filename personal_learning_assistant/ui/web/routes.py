@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from io import BytesIO
+
 from flask import (
     Blueprint,
     current_app,
@@ -9,6 +11,7 @@ from flask import (
     redirect,
     render_template,
     request,
+    send_file,
     url_for,
 )
 
@@ -17,6 +20,10 @@ from personal_learning_assistant.services.academic_agent_web_service import (
     AcademicAgentWebUnavailableError,
     AcademicAgentWebValidationError,
     build_academic_agent_web_service,
+)
+from personal_learning_assistant.services.alex_handoff_service import (
+    AlexHandoffError,
+    build_alex_handoff_service,
 )
 from personal_learning_assistant.services.assessment_dashboard_service import (
     load_assessment_catalogue,
@@ -211,6 +218,11 @@ def _unified_search_service():
 def _knowledge_reader_service():
     factory = current_app.config.get("KNOWLEDGE_READER_SERVICE_FACTORY")
     return factory() if factory is not None else build_knowledge_reader_service()
+
+
+def _alex_handoff_service():
+    factory = current_app.config.get("ALEX_HANDOFF_SERVICE_FACTORY")
+    return factory() if factory is not None else build_alex_handoff_service()
 
 
 def _academic_agent_service():
@@ -1268,6 +1280,34 @@ def obsidian_note():
         )
         return _render_obsidian_note_error(
             "The note changed or could not be read safely. Refresh the Obsidian workspace and try again.",
+            503,
+        )
+
+
+@web_blueprint.post("/obsidian/note/alex-handoff")
+def obsidian_alex_handoff():
+    """Build a local ZIP for manual handoff to Alex/ChatGPT; no upload is performed."""
+    try:
+        bundle = _alex_handoff_service().build_note_bundle(
+            request.form.get("path", ""),
+            include_full_vault=request.form.get("include_full_vault") == "1",
+        )
+        return send_file(
+            BytesIO(bundle["payload"]),
+            mimetype="application/zip",
+            as_attachment=True,
+            download_name=bundle["filename"],
+            max_age=0,
+        )
+    except AlexHandoffError as error:
+        return _render_obsidian_note_error(str(error), 400)
+    except Exception as error:
+        current_app.logger.warning(
+            "Alex handoff unavailable (%s).",
+            type(error).__name__,
+        )
+        return _render_obsidian_note_error(
+            "The Alex handoff could not be prepared. Your vault was not changed.",
             503,
         )
 
