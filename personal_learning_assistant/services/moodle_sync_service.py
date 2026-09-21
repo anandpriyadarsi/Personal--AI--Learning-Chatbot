@@ -242,8 +242,8 @@ class MoodleSyncService:
                 temporary.unlink()
         return target
 
-    def _register_and_ingest(self):
-        """Reuse Phase 5 source registry + extraction for the downloaded root."""
+    def _register_and_ingest(self, synced_items):
+        """Reuse Phase 5 registry/extraction and link downloads into Resources 2."""
         from personal_learning_assistant.ingestion.source_resolver import (
             SourceRootResolver,
         )
@@ -264,6 +264,18 @@ class MoodleSyncService:
         )
         from personal_learning_assistant.services.unified_ingestion_service import (
             UnifiedIngestionService,
+        )
+        from personal_learning_assistant.domain.resources2_models import (
+            CreateResource2Command,
+            ResourceCourseLink,
+            ResourceDocumentLink,
+            UpdateResource2Command,
+        )
+        from personal_learning_assistant.repositories.sqlite.resources2_repository import (
+            SQLiteResources2Repository,
+        )
+        from personal_learning_assistant.services.resources2_service import (
+            Resources2Service,
         )
 
         if not self.root_path.is_dir():
@@ -289,6 +301,107 @@ class MoodleSyncService:
                 ingestion.ingest_document(item.document_id)
                 for item in registration.items
             )
+
+            path_to_document = {
+                str(item.path_key): str(item.document_id)
+                for item in registration.items
+            }
+            resources = Resources2Service(
+                SQLiteResources2Repository(connection)
+            )
+            linked_resources = 0
+            for remote in tuple(synced_items or ()):
+                target = self._target_path(remote)
+                try:
+                    relative = target.resolve(strict=False).relative_to(
+                        self.root_path.resolve(strict=False)
+                    ).as_posix()
+                except ValueError:
+                    continue
+                document_id = path_to_document.get("moodle/" + relative)
+                if not document_id:
+                    continue
+                external_id = "{}:{}:{}".format(
+                    remote["moodle_course_id"],
+                    remote.get("module_id", ""),
+                    hashlib.sha256(
+                        str(remote["file_url"]).encode("utf-8")
+                    ).hexdigest()[:20],
+                )
+                course_links = (
+                    ()
+                    if not remote.get("anvaya_course_id")
+                    else (
+                        ResourceCourseLink(
+                            str(remote["anvaya_course_id"]),
+                            "primary",
+                        ),
+                    )
+                )
+                document_links = (
+                    ResourceDocumentLink(document_id, "source"),
+                )
+                candidates = resources.get_duplicate_candidates(
+                    title=remote["file_name"],
+                    canonical_uri=remote["file_url"],
+                    provider="moodle",
+                    external_id=external_id,
+                    document_ids=(document_id,),
+                )
+                exact = tuple(
+                    candidate
+                    for candidate in candidates
+                    if "provider_external" in candidate.reasons
+                    or "document" in candidate.reasons
+                )
+                if exact:
+                    resource_id = exact[0].resource_id
+                    resources.update_resource(
+                        UpdateResource2Command(
+                            resource_id=resource_id,
+                            title=remote["file_name"],
+                            canonical_uri=remote["file_url"],
+                            provider="moodle",
+                            external_id=external_id,
+                            quality_note=(
+                                "Synced read-only from Moodle: "
+                                + str(remote.get("module_name") or "course material")
+                            ),
+                        )
+                    )
+                    resources.replace_relationships(
+                        resource_id,
+                        CreateResource2Command(
+                            title=remote["file_name"],
+                            resource_type="moodle_file",
+                            canonical_uri=remote["file_url"],
+                            provider="moodle",
+                            external_id=external_id,
+                            course_links=course_links,
+                            document_links=document_links,
+                            allow_duplicate=True,
+                        ),
+                    )
+                else:
+                    details = resources.create_resource(
+                        CreateResource2Command(
+                            title=remote["file_name"],
+                            resource_type="moodle_file",
+                            canonical_uri=remote["file_url"],
+                            provider="moodle",
+                            external_id=external_id,
+                            status="not_started",
+                            quality_note=(
+                                "Synced read-only from Moodle: "
+                                + str(remote.get("module_name") or "course material")
+                            ),
+                            course_links=course_links,
+                            document_links=document_links,
+                            allow_duplicate=False,
+                        )
+                    )
+                    resource_id = details.resource.id
+                linked_resources += 1
         finally:
             connection.close()
         return {
@@ -297,6 +410,7 @@ class MoodleSyncService:
                 1 for result in results if result.action in {"completed", "matched"}
             ),
             "failed": sum(1 for result in results if result.action == "failed"),
+            "resources_linked": linked_resources,
         }
 
     def sync(self):
@@ -356,9 +470,14 @@ class MoodleSyncService:
                 except Exception:
                     pass
 
-        ingestion = {"registered": 0, "ingested": 0, "failed": 0}
+        ingestion = {
+            "registered": 0,
+            "ingested": 0,
+            "failed": 0,
+            "resources_linked": 0,
+        }
         if downloaded:
-            ingestion = self._register_and_ingest()
+            ingestion = self._register_and_ingest(targets)
         return {
             "downloaded": downloaded,
             "failures": tuple(failures),
