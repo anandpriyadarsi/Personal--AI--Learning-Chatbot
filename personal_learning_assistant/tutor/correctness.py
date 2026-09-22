@@ -29,6 +29,39 @@ class MathVerification:
     marker_present: bool
 
 
+def requires_deterministic_math(question):
+    """Require a math marker for explicit supported numerical computation requests."""
+    clean = " ".join(str(question or "").casefold().split())
+    if not clean:
+        return False
+
+    operation = any(
+        re.search(pattern, clean)
+        for pattern in (
+            r"\bcompute\b",
+            r"\bcalculate\b",
+            r"\bverify\b",
+            r"\bwork(?:ed)?\s+(?:example|calculation)\b",
+            r"\bstep by step\b",
+            r"\bnumerical example\b",
+            r"\bfactori[sz](?:e|ation)\b",
+        )
+    )
+    supported_subject = any(
+        re.search(pattern, clean)
+        for pattern in (
+            r"\bmatrix\b",
+            r"\bmatrices\b",
+            r"\bdeterminant\b",
+            r"\bvector\b",
+            r"\blu\b",
+            r"\blinear combination\b",
+            r"\bdecomposition\b",
+        )
+    )
+    return bool(operation and supported_subject)
+
+
 def correctness_protocol():
     return (
         "DETERMINISTIC MATH VERIFICATION: whenever your visible answer contains a "
