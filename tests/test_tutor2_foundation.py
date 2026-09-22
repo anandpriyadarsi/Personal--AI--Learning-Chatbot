@@ -136,6 +136,23 @@ def test_tutor2_system_prompt_is_pedagogical_not_search_like():
     assert "General explanation (not from project sources)" in prompt
 
 
+def test_tutor2_system_prompt_requires_math_verification():
+    from personal_learning_assistant.tutor.grounding import _system_prompt
+
+    prompt = _system_prompt(
+        mode="doubt",
+        source_policy="source_first",
+        purpose="Diagnose a specific confusion without skipping prerequisites.",
+        preferred_source_roles=("professor", "course", "personal_note"),
+    )
+
+    assert "MATHEMATICAL CORRECTNESS PROTOCOL" in prompt
+    assert "silently verify it by substitution or direct calculation" in prompt
+    assert "vector decomposition" in prompt
+    assert "reconstructs exactly the same target object" in prompt
+    assert "linearly dependent/redundant" in prompt
+
+
 def test_web_new_tutor_defaults_to_source_first():
     from personal_learning_assistant.ui.web import create_app
 
