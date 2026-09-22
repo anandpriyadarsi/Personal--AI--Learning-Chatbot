@@ -38,7 +38,7 @@ class PersistentStudentModel:
     blocked_calculation_count: int
     learning_memory: tuple[str, ...]
     recent_progress: tuple[str, ...]
-    stable_signals: tuple[Mapping[str, object], ...]
+    stable_signals: tuple[Mapping[str, object], ...] = ()
 
 
 def empty_student_model(course_id=""):
