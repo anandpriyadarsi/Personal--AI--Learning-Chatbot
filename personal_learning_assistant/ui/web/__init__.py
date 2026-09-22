@@ -9,6 +9,7 @@ from flask import Flask
 
 from .errors import register_error_handlers
 from .routes import web_blueprint
+from .tutor_rendering import render_tutor_markdown
 
 
 def create_app(config: Mapping[str, Any] | None = None) -> Flask:
@@ -25,6 +26,7 @@ def create_app(config: Mapping[str, Any] | None = None) -> Flask:
     if config:
         app.config.update(config)
 
+    app.jinja_env.filters["tutor_markdown"] = render_tutor_markdown
     app.register_blueprint(web_blueprint)
     register_error_handlers(app)
     return app
