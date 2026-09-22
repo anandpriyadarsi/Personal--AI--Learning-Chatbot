@@ -260,3 +260,154 @@ def test_tutor21_template_tolerates_legacy_session_without_adaptive_state():
     )
     assert "session.adaptive_state.quiz_active" not in template
     assert "session.adaptive_state.awaiting_student_answer" not in template
+
+
+
+def test_quiz_answer_hidden_evaluation_is_stripped_and_persisted_in_state(tmp_path):
+    (
+        connection,
+        repository,
+        sessions,
+        session,
+        _retrieval,
+        provider,
+        engine,
+    ) = _env(
+        tmp_path,
+        [
+            "Question 1\n\nWhy is a spanning dependent set not a basis?",
+            (
+                '<!--ANVAYA_EVAL {"status":"correct",'
+                '"reason":"Identified redundancy from linear dependence.",'
+                '"misconception":""}-->\n'
+                "Exactly. Linear dependence means at least one vector is redundant.\n\n"
+                "Question 2\n\nWhy does removing redundancy help coordinate uniqueness?"
+            ),
+        ],
+    )
+
+    engine.answer(session.session_id, "Quiz me one question at a time.")
+    result = engine.answer(
+        session.session_id,
+        "Because one vector can be written as a combination of the others.",
+    )
+
+    assert "ANVAYA_EVAL" not in result.assistant_turn.content
+    assert result.assistant_turn.content.startswith("Exactly.")
+    assert "ANVAYA_EVAL" not in sessions.transcript(session.session_id)[-1].content
+
+    state = load_adaptive_state(
+        repository.get_session(session.session_id).metadata
+    )
+    assert state["answer_status"] == "correct"
+    assert "redundancy" in state["last_evaluation_reason"].casefold()
+    assert state["last_misconception"] == ""
+    assert provider.requests[1].metadata["teaching_intent"] == "quiz_answer"
+    assert "ANVAYA_EVAL" in provider.requests[1].messages[-1]["content"]
+    connection.close()
+
+
+def test_partial_quiz_answer_records_misconception_without_global_mastery_write(tmp_path):
+    (
+        connection,
+        repository,
+        _sessions,
+        session,
+        _retrieval,
+        _provider,
+        engine,
+    ) = _env(
+        tmp_path,
+        [
+            "Question 1\n\nWhy must a basis be linearly independent?",
+            (
+                '<!--ANVAYA_EVAL {"status":"partial",'
+                '"reason":"Recognizes uniqueness but does not connect it to redundancy.",'
+                '"misconception":"Thinks spanning alone guarantees unique coordinates."}-->\n'
+                "You have the uniqueness idea. The missing link is redundancy.\n\n"
+                "Question 2\n\nWhat happens if one vector is a combination of the others?"
+            ),
+        ],
+    )
+
+    engine.answer(session.session_id, "Quiz me one question at a time.")
+    engine.answer(
+        session.session_id,
+        "Because then every vector has coordinates.",
+    )
+
+    state = load_adaptive_state(
+        repository.get_session(session.session_id).metadata
+    )
+    assert state["answer_status"] == "partial"
+    assert "spanning alone" in state["last_misconception"].casefold()
+    assert connection.execute(
+        "SELECT COUNT(*) FROM learning_memory_entries"
+    ).fetchone()[0] == 0
+    assert connection.execute(
+        "SELECT COUNT(*) FROM progress_snapshots"
+    ).fetchone()[0] == 0
+    connection.close()
+
+
+def test_missing_quiz_evaluation_marker_degrades_to_unclear_not_error(tmp_path):
+    (
+        connection,
+        repository,
+        _sessions,
+        session,
+        _retrieval,
+        _provider,
+        engine,
+    ) = _env(
+        tmp_path,
+        [
+            "Question 1\n\nWhy is v3 redundant?",
+            (
+                "Your answer is difficult to judge from that wording.\n\n"
+                "Question 2\n\nCan you express v3 using v1 and v2?"
+            ),
+        ],
+    )
+
+    engine.answer(session.session_id, "Quiz me one question at a time.")
+    result = engine.answer(session.session_id, "because it is")
+
+    assert result.assistant_turn.content.startswith("Your answer")
+    state = load_adaptive_state(
+        repository.get_session(session.session_id).metadata
+    )
+    assert state["answer_status"] == "unclear"
+    connection.close()
+
+
+def test_malformed_hidden_evaluation_is_removed_and_falls_back_to_unclear(tmp_path):
+    (
+        connection,
+        repository,
+        _sessions,
+        session,
+        _retrieval,
+        _provider,
+        engine,
+    ) = _env(
+        tmp_path,
+        [
+            "Question 1\n\nWhy is the set dependent?",
+            (
+                '<!--ANVAYA_EVAL {"status":not-json}-->\n'
+                "Let's inspect the relation among the vectors.\n\n"
+                "Question 2\n\nCan one vector be formed from the others?"
+            ),
+        ],
+    )
+
+    engine.answer(session.session_id, "Quiz me one question at a time.")
+    result = engine.answer(session.session_id, "not sure")
+
+    assert "ANVAYA_EVAL" not in result.assistant_turn.content
+    state = load_adaptive_state(
+        repository.get_session(session.session_id).metadata
+    )
+    assert state["answer_status"] == "unclear"
+    connection.close()
