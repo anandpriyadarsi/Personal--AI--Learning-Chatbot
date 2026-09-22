@@ -238,3 +238,25 @@ def test_adaptive_state_defaults_are_safe_for_old_tutor_sessions():
     assert state["awaiting_student_answer"] is False
     assert state["pending_question"] == ""
     assert state["answer_status"] == "unassessed"
+
+
+
+def test_tutor21_template_tolerates_legacy_session_without_adaptive_state():
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    template = (
+        root
+        / "personal_learning_assistant"
+        / "ui"
+        / "web"
+        / "templates"
+        / "agent_session.html"
+    ).read_text(encoding="utf-8")
+
+    assert (
+        "session.adaptive_state if session and session.adaptive_state is defined else {}"
+        in template
+    )
+    assert "session.adaptive_state.quiz_active" not in template
+    assert "session.adaptive_state.awaiting_student_answer" not in template
