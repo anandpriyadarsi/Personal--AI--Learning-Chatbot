@@ -81,10 +81,8 @@
         <select id="session-topic" name="topic_id">
           <option value="">No topic scope</option>
           {% for course in workspace.courses %}
-            {% for topic in course.topics %}
-              {% if topic.id %}
+            {% for topic in course.tutor_topics %}
               <option value="{{ topic.id }}">{{ course.code }} · {{ topic.name }}</option>
-              {% endif %}
             {% endfor %}
           {% endfor %}
         </select>
