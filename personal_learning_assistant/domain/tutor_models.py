@@ -18,7 +18,7 @@ TUTOR_MODES = (
 )
 SOURCE_POLICIES = ("source_only", "source_first")
 SESSION_STATUSES = ("active", "completed", "abandoned")
-SUPPORT_LEVELS = ("not_evaluated", "grounded", "mixed", "general", "insufficient")
+SUPPORT_LEVELS = ("not_evaluated", "grounded", "mixed", "insufficient")
 EVIDENCE_RELATIONS = ("support", "background", "contrast")
 
 
