@@ -227,6 +227,18 @@ class SQLiteTutorRepository:
             ),
         )
 
+    def update_session_metadata(self, session_id, metadata_json, updated_at):
+        with transaction(self.connection, immediate=True):
+            cursor = self.connection.execute(
+                "UPDATE tutor_sessions SET metadata_json=?,updated_at=? WHERE id=?",
+                (str(metadata_json), str(updated_at), str(session_id)),
+            )
+            if cursor.rowcount != 1:
+                raise TutorRepositoryError(
+                    "tutor session not found: {}".format(session_id)
+                )
+        return self.get_session(str(session_id))
+
     def list_sessions(self, limit: int = 20):
         limit = int(limit)
         if limit < 1 or limit > 100:
