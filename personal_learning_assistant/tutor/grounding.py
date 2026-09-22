@@ -13,6 +13,7 @@ from personal_learning_assistant.domain.tutor_models import TutorProviderRequest
 from personal_learning_assistant.retrieval.rag_context import assemble_context
 from personal_learning_assistant.tutor.adaptive_state import (
     adaptive_state_prompt,
+    contextualize_adaptive_state,
     evaluation_protocol,
     load_adaptive_state,
     resolve_adaptive_intent,
@@ -117,8 +118,12 @@ def _system_prompt(*, mode, source_policy, purpose, preferred_source_roles):
         "Infer what the student is trying to do: understand, get a hint, verify reasoning, "
         "practice, revise, summarize, or prepare for an assessment. Respect explicit requests "
         "such as 'hint only', 'do not solve', 'quiz me', or 'explain differently'. "
-        "Prefer one useful teaching move at a time. When the student is confused, identify "
-        "the missing idea or misconception before expanding the answer. Use simple clear "
+        "Prefer one useful teaching move at a time. The CURRENT QUESTION always has priority "
+        "over older student-state fields. Treat stored doubts and misconceptions as background "
+        "only; never answer an old topic when the student explicitly asks about a new one. "
+        "For references such as 'the example you just gave', the recent transcript is authoritative: "
+        "reuse the exact prior example instead of inventing a replacement. "
+        "When the student is confused, identify the missing idea or misconception before expanding the answer. Use simple clear "
         "English. Prefer intuition -> example -> formal detail when that sequence fits. "
         "Use Markdown for readable structure and LaTeX for mathematics. Avoid unnecessary "
         "headings, repeated definitions, and long encyclopedic dumps. "
@@ -284,8 +289,12 @@ class TutorGroundingPlanner:
         source_document_id = str(
             dict(session.metadata or {}).get("source_document_id") or ""
         ).strip()
-        adaptive_state = load_adaptive_state(session.metadata)
-        intent = resolve_adaptive_intent(clean, adaptive_state)
+        raw_adaptive_state = load_adaptive_state(session.metadata)
+        intent = resolve_adaptive_intent(clean, raw_adaptive_state)
+        adaptive_state = contextualize_adaptive_state(
+            clean,
+            raw_adaptive_state,
+        )
         policy = get_mode_policy(session.mode)
         queries = plan_retrieval_queries(
             clean,
