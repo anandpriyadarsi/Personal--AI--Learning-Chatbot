@@ -510,6 +510,18 @@ class AcademicAgentWebService:
                     "Tutor session history is temporarily unavailable."
                 ) from error
             view = _session_view(session, turns)
+            student_model_module = import_module(
+                "personal_learning_assistant.tutor.student_model"
+            )
+            persistent_model = student_model_module.build_persistent_student_model(
+                repository,
+                session,
+            )
+            view["persistent_student_model"] = (
+                student_model_module.student_model_mapping(
+                    persistent_model
+                )
+            )
             canonical_course = repository.course_identity(session.course_id)
             try:
                 catalogue = self._course_catalogue()
