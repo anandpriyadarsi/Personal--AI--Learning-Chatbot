@@ -13,7 +13,7 @@ from fractions import Fraction
 
 
 _MATH_PATTERN = re.compile(
-    r"\s*<!--ANVAYA_MATH\s+(\{.*?\})\s*-->\s*",
+    r"\s*<!--ANVAYA_MATH\s+(.+?)\s*-->\s*",
     re.DOTALL,
 )
 _MAX_CLAIMS = 12
