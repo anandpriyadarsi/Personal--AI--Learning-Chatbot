@@ -362,10 +362,18 @@ class AcademicAgentWebService:
             )
             repository = repository_module.SQLiteTutorRepository(connection)
             sessions = service_module.TutorSessionService(repository)
+            requested_course = str(course_id or "").strip()
+            resolved_course_id = repository.resolve_course_id(
+                requested_course or None
+            )
+            if requested_course and resolved_course_id is None:
+                raise AcademicAgentWebValidationError(
+                    "The selected course is not available in the canonical academic database."
+                )
             spec = models_module.TutorSessionSpec(
                 mode=str(mode or "concept").strip().casefold(),
                 source_policy=str(source_policy or "source_only").strip().casefold(),
-                course_id=str(course_id or "").strip() or None,
+                course_id=resolved_course_id,
                 title=str(title or "").strip(),
                 metadata={"origin": "phase7.5.9_web"},
             )
