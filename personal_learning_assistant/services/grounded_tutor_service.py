@@ -25,6 +25,10 @@ from personal_learning_assistant.tutor.grounding import (
     TutorGroundingError,
     TutorGroundingPlanner,
 )
+from personal_learning_assistant.tutor.student_signals import (
+    append_signal_history,
+    derive_turn_signals,
+)
 
 
 _CITATION = re.compile(r"\[(S[1-9][0-9]*)\]")
@@ -330,16 +334,6 @@ class GroundedTutorService:
                     teaching_intent=plan.teaching_intent,
                     checked_claims=repaired_verification.checked_claims,
                 )
-                blocked_metadata = dict(session.metadata or {})
-                blocked_metadata[STATE_KEY] = blocked_state
-                try:
-                    self.tutor_session_service.update_session_metadata(
-                        session_id,
-                        blocked_metadata,
-                    )
-                except Exception:
-                    pass
-
                 user_turn = self.tutor_session_service.add_user_turn(
                     session_id,
                     plan.question,
@@ -351,6 +345,25 @@ class GroundedTutorService:
                     provider_name=str(repaired_response.provider_name or ""),
                     provider_model=str(repaired_response.provider_model or ""),
                 )
+                blocked_metadata = dict(session.metadata or {})
+                blocked_metadata[STATE_KEY] = blocked_state
+                blocked_metadata = append_signal_history(
+                    blocked_metadata,
+                    derive_turn_signals(
+                        session=session,
+                        assistant_turn=assistant_turn,
+                        teaching_intent=plan.teaching_intent,
+                        adaptive_state=blocked_state,
+                    ),
+                )
+                try:
+                    self.tutor_session_service.update_session_metadata(
+                        session_id,
+                        blocked_metadata,
+                    )
+                except Exception:
+                    pass
+
                 return GroundedTutorResult(
                     question=plan.question,
                     user_turn=user_turn,
@@ -420,6 +433,15 @@ class GroundedTutorService:
         )
         metadata = dict(session.metadata or {})
         metadata[STATE_KEY] = next_state
+        metadata = append_signal_history(
+            metadata,
+            derive_turn_signals(
+                session=session,
+                assistant_turn=assistant_turn,
+                teaching_intent=plan.teaching_intent,
+                adaptive_state=next_state,
+            ),
+        )
         try:
             self.tutor_session_service.update_session_metadata(
                 session_id,
