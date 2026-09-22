@@ -15,7 +15,9 @@ from personal_learning_assistant.tutor.adaptive_state import (
     mark_math_blocked,
 )
 from personal_learning_assistant.tutor.correctness import (
+    MathVerification,
     extract_and_verify_math,
+    requires_deterministic_math,
     sanitize_correctness_prose,
 )
 from personal_learning_assistant.tutor.grounding import (
@@ -29,6 +31,41 @@ _CITATION = re.compile(r"\[(S[1-9][0-9]*)\]")
 
 class GroundedTutorError(RuntimeError):
     pass
+
+
+_PROVIDER_META_LINE = re.compile(
+    r"(?im)^\s*(?:user|response|prompt|content)?\s*safety\s*:\s*"
+    r"(?:safe|unsafe|allowed|blocked|passed|ok)\s*$"
+)
+
+
+def _strip_provider_meta(content):
+    raw = str(content or "")
+    had_meta = bool(_PROVIDER_META_LINE.search(raw))
+    clean = _PROVIDER_META_LINE.sub("", raw).strip()
+    return clean, had_meta
+
+
+def _provider_retry_request(request, raw_content):
+    return TutorProviderRequest(
+        session_id=request.session_id,
+        mode=request.mode,
+        source_policy=request.source_policy,
+        messages=tuple(request.messages)
+        + (
+            {"role": "assistant", "content": str(raw_content or "")},
+            {
+                "role": "user",
+                "content": (
+                    "Your previous response contained provider/safety metadata instead of "
+                    "the requested academic Tutor answer. Return only the complete "
+                    "student-facing academic answer now. Do not print safety labels, "
+                    "provider metadata, or internal moderation status."
+                ),
+            },
+        ),
+        metadata=dict(request.metadata or {}, provider_output_retry=True),
+    )
 
 
 def _process_provider_content(plan, raw_content):
@@ -153,7 +190,46 @@ class GroundedTutorService:
         )
         response = self.provider.complete(request)
         correctness_repaired = False
-        raw_content = str(response.content or "").strip()
+        raw_original = str(response.content or "").strip()
+        raw_content, had_provider_meta = _strip_provider_meta(raw_original)
+
+        if not raw_content and had_provider_meta:
+            retry_request = _provider_retry_request(request, raw_original)
+            retry_response = self.provider.complete(retry_request)
+            retry_original = str(retry_response.content or "").strip()
+            retry_clean, retry_had_meta = _strip_provider_meta(retry_original)
+            if retry_clean:
+                response = retry_response
+                raw_content = retry_clean
+            else:
+                safe_content = (
+                    "The Tutor provider did not return an academic answer for this turn. "
+                    "Your study data was not changed. Please try the question again."
+                )
+                user_turn = self.tutor_session_service.add_user_turn(
+                    session_id,
+                    plan.question,
+                )
+                assistant_turn = self.tutor_session_service.add_assistant_turn(
+                    session_id,
+                    safe_content,
+                    support_level="insufficient",
+                    provider_name=str(retry_response.provider_name or ""),
+                    provider_model=str(retry_response.provider_model or ""),
+                )
+                return GroundedTutorResult(
+                    question=plan.question,
+                    user_turn=user_turn,
+                    assistant_turn=assistant_turn,
+                    citations=(),
+                    retrieved_chunk_ids=tuple(
+                        item.chunk_id for item in plan.evidence
+                    ),
+                    provider_request_id=str(
+                        retry_response.request_id or response.request_id or ""
+                    ),
+                )
+
         if not raw_content:
             raise GroundedTutorError("tutor provider returned an empty answer")
 
@@ -161,6 +237,20 @@ class GroundedTutorService:
             plan,
             raw_content,
         )
+        if (
+            requires_deterministic_math(plan.question)
+            and not math_verification.applicable
+        ):
+            math_verification = MathVerification(
+                applicable=True,
+                passed=False,
+                checked_claims=0,
+                issues=(
+                    "explicit supported computation was requested but the response "
+                    "did not provide machine-checkable math claims",
+                ),
+                marker_present=False,
+            )
         if not content:
             raise GroundedTutorError(
                 "tutor provider returned metadata without a visible answer"
