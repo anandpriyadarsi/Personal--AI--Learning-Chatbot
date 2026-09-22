@@ -667,6 +667,7 @@ def test_create_session_persists_explicit_topic_scope(tmp_path):
         ).fetchone()
         assert row is not None, "Tutor topic-scope test requires one course topic"
         topic_id = str(row[0])
+        topic_name = str(row[1])
     finally:
         connection.close()
 
@@ -681,6 +682,7 @@ def test_create_session_persists_explicit_topic_scope(tmp_path):
 
     assert view["course_id"] == course["id"]
     assert view["topic_id"] == topic_id
+    assert view["topic_label"] == topic_name
     assert view["mode"] == "doubt"
     assert view["source_policy"] == "source_first"
 
@@ -733,3 +735,28 @@ def test_agent_page_exposes_explicit_topic_scope_control():
     assert 'id="session-topic"' in text
     assert 'name="topic_id"' in text
     assert "Topic scope" in text
+
+
+
+def test_workspace_exposes_canonical_tutor_topic_ids_without_changing_shared_catalogue(tmp_path):
+    service, database_path, course, _provider, _retrieval = build_test_web_service(tmp_path)
+    connection = open_database(database_path)
+    try:
+        expected = connection.execute(
+            "SELECT id,name FROM topics "
+            "WHERE course_id=? AND deleted_at IS NULL "
+            "ORDER BY position,name,id",
+            (course["id"],),
+        ).fetchall()
+    finally:
+        connection.close()
+
+    view = service.workspace("")
+    tutor_topics = view["courses"][0]["tutor_topics"]
+
+    assert tutor_topics == [
+        {"id": str(row[0]), "name": str(row[1])}
+        for row in expected
+    ]
+    if tutor_topics:
+        assert tutor_topics[0]["id"]
