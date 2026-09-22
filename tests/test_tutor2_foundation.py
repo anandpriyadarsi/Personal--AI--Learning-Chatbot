@@ -69,11 +69,14 @@ def test_tutor_markdown_normalizes_parenthesis_and_bracket_math_delimiters():
             "\\[v_1=(1,0),\\qquad v_2=(0,1)\\]"
         )
     )
-    assert "\\(" not in html
-    assert "\\[" not in html
-    assert "math" in html
+    # Mistune's math plugin intentionally emits MathJax-ready wrappers whose
+    # text still contains TeX delimiters. What matters is that the math is
+    # identified as math rather than left as ordinary paragraph text.
+    assert '<span class="math">' in html
+    assert '<div class="math">' in html
     assert "\\mathbb R^2" in html
     assert "\\qquad" in html
+    assert "<p>\\[v_1=" not in html
 
 
 def test_source_first_can_teach_when_project_retrieval_is_empty(tmp_path):
