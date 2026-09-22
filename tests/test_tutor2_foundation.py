@@ -163,7 +163,20 @@ def test_session_view_uses_human_course_label(tmp_path):
     connection.commit()
     connection.close()
 
-    service = AcademicAgentWebService(database_path=path)
+    service = AcademicAgentWebService(
+        database_path=path,
+        course_catalogue_loader=lambda: {
+            "available": True,
+            "courses": [
+                {
+                    "id": "course-1",
+                    "code": "MA103N",
+                    "name": "Linear Algebra",
+                    "topics": [],
+                }
+            ],
+        },
+    )
     session_id = service.create_session(
         course_id="course-1",
         mode="concept",
