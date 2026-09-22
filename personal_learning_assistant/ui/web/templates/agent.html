@@ -88,7 +88,7 @@
         <label for="session-policy">Source policy</label><br>
         <select id="session-policy" name="source_policy">
           {% for policy in workspace.source_policies %}
-            <option value="{{ policy }}"{% if policy == 'source_first' %} selected{% endif %}>{% if policy == 'source_only' %}Strict Sources Only{% else %}Source First · Tutor mode{% endif %}</option>
+            <option value="{{ policy }}"{% if policy == 'source_first' %} selected{% endif %}>{% if policy == 'source_only' %}Strict Source Only{% else %}Source First · Tutor mode{% endif %}</option>
           {% endfor %}
         </select>
       </p>
