@@ -71,6 +71,7 @@
             <li>
               <strong>{{ evidence.citation_label }}</strong>
               <span>{{ evidence.source_title or evidence.source_label or ('document ' ~ evidence.document_id) }}</span>
+              <span class="microcopy">{{ evidence.citation_label }} · document {{ evidence.document_id }} · chunk {{ evidence.chunk_id }}</span>
               {% if evidence.locator_label %}<span class="microcopy">{{ evidence.locator_label }}</span>{% endif %}
               {% if evidence.relation_type %}<span class="tag">{{ evidence.relation_type }}</span>{% endif %}
             </li>
@@ -101,7 +102,7 @@
         required
         placeholder="Ask ANVAYA about this course…"
       >{{ session.prefill_question or "" }}</textarea>
-      <button id="tutor-send-button" class="button tutor-send" type="submit" aria-label="Send question">Ask</button>
+      <button id="tutor-send-button" class="button tutor-send" type="submit" aria-label="Send question">Ask grounded tutor</button>
     </form>
     <div class="tutor-composer-tools" aria-label="Tutor hints">
       <span>/Explain</span>
