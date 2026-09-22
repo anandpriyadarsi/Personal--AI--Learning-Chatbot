@@ -193,6 +193,12 @@ def test_tutor_repository_lists_recent_sessions_newest_first(tmp_path):
     from personal_learning_assistant.services.tutor_session_service import TutorSessionService
 
     connection = open_database(copied_learning_database_path(tmp_path))
+    # This repository-ordering test must be isolated from Anand's real Tutor
+    # history copied with the production database fixture.
+    connection.execute("DELETE FROM tutor_feedback")
+    connection.execute("DELETE FROM tutor_evidence_links")
+    connection.execute("DELETE FROM tutor_turns")
+    connection.execute("DELETE FROM tutor_sessions")
     repo = SQLiteTutorRepository(connection)
     service = TutorSessionService(
         repo,
