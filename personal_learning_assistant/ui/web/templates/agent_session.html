@@ -23,7 +23,7 @@ window.MathJax = {
 <div class="tutor-chat-shell">
   <header class="tutor-chat-header">
     <div class="tutor-heading-copy">
-      <p class="eyebrow">ANVAYA Tutor 2.0</p>
+      <p class="eyebrow">ANVAYA Tutor 2.1</p>
       <h2>{% if session %}{{ session.title or 'New conversation' }}{% else %}Tutor session{% endif %}</h2>
       {% if session %}
       <div class="tutor-scope" aria-label="Tutor scope">
@@ -33,7 +33,18 @@ window.MathJax = {
         {% if session.topic_label %}<span class="tag">{{ session.topic_label }}</span>{% endif %}
         {% if session.assessment_label %}<span class="tag">{{ session.assessment_label }}</span>{% endif %}
         {% if session.resource_label %}<span class="tag">{{ session.resource_label }}</span>{% endif %}
+        {% if session.adaptive_state.quiz_active %}<span class="tag">Adaptive quiz active</span>{% endif %}
+        {% if session.adaptive_state.awaiting_student_answer %}<span class="tag">Waiting for your answer</span>{% endif %}
       </div>
+      {% if session.adaptive_state.unresolved_doubt %}
+      <details class="tutor-state-summary">
+        <summary>Current learning state</summary>
+        <p><strong>Unresolved doubt:</strong> {{ session.adaptive_state.unresolved_doubt }}</p>
+        {% if session.adaptive_state.pending_question %}
+        <p><strong>Pending Tutor question:</strong> {{ session.adaptive_state.pending_question }}</p>
+        {% endif %}
+      </details>
+      {% endif %}
       {% endif %}
     </div>
     <div class="planner-inline-actions tutor-header-actions">
