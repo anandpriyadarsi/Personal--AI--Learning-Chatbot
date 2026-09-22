@@ -365,3 +365,112 @@ def test_real_tutor_hint_turn_records_signal_history(tmp_path):
     assert hint["turn_id"] == result.assistant_turn.turn_id
     assert hint["topic_id"] == "topic-lu"
     connection.close()
+
+
+
+def test_topic_scoped_student_model_does_not_pull_other_topic_history(tmp_path):
+    connection, repository = _database(tmp_path)
+    connection.execute(
+        "INSERT INTO topics("
+        "id,course_id,name,normalized_name,position,status,confidence,"
+        "raw_import_status,created_at,updated_at,deleted_at"
+        ") VALUES (?,?,?,?,2,'active',3,NULL,?,?,NULL)",
+        (
+            "topic-basis",
+            "course-ma",
+            "Basis",
+            "basis",
+            "2026-09-01T00:00:00Z",
+            "2026-09-01T00:00:00Z",
+        ),
+    )
+
+    basis_meta = append_signal_history(
+        {},
+        (
+            _event(
+                kind="misconception",
+                session_id="basis-1",
+                turn_id="b1",
+                observed_at="2026-09-20T10:00:00Z",
+                text="Thinks spanning alone guarantees a basis.",
+                topic_id="topic-basis",
+            ),
+        ),
+    )
+    repository.create_session(
+        session_id="basis-1",
+        course_id="course-ma",
+        topic_id="topic-basis",
+        assessment_id=None,
+        resource_id=None,
+        mode="doubt",
+        source_policy="source_first",
+        title="basis",
+        metadata_json=json.dumps(basis_meta),
+        created_at="2026-09-20T10:00:00Z",
+    )
+
+    lu_meta = append_signal_history(
+        {},
+        (
+            _event(
+                kind="hint_requested",
+                session_id="lu-1",
+                turn_id="l1",
+                observed_at="2026-09-21T10:00:00Z",
+                topic_id="topic-lu",
+            ),
+        ),
+    )
+    repository.create_session(
+        session_id="lu-1",
+        course_id="course-ma",
+        topic_id="topic-lu",
+        assessment_id=None,
+        resource_id=None,
+        mode="doubt",
+        source_policy="source_first",
+        title="lu old",
+        metadata_json=json.dumps(lu_meta),
+        created_at="2026-09-21T10:00:00Z",
+    )
+
+    current = repository.create_session(
+        session_id="lu-current",
+        course_id="course-ma",
+        topic_id="topic-lu",
+        assessment_id=None,
+        resource_id=None,
+        mode="doubt",
+        source_policy="source_first",
+        title="lu current",
+        metadata_json="{}",
+        created_at="2026-09-23T00:00:00Z",
+    )
+
+    model = build_persistent_student_model(repository, current)
+    prompt = student_model_prompt(model)
+
+    assert model.previous_sessions_considered == 1
+    assert "spanning alone guarantees" not in prompt.casefold()
+    connection.close()
+
+
+def test_tutor22_template_surfaces_stable_patterns_without_mastery_language():
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    template = (
+        root
+        / "personal_learning_assistant"
+        / "ui"
+        / "web"
+        / "templates"
+        / "agent_session.html"
+    ).read_text(encoding="utf-8")
+
+    assert "Stable cross-session pattern" in template
+    assert "sessions" in template
+    assert "observations" in template
+    assert "not a mastery score" in template
