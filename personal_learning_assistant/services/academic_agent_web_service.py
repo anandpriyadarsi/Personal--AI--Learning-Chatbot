@@ -382,6 +382,7 @@ class AcademicAgentWebService:
         self,
         *,
         course_id,
+        topic_id="",
         mode="concept",
         source_policy="source_only",
         title="",
@@ -407,10 +408,30 @@ class AcademicAgentWebService:
                 raise AcademicAgentWebValidationError(
                     "The selected course is not available in the canonical academic database."
                 )
+
+            requested_topic = str(topic_id or "").strip()
+            resolved_topic_id = None
+            if requested_topic:
+                if resolved_course_id is None:
+                    raise AcademicAgentWebValidationError(
+                        "A Tutor topic scope requires a selected course."
+                    )
+                topic_course_id = repository.topic_course_id(requested_topic)
+                if topic_course_id is None:
+                    raise AcademicAgentWebValidationError(
+                        "The selected topic is not available in the canonical academic database."
+                    )
+                if str(topic_course_id) != str(resolved_course_id):
+                    raise AcademicAgentWebValidationError(
+                        "The selected topic does not belong to the selected course."
+                    )
+                resolved_topic_id = requested_topic
+
             spec = models_module.TutorSessionSpec(
                 mode=str(mode or "concept").strip().casefold(),
                 source_policy=str(source_policy or "source_only").strip().casefold(),
                 course_id=resolved_course_id,
+                topic_id=resolved_topic_id,
                 title=str(title or "").strip(),
                 metadata={"origin": "phase7.5.9_web"},
             )
