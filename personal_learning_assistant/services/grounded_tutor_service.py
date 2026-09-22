@@ -69,6 +69,43 @@ def _provider_retry_request(request, raw_content):
     )
 
 
+def _enforce_required_math_verification(question, verification):
+    required_types = required_claim_types(question)
+    if requires_deterministic_math(question) and not verification.applicable:
+        return MathVerification(
+            applicable=True,
+            passed=False,
+            checked_claims=0,
+            issues=(
+                "explicit supported computation was requested but the response "
+                "did not provide machine-checkable math claims",
+            ),
+            marker_present=False,
+            claim_types=(),
+        )
+    if required_types:
+        missing_types = tuple(
+            claim_type
+            for claim_type in required_types
+            if claim_type not in set(verification.claim_types)
+        )
+        if missing_types:
+            return MathVerification(
+                applicable=True,
+                passed=False,
+                checked_claims=verification.checked_claims,
+                issues=tuple(verification.issues)
+                + (
+                    "required verification claim type(s) missing: {}".format(
+                        ", ".join(missing_types)
+                    ),
+                ),
+                marker_present=verification.marker_present,
+                claim_types=verification.claim_types,
+            )
+    return verification
+
+
 def _process_provider_content(plan, raw_content):
     answer_evaluation = None
     content = str(raw_content or "").strip()
@@ -238,42 +275,10 @@ class GroundedTutorService:
             plan,
             raw_content,
         )
-        required_types = required_claim_types(plan.question)
-        if (
-            requires_deterministic_math(plan.question)
-            and not math_verification.applicable
-        ):
-            math_verification = MathVerification(
-                applicable=True,
-                passed=False,
-                checked_claims=0,
-                issues=(
-                    "explicit supported computation was requested but the response "
-                    "did not provide machine-checkable math claims",
-                ),
-                marker_present=False,
-                claim_types=(),
-            )
-        elif required_types:
-            missing_types = tuple(
-                claim_type
-                for claim_type in required_types
-                if claim_type not in set(math_verification.claim_types)
-            )
-            if missing_types:
-                math_verification = MathVerification(
-                    applicable=True,
-                    passed=False,
-                    checked_claims=math_verification.checked_claims,
-                    issues=tuple(math_verification.issues)
-                    + (
-                        "required verification claim type(s) missing: {}".format(
-                            ", ".join(missing_types)
-                        ),
-                    ),
-                    marker_present=math_verification.marker_present,
-                    claim_types=math_verification.claim_types,
-                )
+        math_verification = _enforce_required_math_verification(
+            plan.question,
+            math_verification,
+        )
         if not content:
             raise GroundedTutorError(
                 "tutor provider returned metadata without a visible answer"
@@ -293,6 +298,10 @@ class GroundedTutorService:
                     repaired_evaluation,
                     repaired_verification,
                 ) = _process_provider_content(plan, repaired_raw)
+                repaired_verification = _enforce_required_math_verification(
+                    plan.question,
+                    repaired_verification,
+                )
             else:
                 repaired_content = ""
                 repaired_evaluation = None
