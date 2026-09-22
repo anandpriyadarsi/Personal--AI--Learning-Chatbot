@@ -127,41 +127,38 @@ def _session_view(session, turns):
     }
 
 
-def _scope_labels(connection, session):
+def _scope_labels(catalogue, session):
     labels = {
         "course_label": "All courses",
         "topic_label": "",
         "assessment_label": "",
         "resource_label": "",
     }
-    if session.course_id:
-        row = connection.execute(
-            "SELECT code,name FROM courses WHERE id=? AND deleted_at IS NULL",
-            (session.course_id,),
-        ).fetchone()
-        if row is not None:
-            labels["course_label"] = "{} · {}".format(str(row[0]), str(row[1]))
-    if session.topic_id:
-        row = connection.execute(
-            "SELECT name FROM topics WHERE id=? AND deleted_at IS NULL",
-            (session.topic_id,),
-        ).fetchone()
-        if row is not None:
-            labels["topic_label"] = str(row[0])
-    if session.assessment_id:
-        row = connection.execute(
-            "SELECT title FROM assessments WHERE id=? AND deleted_at IS NULL",
-            (session.assessment_id,),
-        ).fetchone()
-        if row is not None:
-            labels["assessment_label"] = str(row[0])
-    if session.resource_id:
-        row = connection.execute(
-            "SELECT title FROM resources WHERE id=? AND deleted_at IS NULL",
-            (session.resource_id,),
-        ).fetchone()
-        if row is not None:
-            labels["resource_label"] = str(row[0])
+    courses = list(dict(catalogue or {}).get("courses", ()) or ())
+    selected = next(
+        (
+            item for item in courses
+            if str(item.get("id") or "") == str(session.course_id or "")
+        ),
+        None,
+    )
+    if selected is not None:
+        code = str(selected.get("code") or "").strip()
+        name = str(selected.get("name") or "").strip()
+        labels["course_label"] = " · ".join(part for part in (code, name) if part)
+        if session.topic_id:
+            topic = next(
+                (
+                    item for item in list(selected.get("topics", ()) or ())
+                    if str(item.get("id") or item.get("topic_id") or "")
+                    == str(session.topic_id)
+                ),
+                None,
+            )
+            if topic is not None:
+                labels["topic_label"] = str(
+                    topic.get("name") or topic.get("topic_name") or ""
+                ).strip()
     return labels
 
 
@@ -478,7 +475,11 @@ class AcademicAgentWebService:
                     "Tutor session history is temporarily unavailable."
                 ) from error
             view = _session_view(session, turns)
-            view.update(_scope_labels(connection, session))
+            try:
+                catalogue = self._course_catalogue()
+            except Exception:
+                catalogue = {"courses": ()}
+            view.update(_scope_labels(catalogue, session))
             metadata_module = import_module(
                 "personal_learning_assistant.repositories.sqlite.search_metadata_repository"
             )
