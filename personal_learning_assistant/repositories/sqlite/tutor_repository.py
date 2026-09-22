@@ -137,6 +137,53 @@ class SQLiteTutorRepository:
         ).fetchone()
         return None if row is None else str(row[0])
 
+    def topic_identity(self, topic_id: Optional[str], course_id: Optional[str] = None):
+        """Return canonical Tutor topic identity, optionally constrained to a course."""
+        if topic_id is None:
+            return None
+        clean_topic = str(topic_id or "").strip()
+        if not clean_topic:
+            return None
+        if course_id is None:
+            row = self.connection.execute(
+                "SELECT id,course_id,name FROM topics "
+                "WHERE id=? AND deleted_at IS NULL",
+                (clean_topic,),
+            ).fetchone()
+        else:
+            row = self.connection.execute(
+                "SELECT id,course_id,name FROM topics "
+                "WHERE id=? AND course_id=? AND deleted_at IS NULL",
+                (clean_topic, str(course_id)),
+            ).fetchone()
+        if row is None:
+            return None
+        return {
+            "id": str(row["id"]),
+            "course_id": str(row["course_id"]),
+            "name": str(row["name"]),
+        }
+
+    def list_course_topics(self, course_id: str):
+        """Return canonical active Tutor topic choices for one course."""
+        clean_course = str(course_id or "").strip()
+        if not clean_course:
+            return ()
+        rows = self.connection.execute(
+            "SELECT id,course_id,name FROM topics "
+            "WHERE course_id=? AND deleted_at IS NULL "
+            "ORDER BY position,name,id",
+            (clean_course,),
+        ).fetchall()
+        return tuple(
+            {
+                "id": str(row["id"]),
+                "course_id": str(row["course_id"]),
+                "name": str(row["name"]),
+            }
+            for row in rows
+        )
+
     def assessment_course_id(self, assessment_id: str) -> Optional[str]:
         row = self.connection.execute(
             "SELECT course_id FROM assessments WHERE id=? AND deleted_at IS NULL",
