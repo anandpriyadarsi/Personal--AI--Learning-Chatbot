@@ -597,13 +597,20 @@ class AcademicAgentWebService:
                 catalogue = self._course_catalogue()
             except Exception:
                 catalogue = {"courses": ()}
-            view.update(
-                _scope_labels(
-                    catalogue,
-                    session,
-                    canonical_course=canonical_course,
-                )
+            scope_labels = _scope_labels(
+                catalogue,
+                session,
+                canonical_course=canonical_course,
             )
+            if session.topic_id and not scope_labels.get("topic_label"):
+                topic_row = connection.execute(
+                    "SELECT name FROM topics "
+                    "WHERE id=? AND course_id=? AND deleted_at IS NULL",
+                    (str(session.topic_id), str(session.course_id or "")),
+                ).fetchone()
+                if topic_row is not None:
+                    scope_labels["topic_label"] = str(topic_row["name"])
+            view.update(scope_labels)
             metadata_module = import_module(
                 "personal_learning_assistant.repositories.sqlite.search_metadata_repository"
             )
