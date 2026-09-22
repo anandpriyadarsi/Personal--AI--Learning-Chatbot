@@ -90,8 +90,8 @@ Set-Content -LiteralPath $HashScriptPath -Value $HashScript -Encoding UTF8
 $BeforeHashes = (& $PythonResolved $HashScriptPath).Trim()
 if ($LASTEXITCODE -ne 0) { Stop-Gate "Could not capture protected hashes." }
 
-Run-Step "[1/8] Tutor 2.2 persistent student-model focused tests" {
-    & $PythonResolved -m pytest -q tests/test_tutor22_student_model.py
+Run-Step "[1/8] Tutor 2.2 student-model + stable-signal focused tests" {
+    & $PythonResolved -m pytest -q tests/test_tutor22_student_model.py tests/test_tutor22_signal_aggregation.py
 }
 
 Run-Step "[2/8] Tutor 2.1 adaptive + correctness + retrieval + live-fix regressions" {
@@ -144,6 +144,7 @@ Write-Host ""
 Write-Host "======================================================================="
 Write-Host " ANVAYA TUTOR 2.2 PERSISTENT STUDENT MODEL: PASS"
 Write-Host "======================================================================="
-Write-Host "Read-only cross-session student context, Tutor 2.1 adaptive/correctness/retrieval behavior,"
-Write-Host "topic-shift/follow-up continuity, provider-output hygiene, and Tutor 2.0 safety are green."
+Write-Host "Cross-session student context, bounded Tutor signal history/stable aggregation,"
+Write-Host "Tutor 2.1 adaptive/correctness/retrieval behavior, topic-shift/follow-up continuity,"
+Write-Host "provider-output hygiene, and Tutor 2.0 safety are green."
 Write-Host "No global learning-memory, progress, vault, or retrieval-index writes occurred."
