@@ -1929,6 +1929,95 @@ def academic_agent_session(session_id):
         )
 
 
+@web_blueprint.post("/agent/sessions/<session_id>/memory-candidates")
+def academic_agent_memory_candidate_propose(session_id):
+    """Explicitly propose one stable Tutor pattern as a reviewable memory candidate."""
+    service = _academic_agent_service()
+    try:
+        service.propose_memory_candidate(
+            session_id,
+            request.form.get("signal_index", ""),
+        )
+        return redirect(
+            url_for(
+                "web.academic_agent_session",
+                session_id=session_id,
+                memory_candidate="proposed",
+            ),
+            code=303,
+        )
+    except AcademicAgentWebValidationError as error:
+        return _render_session_error(
+            service,
+            session_id,
+            str(error),
+            400,
+        )
+    except AcademicAgentWebNotFoundError:
+        return _render_session_error(
+            service,
+            session_id,
+            "Tutor session was not found.",
+            404,
+        )
+    except AcademicAgentWebUnavailableError:
+        return _render_session_error(
+            service,
+            session_id,
+            "Tutor memory candidate could not be created.",
+            503,
+        )
+
+
+@web_blueprint.post(
+    "/agent/sessions/<session_id>/memory-candidates/<candidate_id>/review"
+)
+def academic_agent_memory_candidate_review(session_id, candidate_id):
+    """Accept or reject one proposed Tutor memory candidate."""
+    service = _academic_agent_service()
+    action = request.form.get("action", "")
+    try:
+        service.review_memory_candidate(
+            session_id,
+            candidate_id,
+            action=action,
+            review_note=request.form.get("review_note", ""),
+        )
+        return redirect(
+            url_for(
+                "web.academic_agent_session",
+                session_id=session_id,
+                memory_candidate=(
+                    "accepted"
+                    if str(action).strip().casefold() == "accept"
+                    else "rejected"
+                ),
+            ),
+            code=303,
+        )
+    except AcademicAgentWebValidationError as error:
+        return _render_session_error(
+            service,
+            session_id,
+            str(error),
+            400,
+        )
+    except AcademicAgentWebNotFoundError:
+        return _render_session_error(
+            service,
+            session_id,
+            "Tutor memory candidate was not found.",
+            404,
+        )
+    except AcademicAgentWebUnavailableError:
+        return _render_session_error(
+            service,
+            session_id,
+            "Tutor memory candidate review could not be saved.",
+            503,
+        )
+
+
 @web_blueprint.post("/agent/sessions/<session_id>/turns/<turn_id>/feedback")
 def academic_agent_feedback(session_id, turn_id):
     """Persist explicit helpful/not-helpful feedback for one Tutor answer."""
