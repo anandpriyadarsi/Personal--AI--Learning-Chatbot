@@ -6,6 +6,7 @@ tutor_sessions.metadata_json and never writes academic mastery/progress.
 
 from __future__ import annotations
 
+import json
 import re
 from typing import Mapping
 
@@ -13,8 +14,12 @@ from personal_learning_assistant.tutor.intent import TutorIntent, classify_tutor
 
 
 STATE_KEY = "adaptive_tutor_state"
-STATE_VERSION = 1
+STATE_VERSION = 2
 _MAX_TEXT = 700
+_EVAL_PATTERN = re.compile(
+    r"^\s*<!--ANVAYA_EVAL\s+(\{.*?\})\s*-->\s*",
+    re.DOTALL,
+)
 
 
 def _clean(value, limit=_MAX_TEXT):
@@ -33,6 +38,8 @@ def default_adaptive_state():
         "last_student_answer": "",
         "unresolved_doubt": "",
         "answer_status": "unassessed",
+        "last_evaluation_reason": "",
+        "last_misconception": "",
     }
 
 
@@ -62,6 +69,12 @@ def load_adaptive_state(metadata):
     }:
         answer_status = "unassessed"
     state["answer_status"] = answer_status
+    state["last_evaluation_reason"] = _clean(
+        raw.get("last_evaluation_reason"), 240
+    )
+    state["last_misconception"] = _clean(
+        raw.get("last_misconception"), 240
+    )
     return state
 
 
@@ -82,6 +95,14 @@ def adaptive_state_prompt(state):
         rows.append("unresolved_doubt={}".format(clean["unresolved_doubt"]))
     if clean["last_student_answer"]:
         rows.append("last_student_answer={}".format(clean["last_student_answer"]))
+    if clean["last_evaluation_reason"]:
+        rows.append(
+            "last_evaluation_reason={}".format(clean["last_evaluation_reason"])
+        )
+    if clean["last_misconception"]:
+        rows.append(
+            "last_misconception={}".format(clean["last_misconception"])
+        )
     return "\n".join(rows)
 
 
@@ -106,6 +127,50 @@ def resolve_adaptive_intent(question, state):
             ),
         )
     return base
+
+
+def evaluation_protocol():
+    return (
+        "For this quiz-answer turn, begin your raw response with exactly one hidden "
+        "machine-readable line in this format: "
+        '<!--ANVAYA_EVAL {"status":"correct|partial|incorrect|unclear",'
+        '"reason":"brief reason","misconception":"brief misconception or empty"}--> '
+        "Then write the normal student-facing Tutor reply. The hidden marker is for "
+        "ANVAYA only and will be removed before display. Classify conservatively: use "
+        "'correct' only when the essential reasoning is correct, 'partial' when the core "
+        "idea is present but incomplete, 'incorrect' for a substantive mathematical or "
+        "conceptual error, and 'unclear' when the answer is too ambiguous to judge."
+    )
+
+
+def extract_answer_evaluation(content):
+    raw = str(content or "")
+    match = _EVAL_PATTERN.match(raw)
+    fallback = {
+        "status": "unclear",
+        "reason": "",
+        "misconception": "",
+        "present": False,
+    }
+    if match is None:
+        return raw.strip(), fallback
+    try:
+        payload = json.loads(match.group(1))
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return raw[match.end():].strip(), fallback
+    if not isinstance(payload, dict):
+        return raw[match.end():].strip(), fallback
+
+    status = _clean(payload.get("status"), 40).casefold()
+    if status not in {"correct", "partial", "incorrect", "unclear"}:
+        status = "unclear"
+    evaluation = {
+        "status": status,
+        "reason": _clean(payload.get("reason"), 240),
+        "misconception": _clean(payload.get("misconception"), 240),
+        "present": True,
+    }
+    return raw[match.end():].strip(), evaluation
 
 
 def retrieval_queries(question, state, intent_name):
@@ -159,6 +224,7 @@ def evolve_adaptive_state(
     student_message,
     assistant_message,
     teaching_intent,
+    answer_evaluation=None,
 ):
     current = load_adaptive_state({STATE_KEY: state})
     updated = dict(current)
@@ -194,8 +260,17 @@ def evolve_adaptive_state(
         updated["awaiting_student_answer"] = bool(next_question)
         updated["pending_question"] = next_question
         updated["last_student_answer"] = student
-        # 2.1.1 records the answer without inventing a correctness label.
-        updated["answer_status"] = "unassessed"
+        evaluation = dict(answer_evaluation or {})
+        status = _clean(evaluation.get("status"), 40).casefold()
+        if status not in {"correct", "partial", "incorrect", "unclear"}:
+            status = "unclear"
+        updated["answer_status"] = status
+        updated["last_evaluation_reason"] = _clean(
+            evaluation.get("reason"), 240
+        )
+        updated["last_misconception"] = _clean(
+            evaluation.get("misconception"), 240
+        )
     elif teaching_intent == "hint" and current["quiz_active"]:
         # A hint during a quiz does not consume the pending question.
         updated["quiz_active"] = True
