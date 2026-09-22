@@ -14,7 +14,7 @@ from personal_learning_assistant.tutor.intent import TutorIntent, classify_tutor
 
 
 STATE_KEY = "adaptive_tutor_state"
-STATE_VERSION = 3
+STATE_VERSION = 4
 _MAX_TEXT = 700
 _EVAL_PATTERN = re.compile(
     r"^\s*<!--ANVAYA_EVAL\s+(\{.*?\})\s*-->\s*",
@@ -135,9 +135,91 @@ def adaptive_state_prompt(state):
     return "\n".join(rows)
 
 
+_TOPIC_STOPWORDS = {
+    "about", "again", "also", "and", "answer", "because", "but", "can",
+    "could", "does", "explain", "for", "from", "give", "how", "into", "just",
+    "me", "more", "now", "only", "please", "show", "that", "the", "then",
+    "this", "use", "what", "when", "which", "why", "with", "you", "your",
+}
+
+_TOPIC_SHIFT_CUES = (
+    r"\bnow\b",
+    r"\binstead\b",
+    r"\bmove (?:on|to)\b",
+    r"\bnew topic\b",
+    r"\bexplain\b",
+    r"\bteach me\b",
+    r"\btell me about\b",
+    r"\bcompute\b",
+    r"\bcalculate\b",
+    r"\bfactori[sz](?:e|ation)\b",
+)
+
+_CONTINUITY_PHRASES = (
+    r"\bexplain it\b",
+    r"\banother way\b",
+    r"\bthe same (?:thing|idea|question)\b",
+    r"\bthis again\b",
+)
+
+
+def _topic_terms(value):
+    return {
+        token.casefold()
+        for token in re.findall(r"[A-Za-z][A-Za-z0-9_+\-^]*", str(value or ""))
+        if len(token) > 2 and token.casefold() not in _TOPIC_STOPWORDS
+    }
+
+
+def is_explicit_topic_shift(question, state):
+    """Detect an explicit new-topic request without treating short quiz answers as shifts."""
+    clean = _clean(question, 1200)
+    lowered = clean.casefold()
+    if any(re.search(pattern, lowered) for pattern in _CONTINUITY_PHRASES):
+        return False
+    if not any(re.search(pattern, lowered) for pattern in _TOPIC_SHIFT_CUES):
+        return False
+
+    current = load_adaptive_state({STATE_KEY: state})
+    anchor = (
+        current["pending_question"]
+        if current["awaiting_student_answer"] and current["pending_question"]
+        else current["unresolved_doubt"] or current["last_misconception"]
+    )
+    if not anchor:
+        return False
+
+    question_terms = _topic_terms(clean)
+    anchor_terms = _topic_terms(anchor)
+    if len(question_terms) < 2 or not anchor_terms:
+        return False
+
+    return len(question_terms & anchor_terms) == 0
+
+
+def contextualize_adaptive_state(question, state):
+    """Drop stale conversational anchors when the student explicitly changes topic."""
+    current = load_adaptive_state({STATE_KEY: state})
+    if not is_explicit_topic_shift(question, current):
+        return current
+
+    updated = dict(current)
+    updated["quiz_active"] = False
+    updated["awaiting_student_answer"] = False
+    updated["pending_question"] = ""
+    updated["unresolved_doubt"] = ""
+    updated["answer_status"] = "unassessed"
+    updated["last_evaluation_reason"] = ""
+    updated["last_misconception"] = ""
+    return updated
+
+
 def resolve_adaptive_intent(question, state):
     base = classify_tutor_intent(question)
-    clean_state = load_adaptive_state({STATE_KEY: state})
+    raw_state = load_adaptive_state({STATE_KEY: state})
+    if is_explicit_topic_shift(question, raw_state):
+        return base
+    clean_state = contextualize_adaptive_state(question, raw_state)
     if (
         clean_state["awaiting_student_answer"]
         and clean_state["pending_question"]
