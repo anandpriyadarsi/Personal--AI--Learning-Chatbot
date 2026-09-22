@@ -284,3 +284,105 @@ def test_mapping_and_prompt_accept_dataclass_or_mapping(tmp_path):
     assert mapping["previous_sessions_considered"] == 1
     assert mapping["answer_status_counts"] == {"incorrect": 1}
     connection.close()
+
+
+
+class _EmptyRetrieval:
+    def search(self, *args, **kwargs):
+        return ()
+
+
+def test_grounding_prompt_includes_persistent_model_but_current_question_has_priority(
+    tmp_path,
+):
+    from personal_learning_assistant.tutor.grounding import TutorGroundingPlanner
+
+    connection, repository, sessions = _env(tmp_path)
+    _session(
+        sessions,
+        session_id="old-ma",
+        course_id="course-ma",
+        metadata={
+            "adaptive_tutor_state": {
+                "answer_status": "partial",
+                "unresolved_doubt": "I still do not understand basis redundancy.",
+                "last_misconception": "Thinks spanning guarantees uniqueness.",
+            }
+        },
+    )
+    current = _session(
+        sessions,
+        session_id="current-ma",
+        course_id="course-ma",
+        updated_at="2026-09-23T00:00:00Z",
+    )
+
+    planner = TutorGroundingPlanner(_EmptyRetrieval(), sessions)
+    plan = planner.plan(
+        current,
+        "Now explain LU factorization and why it helps repeated solves.",
+        transcript=(),
+    )
+
+    prompt = plan.messages[-1]["content"]
+    system = plan.messages[0]["content"]
+
+    assert "PERSISTENT STUDENT MODEL (historical/advisory only)" in prompt
+    assert "previous_course_sessions=1" in prompt
+    assert "previous_doubt=I still do not understand basis redundancy." in prompt
+    assert "CURRENT QUESTION" in prompt
+    assert "Now explain LU factorization" in prompt
+    assert "CURRENT QUESTION always has priority" in system
+    assert "not proof of current mastery" in system
+    assert plan.persistent_student_model["previous_sessions_considered"] == 1
+    connection.close()
+
+
+def test_persistent_model_is_present_in_provider_request_metadata(tmp_path):
+    from personal_learning_assistant.tutor.grounding import TutorGroundingPlanner
+
+    connection, repository, sessions = _env(tmp_path)
+    _session(
+        sessions,
+        session_id="old-ma",
+        course_id="course-ma",
+        metadata={
+            "adaptive_tutor_state": {
+                "answer_status": "correct",
+            }
+        },
+    )
+    current = _session(
+        sessions,
+        session_id="current-ma",
+        course_id="course-ma",
+        updated_at="2026-09-23T00:00:00Z",
+    )
+
+    planner = TutorGroundingPlanner(_EmptyRetrieval(), sessions)
+    plan = planner.plan(current, "Explain LU factorization.", transcript=())
+    request = planner.provider_request(current, plan, transcript=())
+
+    model = request.metadata["persistent_student_model"]
+    assert model["previous_sessions_considered"] == 1
+    assert model["answer_status_counts"] == {"correct": 1}
+    connection.close()
+
+
+def test_tutor22_template_labels_history_as_advisory():
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    template = (
+        root
+        / "personal_learning_assistant"
+        / "ui"
+        / "web"
+        / "templates"
+        / "agent_session.html"
+    ).read_text(encoding="utf-8")
+
+    assert "ANVAYA Tutor 2.2" in template
+    assert "Across sessions" in template
+    assert "Historical/advisory context only" in template
+    assert "not a mastery score" in template
