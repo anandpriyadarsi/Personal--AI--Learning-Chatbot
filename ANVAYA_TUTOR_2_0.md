@@ -74,8 +74,7 @@ Previously, retrieval returning zero chunks always produced:
 Tutor 2.0 keeps that behavior for Strict Source Only.
 
 For Source First sessions, zero retrieved project evidence may now call the
-configured Tutor provider and return a clearly general explanation. Such turns
-are persisted with support level `general`, not falsely labelled grounded.
+configured Tutor provider and return a clearly general explanation. Such turns are persisted with the existing `mixed` support level, which means the answer is not fully grounded in project evidence. No new Tutor database enum or schema migration is introduced.
 
 ### 5. Tutor Brain prompt
 
