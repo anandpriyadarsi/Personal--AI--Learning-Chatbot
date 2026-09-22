@@ -16,10 +16,13 @@ from personal_learning_assistant.tutor.adaptive_state import (
     evaluation_protocol,
     load_adaptive_state,
     resolve_adaptive_intent,
-    retrieval_queries,
 )
 from personal_learning_assistant.tutor.correctness import correctness_protocol
 from personal_learning_assistant.tutor.policy import get_mode_policy
+from personal_learning_assistant.tutor.retrieval_planner import (
+    plan_retrieval_queries,
+    rerank_retrieval_hits,
+)
 
 
 _MODE_LIMITS = {
@@ -255,29 +258,6 @@ def build_provider_request(
     )
 
 
-def _merge_retrieval_hits(hit_groups, limit):
-    best = {}
-    first_seen = {}
-    order = 0
-    for group in hit_groups:
-        for hit in tuple(group or ()):
-            key = str(hit.chunk_id)
-            if key not in first_seen:
-                first_seen[key] = order
-                order += 1
-            existing = best.get(key)
-            if existing is None or float(hit.score) > float(existing.score):
-                best[key] = hit
-    ranked = sorted(
-        best.values(),
-        key=lambda hit: (
-            -float(hit.score),
-            first_seen.get(str(hit.chunk_id), 10**9),
-        ),
-    )
-    return tuple(ranked[: int(limit)])
-
-
 class TutorGroundingPlanner:
     def __init__(self, retrieval_service, tutor_session_service):
         self.retrieval_service = retrieval_service
@@ -306,8 +286,17 @@ class TutorGroundingPlanner:
         ).strip()
         adaptive_state = load_adaptive_state(session.metadata)
         intent = resolve_adaptive_intent(clean, adaptive_state)
-        queries = retrieval_queries(clean, adaptive_state, intent.name)
+        policy = get_mode_policy(session.mode)
+        queries = plan_retrieval_queries(
+            clean,
+            adaptive_state,
+            intent.name,
+        )
 
+        candidate_top_k = min(
+            24,
+            max(retrieval_top_k * 2, 12),
+        )
         hit_groups = []
         for retrieval_query in queries:
             hit_groups.append(
@@ -317,10 +306,22 @@ class TutorGroundingPlanner:
                     topic_ids=(session.topic_id,) if session.topic_id else (),
                     resource_ids=(session.resource_id,) if session.resource_id else (),
                     document_ids=(source_document_id,) if source_document_id else (),
-                    top_k=retrieval_top_k,
+                    top_k=candidate_top_k,
                 )
             )
-        hits = _merge_retrieval_hits(hit_groups, retrieval_top_k)
+
+        diversify = not (
+            source_document_id
+            or session.resource_id
+            or session.mode in {"lecture", "summary"}
+        )
+        hits = rerank_retrieval_hits(
+            hit_groups,
+            limit=retrieval_top_k,
+            preferred_source_roles=policy.preferred_source_roles,
+            selected_resource_id=session.resource_id,
+            diversify=diversify,
+        )
         context = assemble_context(clean, hits, max_chars=context_max_chars)
         evidence = self.tutor_session_service.evidence_from_retrieval_hits(
             context.hits
