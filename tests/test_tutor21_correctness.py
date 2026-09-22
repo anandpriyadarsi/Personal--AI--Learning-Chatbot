@@ -137,7 +137,7 @@ def test_incorrect_matrix_product_is_rejected():
         '"left":[[1,2],[3,4]],'
         '"right":[[2,0],[1,2]],'
         '"result":[[4,4],[9,8]]'
-        '}]}-->\nWrong result."
+        '}]}-->\nWrong result.'
     )
 
     _content, verification = extract_and_verify_math(raw)
@@ -152,7 +152,7 @@ def test_untrusted_numeric_expression_is_not_evaluated():
         '"type":"determinant",'
         '"matrix":[[1,0],[0,1]],'
         '"result":"__import__(\\"os\\").system(\\"echo unsafe\\")"'
-        '}]}-->\nUnsafe metadata."
+        '}]}-->\nUnsafe metadata.'
     )
 
     _content, verification = extract_and_verify_math(raw)
