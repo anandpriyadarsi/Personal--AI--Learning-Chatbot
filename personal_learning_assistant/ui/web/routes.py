@@ -1929,6 +1929,56 @@ def academic_agent_session(session_id):
         )
 
 
+@web_blueprint.post("/agent/sessions/<session_id>/turns/<turn_id>/feedback")
+def academic_agent_feedback(session_id, turn_id):
+    """Persist explicit helpful/not-helpful feedback for one Tutor answer."""
+    raw = str(request.form.get("helpful", "")).strip().casefold()
+    if raw not in {"1", "0", "true", "false"}:
+        return _render_session_error(
+            _academic_agent_service(),
+            session_id,
+            "Tutor feedback was invalid.",
+            400,
+        )
+    helpful = raw in {"1", "true"}
+    service = _academic_agent_service()
+    try:
+        service.record_feedback(
+            session_id,
+            turn_id,
+            helpful=helpful,
+        )
+        return redirect(
+            url_for(
+                "web.academic_agent_session",
+                session_id=session_id,
+                feedback="helpful" if helpful else "not_helpful",
+            ),
+            code=303,
+        )
+    except AcademicAgentWebValidationError:
+        return _render_session_error(
+            service,
+            session_id,
+            "Tutor feedback was invalid.",
+            400,
+        )
+    except AcademicAgentWebNotFoundError:
+        return _render_session_error(
+            service,
+            session_id,
+            "Tutor answer was not found.",
+            404,
+        )
+    except AcademicAgentWebUnavailableError:
+        return _render_session_error(
+            service,
+            session_id,
+            "Tutor feedback could not be saved.",
+            503,
+        )
+
+
 @web_blueprint.post("/agent/sessions/<session_id>/ask")
 def academic_agent_ask(session_id):
     """Run one explicit grounded tutor question and redirect to the transcript."""
