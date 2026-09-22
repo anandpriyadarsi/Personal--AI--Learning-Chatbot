@@ -10,6 +10,7 @@ from personal_learning_assistant.domain.grounded_tutor_models import (
 from personal_learning_assistant.tutor.adaptive_state import (
     STATE_KEY,
     evolve_adaptive_state,
+    extract_answer_evaluation,
 )
 from personal_learning_assistant.tutor.grounding import (
     TutorGroundingError,
@@ -113,9 +114,18 @@ class GroundedTutorService:
             transcript=transcript,
         )
         response = self.provider.complete(request)
-        content = str(response.content or "").strip()
-        if not content:
+        raw_content = str(response.content or "").strip()
+        if not raw_content:
             raise GroundedTutorError("tutor provider returned an empty answer")
+
+        answer_evaluation = None
+        content = raw_content
+        if plan.teaching_intent == "quiz_answer":
+            content, answer_evaluation = extract_answer_evaluation(raw_content)
+            if not content:
+                raise GroundedTutorError(
+                    "tutor provider returned evaluation metadata without a visible answer"
+                )
 
         available = {
             item.citation_label for item in plan.evidence
@@ -167,6 +177,7 @@ class GroundedTutorService:
             student_message=plan.question,
             assistant_message=content,
             teaching_intent=plan.teaching_intent,
+            answer_evaluation=answer_evaluation,
         )
         metadata = dict(session.metadata or {})
         metadata[STATE_KEY] = next_state
