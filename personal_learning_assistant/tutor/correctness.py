@@ -27,6 +27,7 @@ class MathVerification:
     checked_claims: int
     issues: tuple[str, ...]
     marker_present: bool
+    claim_types: tuple[str, ...] = ()
 
 
 def requires_deterministic_math(question):
@@ -59,6 +60,20 @@ def requires_deterministic_math(question):
         )
     )
     return bool(operation and supported_subject)
+
+
+def required_claim_types(question):
+    clean = " ".join(str(question or "").casefold().split())
+    if not requires_deterministic_math(clean):
+        return ()
+    required = []
+    if re.search(r"\b(?:lu|matrix|matrices)\b", clean):
+        required.append("matrix_product")
+    if re.search(r"\bdeterminant\b", clean):
+        required.append("determinant")
+    if re.search(r"\b(?:vector|linear combination|coordinate representation)\b", clean):
+        required.append("vector_linear_combination")
+    return tuple(dict.fromkeys(required))
 
 
 def correctness_protocol():
@@ -305,6 +320,7 @@ def extract_and_verify_math(content):
             checked_claims=0,
             issues=(),
             marker_present=False,
+            claim_types=(),
         )
 
     # Multiple markers complicate repair semantics and are unnecessary.
@@ -316,6 +332,7 @@ def extract_and_verify_math(content):
             checked_claims=0,
             issues=("multiple ANVAYA_MATH markers were emitted",),
             marker_present=True,
+            claim_types=(),
         )
 
     match = matches[0]
@@ -350,8 +367,13 @@ def extract_and_verify_math(content):
 
     issues = []
     checked = 0
+    claim_types = []
     for index, claim in enumerate(claims, start=1):
         checked += 1
+        if isinstance(claim, dict):
+            claim_type = str(claim.get("type") or "").strip()
+            if claim_type:
+                claim_types.append(claim_type)
         passed, issue = _verify_claim(claim, index)
         if not passed:
             issues.append(issue)
@@ -362,4 +384,5 @@ def extract_and_verify_math(content):
         checked_claims=checked,
         issues=tuple(issues),
         marker_present=True,
+        claim_types=tuple(claim_types),
     )
