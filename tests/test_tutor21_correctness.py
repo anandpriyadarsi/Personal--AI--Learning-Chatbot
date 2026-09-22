@@ -180,7 +180,7 @@ def test_wrong_math_gets_one_repair_and_only_corrected_answer_is_persisted(tmp_p
     )
     (
         connection,
-        _repository,
+        repository,
         sessions,
         session,
         provider,
@@ -201,6 +201,11 @@ def test_wrong_math_gets_one_repair_and_only_corrected_answer_is_persisted(tmp_p
     assert result.assistant_turn.content.startswith("Corrected:")
     transcript = sessions.transcript(session.session_id)
     assert "Wrong:" not in transcript[-1].content
+    state = load_adaptive_state(
+        repository.get_session(session.session_id).metadata
+    )
+    assert state["last_math_verification"] == "repaired"
+    assert state["last_math_claims_checked"] == 1
     connection.close()
 
 
@@ -223,7 +228,7 @@ def test_two_failed_math_attempts_are_blocked_from_student(tmp_path):
     )
     (
         connection,
-        _repository,
+        repository,
         sessions,
         session,
         provider,
@@ -241,6 +246,11 @@ def test_two_failed_math_attempts_are_blocked_from_student(tmp_path):
     transcript = sessions.transcript(session.session_id)
     assert "Wrong numerical" not in transcript[-1].content
     assert "Still wrong" not in transcript[-1].content
+    state = load_adaptive_state(
+        repository.get_session(session.session_id).metadata
+    )
+    assert state["last_math_verification"] == "blocked"
+    assert state["last_teaching_move"] == "correctness_block"
     connection.close()
 
 
@@ -282,3 +292,21 @@ def test_quiz_evaluation_and_math_verification_can_coexist(tmp_path):
     assert state["answer_status"] == "correct"
     assert "ANVAYA_" not in sessions.transcript(session.session_id)[-1].content
     connection.close()
+
+
+
+def test_tutor_system_prompt_contains_deterministic_math_protocol():
+    from personal_learning_assistant.tutor.grounding import _system_prompt
+
+    prompt = _system_prompt(
+        mode="doubt",
+        source_policy="source_first",
+        purpose="Diagnose a specific confusion without skipping prerequisites.",
+        preferred_source_roles=("professor", "course", "personal_note"),
+    )
+
+    assert "DETERMINISTIC MATH VERIFICATION" in prompt
+    assert "vector_linear_combination" in prompt
+    assert "matrix_product" in prompt
+    assert "determinant" in prompt
+    assert "ANVAYA_MATH" in prompt
