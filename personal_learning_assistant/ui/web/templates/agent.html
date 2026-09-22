@@ -64,7 +64,7 @@
         <p class="eyebrow">Persistent tutor</p>
         <h3>Start a tutor session</h3>
       </div>
-      <span class="tag">Source Only default</span>
+      <span class="tag">Source First default</span>
     </div>
     <form method="post" action="{{ url_for('web.academic_agent_create_session') }}">
       <p>
@@ -88,7 +88,7 @@
         <label for="session-policy">Source policy</label><br>
         <select id="session-policy" name="source_policy">
           {% for policy in workspace.source_policies %}
-            <option value="{{ policy }}"{% if policy == 'source_only' %} selected{% endif %}>{% if policy == 'source_only' %}Source Only{% else %}Source First{% endif %}</option>
+            <option value="{{ policy }}"{% if policy == 'source_first' %} selected{% endif %}>{% if policy == 'source_only' %}Strict Sources Only{% else %}Source First · Tutor mode{% endif %}</option>
           {% endfor %}
         </select>
       </p>
