@@ -13,6 +13,7 @@ from personal_learning_assistant.domain.tutor_models import TutorProviderRequest
 from personal_learning_assistant.retrieval.rag_context import assemble_context
 from personal_learning_assistant.tutor.adaptive_state import (
     adaptive_state_prompt,
+    evaluation_protocol,
     load_adaptive_state,
     resolve_adaptive_intent,
     retrieval_queries,
@@ -186,6 +187,11 @@ def build_provider_request(
     intent = resolve_adaptive_intent(question, state)
     intent_name = str(teaching_intent or intent.name)
     intent_instruction = str(teaching_instruction or intent.instruction)
+    if intent_name == "quiz_answer":
+        intent_instruction = "{} {}".format(
+            intent_instruction,
+            evaluation_protocol(),
+        )
     messages = [
         {
             "role": "system",
