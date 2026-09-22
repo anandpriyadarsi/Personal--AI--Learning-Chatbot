@@ -274,10 +274,15 @@ class AcademicAgentWebService:
         runtime_module = import_module(
             "personal_learning_assistant.services.unified_search_runtime"
         )
-        return runtime_module.get_unified_search_runtime(
+        # Tutor requests run inside Flask worker threads. Do not reuse the
+        # application-global retrieval runtime here because its SQLite index
+        # connection is thread-affine. Create a request-local runtime and let
+        # ask() close it in its existing finally block.
+        runtime = runtime_module.UnifiedSearchRuntime(
             database_path=self.database_path,
             index_root=self.index_root,
-        ), None
+        )
+        return runtime, runtime
 
     def workspace(self, course_code=""):
         selected_course_code = str(course_code or "").strip()
