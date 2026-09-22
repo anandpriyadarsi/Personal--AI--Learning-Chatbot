@@ -17,6 +17,7 @@ from personal_learning_assistant.tutor.adaptive_state import (
 from personal_learning_assistant.tutor.correctness import (
     MathVerification,
     extract_and_verify_math,
+    required_claim_types,
     requires_deterministic_math,
     sanitize_correctness_prose,
 )
@@ -237,6 +238,7 @@ class GroundedTutorService:
             plan,
             raw_content,
         )
+        required_types = required_claim_types(plan.question)
         if (
             requires_deterministic_math(plan.question)
             and not math_verification.applicable
@@ -250,7 +252,28 @@ class GroundedTutorService:
                     "did not provide machine-checkable math claims",
                 ),
                 marker_present=False,
+                claim_types=(),
             )
+        elif required_types:
+            missing_types = tuple(
+                claim_type
+                for claim_type in required_types
+                if claim_type not in set(math_verification.claim_types)
+            )
+            if missing_types:
+                math_verification = MathVerification(
+                    applicable=True,
+                    passed=False,
+                    checked_claims=math_verification.checked_claims,
+                    issues=tuple(math_verification.issues)
+                    + (
+                        "required verification claim type(s) missing: {}".format(
+                            ", ".join(missing_types)
+                        ),
+                    ),
+                    marker_present=math_verification.marker_present,
+                    claim_types=math_verification.claim_types,
+                )
         if not content:
             raise GroundedTutorError(
                 "tutor provider returned metadata without a visible answer"
