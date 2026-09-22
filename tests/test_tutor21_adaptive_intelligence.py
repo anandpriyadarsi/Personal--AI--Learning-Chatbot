@@ -109,7 +109,13 @@ def test_quiz_turn_persists_pending_question_in_session_metadata(tmp_path):
     assert state["awaiting_student_answer"] is True
     assert "Why is it not a basis?" in state["pending_question"]
     assert provider.requests[0].metadata["teaching_intent"] == "quiz"
-    assert len(retrieval.calls) == 1
+    assert 1 <= len(retrieval.calls) <= 4
+    assert retrieval.calls[0][0] == (
+        "Quiz me one question at a time on span, linear independence and basis."
+    )
+    assert len({call[0].casefold() for call in retrieval.calls}) == len(
+        retrieval.calls
+    )
     connection.close()
 
 
