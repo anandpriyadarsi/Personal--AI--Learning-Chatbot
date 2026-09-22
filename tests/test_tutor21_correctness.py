@@ -331,3 +331,31 @@ def test_system_prompt_formats_literal_correctness_json_without_keyerror():
     assert '{"type":"vector_linear_combination"' in prompt
     assert '{"type":"matrix_product"' in prompt
     assert '{"type":"determinant"' in prompt
+
+
+
+def test_student_facing_answer_hides_correctness_protocol_wording():
+    from personal_learning_assistant.tutor.correctness import (
+        sanitize_correctness_prose,
+    )
+
+    visible = sanitize_correctness_prose(
+        "**Verification (hidden marker):** The product LU is correct. "
+        "The deterministic math verifier confirms it."
+    )
+
+    assert "hidden marker" not in visible.casefold()
+    assert "deterministic math verifier" not in visible.casefold()
+    assert "ANVAYA_MATH" not in visible
+    assert "Verification:" in visible
+    assert "calculation check confirms it" in visible
+
+
+def test_correctness_protocol_forbids_internal_metadata_narration():
+    from personal_learning_assistant.tutor.correctness import correctness_protocol
+
+    prompt = correctness_protocol()
+
+    assert "never mention ANVAYA_MATH" in prompt
+    assert "hidden markers" in prompt
+    assert "student-facing answer" in prompt
