@@ -210,11 +210,58 @@ It currently does not independently prove:
 Those remain future correctness work. The deterministic layer is designed to
 expand incrementally rather than execute arbitrary mathematical text.
 
-### 2.1.4 Retrieval Planner
-Expand difficult conceptual questions into multiple retrieval intents and
-rerank evidence by course/source role and relevance.
+## 2.1.4 — Smarter Retrieval Planner
 
-### 2.1.5 Student Model Bridge
+Tutor retrieval is no longer based only on the literal wording of the current
+student message.
+
+The planner now creates at most four deterministic query variants using:
+
+- the original question;
+- a conversational-noise-reduced academic focus query;
+- pending Tutor question + short student answer during adaptive quizzes;
+- unresolved doubt or known session-local misconception when relevant;
+- conservative terminology/spelling variants such as
+  \`factorisation\` / \`factorization\`.
+
+No LLM/provider call is used for query planning.
+
+Each planned query retrieves a bounded candidate set. Candidates are then
+reranked using:
+
+1. rank within each retrieval query;
+2. agreement/consensus across multiple query variants;
+3. Tutor-mode source preference;
+4. deterministic document diversity for broad tutoring.
+
+For concept/doubt/exam-style tutoring, at most three chunks from one document
+are selected before other useful documents are allowed into context. This
+reduces the risk that adjacent chunks from one PDF crowd out professor notes,
+personal notes, PYQs, or another useful source.
+
+For selected-resource, lecture, summary, or explicitly document-scoped sessions,
+diversification is disabled so ANVAYA can remain concentrated on the chosen
+material.
+
+Current source-role inference is conservative and uses existing retrieval
+metadata only. It recognizes common categories such as:
+
+- selected resource;
+- professor/slides;
+- personal/Obsidian notes;
+- PYQ/question-paper material;
+- external course material;
+- ordinary course material.
+
+The final evidence count and context-character budget remain governed by the
+existing Tutor mode limits.
+
+### 2.1.5 Live Study Validation
+Run a sustained real study conversation across explanation, correction, quiz,
+hint, numerical example, and retrieval-source inspection before promoting any
+session-local signal into long-term learning memory.
+
+### Future Student Model Bridge
 Only after explicit review: promote selected stable signals from session-local
 state into ANVAYA learning memory. No automatic global-memory writes are
 allowed in 2.1.1.
