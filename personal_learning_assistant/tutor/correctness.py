@@ -44,7 +44,10 @@ def correctness_protocol():
         "Include every supported numerical claim that the explanation relies on. "
         "Do not put prose inside the marker. Do not emit a marker when no supported "
         "numerical claim appears. ANVAYA will independently check these claims and may "
-        "reject the worked example if they are false."
+        "reject the worked example if they are false. The hidden marker and the verification "
+        "mechanism are internal implementation details: never mention ANVAYA_MATH, hidden "
+        "markers, machine-readable metadata, deterministic verifiers, or internal verification "
+        "machinery in the visible student-facing answer."
     )
 
 
@@ -221,6 +224,42 @@ def _verify_claim(claim, index):
     if passed:
         return True, ""
     return False, "claim {} failed: {}".format(index, issue)
+
+
+def sanitize_correctness_prose(content):
+    """Remove internal correctness-protocol wording from student-facing prose."""
+    text = str(content or "")
+
+    # The model may narrate the hidden protocol even when the actual metadata
+    # marker was correctly stripped. Keep ordinary mathematical "Verification"
+    # wording, but remove implementation-detail qualifiers.
+    text = re.sub(
+        r"(?i)\bverification\s*\(\s*hidden\s+marker\s*\)\s*:",
+        "Verification:",
+        text,
+    )
+    text = re.sub(
+        r"(?i)\b(?:hidden|machine-readable)\s+(?:math\s+)?marker\b",
+        "",
+        text,
+    )
+    text = re.sub(
+        r"(?i)\bANVAYA_MATH\b",
+        "",
+        text,
+    )
+    text = re.sub(
+        r"(?i)\bdeterministic\s+(?:math\s+)?verifier\b",
+        "calculation check",
+        text,
+    )
+    text = re.sub(
+        r"(?i)\binternal\s+verification\s+machinery\b",
+        "calculation check",
+        text,
+    )
+    text = re.sub(r"[ \t]{2,}", " ", text)
+    return text.strip()
 
 
 def extract_and_verify_math(content):
