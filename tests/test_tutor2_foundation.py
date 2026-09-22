@@ -91,7 +91,7 @@ def test_source_first_can_teach_when_project_retrieval_is_empty(tmp_path):
     )
 
     assert len(provider.requests) == 1
-    assert result.assistant_turn.support_level == "general"
+    assert result.assistant_turn.support_level == "mixed"
     assert result.assistant_turn.evidence == ()
     assert result.citations == ()
     assert "no redundant vectors" in result.assistant_turn.content
@@ -256,7 +256,7 @@ def test_tutor_feedback_is_explicit_and_stays_in_feedback_table(tmp_path):
     turn = sessions.add_assistant_turn(
         session.session_id,
         "A general teaching answer.",
-        support_level="general",
+        support_level="mixed",
         provider_name="fake",
         provider_model="fake-model",
     )
