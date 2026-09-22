@@ -24,6 +24,11 @@ from personal_learning_assistant.tutor.retrieval_planner import (
     plan_retrieval_queries,
     rerank_retrieval_hits,
 )
+from personal_learning_assistant.tutor.student_model import (
+    build_persistent_student_model,
+    student_model_mapping,
+    student_model_prompt,
+)
 
 
 _MODE_LIMITS = {
@@ -119,8 +124,11 @@ def _system_prompt(*, mode, source_policy, purpose, preferred_source_roles):
         "practice, revise, summarize, or prepare for an assessment. Respect explicit requests "
         "such as 'hint only', 'do not solve', 'quiz me', or 'explain differently'. "
         "Prefer one useful teaching move at a time. The CURRENT QUESTION always has priority "
-        "over older student-state fields. Treat stored doubts and misconceptions as background "
-        "only; never answer an old topic when the student explicitly asks about a new one. "
+        "over current-session state, and current-session state has priority over the persistent "
+        "student model. Treat historical doubts, answer signals, progress events, and learning "
+        "memory as advisory context only. They may help choose explanation style, prerequisite "
+        "reminders, or difficulty, but they are not proof of current mastery. Never answer an "
+        "old topic when the student explicitly asks about a new one. "
         "For references such as 'the example you just gave', the recent transcript is authoritative: "
         "reuse the exact prior example instead of inventing a replacement. "
         "When the student is confused, identify the missing idea or misconception before expanding the answer. Use simple clear "
@@ -188,6 +196,7 @@ def build_provider_request(
     teaching_intent=None,
     teaching_instruction=None,
     adaptive_state=None,
+    persistent_student_model=None,
 ):
     policy = get_mode_policy(session.mode)
     state = (
@@ -196,6 +205,7 @@ def build_provider_request(
         else load_adaptive_state({"adaptive_tutor_state": adaptive_state})
     )
     intent = resolve_adaptive_intent(question, state)
+    persistent_model_text = student_model_prompt(persistent_student_model)
     intent_name = str(teaching_intent or intent.name)
     intent_instruction = str(teaching_instruction or intent.instruction)
     if intent_name == "quiz_answer":
@@ -221,6 +231,7 @@ def build_provider_request(
             "content": (
                 "SESSION SCOPE\n{}\n\n"
                 "STUDENT STATE\n{}\n\n"
+                "PERSISTENT STUDENT MODEL (historical/advisory only)\n{}\n\n"
                 "TEACHING INTENT\n{}\n{}\n\n"
                 "CURRENT QUESTION\n{}\n\n"
                 "ACADEMIC EVIDENCE\n"
@@ -237,6 +248,7 @@ def build_provider_request(
                     ).strip() or None,
                 ),
                 adaptive_state_prompt(state),
+                persistent_model_text,
                 intent_name,
                 intent_instruction,
                 question,
@@ -259,6 +271,9 @@ def build_provider_request(
             "evidence_count": len(evidence_labels),
             "teaching_intent": intent_name,
             "adaptive_state": dict(state),
+            "persistent_student_model": student_model_mapping(
+                persistent_student_model
+            ),
         },
     )
 
@@ -296,6 +311,10 @@ class TutorGroundingPlanner:
             raw_adaptive_state,
         )
         policy = get_mode_policy(session.mode)
+        persistent_student_model = build_persistent_student_model(
+            self.tutor_session_service.repository,
+            session,
+        )
         queries = plan_retrieval_queries(
             clean,
             adaptive_state,
@@ -345,6 +364,7 @@ class TutorGroundingPlanner:
             teaching_intent=intent.name,
             teaching_instruction=intent.instruction,
             adaptive_state=adaptive_state,
+            persistent_student_model=persistent_student_model,
         )
         return GroundingPlan(
             question=clean,
@@ -359,6 +379,9 @@ class TutorGroundingPlanner:
             teaching_intent=intent.name,
             teaching_instruction=intent.instruction,
             adaptive_state=dict(adaptive_state),
+            persistent_student_model=student_model_mapping(
+                persistent_student_model
+            ),
             retrieval_queries=tuple(queries),
         )
 
@@ -374,4 +397,5 @@ class TutorGroundingPlanner:
             teaching_intent=plan.teaching_intent,
             teaching_instruction=plan.teaching_instruction,
             adaptive_state=plan.adaptive_state,
+            persistent_student_model=plan.persistent_student_model,
         )
