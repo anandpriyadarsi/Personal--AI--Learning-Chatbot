@@ -127,7 +127,7 @@ def _session_view(session, turns):
     }
 
 
-def _scope_labels(catalogue, session):
+def _scope_labels(catalogue, session, canonical_course=None):
     labels = {
         "course_label": "All courses",
         "topic_label": "",
@@ -135,30 +135,50 @@ def _scope_labels(catalogue, session):
         "resource_label": "",
     }
     courses = list(dict(catalogue or {}).get("courses", ()) or ())
-    selected = next(
-        (
-            item for item in courses
-            if str(item.get("id") or "") == str(session.course_id or "")
-        ),
-        None,
-    )
-    if selected is not None:
-        code = str(selected.get("code") or "").strip()
-        name = str(selected.get("name") or "").strip()
+    canonical = dict(canonical_course or {})
+
+    selected = None
+    if canonical:
+        code = str(canonical.get("code") or "").strip()
+        name = str(canonical.get("name") or "").strip()
         labels["course_label"] = " · ".join(part for part in (code, name) if part)
-        if session.topic_id:
-            topic = next(
+        if code:
+            selected = next(
                 (
-                    item for item in list(selected.get("topics", ()) or ())
-                    if str(item.get("id") or item.get("topic_id") or "")
-                    == str(session.topic_id)
+                    item for item in courses
+                    if str(item.get("code") or "").strip().casefold()
+                    == code.casefold()
                 ),
                 None,
             )
-            if topic is not None:
-                labels["topic_label"] = str(
-                    topic.get("name") or topic.get("topic_name") or ""
-                ).strip()
+    if selected is None:
+        selected = next(
+            (
+                item for item in courses
+                if str(item.get("id") or "") == str(session.course_id or "")
+            ),
+            None,
+        )
+        if selected is not None and labels["course_label"] == "All courses":
+            code = str(selected.get("code") or "").strip()
+            name = str(selected.get("name") or "").strip()
+            labels["course_label"] = " · ".join(
+                part for part in (code, name) if part
+            )
+
+    if selected is not None and session.topic_id:
+        topic = next(
+            (
+                item for item in list(selected.get("topics", ()) or ())
+                if str(item.get("id") or item.get("topic_id") or "")
+                == str(session.topic_id)
+            ),
+            None,
+        )
+        if topic is not None:
+            labels["topic_label"] = str(
+                topic.get("name") or topic.get("topic_name") or ""
+            ).strip()
     return labels
 
 
@@ -483,11 +503,18 @@ class AcademicAgentWebService:
                     "Tutor session history is temporarily unavailable."
                 ) from error
             view = _session_view(session, turns)
+            canonical_course = repository.course_identity(session.course_id)
             try:
                 catalogue = self._course_catalogue()
             except Exception:
                 catalogue = {"courses": ()}
-            view.update(_scope_labels(catalogue, session))
+            view.update(
+                _scope_labels(
+                    catalogue,
+                    session,
+                    canonical_course=canonical_course,
+                )
+            )
             metadata_module = import_module(
                 "personal_learning_assistant.repositories.sqlite.search_metadata_repository"
             )
