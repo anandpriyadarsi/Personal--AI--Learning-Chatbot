@@ -349,7 +349,7 @@ class AcademicAgentWebService:
         *,
         course_id,
         mode="concept",
-        source_policy="source_first",
+        source_policy="source_only",
         title="",
     ):
         connection = _open_database(self.database_path, writable=True)
@@ -367,7 +367,7 @@ class AcademicAgentWebService:
             sessions = service_module.TutorSessionService(repository)
             spec = models_module.TutorSessionSpec(
                 mode=str(mode or "concept").strip().casefold(),
-                source_policy=str(source_policy or "source_first").strip().casefold(),
+                source_policy=str(source_policy or "source_only").strip().casefold(),
                 course_id=str(course_id or "").strip() or None,
                 title=str(title or "").strip(),
                 metadata={"origin": "phase7.5.9_web"},
