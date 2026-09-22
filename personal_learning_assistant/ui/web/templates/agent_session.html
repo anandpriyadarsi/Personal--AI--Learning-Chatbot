@@ -21,10 +21,11 @@ window.MathJax = {
 
 {% block content %}
 {% set adaptive = session.adaptive_state if session and session.adaptive_state is defined else {} %}
+{% set persistent = session.persistent_student_model if session and session.persistent_student_model is defined else {} %}
 <div class="tutor-chat-shell">
   <header class="tutor-chat-header">
     <div class="tutor-heading-copy">
-      <p class="eyebrow">ANVAYA Tutor 2.1</p>
+      <p class="eyebrow">ANVAYA Tutor 2.2</p>
       <h2>{% if session %}{{ session.title or 'New conversation' }}{% else %}Tutor session{% endif %}</h2>
       {% if session %}
       <div class="tutor-scope" aria-label="Tutor scope">
@@ -59,6 +60,34 @@ window.MathJax = {
           {% if adaptive.get('last_math_claims_checked') %} · {{ adaptive.get('last_math_claims_checked') }} claim(s){% endif %}
         </p>
         {% endif %}
+      </details>
+      {% endif %}
+      {% if persistent.get('previous_sessions_considered', 0) or persistent.get('learning_memory') or persistent.get('recent_progress') %}
+      <details class="tutor-state-summary tutor-persistent-summary">
+        <summary>Across sessions</summary>
+        {% if persistent.get('previous_sessions_considered', 0) %}
+        <p><strong>Previous course sessions considered:</strong> {{ persistent.get('previous_sessions_considered') }}</p>
+        {% endif %}
+        {% if persistent.get('answer_status_counts') %}
+        <p><strong>Historical answer signals:</strong>
+          {% for label, count in persistent.get('answer_status_counts').items() %}
+            {{ label|title }} {{ count }}{% if not loop.last %} · {% endif %}
+          {% endfor %}
+        </p>
+        {% endif %}
+        {% for doubt in persistent.get('recurring_doubts', ()) %}
+        <p><strong>Previous doubt:</strong> {{ doubt }}</p>
+        {% endfor %}
+        {% for misconception in persistent.get('recurring_misconceptions', ()) %}
+        <p><strong>Previous possible misconception:</strong> {{ misconception }}</p>
+        {% endfor %}
+        {% for memory in persistent.get('learning_memory', ()) %}
+        <p><strong>Existing learning memory:</strong> {{ memory }}</p>
+        {% endfor %}
+        {% for event in persistent.get('recent_progress', ()) %}
+        <p><strong>Existing progress context:</strong> {{ event }}</p>
+        {% endfor %}
+        <p class="microcopy">Historical/advisory context only · not a mastery score.</p>
       </details>
       {% endif %}
       {% endif %}
