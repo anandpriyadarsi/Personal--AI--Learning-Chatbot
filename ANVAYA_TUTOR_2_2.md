@@ -128,19 +128,103 @@ Persistent context cannot weaken any of these.
 
 ## Next Tutor 2.2 units
 
-### 2.2.2 Stable Signal Aggregation
+## 2.2.2 — Stable Signal Aggregation
 
-Move beyond "latest state from earlier sessions" and aggregate repeated
-evidence over time with explicit provenance and recency.
+Tutor 2.2 now records a bounded event history inside each Tutor session's
+existing \`metadata_json\` under:
 
-Examples:
+\`tutor_signal_history_v1\`
 
-- repeated misconception across multiple sessions;
-- repeatedly correct answers on the same topic;
-- repeated need for hints;
-- calculation failures followed by later verified success.
+No new SQLite table or migration is required.
 
-Still no automatic mastery write.
+Each completed Tutor turn can deterministically produce observations such as:
+
+- \`answer_correct\`
+- \`answer_partial\`
+- \`answer_incorrect\`
+- \`answer_unclear\`
+- \`hint_requested\`
+- \`doubt\`
+- \`misconception\`
+- \`math_verified\`
+- \`math_repaired\`
+- \`math_blocked\`
+
+Each event carries bounded provenance:
+
+- Tutor session id;
+- assistant turn id;
+- course id;
+- topic id when present;
+- teaching intent;
+- observation timestamp;
+- short signal text where applicable.
+
+Each session keeps at most 40 normalized events. Re-appending the same
+turn/kind/text observation is idempotent.
+
+### Stable-pattern threshold
+
+A signal becomes a **stable cross-session pattern** only when matching evidence
+exists in at least **two distinct previous Tutor sessions**.
+
+One session is never enough.
+
+The aggregate records:
+
+- signal kind;
+- optional normalized text;
+- course/topic scope;
+- event count;
+- distinct session count;
+- first observed timestamp;
+- last observed timestamp;
+- bounded source session/turn provenance.
+
+When an explicit topic is selected, historical Tutor sessions are restricted to
+that same topic before aggregation. Basis history cannot become LU history just
+because both belong to MA103N.
+
+### Legacy-session compatibility
+
+Older Tutor 2.1 sessions do not contain event histories.
+
+For those sessions, Tutor 2.2 can project a small fallback observation set from
+their final adaptive state so existing history remains useful. New sessions use
+the richer per-turn event history.
+
+### Provider and UI use
+
+Stable patterns are included in the persistent model as advisory context, for
+example:
+
+\`stable_cross_session_signal=kind=hint_requested; sessions=2; events=3; ...\`
+
+The Tutor may use that pattern to decide that more scaffolding could be useful,
+but it still may not claim mastery or weakness as a fact.
+
+The **Across sessions** UI shows stable patterns compactly with session count,
+observation count, optional text, and last-observed time.
+
+### Write boundary
+
+Tutor 2.2.2 writes only to Tutor-session metadata.
+
+It still does **not** write:
+
+- learning memory;
+- topic progress;
+- mastery;
+- grades;
+- assessments;
+- plans;
+- notes;
+- resources;
+- retrieval indexes.
+
+Stable signals are observations, not authoritative academic state.
+
+## Next Tutor 2.2 units
 
 ### 2.2.3 Candidate Memory Promotion
 
