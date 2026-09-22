@@ -11,7 +11,12 @@ from typing import Mapping, Sequence, Tuple
 from personal_learning_assistant.domain.grounded_tutor_models import GroundingPlan
 from personal_learning_assistant.domain.tutor_models import TutorProviderRequest
 from personal_learning_assistant.retrieval.rag_context import assemble_context
-from personal_learning_assistant.tutor.intent import classify_tutor_intent
+from personal_learning_assistant.tutor.adaptive_state import (
+    adaptive_state_prompt,
+    load_adaptive_state,
+    resolve_adaptive_intent,
+    retrieval_queries,
+)
 from personal_learning_assistant.tutor.policy import get_mode_policy
 
 
@@ -168,9 +173,19 @@ def build_provider_request(
     context_text,
     transcript,
     evidence_labels,
+    teaching_intent=None,
+    teaching_instruction=None,
+    adaptive_state=None,
 ):
     policy = get_mode_policy(session.mode)
-    intent = classify_tutor_intent(question)
+    state = (
+        load_adaptive_state(session.metadata)
+        if adaptive_state is None
+        else load_adaptive_state({"adaptive_tutor_state": adaptive_state})
+    )
+    intent = resolve_adaptive_intent(question, state)
+    intent_name = str(teaching_intent or intent.name)
+    intent_instruction = str(teaching_instruction or intent.instruction)
     messages = [
         {
             "role": "system",
@@ -188,6 +203,7 @@ def build_provider_request(
             "role": "user",
             "content": (
                 "SESSION SCOPE\n{}\n\n"
+                "STUDENT STATE\n{}\n\n"
                 "TEACHING INTENT\n{}\n{}\n\n"
                 "CURRENT QUESTION\n{}\n\n"
                 "ACADEMIC EVIDENCE\n"
@@ -203,8 +219,9 @@ def build_provider_request(
                         dict(session.metadata or {}).get("source_document_id") or ""
                     ).strip() or None,
                 ),
-                intent.name,
-                intent.instruction,
+                adaptive_state_prompt(state),
+                intent_name,
+                intent_instruction,
                 question,
                 context_text,
                 ", ".join(evidence_labels) if evidence_labels else "(none)",
@@ -223,9 +240,33 @@ def build_provider_request(
             "resource_id": session.resource_id or "",
             "evidence_labels": tuple(evidence_labels),
             "evidence_count": len(evidence_labels),
-            "teaching_intent": intent.name,
+            "teaching_intent": intent_name,
+            "adaptive_state": dict(state),
         },
     )
+
+
+def _merge_retrieval_hits(hit_groups, limit):
+    best = {}
+    first_seen = {}
+    order = 0
+    for group in hit_groups:
+        for hit in tuple(group or ()):
+            key = str(hit.chunk_id)
+            if key not in first_seen:
+                first_seen[key] = order
+                order += 1
+            existing = best.get(key)
+            if existing is None or float(hit.score) > float(existing.score):
+                best[key] = hit
+    ranked = sorted(
+        best.values(),
+        key=lambda hit: (
+            -float(hit.score),
+            first_seen.get(str(hit.chunk_id), 10**9),
+        ),
+    )
+    return tuple(ranked[: int(limit)])
 
 
 class TutorGroundingPlanner:
@@ -254,14 +295,23 @@ class TutorGroundingPlanner:
         source_document_id = str(
             dict(session.metadata or {}).get("source_document_id") or ""
         ).strip()
-        hits = self.retrieval_service.search(
-            clean,
-            course_ids=(session.course_id,) if session.course_id else (),
-            topic_ids=(session.topic_id,) if session.topic_id else (),
-            resource_ids=(session.resource_id,) if session.resource_id else (),
-            document_ids=(source_document_id,) if source_document_id else (),
-            top_k=retrieval_top_k,
-        )
+        adaptive_state = load_adaptive_state(session.metadata)
+        intent = resolve_adaptive_intent(clean, adaptive_state)
+        queries = retrieval_queries(clean, adaptive_state, intent.name)
+
+        hit_groups = []
+        for retrieval_query in queries:
+            hit_groups.append(
+                self.retrieval_service.search(
+                    retrieval_query,
+                    course_ids=(session.course_id,) if session.course_id else (),
+                    topic_ids=(session.topic_id,) if session.topic_id else (),
+                    resource_ids=(session.resource_id,) if session.resource_id else (),
+                    document_ids=(source_document_id,) if source_document_id else (),
+                    top_k=retrieval_top_k,
+                )
+            )
+        hits = _merge_retrieval_hits(hit_groups, retrieval_top_k)
         context = assemble_context(clean, hits, max_chars=context_max_chars)
         evidence = self.tutor_session_service.evidence_from_retrieval_hits(
             context.hits
@@ -273,6 +323,9 @@ class TutorGroundingPlanner:
             context_text=context.context_text,
             transcript=transcript,
             evidence_labels=labels,
+            teaching_intent=intent.name,
+            teaching_instruction=intent.instruction,
+            adaptive_state=adaptive_state,
         )
         return GroundingPlan(
             question=clean,
@@ -284,6 +337,10 @@ class TutorGroundingPlanner:
             messages=tuple(request.messages),
             retrieval_top_k=retrieval_top_k,
             context_max_chars=context_max_chars,
+            teaching_intent=intent.name,
+            teaching_instruction=intent.instruction,
+            adaptive_state=dict(adaptive_state),
+            retrieval_queries=tuple(queries),
         )
 
     def provider_request(self, session, plan, *, transcript=()):
@@ -295,4 +352,7 @@ class TutorGroundingPlanner:
             evidence_labels=tuple(
                 item.citation_label for item in plan.evidence
             ),
+            teaching_intent=plan.teaching_intent,
+            teaching_instruction=plan.teaching_instruction,
+            adaptive_state=plan.adaptive_state,
         )
