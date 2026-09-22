@@ -183,10 +183,8 @@ class GroundedTutorService:
 
             if (
                 repaired_content
-                and (
-                    not repaired_verification.applicable
-                    or repaired_verification.passed
-                )
+                and repaired_verification.applicable
+                and repaired_verification.passed
             ):
                 response = repaired_response
                 raw_content = repaired_raw
