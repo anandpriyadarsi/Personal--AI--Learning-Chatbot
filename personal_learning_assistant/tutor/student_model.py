@@ -96,16 +96,29 @@ def _session_projection(connection, session):
             "stable_signals": (),
         }
 
-    rows = connection.execute(
-        "SELECT id,course_id,topic_id,metadata_json,updated_at FROM tutor_sessions "
-        "WHERE course_id=? AND id<>? "
-        "ORDER BY updated_at DESC,id DESC LIMIT ?",
-        (
-            str(session.course_id),
-            str(session.session_id),
-            _MAX_SESSIONS,
-        ),
-    ).fetchall()
+    if session.topic_id:
+        rows = connection.execute(
+            "SELECT id,course_id,topic_id,metadata_json,updated_at FROM tutor_sessions "
+            "WHERE course_id=? AND topic_id=? AND id<>? "
+            "ORDER BY updated_at DESC,id DESC LIMIT ?",
+            (
+                str(session.course_id),
+                str(session.topic_id),
+                str(session.session_id),
+                _MAX_SESSIONS,
+            ),
+        ).fetchall()
+    else:
+        rows = connection.execute(
+            "SELECT id,course_id,topic_id,metadata_json,updated_at FROM tutor_sessions "
+            "WHERE course_id=? AND id<>? "
+            "ORDER BY updated_at DESC,id DESC LIMIT ?",
+            (
+                str(session.course_id),
+                str(session.session_id),
+                _MAX_SESSIONS,
+            ),
+        ).fetchall()
 
     answer_counts = Counter()
     doubt_counts = Counter()
