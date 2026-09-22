@@ -314,14 +314,11 @@ class AcademicAgentWebService:
                 resolved_id = repository.resolve_course_id(
                     course_view.get("id") or course_view.get("code")
                 )
-                topic_rows = ()
-                if resolved_id is not None:
-                    topic_rows = connection.execute(
-                        "SELECT id,name FROM topics "
-                        "WHERE course_id=? AND deleted_at IS NULL "
-                        "ORDER BY position,name,id",
-                        (resolved_id,),
-                    ).fetchall()
+                topic_rows = (
+                    repository.list_course_topics(resolved_id)
+                    if resolved_id is not None
+                    else ()
+                )
                 course_view["tutor_topics"] = [
                     {"id": str(row["id"]), "name": str(row["name"])}
                     for row in topic_rows
@@ -603,11 +600,10 @@ class AcademicAgentWebService:
                 canonical_course=canonical_course,
             )
             if session.topic_id and not scope_labels.get("topic_label"):
-                topic_row = connection.execute(
-                    "SELECT name FROM topics "
-                    "WHERE id=? AND course_id=? AND deleted_at IS NULL",
-                    (str(session.topic_id), str(session.course_id or "")),
-                ).fetchone()
+                topic_row = repository.topic_identity(
+                    session.topic_id,
+                    course_id=session.course_id,
+                )
                 if topic_row is not None:
                     scope_labels["topic_label"] = str(topic_row["name"])
             view.update(scope_labels)
