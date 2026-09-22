@@ -187,3 +187,96 @@ def test_session_view_uses_human_course_label(tmp_path):
 
     assert view["course_label"] == "MA103N · Linear Algebra"
     assert "course-1" not in view["course_label"]
+
+
+
+def test_tutor_intent_router_respects_hint_quiz_and_verification_requests():
+    from personal_learning_assistant.tutor.intent import classify_tutor_intent
+
+    assert classify_tutor_intent(
+        "Give me a hint only, do not solve it."
+    ).name == "hint"
+    assert classify_tutor_intent(
+        "Quiz me one question at a time."
+    ).name == "quiz"
+    assert classify_tutor_intent(
+        "Check my reasoning: is this correct?"
+    ).name == "verify_reasoning"
+
+
+def test_provider_request_carries_teaching_intent(tmp_path):
+    path = tmp_path / "intent.db"
+    apply_migrations(path)
+    connection = sqlite3.connect(path, isolation_level=None)
+    connection.row_factory = sqlite3.Row
+    connection.execute("PRAGMA foreign_keys=ON")
+    repository = SQLiteTutorRepository(connection)
+    sessions = TutorSessionService(repository)
+    session = sessions.create_session(
+        TutorSessionSpec(
+            mode="doubt",
+            source_policy="source_first",
+            title="Hint session",
+        )
+    )
+
+    provider = GeneralProvider()
+    engine = GroundedTutorService(
+        tutor_session_service=sessions,
+        retrieval_service=EmptyRetrieval(),
+        provider=provider,
+    )
+    engine.answer(session.session_id, "Give me a hint only, do not solve it.")
+
+    request = provider.requests[0]
+    assert request.metadata["teaching_intent"] == "hint"
+    assert "TEACHING INTENT" in request.messages[-1]["content"]
+    assert "Do not reveal the full solution" in request.messages[-1]["content"]
+    connection.close()
+
+
+def test_tutor_feedback_is_explicit_and_stays_in_feedback_table(tmp_path):
+    from personal_learning_assistant.services.academic_agent_web_service import (
+        AcademicAgentWebService,
+    )
+
+    path = tmp_path / "feedback.db"
+    apply_migrations(path)
+    connection = sqlite3.connect(path, isolation_level=None)
+    connection.row_factory = sqlite3.Row
+    repository = SQLiteTutorRepository(connection)
+    sessions = TutorSessionService(repository)
+    session = sessions.create_session(
+        TutorSessionSpec(
+            mode="concept",
+            source_policy="source_first",
+            title="Feedback session",
+        )
+    )
+    turn = sessions.add_assistant_turn(
+        session.session_id,
+        "A general teaching answer.",
+        support_level="general",
+        provider_name="fake",
+        provider_model="fake-model",
+    )
+    connection.close()
+
+    service = AcademicAgentWebService(
+        database_path=path,
+        course_catalogue_loader=lambda: {"available": True, "courses": []},
+    )
+    service.record_feedback(
+        session.session_id,
+        turn.turn_id,
+        helpful=True,
+    )
+
+    connection = sqlite3.connect(path)
+    assert connection.execute(
+        "SELECT COUNT(*) FROM tutor_feedback"
+    ).fetchone()[0] == 1
+    assert connection.execute(
+        "SELECT helpful FROM tutor_feedback"
+    ).fetchone()[0] == 1
+    connection.close()
