@@ -13,6 +13,12 @@ from dataclasses import dataclass
 from typing import Mapping
 
 from personal_learning_assistant.tutor.adaptive_state import load_adaptive_state
+from personal_learning_assistant.tutor.student_signals import (
+    aggregate_stable_signals,
+    fallback_session_signals,
+    load_signal_history,
+    stable_signal_mapping,
+)
 
 
 _MAX_SESSIONS = 12
@@ -32,6 +38,7 @@ class PersistentStudentModel:
     blocked_calculation_count: int
     learning_memory: tuple[str, ...]
     recent_progress: tuple[str, ...]
+    stable_signals: tuple[Mapping[str, object], ...]
 
 
 def empty_student_model(course_id=""):
@@ -46,6 +53,7 @@ def empty_student_model(course_id=""):
         blocked_calculation_count=0,
         learning_memory=(),
         recent_progress=(),
+        stable_signals=(),
     )
 
 
@@ -85,10 +93,11 @@ def _session_projection(connection, session):
             "recurring_doubts": (),
             "recurring_misconceptions": (),
             "math": Counter(),
+            "stable_signals": (),
         }
 
     rows = connection.execute(
-        "SELECT id,metadata_json,updated_at FROM tutor_sessions "
+        "SELECT id,course_id,topic_id,metadata_json,updated_at FROM tutor_sessions "
         "WHERE course_id=? AND id<>? "
         "ORDER BY updated_at DESC,id DESC LIMIT ?",
         (
@@ -104,6 +113,7 @@ def _session_projection(connection, session):
     misconception_counts = Counter()
     misconception_original = {}
     math_counts = Counter()
+    session_event_groups = []
 
     for row in rows:
         metadata = _safe_json_object(row["metadata_json"])
@@ -131,6 +141,22 @@ def _session_projection(connection, session):
         if math_status in {"passed", "repaired", "blocked"}:
             math_counts[math_status] += 1
 
+        events = load_signal_history(metadata)
+        if not events:
+            events = fallback_session_signals(
+                session_id=str(row["id"]),
+                course_id=str(row["course_id"] or ""),
+                topic_id=str(row["topic_id"] or ""),
+                updated_at=str(row["updated_at"] or ""),
+                state=state,
+            )
+        session_event_groups.append((str(row["id"]), tuple(events)))
+
+    stable_signals = tuple(
+        stable_signal_mapping(item)
+        for item in aggregate_stable_signals(session_event_groups)
+    )
+
     return {
         "count": len(rows),
         "answer_status_counts": dict(answer_counts),
@@ -145,6 +171,7 @@ def _session_projection(connection, session):
             minimum=1,
         ),
         "math": math_counts,
+        "stable_signals": stable_signals,
     }
 
 
@@ -247,6 +274,7 @@ def build_persistent_student_model(repository, session):
         blocked_calculation_count=int(math.get("blocked", 0)),
         learning_memory=tuple(memory),
         recent_progress=tuple(progress),
+        stable_signals=tuple(historical["stable_signals"]),
     )
 
 
@@ -283,6 +311,11 @@ def student_model_mapping(model):
             "recent_progress": tuple(
                 model.get("recent_progress") or ()
             ),
+            "stable_signals": tuple(
+                dict(item)
+                for item in (model.get("stable_signals") or ())
+                if isinstance(item, Mapping)
+            ),
         }
     return {
         "course_id": str(model.course_id or ""),
@@ -305,6 +338,9 @@ def student_model_mapping(model):
         ),
         "learning_memory": tuple(model.learning_memory or ()),
         "recent_progress": tuple(model.recent_progress or ()),
+        "stable_signals": tuple(
+            dict(item) for item in (model.stable_signals or ())
+        ),
     }
 
 
@@ -355,6 +391,32 @@ def student_model_prompt(model):
         lines.append("existing_learning_memory=" + _clean(item))
     for item in data["recent_progress"]:
         lines.append("existing_progress_event=" + _clean(item))
+
+    for signal in data["stable_signals"]:
+        kind = _clean(signal.get("kind"), 50)
+        text = _clean(signal.get("text"))
+        sessions = int(signal.get("session_count") or 0)
+        events = int(signal.get("event_count") or 0)
+        first_seen = _clean(signal.get("first_observed_at"), 80)
+        last_seen = _clean(signal.get("last_observed_at"), 80)
+        provenance = ", ".join(
+            _clean(item, 160)
+            for item in tuple(signal.get("provenance") or ())[:4]
+        )
+        payload = (
+            "kind={}; sessions={}; events={}; first={}; last={}".format(
+                kind,
+                sessions,
+                events,
+                first_seen or "?",
+                last_seen or "?",
+            )
+        )
+        if text:
+            payload += "; text=" + text
+        if provenance:
+            payload += "; provenance=" + provenance
+        lines.append("stable_cross_session_signal=" + payload)
 
     if len(lines) == 1 and lines[0] == "previous_course_sessions=0":
         return "(none)"
