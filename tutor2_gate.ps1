@@ -90,6 +90,33 @@ Set-Content -LiteralPath $HashScriptPath -Value $HashScript -Encoding UTF8
 $BeforeHashes = (& $PythonResolved $HashScriptPath).Trim()
 if ($LASTEXITCODE -ne 0) { Stop-Gate "Could not capture protected hashes." }
 
+$BeforeSnapshotPath = Join-Path ([IO.Path]::GetTempPath()) ("anvaya_tutor2_before_" + [guid]::NewGuid().ToString("N") + ".json")
+$AfterSnapshotPath = Join-Path ([IO.Path]::GetTempPath()) ("anvaya_tutor2_after_" + [guid]::NewGuid().ToString("N") + ".json")
+Set-Content -LiteralPath $BeforeSnapshotPath -Value $BeforeHashes -Encoding UTF8
+
+$DiffScript = @'
+from __future__ import annotations
+import json, sys
+from pathlib import Path
+
+before = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8-sig"))
+after = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8-sig"))
+
+before_keys = set(before)
+after_keys = set(after)
+
+for path in sorted(after_keys - before_keys):
+    print("ADDED   " + path)
+for path in sorted(before_keys - after_keys):
+    print("REMOVED " + path)
+for path in sorted(before_keys & after_keys):
+    if before[path] != after[path]:
+        print("CHANGED " + path)
+'@
+
+$DiffScriptPath = Join-Path ([IO.Path]::GetTempPath()) ("anvaya_tutor2_diff_" + [guid]::NewGuid().ToString("N") + ".py")
+Set-Content -LiteralPath $DiffScriptPath -Value $DiffScript -Encoding UTF8
+
 Run-Step "[1/7] Tutor 2.0 focused tests" {
     & $PythonResolved -m pytest -q tests/test_tutor2_foundation.py
 }
@@ -116,7 +143,18 @@ Write-Host ""
 Write-Host "[6/7] Protected production/index/vault hashes"
 $AfterHashes = (& $PythonResolved $HashScriptPath).Trim()
 if ($LASTEXITCODE -ne 0) { Stop-Gate "Could not re-capture protected hashes." }
+Set-Content -LiteralPath $AfterSnapshotPath -Value $AfterHashes -Encoding UTF8
 if ($BeforeHashes -ne $AfterHashes) {
+    Write-Host ""
+    Write-Host "Protected-path differences:"
+    $DiffOutput = @(& $PythonResolved $DiffScriptPath $BeforeSnapshotPath $AfterSnapshotPath)
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "(Could not compute detailed protected-path diff.)"
+    } elseif ($DiffOutput.Count -eq 0) {
+        Write-Host "(Hashes differ, but no path-level difference was decoded.)"
+    } else {
+        $DiffOutput | ForEach-Object { Write-Host $_ }
+    }
     Stop-Gate "Tutor tests changed production data, retrieval indexes, or configured vault Markdown."
 }
 
@@ -135,6 +173,9 @@ if ($statusAfter.Count -ne 0) {
 }
 
 Remove-Item $HashScriptPath -Force -ErrorAction SilentlyContinue
+Remove-Item $DiffScriptPath -Force -ErrorAction SilentlyContinue
+Remove-Item $BeforeSnapshotPath -Force -ErrorAction SilentlyContinue
+Remove-Item $AfterSnapshotPath -Force -ErrorAction SilentlyContinue
 
 Write-Host ""
 Write-Host "======================================================================="
