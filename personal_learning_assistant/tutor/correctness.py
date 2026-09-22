@@ -44,7 +44,6 @@ def requires_deterministic_math(question):
             r"\bwork(?:ed)?\s+(?:example|calculation)\b",
             r"\bstep by step\b",
             r"\bnumerical example\b",
-            r"\bfactori[sz](?:e|ation)\b",
         )
     )
     supported_subject = any(
