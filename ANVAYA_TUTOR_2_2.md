@@ -339,16 +339,130 @@ It still does not automatically write:
 
 ## Next Tutor 2.2 units
 
-### 2.2.4 Personalized Teaching Policy
+## 2.2.4 — Personalized Teaching Policy
 
-Use stable accepted signals to adjust:
+Tutor 2.2 now derives an explicit deterministic teaching policy before each
+provider request.
 
-- prerequisite depth;
-- explanation style;
-- amount of scaffolding;
-- practice difficulty;
-- quiz progression;
-- when to revisit a misconception.
+The policy controls only **how ANVAYA teaches the current question**.
+
+It does not choose a different topic, create mastery, update progress, or write
+learning memory.
+
+### Policy inputs
+
+The policy reads:
+
+1. contextualized current-session state;
+2. accepted/existing learning-memory context already visible in the persistent
+   student model;
+3. stable cross-session Tutor signals;
+4. the current teaching intent.
+
+The existing priority remains unchanged:
+
+\`current question > current-session state > persistent history\`
+
+A clear topic shift therefore clears stale session-local confusion anchors
+before personalization is calculated.
+
+### Deterministic policy fields
+
+Each Tutor request carries:
+
+- \`scaffolding\`
+  - standard
+  - guided
+  - light
+- \`prerequisite_depth\`
+  - normal
+  - brief_reinforcement
+  - reinforce
+  - minimal
+- \`explanation_style\`
+  - balanced
+  - intuition_then_steps
+  - concise_then_challenge
+- \`practice_difficulty\`
+  - standard
+  - supported
+  - challenge
+- \`quiz_progression\`
+  - normal
+  - hold
+  - slow
+  - advance
+- bounded possible misconceptions to revisit;
+- deterministic policy reasons.
+
+### Conservative adaptation rules
+
+Repeated support signals such as:
+
+- recurring misconception;
+- recurring doubt;
+- repeated hint use;
+- partial/incorrect/unclear answers;
+- repaired or blocked calculations;
+
+can increase scaffolding, add a brief prerequisite reminder, keep practice at
+the same/easier level, or slow quiz progression.
+
+Historical success alone can **never** increase difficulty.
+
+A modest challenge is allowed only when:
+
+1. the current session shows recent success, such as a correct answer or
+   verified calculation; and
+2. repeated historical strength also exists.
+
+Current confusion always overrides historical strength.
+
+### Misconception handling
+
+Accepted/stable misconception context may be passed as a possible item to
+revisit.
+
+The provider is explicitly instructed to revisit it only when directly
+relevant to the current question. It may not hijack a new topic.
+
+### Provider contract
+
+Provider requests now contain:
+
+\`PERSONALIZED TEACHING POLICY (style only; CURRENT QUESTION still controls)\`
+
+The section includes the deterministic policy plus explicit constraints such
+as:
+
+- never replace the current question with an old topic;
+- never describe historical signals as proof of mastery, weakness,
+  intelligence, or ability;
+- use smaller steps when guided scaffolding is active;
+- increase challenge by at most one modest step when challenge mode is valid.
+
+The same policy is stored in provider-request metadata and in the
+\`GroundingPlan\`, so rebuilt provider requests cannot silently drift from the
+original plan.
+
+### Write boundary
+
+Building and applying the personalized teaching policy is read-only.
+
+Tutor 2.2.4 performs no additional writes to:
+
+- Tutor memory candidates;
+- learning memory;
+- topic progress;
+- mastery;
+- grades;
+- plans;
+- notes;
+- resources;
+- retrieval indexes;
+- the Obsidian vault.
+
+## Next Tutor 2.2 unit
 
 ### 2.2.5 Live Cross-Session Validation
 
