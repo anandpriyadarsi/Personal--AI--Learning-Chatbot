@@ -280,3 +280,74 @@ def test_tutor_feedback_is_explicit_and_stays_in_feedback_table(tmp_path):
         "SELECT helpful FROM tutor_feedback"
     ).fetchone()[0] == 1
     connection.close()
+
+
+
+def test_tutor_session_resolves_course_code_to_canonical_sqlite_id(tmp_path):
+    from personal_learning_assistant.services.academic_agent_web_service import (
+        AcademicAgentWebService,
+    )
+
+    path = tmp_path / "course-scope.db"
+    apply_migrations(path)
+    canonical_id = "7b39c1d0-1111-2222-3333-444444444444"
+    connection = sqlite3.connect(path)
+    connection.execute(
+        "INSERT INTO courses "
+        "(id,code,name,status,description,created_at,updated_at,deleted_at) "
+        "VALUES (?,?,?,?,?,?,?,NULL)",
+        (
+            canonical_id,
+            "MA103N",
+            "Linear Algebra",
+            "active",
+            "",
+            "x",
+            "x",
+        ),
+    )
+    connection.commit()
+    connection.close()
+
+    service = AcademicAgentWebService(
+        database_path=path,
+        course_catalogue_loader=lambda: {
+            "available": True,
+            "courses": [
+                {
+                    # Routed compatibility ID intentionally differs from SQLite.
+                    "id": "ma103n",
+                    "code": "MA103N",
+                    "name": "Linear Algebra",
+                    "topics": [],
+                }
+            ],
+        },
+    )
+    session_id = service.create_session(
+        course_id="MA103N",
+        mode="doubt",
+        source_policy="source_first",
+        title="Basis doubts",
+    )
+    view = service.session_view(session_id)
+
+    assert view["course_id"] == canonical_id
+    assert view["course_label"] == "MA103N · Linear Algebra"
+
+
+def test_tutor_session_form_posts_course_code_not_routed_compatibility_id():
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    template = (
+        root
+        / "personal_learning_assistant"
+        / "ui"
+        / "web"
+        / "templates"
+        / "agent.html"
+    ).read_text(encoding="utf-8")
+
+    assert 'option value="{{ course.code }}"' in template
+    assert 'option value="{{ course.id }}">{{ course.code }}' not in template
