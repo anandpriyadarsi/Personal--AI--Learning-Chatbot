@@ -17,7 +17,10 @@ from personal_learning_assistant.repositories.sqlite.migration_runner import (
 
 def _migrated(tmp_path):
     path = tmp_path / "learning_assistant.db"
-    assert apply_migrations(path)[-1] == 7
+    applied = apply_migrations(path)
+    # Phase 7.5.12.2 requires migration 0007, but later compatible
+    # migrations may legitimately exist on newer branches.
+    assert 7 in applied
     return path
 
 
