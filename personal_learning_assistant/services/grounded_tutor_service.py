@@ -82,7 +82,7 @@ class GroundedTutorService:
             max_chars=max_chars,
         )
 
-        if not plan.evidence:
+        if not plan.evidence and session.source_policy == "source_only":
             user_turn = self.tutor_session_service.add_user_turn(
                 session_id, plan.question
             )
@@ -138,10 +138,9 @@ class GroundedTutorService:
                 )
             support_level = "grounded"
         else:
-            # Conservative classification: source_first permits clearly separated
-            # general explanation, so persisted support is mixed rather than
-            # over-claiming that the whole answer is source-grounded.
-            support_level = "mixed"
+            # Source-first may teach from general knowledge when retrieval is empty,
+            # but it must never pretend that such an answer came from project files.
+            support_level = "mixed" if plan.evidence else "general"
 
         user_turn = self.tutor_session_service.add_user_turn(
             session_id, plan.question
