@@ -74,7 +74,7 @@ window.MathJax = {
         </div>
 
         {% if turn.role == 'assistant' %}
-        <div class="tutor-message tutor-rendered">{{ turn.content|tutor_markdown }}</div>
+        <div class="tutor-message tutor-rendered" data-raw-content="{{ turn.content }}">{{ turn.content|tutor_markdown }}</div>
         {% else %}
         <div class="tutor-message tutor-user-message">{{ turn.content }}</div>
         {% endif %}
