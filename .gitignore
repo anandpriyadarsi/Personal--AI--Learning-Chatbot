@@ -73,3 +73,6 @@ phase1_pip_freeze.txt
 .phase4_cutover.lock
 .phase4_cutover_work/
 PROMOTION_REQUIRES_ATTENTION.json
+
+# Tutor 2.2 live-validation disposable runtime
+.live_validation/
