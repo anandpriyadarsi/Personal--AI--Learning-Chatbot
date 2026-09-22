@@ -226,7 +226,7 @@ def test_explicit_confusion_is_remembered_without_writing_learning_memory(tmp_pa
 
     # Tutor 2.1 state remains session-local and does not mutate global learning memory.
     assert connection.execute(
-        "SELECT COUNT(*) FROM learning_memory"
+        "SELECT COUNT(*) FROM learning_memory_entries"
     ).fetchone()[0] == 0
     connection.close()
 
