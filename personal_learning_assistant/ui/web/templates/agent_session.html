@@ -37,7 +37,7 @@ window.MathJax = {
         {% if adaptive.get('quiz_active', false) %}<span class="tag">Adaptive quiz active</span>{% endif %}
         {% if adaptive.get('awaiting_student_answer', false) %}<span class="tag">Waiting for your answer</span>{% endif %}
       </div>
-      {% if adaptive.get('unresolved_doubt') %}
+      {% if adaptive.get('unresolved_doubt') or adaptive.get('pending_question') or adaptive.get('last_misconception') or adaptive.get('answer_status') not in [none, '', 'unassessed', 'pending'] %}
       <details class="tutor-state-summary">
         <summary>Current learning state</summary>
         <p><strong>Unresolved doubt:</strong> {{ adaptive.get('unresolved_doubt') }}</p>
