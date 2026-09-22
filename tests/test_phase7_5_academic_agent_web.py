@@ -653,3 +653,83 @@ def test_real_session_get_is_read_only_when_a_session_exists():
     response = create_app({"TESTING": True}).test_client().get("/agent/sessions/{}".format(row[0]))
     assert response.status_code == 200
     assert file_hash(database) == before
+
+
+def test_create_session_persists_explicit_topic_scope(tmp_path):
+    service, database_path, course, _provider, _retrieval = build_test_web_service(tmp_path)
+    connection = open_database(database_path)
+    try:
+        row = connection.execute(
+            "SELECT id,name FROM topics "
+            "WHERE course_id=? AND deleted_at IS NULL "
+            "ORDER BY position,name,id LIMIT 1",
+            (course["id"],),
+        ).fetchone()
+        assert row is not None, "Tutor topic-scope test requires one course topic"
+        topic_id = str(row[0])
+    finally:
+        connection.close()
+
+    session_id = service.create_session(
+        course_id=course["id"],
+        topic_id=topic_id,
+        mode="doubt",
+        source_policy="source_first",
+        title="LU Factorization",
+    )
+    view = service.session_view(session_id)
+
+    assert view["course_id"] == course["id"]
+    assert view["topic_id"] == topic_id
+    assert view["mode"] == "doubt"
+    assert view["source_policy"] == "source_first"
+
+
+def test_create_session_rejects_missing_or_cross_course_topic_scope(tmp_path):
+    service, database_path, course, _provider, _retrieval = build_test_web_service(tmp_path)
+
+    from personal_learning_assistant.services.academic_agent_web_service import (
+        AcademicAgentWebValidationError,
+    )
+
+    with pytest.raises(AcademicAgentWebValidationError):
+        service.create_session(
+            course_id=course["id"],
+            topic_id="missing-topic",
+        )
+
+    with pytest.raises(AcademicAgentWebValidationError):
+        service.create_session(
+            course_id="",
+            topic_id="missing-topic",
+        )
+
+
+def test_agent_create_session_route_forwards_topic_id():
+    fake = FakeWebService()
+    client = fake_web_app(fake).test_client()
+
+    response = client.post(
+        "/agent/sessions",
+        data={
+            "course_id": "course-1",
+            "topic_id": "topic-lu",
+            "mode": "doubt",
+            "source_policy": "source_first",
+            "title": "LU Factorization",
+        },
+    )
+
+    assert response.status_code == 303
+    assert fake.created[-1]["topic_id"] == "topic-lu"
+
+
+def test_agent_page_exposes_explicit_topic_scope_control():
+    fake = FakeWebService()
+    response = fake_web_app(fake).test_client().get("/agent")
+    text = response.get_data(as_text=True)
+
+    assert response.status_code == 200
+    assert 'id="session-topic"' in text
+    assert 'name="topic_id"' in text
+    assert "Topic scope" in text
