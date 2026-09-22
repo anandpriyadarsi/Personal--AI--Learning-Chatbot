@@ -127,6 +127,44 @@ def _session_view(session, turns):
     }
 
 
+def _scope_labels(connection, session):
+    labels = {
+        "course_label": "All courses",
+        "topic_label": "",
+        "assessment_label": "",
+        "resource_label": "",
+    }
+    if session.course_id:
+        row = connection.execute(
+            "SELECT code,name FROM courses WHERE id=? AND deleted_at IS NULL",
+            (session.course_id,),
+        ).fetchone()
+        if row is not None:
+            labels["course_label"] = "{} · {}".format(str(row[0]), str(row[1]))
+    if session.topic_id:
+        row = connection.execute(
+            "SELECT name FROM topics WHERE id=? AND deleted_at IS NULL",
+            (session.topic_id,),
+        ).fetchone()
+        if row is not None:
+            labels["topic_label"] = str(row[0])
+    if session.assessment_id:
+        row = connection.execute(
+            "SELECT title FROM assessments WHERE id=? AND deleted_at IS NULL",
+            (session.assessment_id,),
+        ).fetchone()
+        if row is not None:
+            labels["assessment_label"] = str(row[0])
+    if session.resource_id:
+        row = connection.execute(
+            "SELECT title FROM resources WHERE id=? AND deleted_at IS NULL",
+            (session.resource_id,),
+        ).fetchone()
+        if row is not None:
+            labels["resource_label"] = str(row[0])
+    return labels
+
+
 def _mentor_view(report):
     return {
         "course_id": report.course_id,
@@ -311,7 +349,7 @@ class AcademicAgentWebService:
         *,
         course_id,
         mode="concept",
-        source_policy="source_only",
+        source_policy="source_first",
         title="",
     ):
         connection = _open_database(self.database_path, writable=True)
@@ -329,7 +367,7 @@ class AcademicAgentWebService:
             sessions = service_module.TutorSessionService(repository)
             spec = models_module.TutorSessionSpec(
                 mode=str(mode or "concept").strip().casefold(),
-                source_policy=str(source_policy or "source_only").strip().casefold(),
+                source_policy=str(source_policy or "source_first").strip().casefold(),
                 course_id=str(course_id or "").strip() or None,
                 title=str(title or "").strip(),
                 metadata={"origin": "phase7.5.9_web"},
@@ -440,6 +478,7 @@ class AcademicAgentWebService:
                     "Tutor session history is temporarily unavailable."
                 ) from error
             view = _session_view(session, turns)
+            view.update(_scope_labels(connection, session))
             metadata_module = import_module(
                 "personal_learning_assistant.repositories.sqlite.search_metadata_repository"
             )
