@@ -256,10 +256,82 @@ metadata only. It recognizes common categories such as:
 The final evidence count and context-character budget remain governed by the
 existing Tutor mode limits.
 
-### 2.1.5 Live Study Validation
-Run a sustained real study conversation across explanation, correction, quiz,
-hint, numerical example, and retrieval-source inspection before promoting any
-session-local signal into long-term learning memory.
+## 2.1.5 — Live Study Validation / Live-Fix Round
+
+A real MA103N-style Tutor session exposed several issues that synthetic tests
+did not catch. Tutor 2.1 is not considered complete until these live-fix
+regressions are green and revalidated in the browser.
+
+### Live finding: stale state could override a new topic
+
+A stored unresolved doubt about basis/redundancy could influence a later,
+explicit LU-factorization question.
+
+Fix:
+
+- detect explicit topic shifts using bounded local heuristics;
+- clear stale pending-quiz, unresolved-doubt, and misconception anchors for the
+  current turn;
+- never coerce an explicit new-topic request into a quiz answer;
+- state explicitly in the Tutor prompt that CURRENT QUESTION overrides older
+  student-state fields.
+
+### Live finding: referential follow-up changed the example
+
+For questions such as:
+
+> In the LU example you just gave...
+
+the model could invent a new matrix instead of using the recent transcript.
+
+Fix:
+
+- add a \`follow_up_reference\` teaching intent;
+- recent transcript is authoritative for referenced examples;
+- reuse exact numerical objects/notation unless the student explicitly asks for
+  a new example.
+
+### Live finding: supported computation could omit verification metadata
+
+A 3x3 LU response visually claimed \`LU=A\` while the displayed \`L\` omitted
+the required second-stage elimination multiplier.
+
+Fix:
+
+- explicit supported computation requests now require machine-checkable math
+  metadata;
+- LU/matrix requests require a \`matrix_product\` claim specifically;
+- determinant/vector requests require their matching claim types;
+- the same requirement is enforced on the one repair attempt;
+- omission or wrong claim type triggers repair, then fail-closed blocking.
+
+The exact faulty 3x3 LU structure observed during live validation is now a
+regression test using exact rational arithmetic.
+
+### Live finding: provider metadata was shown as the Tutor answer
+
+A provider response containing only:
+
+\`User Safety: safe\` / \`Response Safety: safe\`
+
+was persisted as visible Tutor content.
+
+Fix:
+
+- strip provider/safety status lines;
+- if nothing academic remains, perform one bounded retry;
+- if the retry still contains no academic answer, return an \`insufficient\`
+  Tutor turn rather than a 500 or misleading content.
+
+### Completion criterion
+
+Re-run the full Tutor 2.1 gate, then repeat a short browser validation covering:
+
+1. basis/redundancy -> explicit topic switch to LU;
+2. verified 3x3 LU example;
+3. "the example you just gave" follow-up;
+4. no internal safety/verification metadata visible;
+5. correct course-scoped retrieval sources.
 
 ### Future Student Model Bridge
 Only after explicit review: promote selected stable signals from session-local
