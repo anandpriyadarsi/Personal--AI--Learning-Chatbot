@@ -140,7 +140,9 @@ class GroundedTutorService:
         else:
             # Source-first may teach from general knowledge when retrieval is empty,
             # but it must never pretend that such an answer came from project files.
-            support_level = "mixed" if plan.evidence else "general"
+            # Existing Tutor schema uses "mixed" for source-first answers that
+            # are not fully grounded in project evidence, including general-only fallback.
+            support_level = "mixed"
 
         user_turn = self.tutor_session_service.add_user_turn(
             session_id, plan.question
