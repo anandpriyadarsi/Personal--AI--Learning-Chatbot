@@ -20,6 +20,12 @@ from personal_learning_assistant.tutor.adaptive_state import (
 )
 from personal_learning_assistant.tutor.correctness import correctness_protocol
 from personal_learning_assistant.tutor.policy import get_mode_policy
+from personal_learning_assistant.tutor.personalized_policy import (
+    build_personalized_teaching_policy,
+    teaching_policy_instruction,
+    teaching_policy_mapping,
+    teaching_policy_prompt,
+)
 from personal_learning_assistant.tutor.retrieval_planner import (
     plan_retrieval_queries,
     rerank_retrieval_hits,
@@ -197,6 +203,7 @@ def build_provider_request(
     teaching_instruction=None,
     adaptive_state=None,
     persistent_student_model=None,
+    teaching_policy=None,
 ):
     policy = get_mode_policy(session.mode)
     state = (
@@ -213,6 +220,22 @@ def build_provider_request(
             intent_instruction,
             evaluation_protocol(),
         )
+    personalized_policy = (
+        build_personalized_teaching_policy(
+            persistent_student_model,
+            state,
+            teaching_intent=intent_name,
+        )
+        if teaching_policy is None
+        else teaching_policy
+    )
+    personalized_policy_map = teaching_policy_mapping(personalized_policy)
+    personalized_policy_text = teaching_policy_prompt(
+        personalized_policy_map
+    )
+    personalized_policy_instruction = teaching_policy_instruction(
+        personalized_policy_map
+    )
     messages = [
         {
             "role": "system",
@@ -232,6 +255,7 @@ def build_provider_request(
                 "SESSION SCOPE\n{}\n\n"
                 "STUDENT STATE\n{}\n\n"
                 "PERSISTENT STUDENT MODEL (historical/advisory only)\n{}\n\n"
+                "PERSONALIZED TEACHING POLICY (style only; CURRENT QUESTION still controls)\n{}\n{}\n\n"
                 "TEACHING INTENT\n{}\n{}\n\n"
                 "CURRENT QUESTION\n{}\n\n"
                 "ACADEMIC EVIDENCE\n"
@@ -249,6 +273,8 @@ def build_provider_request(
                 ),
                 adaptive_state_prompt(state),
                 persistent_model_text,
+                personalized_policy_text,
+                personalized_policy_instruction,
                 intent_name,
                 intent_instruction,
                 question,
@@ -274,6 +300,7 @@ def build_provider_request(
             "persistent_student_model": student_model_mapping(
                 persistent_student_model
             ),
+            "teaching_policy": dict(personalized_policy_map),
         },
     )
 
@@ -314,6 +341,11 @@ class TutorGroundingPlanner:
         persistent_student_model = build_persistent_student_model(
             getattr(self.tutor_session_service, "repository", None),
             session,
+        )
+        personalized_policy = build_personalized_teaching_policy(
+            persistent_student_model,
+            adaptive_state,
+            teaching_intent=intent.name,
         )
         queries = plan_retrieval_queries(
             clean,
@@ -365,6 +397,7 @@ class TutorGroundingPlanner:
             teaching_instruction=intent.instruction,
             adaptive_state=adaptive_state,
             persistent_student_model=persistent_student_model,
+            teaching_policy=personalized_policy,
         )
         return GroundingPlan(
             question=clean,
@@ -382,6 +415,7 @@ class TutorGroundingPlanner:
             persistent_student_model=student_model_mapping(
                 persistent_student_model
             ),
+            teaching_policy=teaching_policy_mapping(personalized_policy),
             retrieval_queries=tuple(queries),
         )
 
@@ -398,4 +432,5 @@ class TutorGroundingPlanner:
             teaching_instruction=plan.teaching_instruction,
             adaptive_state=plan.adaptive_state,
             persistent_student_model=plan.persistent_student_model,
+            teaching_policy=plan.teaching_policy,
         )
