@@ -407,9 +407,9 @@ class MoodleSyncService:
         return {
             "registered": len(registration.items),
             "ingested": sum(
-                1 for result in results if result.action in {"completed", "matched"}
+                1 for result in results if result.status in {"completed", "matched"}
             ),
-            "failed": sum(1 for result in results if result.action == "failed"),
+            "failed": sum(1 for result in results if result.status == "failed"),
             "resources_linked": linked_resources,
         }
 
