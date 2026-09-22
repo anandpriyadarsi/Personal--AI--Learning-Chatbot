@@ -11,6 +11,7 @@ from typing import Mapping, Sequence, Tuple
 from personal_learning_assistant.domain.grounded_tutor_models import GroundingPlan
 from personal_learning_assistant.domain.tutor_models import TutorProviderRequest
 from personal_learning_assistant.retrieval.rag_context import assemble_context
+from personal_learning_assistant.tutor.intent import classify_tutor_intent
 from personal_learning_assistant.tutor.policy import get_mode_policy
 
 
@@ -161,6 +162,7 @@ def build_provider_request(
     evidence_labels,
 ):
     policy = get_mode_policy(session.mode)
+    intent = classify_tutor_intent(question)
     messages = [
         {
             "role": "system",
@@ -178,6 +180,7 @@ def build_provider_request(
             "role": "user",
             "content": (
                 "SESSION SCOPE\n{}\n\n"
+                "TEACHING INTENT\n{}\n{}\n\n"
                 "CURRENT QUESTION\n{}\n\n"
                 "ACADEMIC EVIDENCE\n"
                 "<academic_evidence>\n{}\n</academic_evidence>\n\n"
@@ -192,6 +195,8 @@ def build_provider_request(
                         dict(session.metadata or {}).get("source_document_id") or ""
                     ).strip() or None,
                 ),
+                intent.name,
+                intent.instruction,
                 question,
                 context_text,
                 ", ".join(evidence_labels) if evidence_labels else "(none)",
@@ -210,6 +215,7 @@ def build_provider_request(
             "resource_id": session.resource_id or "",
             "evidence_labels": tuple(evidence_labels),
             "evidence_count": len(evidence_labels),
+            "teaching_intent": intent.name,
         },
     )
 
