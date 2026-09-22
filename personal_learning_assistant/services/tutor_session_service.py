@@ -187,6 +187,29 @@ class TutorSessionService:
             evidence=tuple(evidence),
         )
 
+    def update_session_metadata(self, session_id: str, metadata):
+        try:
+            payload = json.dumps(
+                dict(metadata or {}),
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            )
+        except (TypeError, ValueError) as error:
+            raise TutorSessionError(
+                "session metadata must be JSON-serializable"
+            ) from error
+        try:
+            return self.repository.update_session_metadata(
+                session_id,
+                payload,
+                self._now(),
+            )
+        except Exception as error:
+            raise TutorSessionError(
+                "tutor session metadata could not be updated"
+            ) from error
+
     def complete_session(self, session_id: str):
         return self.repository.set_session_status(
             session_id, "completed", self._now()
