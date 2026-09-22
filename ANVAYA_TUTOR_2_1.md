@@ -119,11 +119,35 @@ When relevant, the header can show:
 Explicit unresolved doubt/pending-question state is available under a compact
 "Current learning state" disclosure.
 
-## Next Tutor 2.1 units
+## 2.1.2 — Adaptive Answer Evaluation
 
-### 2.1.2 Adaptive Answer Evaluation
-Add structured, hidden correct / partial / incorrect / unclear evaluation with
-a safe fallback. Use it to choose the next teaching move.
+For a `quiz_answer` turn, ANVAYA asks the configured Tutor provider to begin
+its raw response with one hidden machine-readable evaluation containing:
+
+- `correct`
+- `partial`
+- `incorrect`
+- `unclear`
+
+plus a brief reason and optional misconception.
+
+The marker is parsed and removed **before** the assistant turn is persisted or
+shown in the browser. It never appears in the student's Tutor transcript.
+
+The evaluation updates only the session-local adaptive state:
+
+- `answer_status`
+- `last_evaluation_reason`
+- `last_misconception`
+
+If the provider omits or malforms the hidden evaluation, the visible Tutor
+answer is preserved and the status safely falls back to `unclear`; the turn
+does not become a 500 error.
+
+This is an interaction-level teaching signal, **not a mastery score**. Tutor
+2.1.2 still does not write learning memory, progress, grades, or assessments.
+
+## Next Tutor 2.1 units
 
 ### 2.1.3 Correctness Layer
 Add deterministic verification where practical for arithmetic, vectors,
