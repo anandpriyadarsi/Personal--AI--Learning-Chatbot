@@ -7,10 +7,14 @@ import re
 from personal_learning_assistant.domain.grounded_tutor_models import (
     GroundedTutorResult,
 )
+from personal_learning_assistant.domain.tutor_models import TutorProviderRequest
 from personal_learning_assistant.tutor.adaptive_state import (
     STATE_KEY,
     evolve_adaptive_state,
     extract_answer_evaluation,
+)
+from personal_learning_assistant.tutor.correctness import (
+    extract_and_verify_math,
 )
 from personal_learning_assistant.tutor.grounding import (
     TutorGroundingError,
@@ -23,6 +27,37 @@ _CITATION = re.compile(r"\[(S[1-9][0-9]*)\]")
 
 class GroundedTutorError(RuntimeError):
     pass
+
+
+def _process_provider_content(plan, raw_content):
+    answer_evaluation = None
+    content = str(raw_content or "").strip()
+    if plan.teaching_intent == "quiz_answer":
+        content, answer_evaluation = extract_answer_evaluation(content)
+    content, math_verification = extract_and_verify_math(content)
+    return content, answer_evaluation, math_verification
+
+
+def _correctness_repair_request(request, raw_content, verification):
+    issues = "; ".join(verification.issues) or "unknown verification failure"
+    repair_message = (
+        "ANVAYA's deterministic math verifier rejected the previous worked "
+        "calculation. Correct the mathematical error and return the complete Tutor "
+        "response again. Do not mention internal verification machinery. Preserve all "
+        "original source/citation rules and all original hidden-metadata protocols. "
+        "Verifier findings: {}"
+    ).format(issues)
+    return TutorProviderRequest(
+        session_id=request.session_id,
+        mode=request.mode,
+        source_policy=request.source_policy,
+        messages=tuple(request.messages)
+        + (
+            {"role": "assistant", "content": str(raw_content or "")},
+            {"role": "user", "content": repair_message},
+        ),
+        metadata=dict(request.metadata or {}, correctness_repair=True),
+    )
 
 
 class GroundedTutorService:
@@ -118,13 +153,74 @@ class GroundedTutorService:
         if not raw_content:
             raise GroundedTutorError("tutor provider returned an empty answer")
 
-        answer_evaluation = None
-        content = raw_content
-        if plan.teaching_intent == "quiz_answer":
-            content, answer_evaluation = extract_answer_evaluation(raw_content)
-            if not content:
-                raise GroundedTutorError(
-                    "tutor provider returned evaluation metadata without a visible answer"
+        content, answer_evaluation, math_verification = _process_provider_content(
+            plan,
+            raw_content,
+        )
+        if not content:
+            raise GroundedTutorError(
+                "tutor provider returned metadata without a visible answer"
+            )
+
+        if math_verification.applicable and not math_verification.passed:
+            repair_request = _correctness_repair_request(
+                request,
+                raw_content,
+                math_verification,
+            )
+            repaired_response = self.provider.complete(repair_request)
+            repaired_raw = str(repaired_response.content or "").strip()
+            if repaired_raw:
+                (
+                    repaired_content,
+                    repaired_evaluation,
+                    repaired_verification,
+                ) = _process_provider_content(plan, repaired_raw)
+            else:
+                repaired_content = ""
+                repaired_evaluation = None
+                repaired_verification = math_verification
+
+            if (
+                repaired_content
+                and (
+                    not repaired_verification.applicable
+                    or repaired_verification.passed
+                )
+            ):
+                response = repaired_response
+                raw_content = repaired_raw
+                content = repaired_content
+                answer_evaluation = repaired_evaluation
+                math_verification = repaired_verification
+            else:
+                safe_content = (
+                    "I caught an inconsistency in the worked calculation and did not "
+                    "show it as a valid example. Please ask me to try the calculation "
+                    "again; I will rebuild it from verified steps."
+                )
+                user_turn = self.tutor_session_service.add_user_turn(
+                    session_id,
+                    plan.question,
+                )
+                assistant_turn = self.tutor_session_service.add_assistant_turn(
+                    session_id,
+                    safe_content,
+                    support_level="insufficient",
+                    provider_name=str(repaired_response.provider_name or ""),
+                    provider_model=str(repaired_response.provider_model or ""),
+                )
+                return GroundedTutorResult(
+                    question=plan.question,
+                    user_turn=user_turn,
+                    assistant_turn=assistant_turn,
+                    citations=(),
+                    retrieved_chunk_ids=tuple(
+                        item.chunk_id for item in plan.evidence
+                    ),
+                    provider_request_id=str(
+                        repaired_response.request_id or response.request_id or ""
+                    ),
                 )
 
         available = {
