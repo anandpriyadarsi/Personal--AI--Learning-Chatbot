@@ -503,6 +503,46 @@ class AcademicAgentWebService:
         finally:
             connection.close()
 
+    def record_feedback(self, session_id, turn_id, *, helpful):
+        clean_session_id = str(session_id or "").strip()
+        clean_turn_id = str(turn_id or "").strip()
+        if not clean_session_id or not clean_turn_id:
+            raise AcademicAgentWebValidationError("Tutor feedback target is invalid.")
+        connection = _open_database(self.database_path, writable=True)
+        try:
+            repository_module = import_module(
+                "personal_learning_assistant.repositories.sqlite.tutor_repository"
+            )
+            service_module = import_module(
+                "personal_learning_assistant.services.tutor_session_service"
+            )
+            repository = repository_module.SQLiteTutorRepository(connection)
+            sessions = service_module.TutorSessionService(repository)
+            try:
+                turn = repository.get_turn(clean_turn_id)
+            except repository_module.TutorRepositoryError as error:
+                raise AcademicAgentWebNotFoundError(
+                    "Tutor answer was not found."
+                ) from error
+            if str(turn.session_id) != clean_session_id or str(turn.role) != "assistant":
+                raise AcademicAgentWebValidationError(
+                    "Tutor feedback target is invalid."
+                )
+            try:
+                sessions.record_feedback(
+                    clean_turn_id,
+                    helpful=bool(helpful),
+                )
+            except (
+                service_module.TutorSessionError,
+                repository_module.TutorRepositoryError,
+            ) as error:
+                raise AcademicAgentWebUnavailableError(
+                    "Tutor feedback could not be saved."
+                ) from error
+        finally:
+            connection.close()
+
     def ask(self, session_id, question):
         clean_question = str(question or "").strip()
         if not clean_question:
