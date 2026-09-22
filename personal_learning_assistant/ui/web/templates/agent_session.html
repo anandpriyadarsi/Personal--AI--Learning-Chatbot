@@ -22,6 +22,7 @@ window.MathJax = {
 {% block content %}
 {% set adaptive = session.adaptive_state if session and session.adaptive_state is defined else {} %}
 {% set persistent = session.persistent_student_model if session and session.persistent_student_model is defined else {} %}
+{% set memory_candidates = session.memory_candidates if session and session.memory_candidates is defined else [] %}
 <div class="tutor-chat-shell">
   <header class="tutor-chat-header">
     <div class="tutor-heading-copy">
@@ -76,13 +77,19 @@ window.MathJax = {
         </p>
         {% endif %}
         {% for signal in persistent.get('stable_signals', ()) %}
-        <p><strong>Stable cross-session pattern:</strong>
-          {{ signal.get('kind', '')|replace('_', ' ')|title }}
-          · {{ signal.get('session_count', 0) }} sessions
-          · {{ signal.get('event_count', 0) }} observations
-          {% if signal.get('text') %}<br>{{ signal.get('text') }}{% endif %}
-          {% if signal.get('last_observed_at') %}<br><span class="microcopy">Last observed {{ signal.get('last_observed_at') }}</span>{% endif %}
-        </p>
+        <div class="tutor-memory-signal">
+          <p><strong>Stable cross-session pattern:</strong>
+            {{ signal.get('kind', '')|replace('_', ' ')|title }}
+            · {{ signal.get('session_count', 0) }} sessions
+            · {{ signal.get('event_count', 0) }} observations
+            {% if signal.get('text') %}<br>{{ signal.get('text') }}{% endif %}
+            {% if signal.get('last_observed_at') %}<br><span class="microcopy">Last observed {{ signal.get('last_observed_at') }}</span>{% endif %}
+          </p>
+          <form method="post" action="{{ url_for('web.academic_agent_memory_candidate_propose', session_id=session.session_id) }}">
+            <input type="hidden" name="signal_index" value="{{ loop.index0 }}">
+            <button class="button button-secondary" type="submit">Propose memory</button>
+          </form>
+        </div>
         {% endfor %}
         {% for doubt in persistent.get('recurring_doubts', ()) %}
         <p><strong>Previous doubt:</strong> {{ doubt }}</p>
@@ -96,7 +103,45 @@ window.MathJax = {
         {% for event in persistent.get('recent_progress', ()) %}
         <p><strong>Existing progress context:</strong> {{ event }}</p>
         {% endfor %}
-        <p class="microcopy">Historical/advisory context only · not a mastery score.</p>
+
+        {% if memory_candidates %}
+        <div class="tutor-memory-candidates">
+          <p><strong>Memory candidates</strong></p>
+          {% for candidate in memory_candidates %}
+          <div class="tutor-memory-candidate">
+            <p>
+              <strong>{{ candidate.get('candidate_kind', '')|replace('_', ' ')|title }}</strong>
+              · {{ candidate.get('status', '')|title }}
+              · confidence {{ candidate.get('confidence', 0) }}/5
+              <br>{{ candidate.get('candidate_text', '') }}
+              <br><span class="microcopy">
+                {{ candidate.get('session_count', 0) }} sessions ·
+                {{ candidate.get('evidence_count', 0) }} observations ·
+                {{ candidate.get('first_observed_at', '') }} → {{ candidate.get('last_observed_at', '') }}
+              </span>
+            </p>
+            <details>
+              <summary>Evidence provenance</summary>
+              {% for ref in candidate.get('provenance', ()) %}
+              <div class="microcopy">{{ ref }}</div>
+              {% endfor %}
+            </details>
+            {% if candidate.get('status') == 'proposed' %}
+            <form method="post" action="{{ url_for('web.academic_agent_memory_candidate_review', session_id=session.session_id, candidate_id=candidate.get('id')) }}">
+              <label class="microcopy" for="review-note-{{ loop.index }}">Optional review note</label>
+              <input id="review-note-{{ loop.index }}" name="review_note" type="text" maxlength="500" placeholder="Why accept or reject this memory?">
+              <button class="button button-secondary" type="submit" name="action" value="accept">Accept memory</button>
+              <button class="button button-secondary" type="submit" name="action" value="reject">Reject</button>
+            </form>
+            {% elif candidate.get('review_note') %}
+            <p class="microcopy">Review note: {{ candidate.get('review_note') }}</p>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        <p class="microcopy">Historical/advisory context only · not a mastery score. Stable patterns become long-term memory only after explicit acceptance.</p>
       </details>
       {% endif %}
       {% endif %}
