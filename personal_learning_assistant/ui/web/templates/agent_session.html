@@ -102,6 +102,18 @@ window.MathJax = {
           </details>
           {% endif %}
 
+          <div class="tutor-feedback-row" aria-label="Was this Tutor answer helpful?">
+            <span>Helpful?</span>
+            <form method="post" action="{{ url_for('web.academic_agent_feedback', session_id=session.session_id, turn_id=turn.turn_id) }}">
+              <input type="hidden" name="helpful" value="1">
+              <button type="submit" title="Helpful" aria-label="Mark this Tutor answer helpful">👍</button>
+            </form>
+            <form method="post" action="{{ url_for('web.academic_agent_feedback', session_id=session.session_id, turn_id=turn.turn_id) }}">
+              <input type="hidden" name="helpful" value="0">
+              <button type="submit" title="Not helpful" aria-label="Mark this Tutor answer not helpful">👎</button>
+            </form>
+          </div>
+
           <details class="tutor-response-debug">
             <summary>Response details</summary>
             <div class="tag-row">
