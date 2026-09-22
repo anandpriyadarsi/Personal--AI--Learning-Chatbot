@@ -90,8 +90,8 @@ Set-Content -LiteralPath $HashScriptPath -Value $HashScript -Encoding UTF8
 $BeforeHashes = (& $PythonResolved $HashScriptPath).Trim()
 if ($LASTEXITCODE -ne 0) { Stop-Gate "Could not capture protected hashes." }
 
-Run-Step "[1/7] Tutor 2.1 adaptive + correctness focused tests" {
-    & $PythonResolved -m pytest -q tests/test_tutor21_adaptive_intelligence.py tests/test_tutor21_correctness.py
+Run-Step "[1/7] Tutor 2.1 adaptive + correctness + retrieval focused tests" {
+    & $PythonResolved -m pytest -q tests/test_tutor21_adaptive_intelligence.py tests/test_tutor21_correctness.py tests/test_tutor21_retrieval_planner.py
 }
 
 Run-Step "[2/7] Tutor 2.0 foundation + grounded Tutor regressions" {
@@ -141,5 +141,5 @@ Write-Host "====================================================================
 Write-Host " ANVAYA TUTOR 2.1 ADAPTIVE INTELLIGENCE: PASS"
 Write-Host "======================================================================="
 Write-Host "Session-local student state, adaptive quiz continuity, structured answer evaluation,"
-Write-Host "deterministic math verification/repair, state-aware retrieval, and Tutor 2.0 safety are green."
+Write-Host "deterministic math verification/repair, smarter retrieval planning/reranking, and Tutor 2.0 safety are green."
 Write-Host "No global learning-memory, progress, vault, or retrieval-index writes occurred."
