@@ -149,6 +149,7 @@ class GroundedTutorService:
             transcript=transcript,
         )
         response = self.provider.complete(request)
+        correctness_repaired = False
         raw_content = str(response.content or "").strip()
         if not raw_content:
             raise GroundedTutorError("tutor provider returned an empty answer")
@@ -191,6 +192,7 @@ class GroundedTutorService:
                 content = repaired_content
                 answer_evaluation = repaired_evaluation
                 math_verification = repaired_verification
+                correctness_repaired = True
             else:
                 safe_content = (
                     "I caught an inconsistency in the worked calculation and did not "
@@ -272,6 +274,8 @@ class GroundedTutorService:
             assistant_message=content,
             teaching_intent=plan.teaching_intent,
             answer_evaluation=answer_evaluation,
+            math_verification=math_verification,
+            math_repaired=correctness_repaired,
         )
         metadata = dict(session.metadata or {})
         metadata[STATE_KEY] = next_state
