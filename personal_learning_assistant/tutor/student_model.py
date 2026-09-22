@@ -253,6 +253,37 @@ def build_persistent_student_model(repository, session):
 def student_model_mapping(model):
     if model is None:
         return {}
+    if isinstance(model, Mapping):
+        return {
+            "course_id": str(model.get("course_id") or ""),
+            "previous_sessions_considered": int(
+                model.get("previous_sessions_considered") or 0
+            ),
+            "answer_status_counts": dict(
+                model.get("answer_status_counts") or {}
+            ),
+            "recurring_doubts": tuple(
+                model.get("recurring_doubts") or ()
+            ),
+            "recurring_misconceptions": tuple(
+                model.get("recurring_misconceptions") or ()
+            ),
+            "verified_calculation_count": int(
+                model.get("verified_calculation_count") or 0
+            ),
+            "repaired_calculation_count": int(
+                model.get("repaired_calculation_count") or 0
+            ),
+            "blocked_calculation_count": int(
+                model.get("blocked_calculation_count") or 0
+            ),
+            "learning_memory": tuple(
+                model.get("learning_memory") or ()
+            ),
+            "recent_progress": tuple(
+                model.get("recent_progress") or ()
+            ),
+        }
     return {
         "course_id": str(model.course_id or ""),
         "previous_sessions_considered": int(
@@ -279,49 +310,50 @@ def student_model_mapping(model):
 
 def student_model_prompt(model):
     """Render persistent history as advisory context, never authoritative mastery."""
-    if model is None:
+    data = student_model_mapping(model)
+    if not data:
         return "(none)"
     lines = [
         "previous_course_sessions={}".format(
-            int(model.previous_sessions_considered)
+            int(data["previous_sessions_considered"])
         )
     ]
 
-    if model.answer_status_counts:
+    if data["answer_status_counts"]:
         status_text = ", ".join(
-            "{}={}".format(key, model.answer_status_counts[key])
+            "{}={}".format(key, data["answer_status_counts"][key])
             for key in ("correct", "partial", "incorrect", "unclear")
-            if model.answer_status_counts.get(key)
+            if data["answer_status_counts"].get(key)
         )
         if status_text:
             lines.append("historical_answer_signals=" + status_text)
 
-    for doubt in model.recurring_doubts:
+    for doubt in data["recurring_doubts"]:
         lines.append("previous_doubt=" + _clean(doubt))
-    for misconception in model.recurring_misconceptions:
+    for misconception in data["recurring_misconceptions"]:
         lines.append(
             "previous_possible_misconception=" + _clean(misconception)
         )
 
     math_parts = []
-    if model.verified_calculation_count:
+    if data["verified_calculation_count"]:
         math_parts.append(
-            "verified={}".format(model.verified_calculation_count)
+            "verified={}".format(data["verified_calculation_count"])
         )
-    if model.repaired_calculation_count:
+    if data["repaired_calculation_count"]:
         math_parts.append(
-            "repaired={}".format(model.repaired_calculation_count)
+            "repaired={}".format(data["repaired_calculation_count"])
         )
-    if model.blocked_calculation_count:
+    if data["blocked_calculation_count"]:
         math_parts.append(
-            "blocked={}".format(model.blocked_calculation_count)
+            "blocked={}".format(data["blocked_calculation_count"])
         )
     if math_parts:
         lines.append("historical_math_checks=" + ", ".join(math_parts))
 
-    for item in model.learning_memory:
+    for item in data["learning_memory"]:
         lines.append("existing_learning_memory=" + _clean(item))
-    for item in model.recent_progress:
+    for item in data["recent_progress"]:
         lines.append("existing_progress_event=" + _clean(item))
 
     if len(lines) == 1 and lines[0] == "previous_course_sessions=0":
