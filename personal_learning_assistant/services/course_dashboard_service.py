@@ -50,6 +50,9 @@ def build_course_catalogue_from_result(result: Any) -> dict[str, Any]:
                 weak_topics += 1
             topics.append(
                 {
+                    "id": str(
+                        _value(topic, "id", _value(topic, "topic_id", "")) or ""
+                    ),
                     "name": str(_value(topic, "name", "") or "Untitled topic"),
                     "status": status,
                     "status_label": _status_label(status),
