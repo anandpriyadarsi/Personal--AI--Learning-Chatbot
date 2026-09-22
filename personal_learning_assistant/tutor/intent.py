@@ -54,6 +54,15 @@ _PATTERNS = (
         "Evaluate the student's reasoning first. Identify exactly what is correct and what needs correction before re-explaining.",
     ),
     (
+        "follow_up_reference",
+        (
+            r"\b(?:example|matrix|calculation|solution|answer) you just (?:gave|used|showed)\b",
+            r"\b(?:in|from) (?:that|the previous|your previous|the above) (?:example|matrix|calculation|solution|answer)\b",
+            r"\bthe (?:same|previous|above) (?:example|matrix|calculation)\b",
+        ),
+        "Resolve the student's reference against the recent Tutor transcript. Reuse the exact numerical objects, matrix, notation, and assumptions from the most recent relevant assistant example. Do not substitute or invent a new example unless the student explicitly asks for one.",
+    ),
+    (
         "example",
         (
             r"\bexample\b",
