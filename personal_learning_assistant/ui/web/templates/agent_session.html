@@ -20,6 +20,7 @@ window.MathJax = {
 {% endblock %}
 
 {% block content %}
+{% set adaptive = session.adaptive_state if session and session.adaptive_state is defined else {} %}
 <div class="tutor-chat-shell">
   <header class="tutor-chat-header">
     <div class="tutor-heading-copy">
@@ -33,15 +34,15 @@ window.MathJax = {
         {% if session.topic_label %}<span class="tag">{{ session.topic_label }}</span>{% endif %}
         {% if session.assessment_label %}<span class="tag">{{ session.assessment_label }}</span>{% endif %}
         {% if session.resource_label %}<span class="tag">{{ session.resource_label }}</span>{% endif %}
-        {% if session.adaptive_state.quiz_active %}<span class="tag">Adaptive quiz active</span>{% endif %}
-        {% if session.adaptive_state.awaiting_student_answer %}<span class="tag">Waiting for your answer</span>{% endif %}
+        {% if adaptive.get('quiz_active', false) %}<span class="tag">Adaptive quiz active</span>{% endif %}
+        {% if adaptive.get('awaiting_student_answer', false) %}<span class="tag">Waiting for your answer</span>{% endif %}
       </div>
-      {% if session.adaptive_state.unresolved_doubt %}
+      {% if adaptive.get('unresolved_doubt') %}
       <details class="tutor-state-summary">
         <summary>Current learning state</summary>
-        <p><strong>Unresolved doubt:</strong> {{ session.adaptive_state.unresolved_doubt }}</p>
-        {% if session.adaptive_state.pending_question %}
-        <p><strong>Pending Tutor question:</strong> {{ session.adaptive_state.pending_question }}</p>
+        <p><strong>Unresolved doubt:</strong> {{ adaptive.get('unresolved_doubt') }}</p>
+        {% if adaptive.get('pending_question') %}
+        <p><strong>Pending Tutor question:</strong> {{ adaptive.get('pending_question') }}</p>
         {% endif %}
       </details>
       {% endif %}
