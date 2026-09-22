@@ -44,6 +44,12 @@ window.MathJax = {
         {% if adaptive.get('pending_question') %}
         <p><strong>Pending Tutor question:</strong> {{ adaptive.get('pending_question') }}</p>
         {% endif %}
+        {% if adaptive.get('answer_status') not in [none, '', 'unassessed', 'pending'] %}
+        <p><strong>Last answer evaluation:</strong> {{ adaptive.get('answer_status')|title }}</p>
+        {% endif %}
+        {% if adaptive.get('last_misconception') %}
+        <p><strong>Possible misconception:</strong> {{ adaptive.get('last_misconception') }}</p>
+        {% endif %}
       </details>
       {% endif %}
       {% endif %}
