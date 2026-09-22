@@ -62,6 +62,20 @@ def test_tutor_markdown_renders_readable_safe_html():
     assert "&lt;script&gt;" in html
 
 
+def test_tutor_markdown_normalizes_parenthesis_and_bracket_math_delimiters():
+    html = str(
+        render_tutor_markdown(
+            "Example in \\(\\mathbb R^2\\)\n\n"
+            "\\[v_1=(1,0),\\qquad v_2=(0,1)\\]"
+        )
+    )
+    assert "\\(" not in html
+    assert "\\[" not in html
+    assert "math" in html
+    assert "\\mathbb R^2" in html
+    assert "\\qquad" in html
+
+
 def test_source_first_can_teach_when_project_retrieval_is_empty(tmp_path):
     path = tmp_path / "tutor2.db"
     apply_migrations(path)
