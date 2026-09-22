@@ -665,7 +665,25 @@ def test_create_session_persists_explicit_topic_scope(tmp_path):
             "ORDER BY position,name,id LIMIT 1",
             (course["id"],),
         ).fetchone()
-        assert row is not None, "Tutor topic-scope test requires one course topic"
+        if row is None:
+            connection.execute(
+                "INSERT INTO topics("
+                "id,course_id,name,normalized_name,position,status,confidence,"
+                "raw_import_status,created_at,updated_at,deleted_at"
+                ") VALUES (?,?,?,?,1,'active',3,NULL,?,?,NULL)",
+                (
+                    "topic-live-lu",
+                    course["id"],
+                    "LU Factorization",
+                    "lu factorization",
+                    "2026-09-23T00:00:00Z",
+                    "2026-09-23T00:00:00Z",
+                ),
+            )
+            row = connection.execute(
+                "SELECT id,name FROM topics WHERE id=?",
+                ("topic-live-lu",),
+            ).fetchone()
         topic_id = str(row[0])
         topic_name = str(row[1])
     finally:
@@ -748,6 +766,27 @@ def test_workspace_exposes_canonical_tutor_topic_ids_without_changing_shared_cat
             "ORDER BY position,name,id",
             (course["id"],),
         ).fetchall()
+        if not expected:
+            connection.execute(
+                "INSERT INTO topics("
+                "id,course_id,name,normalized_name,position,status,confidence,"
+                "raw_import_status,created_at,updated_at,deleted_at"
+                ") VALUES (?,?,?,?,1,'active',3,NULL,?,?,NULL)",
+                (
+                    "topic-workspace-lu",
+                    course["id"],
+                    "LU Factorization",
+                    "lu factorization",
+                    "2026-09-23T00:00:00Z",
+                    "2026-09-23T00:00:00Z",
+                ),
+            )
+            expected = connection.execute(
+                "SELECT id,name FROM topics "
+                "WHERE course_id=? AND deleted_at IS NULL "
+                "ORDER BY position,name,id",
+                (course["id"],),
+            ).fetchall()
     finally:
         connection.close()
 
