@@ -35,12 +35,12 @@ def correctness_protocol():
         "numerical vector linear-combination equality, matrix product, or determinant "
         "claim, include exactly one hidden machine-readable marker before the visible "
         "answer. Use: "
-        '<!--ANVAYA_MATH {"claims":[...]}-->. '
+        '<!--ANVAYA_MATH {{"claims":[...]}}-->. '
         "Supported claim schemas are: "
-        '{"type":"vector_linear_combination","target":[...],"vectors":[[...],...],'
-        '"coefficients":[...]}; '
-        '{"type":"matrix_product","left":[[...]],"right":[[...]],"result":[[...]]}; '
-        '{"type":"determinant","matrix":[[...]],"result":number}. '
+        '{{"type":"vector_linear_combination","target":[...],"vectors":[[...],...],'
+        '"coefficients":[...]}}; '
+        '{{"type":"matrix_product","left":[[...]],"right":[[...]],"result":[[...]]}}; '
+        '{{"type":"determinant","matrix":[[...]],"result":number}}. '
         "Include every supported numerical claim that the explanation relies on. "
         "Do not put prose inside the marker. Do not emit a marker when no supported "
         "numerical claim appears. ANVAYA will independently check these claims and may "
