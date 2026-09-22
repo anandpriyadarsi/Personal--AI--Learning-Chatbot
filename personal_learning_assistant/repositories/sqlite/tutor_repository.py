@@ -95,6 +95,26 @@ class SQLiteTutorRepository:
         ).fetchone()
         return None if row is None else str(row[0])
 
+    def course_identity(self, course_id: Optional[str]):
+        """Return canonical human course identity for Tutor presentation."""
+        if course_id is None:
+            return None
+        clean = str(course_id or "").strip()
+        if not clean:
+            return None
+        row = self.connection.execute(
+            "SELECT id,code,name FROM courses "
+            "WHERE id=? AND deleted_at IS NULL",
+            (clean,),
+        ).fetchone()
+        if row is None:
+            return None
+        return {
+            "id": str(row["id"]),
+            "code": str(row["code"]),
+            "name": str(row["name"]),
+        }
+
     def entity_exists(self, table: str, entity_id: Optional[str]) -> bool:
         if entity_id is None:
             return True
