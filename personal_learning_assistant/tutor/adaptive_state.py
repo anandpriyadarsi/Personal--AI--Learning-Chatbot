@@ -40,6 +40,8 @@ def default_adaptive_state():
         "answer_status": "unassessed",
         "last_evaluation_reason": "",
         "last_misconception": "",
+        "last_math_verification": "not_applicable",
+        "last_math_claims_checked": 0,
     }
 
 
@@ -75,6 +77,22 @@ def load_adaptive_state(metadata):
     state["last_misconception"] = _clean(
         raw.get("last_misconception"), 240
     )
+    math_status = _clean(
+        raw.get("last_math_verification"), 40
+    ).casefold()
+    if math_status not in {
+        "not_applicable",
+        "passed",
+        "repaired",
+        "blocked",
+    }:
+        math_status = "not_applicable"
+    state["last_math_verification"] = math_status
+    try:
+        checked = int(raw.get("last_math_claims_checked") or 0)
+    except (TypeError, ValueError):
+        checked = 0
+    state["last_math_claims_checked"] = max(0, checked)
     return state
 
 
@@ -102,6 +120,17 @@ def adaptive_state_prompt(state):
     if clean["last_misconception"]:
         rows.append(
             "last_misconception={}".format(clean["last_misconception"])
+        )
+    if clean["last_math_verification"] != "not_applicable":
+        rows.append(
+            "last_math_verification={}".format(
+                clean["last_math_verification"]
+            )
+        )
+        rows.append(
+            "last_math_claims_checked={}".format(
+                clean["last_math_claims_checked"]
+            )
         )
     return "\n".join(rows)
 
@@ -227,6 +256,8 @@ def evolve_adaptive_state(
     assistant_message,
     teaching_intent,
     answer_evaluation=None,
+    math_verification=None,
+    math_repaired=False,
 ):
     current = load_adaptive_state({STATE_KEY: state})
     updated = dict(current)
@@ -284,5 +315,25 @@ def evolve_adaptive_state(
         updated["awaiting_student_answer"] = False
         updated["pending_question"] = ""
         updated["answer_status"] = "unassessed"
+
+    if math_verification is not None and bool(
+        getattr(math_verification, "applicable", False)
+    ):
+        updated["last_math_verification"] = (
+            "repaired"
+            if math_repaired and bool(getattr(math_verification, "passed", False))
+            else (
+                "passed"
+                if bool(getattr(math_verification, "passed", False))
+                else "blocked"
+            )
+        )
+        updated["last_math_claims_checked"] = max(
+            0,
+            int(getattr(math_verification, "checked_claims", 0) or 0),
+        )
+    else:
+        updated["last_math_verification"] = "not_applicable"
+        updated["last_math_claims_checked"] = 0
 
     return updated
