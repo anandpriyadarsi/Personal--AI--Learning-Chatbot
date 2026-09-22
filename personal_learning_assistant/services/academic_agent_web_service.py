@@ -1,12 +1,14 @@
 """Lazy Phase 7.5.9 browser adapter for the Academic Agent workspace.
 
 The web adapter composes existing Phase 5/6 read/tutor boundaries. Mentor reads
-are advisory only. The only production writes permitted through this service are
-existing tutor session, turn, and evidence rows.
+are advisory only. Tutor 2.2 also permits explicit, reviewable memory-candidate
+writes; authoritative learning-memory insertion occurs only after an explicit
+Accept action.
 """
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from importlib import import_module
 from pathlib import Path
 from personal_learning_assistant.tutor.adaptive_state import load_adaptive_state
@@ -25,6 +27,14 @@ TUTOR_MODES = (
     "free",
 )
 SOURCE_POLICIES = ("source_only", "source_first")
+
+
+def _utc_now_text():
+    return (
+        datetime.now(timezone.utc)
+        .isoformat(timespec="seconds")
+        .replace("+00:00", "Z")
+    )
 
 
 class AcademicAgentWebError(RuntimeError):
@@ -522,6 +532,23 @@ class AcademicAgentWebService:
                     persistent_model
                 )
             )
+            candidate_module = import_module(
+                "personal_learning_assistant.tutor.memory_candidates"
+            )
+            try:
+                view["memory_candidates"] = list(
+                    candidate_module.list_memory_candidates(
+                        connection,
+                        course_id=session.course_id,
+                        topic_id=session.topic_id,
+                        include_reviewed=True,
+                        limit=30,
+                    )
+                )
+            except sqlite3.OperationalError:
+                # Older databases that have not yet applied Tutor 2.2.3
+                # migration remain readable; candidate actions stay unavailable.
+                view["memory_candidates"] = []
             canonical_course = repository.course_identity(session.course_id)
             try:
                 catalogue = self._course_catalogue()
@@ -554,6 +581,135 @@ class AcademicAgentWebService:
                     )
                     evidence["locator_label"] = locator["locator_label"]
             return view
+        finally:
+            connection.close()
+
+    def propose_memory_candidate(self, session_id, signal_index):
+        clean_session_id = str(session_id or "").strip()
+        try:
+            index = int(signal_index)
+        except (TypeError, ValueError):
+            raise AcademicAgentWebValidationError(
+                "Memory candidate selection is invalid."
+            )
+        if not clean_session_id or index < 0:
+            raise AcademicAgentWebValidationError(
+                "Memory candidate selection is invalid."
+            )
+
+        connection = _open_database(self.database_path, writable=True)
+        try:
+            repository_module = import_module(
+                "personal_learning_assistant.repositories.sqlite.tutor_repository"
+            )
+            student_model_module = import_module(
+                "personal_learning_assistant.tutor.student_model"
+            )
+            candidate_module = import_module(
+                "personal_learning_assistant.tutor.memory_candidates"
+            )
+            repository = repository_module.SQLiteTutorRepository(connection)
+            try:
+                session = repository.get_session(clean_session_id)
+            except repository_module.TutorRepositoryError as error:
+                raise AcademicAgentWebNotFoundError(
+                    "Tutor session was not found."
+                ) from error
+
+            model = student_model_module.build_persistent_student_model(
+                repository,
+                session,
+            )
+            stable = tuple(model.stable_signals or ())
+            if index >= len(stable):
+                raise AcademicAgentWebValidationError(
+                    "Stable Tutor pattern is no longer available."
+                )
+            try:
+                return candidate_module.propose_memory_candidate(
+                    connection,
+                    stable[index],
+                    now=_utc_now_text(),
+                )
+            except candidate_module.TutorMemoryCandidateError as error:
+                raise AcademicAgentWebValidationError(str(error)) from error
+            except sqlite3.OperationalError as error:
+                raise AcademicAgentWebUnavailableError(
+                    "Tutor memory candidates are not available until the latest "
+                    "database migration is applied."
+                ) from error
+        finally:
+            connection.close()
+
+    def review_memory_candidate(
+        self,
+        session_id,
+        candidate_id,
+        *,
+        action,
+        review_note="",
+    ):
+        clean_session_id = str(session_id or "").strip()
+        clean_candidate_id = str(candidate_id or "").strip()
+        clean_action = str(action or "").strip().casefold()
+        if (
+            not clean_session_id
+            or not clean_candidate_id
+            or clean_action not in {"accept", "reject"}
+        ):
+            raise AcademicAgentWebValidationError(
+                "Memory candidate review is invalid."
+            )
+
+        connection = _open_database(self.database_path, writable=True)
+        try:
+            repository_module = import_module(
+                "personal_learning_assistant.repositories.sqlite.tutor_repository"
+            )
+            candidate_module = import_module(
+                "personal_learning_assistant.tutor.memory_candidates"
+            )
+            repository = repository_module.SQLiteTutorRepository(connection)
+            try:
+                session = repository.get_session(clean_session_id)
+            except repository_module.TutorRepositoryError as error:
+                raise AcademicAgentWebNotFoundError(
+                    "Tutor session was not found."
+                ) from error
+
+            scoped = candidate_module.list_memory_candidates(
+                connection,
+                course_id=session.course_id,
+                topic_id=session.topic_id,
+                include_reviewed=True,
+                limit=100,
+            )
+            candidate = next(
+                (
+                    item
+                    for item in scoped
+                    if str(item.get("id", "")) == clean_candidate_id
+                ),
+                None,
+            )
+            if candidate is None:
+                raise AcademicAgentWebNotFoundError(
+                    "Tutor memory candidate was not found."
+                )
+            try:
+                return candidate_module.review_memory_candidate(
+                    connection,
+                    clean_candidate_id,
+                    action=clean_action,
+                    now=_utc_now_text(),
+                    review_note=review_note,
+                )
+            except candidate_module.TutorMemoryCandidateError as error:
+                raise AcademicAgentWebValidationError(str(error)) from error
+            except sqlite3.OperationalError as error:
+                raise AcademicAgentWebUnavailableError(
+                    "Tutor memory candidate review is temporarily unavailable."
+                ) from error
         finally:
             connection.close()
 
