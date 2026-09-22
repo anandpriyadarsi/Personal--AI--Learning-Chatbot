@@ -232,6 +232,19 @@ def test_grounded_turn_without_evidence_is_rejected(tmp_path):
     c.close()
 
 
+def test_mixed_turn_may_have_no_evidence_for_source_first_general_fallback(tmp_path):
+    _db, c, _repo, service = _env(tmp_path)
+    session = _session(service)
+    turn = service.add_assistant_turn(
+        session.session_id,
+        "General teaching explanation with no matching project source.",
+        support_level="mixed",
+    )
+    assert turn.support_level == "mixed"
+    assert turn.evidence == ()
+    c.close()
+
+
 def test_insufficient_turn_may_have_no_evidence(tmp_path):
     _db, c, _repo, service = _env(tmp_path)
     session = _session(service)
