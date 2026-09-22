@@ -312,7 +312,7 @@ class TutorGroundingPlanner:
         )
         policy = get_mode_policy(session.mode)
         persistent_student_model = build_persistent_student_model(
-            self.tutor_session_service.repository,
+            getattr(self.tutor_session_service, "repository", None),
             session,
         )
         queries = plan_retrieval_queries(
