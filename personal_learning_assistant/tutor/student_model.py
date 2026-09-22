@@ -250,6 +250,33 @@ def build_persistent_student_model(repository, session):
     )
 
 
+def student_model_mapping(model):
+    if model is None:
+        return {}
+    return {
+        "course_id": str(model.course_id or ""),
+        "previous_sessions_considered": int(
+            model.previous_sessions_considered
+        ),
+        "answer_status_counts": dict(model.answer_status_counts or {}),
+        "recurring_doubts": tuple(model.recurring_doubts or ()),
+        "recurring_misconceptions": tuple(
+            model.recurring_misconceptions or ()
+        ),
+        "verified_calculation_count": int(
+            model.verified_calculation_count
+        ),
+        "repaired_calculation_count": int(
+            model.repaired_calculation_count
+        ),
+        "blocked_calculation_count": int(
+            model.blocked_calculation_count
+        ),
+        "learning_memory": tuple(model.learning_memory or ()),
+        "recent_progress": tuple(model.recent_progress or ()),
+    }
+
+
 def student_model_prompt(model):
     """Render persistent history as advisory context, never authoritative mastery."""
     if model is None:
