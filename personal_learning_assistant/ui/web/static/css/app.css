@@ -1492,3 +1492,24 @@ details[open] > .details-action::after { content: " −"; }
   background: rgba(85,194,184,.07);
   filter: none;
 }
+
+
+/* Tutor 2.1 adaptive state is intentionally quiet and secondary. */
+.tutor-state-summary {
+  width: min(44rem, 100%);
+  margin-top: .5rem;
+  color: #87949e;
+  font-size: .68rem;
+}
+.tutor-state-summary summary {
+  cursor: pointer;
+  color: #87949e;
+  font-weight: 700;
+}
+.tutor-state-summary p {
+  margin: .35rem 0 0;
+  line-height: 1.45;
+}
+.tutor-state-summary strong {
+  color: #aebbc5;
+}
