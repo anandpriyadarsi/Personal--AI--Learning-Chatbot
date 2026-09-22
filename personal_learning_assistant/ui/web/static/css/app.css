@@ -1463,3 +1463,32 @@ details[open] > .details-action::after { content: " −"; }
   .tutor-quick-actions { overflow-x: auto; flex-wrap: nowrap; padding-bottom: .15rem; }
   .tutor-quick-actions button { flex: 0 0 auto; }
 }
+
+
+.tutor-feedback-row {
+  display: flex;
+  align-items: center;
+  gap: .28rem;
+  margin-top: .72rem;
+  color: #78858f;
+  font-size: .66rem;
+}
+.tutor-feedback-row form { margin: 0; }
+.tutor-feedback-row button {
+  display: grid;
+  width: 1.85rem;
+  height: 1.85rem;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgba(100,116,139,.25);
+  border-radius: .5rem;
+  background: transparent;
+  color: #aab6bf;
+  cursor: pointer;
+  filter: grayscale(.35);
+}
+.tutor-feedback-row button:hover {
+  border-color: rgba(85,194,184,.4);
+  background: rgba(85,194,184,.07);
+  filter: none;
+}
