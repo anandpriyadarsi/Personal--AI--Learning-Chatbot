@@ -79,6 +79,22 @@ class SQLiteTutorRepository:
                 "Phase 6.1 tutor schema incomplete: {}".format("; ".join(issues))
             )
 
+    def resolve_course_id(self, identifier: Optional[str]) -> Optional[str]:
+        """Resolve a canonical SQLite course id from id or human course code."""
+        if identifier is None:
+            return None
+        clean = str(identifier or "").strip()
+        if not clean:
+            return None
+        row = self.connection.execute(
+            "SELECT id FROM courses "
+            "WHERE deleted_at IS NULL "
+            "AND (id=? OR lower(code)=lower(?)) "
+            "ORDER BY CASE WHEN id=? THEN 0 ELSE 1 END,id LIMIT 1",
+            (clean, clean, clean),
+        ).fetchone()
+        return None if row is None else str(row[0])
+
     def entity_exists(self, table: str, entity_id: Optional[str]) -> bool:
         if entity_id is None:
             return True
