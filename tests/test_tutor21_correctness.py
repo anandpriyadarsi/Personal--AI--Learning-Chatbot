@@ -310,3 +310,24 @@ def test_tutor_system_prompt_contains_deterministic_math_protocol():
     assert "matrix_product" in prompt
     assert "determinant" in prompt
     assert "ANVAYA_MATH" in prompt
+
+
+
+def test_system_prompt_formats_literal_correctness_json_without_keyerror():
+    from personal_learning_assistant.tutor.correctness import correctness_protocol
+    from personal_learning_assistant.tutor.grounding import _system_prompt
+
+    protocol = correctness_protocol()
+    assert '<!--ANVAYA_MATH {"claims":[...]}-->' in protocol
+
+    prompt = _system_prompt(
+        mode="concept",
+        source_policy="source_first",
+        purpose="Teach clearly.",
+        preferred_source_roles=("course",),
+    )
+
+    assert '<!--ANVAYA_MATH {"claims":[...]}-->' in prompt
+    assert '{"type":"vector_linear_combination"' in prompt
+    assert '{"type":"matrix_product"' in prompt
+    assert '{"type":"determinant"' in prompt
