@@ -72,7 +72,7 @@
         <select id="session-course" name="course_id">
           <option value="">No course scope</option>
           {% for course in workspace.courses %}
-            <option value="{{ course.id }}">{{ course.code }} · {{ course.name }}</option>
+            <option value="{{ course.code }}">{{ course.code }} · {{ course.name }}</option>
           {% endfor %}
         </select>
       </p>
