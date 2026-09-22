@@ -77,6 +77,19 @@
         </select>
       </p>
       <p>
+        <label for="session-topic">Topic scope</label><br>
+        <select id="session-topic" name="topic_id">
+          <option value="">No topic scope</option>
+          {% for course in workspace.courses %}
+            {% for topic in course.topics %}
+              {% if topic.id %}
+              <option value="{{ topic.id }}">{{ course.code }} · {{ topic.name }}</option>
+              {% endif %}
+            {% endfor %}
+          {% endfor %}
+        </select>
+      </p>
+      <p>
         <label for="session-mode">Tutor mode</label><br>
         <select id="session-mode" name="mode">
           {% for mode in workspace.modes %}
@@ -98,7 +111,7 @@
       </p>
       <button type="submit">Create tutor session</button>
     </form>
-    <p class="empty-state">Creating a session only stores its tutor scope. It does not call the LLM. Course, mode, and source policy stay fixed after creation.</p>
+    <p class="empty-state">Creating a session only stores its tutor scope. It does not call the LLM. Course, topic, mode, and source policy stay fixed after creation.</p>
   </article>
 </section>
 
