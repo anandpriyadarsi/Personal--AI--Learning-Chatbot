@@ -330,10 +330,16 @@ class _Provider:
 
 def test_real_tutor_hint_turn_records_signal_history(tmp_path):
     connection, repository = _database(tmp_path)
+    counters = {}
+
+    def unique_id(prefix):
+        counters[prefix] = counters.get(prefix, 0) + 1
+        return "{}-generated-{}".format(prefix, counters[prefix])
+
     sessions = TutorSessionService(
         repository,
         now=lambda: "2026-09-23T00:00:00Z",
-        id_factory=lambda prefix: prefix + "-generated",
+        id_factory=unique_id,
     )
     session = sessions.create_session(
         TutorSessionSpec(
@@ -359,6 +365,7 @@ def test_real_tutor_hint_turn_records_signal_history(tmp_path):
     refreshed = repository.get_session(session.session_id)
     history = load_signal_history(refreshed.metadata)
 
+    assert result.user_turn.turn_id != result.assistant_turn.turn_id
     assert result.assistant_turn.content.startswith("Think about")
     assert any(item["kind"] == "hint_requested" for item in history)
     hint = next(item for item in history if item["kind"] == "hint_requested")
