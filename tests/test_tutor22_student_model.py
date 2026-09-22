@@ -386,3 +386,38 @@ def test_tutor22_template_labels_history_as_advisory():
     assert "Across sessions" in template
     assert "Historical/advisory context only" in template
     assert "not a mastery score" in template
+
+
+
+def test_grounding_planner_without_repository_capability_uses_empty_student_model():
+    from types import SimpleNamespace
+
+    from personal_learning_assistant.tutor.grounding import TutorGroundingPlanner
+
+    class Retrieval:
+        def search(self, query, **kwargs):
+            return ()
+
+    class Sessions:
+        @staticmethod
+        def evidence_from_retrieval_hits(hits):
+            return ()
+
+    session = SimpleNamespace(
+        mode="doubt",
+        source_policy="source_only",
+        course_id=None,
+        topic_id=None,
+        assessment_id=None,
+        resource_id=None,
+        metadata={"source_document_id": "doc-123"},
+        session_id="synthetic-session",
+    )
+
+    planner = TutorGroundingPlanner(Retrieval(), Sessions())
+    plan = planner.plan(session, "Why?")
+
+    assert plan.hits == ()
+    assert plan.persistent_student_model["previous_sessions_considered"] == 0
+    assert "PERSISTENT STUDENT MODEL" in plan.messages[-1]["content"]
+    assert "(none)" in plan.messages[-1]["content"]
