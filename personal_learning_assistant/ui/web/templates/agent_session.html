@@ -62,7 +62,7 @@ window.MathJax = {
         {% endif %}
       </details>
       {% endif %}
-      {% if persistent.get('previous_sessions_considered', 0) or persistent.get('learning_memory') or persistent.get('recent_progress') %}
+      {% if persistent.get('previous_sessions_considered', 0) or persistent.get('learning_memory') or persistent.get('recent_progress') or persistent.get('stable_signals') %}
       <details class="tutor-state-summary tutor-persistent-summary">
         <summary>Across sessions</summary>
         {% if persistent.get('previous_sessions_considered', 0) %}
@@ -75,6 +75,15 @@ window.MathJax = {
           {% endfor %}
         </p>
         {% endif %}
+        {% for signal in persistent.get('stable_signals', ()) %}
+        <p><strong>Stable cross-session pattern:</strong>
+          {{ signal.get('kind', '')|replace('_', ' ')|title }}
+          · {{ signal.get('session_count', 0) }} sessions
+          · {{ signal.get('event_count', 0) }} observations
+          {% if signal.get('text') %}<br>{{ signal.get('text') }}{% endif %}
+          {% if signal.get('last_observed_at') %}<br><span class="microcopy">Last observed {{ signal.get('last_observed_at') }}</span>{% endif %}
+        </p>
+        {% endfor %}
         {% for doubt in persistent.get('recurring_doubts', ()) %}
         <p><strong>Previous doubt:</strong> {{ doubt }}</p>
         {% endfor %}
