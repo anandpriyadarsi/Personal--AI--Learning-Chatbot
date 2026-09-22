@@ -14,7 +14,7 @@ from personal_learning_assistant.tutor.intent import TutorIntent, classify_tutor
 
 
 STATE_KEY = "adaptive_tutor_state"
-STATE_VERSION = 2
+STATE_VERSION = 3
 _MAX_TEXT = 700
 _EVAL_PATTERN = re.compile(
     r"^\s*<!--ANVAYA_EVAL\s+(\{.*?\})\s*-->\s*",
@@ -202,6 +202,30 @@ def extract_answer_evaluation(content):
         "present": True,
     }
     return raw[match.end():].strip(), evaluation
+
+
+def mark_math_blocked(
+    state,
+    *,
+    student_message,
+    teaching_intent,
+    checked_claims=0,
+):
+    current = load_adaptive_state({STATE_KEY: state})
+    updated = dict(current)
+    updated["interaction_count"] = current["interaction_count"] + 1
+    updated["last_intent"] = _clean(teaching_intent, 80)
+    updated["last_teaching_move"] = "correctness_block"
+    updated["last_math_verification"] = "blocked"
+    updated["last_math_claims_checked"] = max(0, int(checked_claims or 0))
+    if teaching_intent == "quiz_answer":
+        updated["last_student_answer"] = _clean(student_message)
+        updated["answer_status"] = "unclear"
+        # Preserve the existing pending question so the student can retry.
+        updated["quiz_active"] = current["quiz_active"]
+        updated["awaiting_student_answer"] = current["awaiting_student_answer"]
+        updated["pending_question"] = current["pending_question"]
+    return updated
 
 
 def retrieval_queries(question, state, intent_name):
