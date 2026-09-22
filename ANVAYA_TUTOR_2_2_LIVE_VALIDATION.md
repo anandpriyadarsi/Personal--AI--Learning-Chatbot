@@ -46,6 +46,15 @@ Ask:
 
 Expected: hint behavior, hint_requested signal, but no stable cross-session hint pattern yet.
 
+Before proceeding to Scenario B, run the inspector and verify:
+
+- `topic_id` is non-null;
+- the selected topic is the canonical LU Factorization topic;
+- old course-level Basis/Redundancy history is not being pulled merely because
+  the Tutor session title says "LU Factorization".
+
+If `topic_id` is null, stop validation and fix Tutor session creation scope.
+
 ## Scenario B — repeated signal in a second session
 
 Create a completely new MA103N / LU Factorization Tutor session.
