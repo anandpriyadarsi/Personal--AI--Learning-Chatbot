@@ -37,7 +37,7 @@ window.MathJax = {
         {% if adaptive.get('quiz_active', false) %}<span class="tag">Adaptive quiz active</span>{% endif %}
         {% if adaptive.get('awaiting_student_answer', false) %}<span class="tag">Waiting for your answer</span>{% endif %}
       </div>
-      {% if adaptive.get('unresolved_doubt') or adaptive.get('pending_question') or adaptive.get('last_misconception') or adaptive.get('answer_status') not in [none, '', 'unassessed', 'pending'] %}
+      {% if adaptive.get('unresolved_doubt') or adaptive.get('pending_question') or adaptive.get('last_misconception') or adaptive.get('answer_status') not in [none, '', 'unassessed', 'pending'] or adaptive.get('last_math_verification') in ['passed', 'repaired', 'blocked'] %}
       <details class="tutor-state-summary">
         <summary>Current learning state</summary>
         <p><strong>Unresolved doubt:</strong> {{ adaptive.get('unresolved_doubt') }}</p>
@@ -49,6 +49,15 @@ window.MathJax = {
         {% endif %}
         {% if adaptive.get('last_misconception') %}
         <p><strong>Possible misconception:</strong> {{ adaptive.get('last_misconception') }}</p>
+        {% endif %}
+        {% if adaptive.get('last_math_verification') in ['passed', 'repaired', 'blocked'] %}
+        <p><strong>Latest checked calculation:</strong>
+          {% if adaptive.get('last_math_verification') == 'passed' %}Verified
+          {% elif adaptive.get('last_math_verification') == 'repaired' %}Verified after correction
+          {% else %}Blocked after failed verification
+          {% endif %}
+          {% if adaptive.get('last_math_claims_checked') %} · {{ adaptive.get('last_math_claims_checked') }} claim(s){% endif %}
+        </p>
         {% endif %}
       </details>
       {% endif %}
