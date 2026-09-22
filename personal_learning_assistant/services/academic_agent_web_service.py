@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from importlib import import_module
 from pathlib import Path
+from personal_learning_assistant.tutor.adaptive_state import load_adaptive_state
 import sqlite3
 from urllib.parse import quote
 
@@ -120,6 +121,7 @@ def _session_view(session, turns):
         "updated_at": session.updated_at,
         "completed_at": session.completed_at,
         "metadata": dict(session.metadata or {}),
+        "adaptive_state": load_adaptive_state(session.metadata),
         "prefill_question": str(
             dict(session.metadata or {}).get("prefill_question") or ""
         ),
