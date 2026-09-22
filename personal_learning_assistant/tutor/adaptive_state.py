@@ -133,9 +133,11 @@ def evaluation_protocol():
     return (
         "For this quiz-answer turn, begin your raw response with exactly one hidden "
         "machine-readable line in this format: "
-        '<!--ANVAYA_EVAL {"status":"correct|partial|incorrect|unclear",'
+        '<!--ANVAYA_EVAL {"status":"STATUS",'
         '"reason":"brief reason","misconception":"brief misconception or empty"}--> '
-        "Then write the normal student-facing Tutor reply. The hidden marker is for "
+        "Replace STATUS with exactly one of: correct, partial, incorrect, unclear. "
+        "Do not output the option list itself. Then write the normal student-facing Tutor "
+        "reply. The hidden marker is for "
         "ANVAYA only and will be removed before display. Classify conservatively: use "
         "'correct' only when the essential reasoning is correct, 'partial' when the core "
         "idea is present but incomplete, 'incorrect' for a substantive mathematical or "
