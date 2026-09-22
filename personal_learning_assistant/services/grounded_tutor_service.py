@@ -16,6 +16,7 @@ from personal_learning_assistant.tutor.adaptive_state import (
 )
 from personal_learning_assistant.tutor.correctness import (
     extract_and_verify_math,
+    sanitize_correctness_prose,
 )
 from personal_learning_assistant.tutor.grounding import (
     TutorGroundingError,
@@ -36,6 +37,7 @@ def _process_provider_content(plan, raw_content):
     if plan.teaching_intent == "quiz_answer":
         content, answer_evaluation = extract_answer_evaluation(content)
     content, math_verification = extract_and_verify_math(content)
+    content = sanitize_correctness_prose(content)
     return content, answer_evaluation, math_verification
 
 
