@@ -37,16 +37,18 @@ CREATE TABLE tutor_memory_candidates (
     CHECK (
         status <> 'accepted'
         OR accepted_memory_entry_id IS NOT NULL
-    ),
-    UNIQUE (
+    )
+);
+
+CREATE UNIQUE INDEX tutor_memory_candidates_identity_uq
+    ON tutor_memory_candidates (
         course_id,
         COALESCE(topic_id, ''),
         signal_kind,
         candidate_text,
         first_observed_at,
         last_observed_at
-    )
-);
+    );
 
 CREATE INDEX tutor_memory_candidates_scope_status_ix
     ON tutor_memory_candidates (
