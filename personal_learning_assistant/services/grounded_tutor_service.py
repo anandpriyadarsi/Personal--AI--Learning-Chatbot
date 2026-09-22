@@ -12,6 +12,7 @@ from personal_learning_assistant.tutor.adaptive_state import (
     STATE_KEY,
     evolve_adaptive_state,
     extract_answer_evaluation,
+    mark_math_blocked,
 )
 from personal_learning_assistant.tutor.correctness import (
     extract_and_verify_math,
@@ -199,6 +200,22 @@ class GroundedTutorService:
                     "show it as a valid example. Please ask me to try the calculation "
                     "again; I will rebuild it from verified steps."
                 )
+                blocked_state = mark_math_blocked(
+                    plan.adaptive_state,
+                    student_message=plan.question,
+                    teaching_intent=plan.teaching_intent,
+                    checked_claims=repaired_verification.checked_claims,
+                )
+                blocked_metadata = dict(session.metadata or {})
+                blocked_metadata[STATE_KEY] = blocked_state
+                try:
+                    self.tutor_session_service.update_session_metadata(
+                        session_id,
+                        blocked_metadata,
+                    )
+                except Exception:
+                    pass
+
                 user_turn = self.tutor_session_service.add_user_turn(
                     session_id,
                     plan.question,
