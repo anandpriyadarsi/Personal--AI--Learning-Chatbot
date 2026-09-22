@@ -307,6 +307,28 @@ class AcademicAgentWebService:
                 "personal_learning_assistant.repositories.sqlite.tutor_repository"
             )
             repository = repository_module.SQLiteTutorRepository(connection)
+
+            tutor_courses = []
+            for item in courses:
+                course_view = dict(item)
+                resolved_id = repository.resolve_course_id(
+                    course_view.get("id") or course_view.get("code")
+                )
+                topic_rows = ()
+                if resolved_id is not None:
+                    topic_rows = connection.execute(
+                        "SELECT id,name FROM topics "
+                        "WHERE course_id=? AND deleted_at IS NULL "
+                        "ORDER BY position,name,id",
+                        (resolved_id,),
+                    ).fetchall()
+                course_view["tutor_topics"] = [
+                    {"id": str(row["id"]), "name": str(row["name"])}
+                    for row in topic_rows
+                ]
+                tutor_courses.append(course_view)
+            courses = tutor_courses
+
             sessions = [
                 _session_summary(item)
                 for item in repository.list_sessions(limit=20)
