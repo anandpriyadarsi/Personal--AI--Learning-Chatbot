@@ -365,3 +365,52 @@ def test_tutor_session_form_posts_course_code_not_routed_compatibility_id():
 
     assert 'option value="{{ course.code }}"' in template
     assert 'option value="{{ course.id }}">{{ course.code }}' not in template
+
+
+
+def test_tutor_retrieval_runtime_is_request_local(monkeypatch, tmp_path):
+    import personal_learning_assistant.services.unified_search_runtime as runtime_module
+    from personal_learning_assistant.services.academic_agent_web_service import (
+        AcademicAgentWebService,
+    )
+
+    created = []
+
+    class FakeRuntime:
+        def __init__(self, *, database_path, index_root):
+            self.database_path = database_path
+            self.index_root = index_root
+            self.closed = False
+            created.append(self)
+
+        def close(self):
+            self.closed = True
+
+    def forbidden_global_runtime(**kwargs):
+        raise AssertionError(
+            "Tutor must not reuse application-global retrieval runtime"
+        )
+
+    monkeypatch.setattr(runtime_module, "UnifiedSearchRuntime", FakeRuntime)
+    monkeypatch.setattr(
+        runtime_module,
+        "get_unified_search_runtime",
+        forbidden_global_runtime,
+    )
+
+    service = AcademicAgentWebService(
+        database_path=tmp_path / "learning_assistant.db",
+        index_root=tmp_path / "index",
+    )
+
+    first, first_close = service._retrieval()
+    second, second_close = service._retrieval()
+
+    assert first is first_close
+    assert second is second_close
+    assert first is not second
+    assert created == [first, second]
+    first_close.close()
+    second_close.close()
+    assert first.closed is True
+    assert second.closed is True
