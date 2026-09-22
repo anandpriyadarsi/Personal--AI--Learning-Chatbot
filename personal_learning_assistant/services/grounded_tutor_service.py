@@ -7,6 +7,10 @@ import re
 from personal_learning_assistant.domain.grounded_tutor_models import (
     GroundedTutorResult,
 )
+from personal_learning_assistant.tutor.adaptive_state import (
+    STATE_KEY,
+    evolve_adaptive_state,
+)
 from personal_learning_assistant.tutor.grounding import (
     TutorGroundingError,
     TutorGroundingPlanner,
@@ -155,6 +159,27 @@ class GroundedTutorService:
             provider_name=response.provider_name,
             provider_model=response.provider_model,
         )
+
+        # Adaptive state is Tutor-session metadata only. It never mutates
+        # mastery, grades, plans, notes, or global learning memory.
+        next_state = evolve_adaptive_state(
+            plan.adaptive_state,
+            student_message=plan.question,
+            assistant_message=content,
+            teaching_intent=plan.teaching_intent,
+        )
+        metadata = dict(session.metadata or {})
+        metadata[STATE_KEY] = next_state
+        try:
+            self.tutor_session_service.update_session_metadata(
+                session_id,
+                metadata,
+            )
+        except Exception:
+            # The tutoring exchange is already safely persisted. Adaptive state
+            # is auxiliary and must not turn a valid answer into a 500 response.
+            pass
+
         return GroundedTutorResult(
             question=plan.question,
             user_turn=user_turn,
