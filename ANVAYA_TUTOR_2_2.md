@@ -226,19 +226,118 @@ Stable signals are observations, not authoritative academic state.
 
 ## Next Tutor 2.2 units
 
-### 2.2.3 Candidate Memory Promotion
+## 2.2.3 — Candidate Memory Promotion
 
-Create explicit **candidate** long-term learning signals with:
+Stable Tutor patterns can now enter an explicit human-review workflow.
 
-- source Tutor sessions/turns;
-- course/topic;
-- signal kind;
-- confidence;
+A new migration, \`0009_tutor_memory_candidates.sql\`, adds
+\`tutor_memory_candidates\`.
+
+Candidate records contain:
+
+- course/topic scope;
+- originating stable signal kind;
+- candidate memory kind/text;
+- confidence from bounded deterministic evidence counts;
+- distinct session count;
+- total observation count;
 - first/last observed timestamps;
-- evidence count;
-- status: proposed / accepted / rejected / superseded.
+- JSON provenance back to Tutor session/turn references;
+- review status;
+- optional review note;
+- accepted learning-memory entry id when applicable;
+- supersession link when a newer evidence window replaces an older proposal.
 
-Promotion to authoritative learning memory must be reviewable and reversible.
+Supported statuses are:
+
+- \`proposed\`
+- \`accepted\`
+- \`rejected\`
+- \`superseded\`
+
+### Proposal is explicit
+
+A stable pattern does **not** automatically become a candidate.
+
+The **Across sessions** UI exposes a \`Propose memory\` action for each stable
+cross-session pattern.
+
+The browser sends only the stable-pattern index. The server recomputes the
+persistent student model and resolves the pattern from authoritative SQLite
+state rather than trusting arbitrary candidate text posted by the browser.
+
+Proposal writes only a \`tutor_memory_candidates\` row.
+
+It does not write \`learning_memory_entries\`.
+
+### Candidate identity and supersession
+
+Exact reproposal of the same evidence window is idempotent.
+
+If the same pattern gathers newer evidence while an older version is still
+\`proposed\`, the older proposal is retained as \`superseded\` and the new
+candidate links back to it.
+
+Accepted or rejected history is never rewritten merely because new evidence
+arrives.
+
+### Human review
+
+A proposed candidate can be explicitly:
+
+- **Accept memory**
+- **Reject**
+
+Both actions can include an optional review note.
+
+Rejecting changes only candidate review state.
+
+Accepting performs one atomic transaction that:
+
+1. verifies the candidate is still \`proposed\`;
+2. creates exactly one \`learning_memory_entries\` row;
+3. links the memory row back with
+   \`source_entity_type='tutor_memory_candidate'\`;
+4. records the candidate id as \`source_entity_id\`;
+5. updates the candidate to \`accepted\`;
+6. records the accepted memory entry id and review timestamp.
+
+A reviewed candidate cannot be accepted/rejected again.
+
+### Memory kinds
+
+Stable signals map deterministically to candidate memory kinds, for example:
+
+- misconception -> \`misconception\`
+- recurring doubt -> \`recurring_doubt\`
+- repeated hint use -> \`scaffolding_need\`
+- repeated partial/incorrect answers -> \`practice_need\`
+- repeated correct answers -> \`demonstrated_strength\`
+- repeated repaired calculations -> \`calculation_review_need\`
+- repeated blocked calculations -> \`calculation_risk\`
+
+These labels remain reviewable learning context, not grades or mastery scores.
+
+### Trust boundary
+
+Tutor 2.2.3 may write:
+
+- Tutor session metadata signal history;
+- reviewable Tutor memory candidates;
+- one long-term learning-memory row **only after explicit acceptance**.
+
+It still does not automatically write:
+
+- topic progress;
+- mastery;
+- grades;
+- assessments;
+- plans;
+- notes;
+- resources;
+- retrieval indexes.
+
+## Next Tutor 2.2 units
 
 ### 2.2.4 Personalized Teaching Policy
 
