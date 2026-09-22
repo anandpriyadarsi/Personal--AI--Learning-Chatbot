@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass
+import re
 from typing import Mapping
 
 
@@ -51,7 +52,7 @@ def _clean(value, limit=_MAX_TEXT):
 def _text_key(value):
     return " ".join(
         token.casefold()
-        for token in __import__("re").findall(
+        for token in re.findall(
             r"[A-Za-z0-9_+\-^]+",
             _clean(value),
         )
