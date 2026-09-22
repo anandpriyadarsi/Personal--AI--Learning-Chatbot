@@ -149,10 +149,66 @@ This is an interaction-level teaching signal, **not a mastery score**. Tutor
 
 ## Next Tutor 2.1 units
 
-### 2.1.3 Correctness Layer
-Add deterministic verification where practical for arithmetic, vectors,
-matrices, equations, determinants, and similar worked examples. LLM prompt
-self-checking is not considered sufficient by itself.
+## 2.1.3 — Deterministic Correctness Layer
+
+Tutor prompt self-checking is no longer the only protection for supported
+worked calculations.
+
+When a visible Tutor answer contains one of the supported numerical claim
+types, the provider is instructed to emit one hidden \`ANVAYA_MATH\` JSON
+marker describing the calculation.
+
+Current deterministic claim types:
+
+- \`vector_linear_combination\`
+- \`matrix_product\`
+- \`determinant\`
+
+The verifier:
+
+1. parses only bounded JSON data;
+2. never evaluates arbitrary Python, LaTeX, or user code;
+3. uses exact rational arithmetic where possible;
+4. strips the hidden marker before persistence/display;
+5. compares the declared result against the independently computed result.
+
+If verification fails, ANVAYA performs at most **one repair provider call**.
+The repair receives the deterministic verifier's concrete finding, such as:
+
+> vector linear combination evaluates to (2, 2) instead of target (3, 4)
+
+The repaired response must contain a valid machine-checkable math marker and
+pass deterministic verification.
+
+If the repair is absent or still wrong, ANVAYA does **not** display the bad
+worked example. It persists a safe response explaining that a calculation
+inconsistency was caught and marks that turn \`insufficient\`.
+
+Session-local state records the latest check as:
+
+- \`passed\`
+- \`repaired\`
+- \`blocked\`
+- \`not_applicable\`
+
+plus the number of checked claims.
+
+### Correctness-layer limits
+
+This layer does **not** claim to verify arbitrary mathematics.
+
+It currently does not independently prove:
+
+- abstract theorem proofs;
+- symbolic identities outside the bounded schemas;
+- arbitrary equation solving;
+- calculus derivations;
+- natural-language conceptual claims;
+- numerical claims that the provider fails to declare in an \`ANVAYA_MATH\`
+  marker.
+
+Those remain future correctness work. The deterministic layer is designed to
+expand incrementally rather than execute arbitrary mathematical text.
 
 ### 2.1.4 Retrieval Planner
 Expand difficult conceptual questions into multiple retrieval intents and
