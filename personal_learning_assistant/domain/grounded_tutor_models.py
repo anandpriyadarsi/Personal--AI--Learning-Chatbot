@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Mapping, Tuple
 
 from personal_learning_assistant.domain.retrieval_models import RetrievalHit
@@ -20,6 +20,10 @@ class GroundingPlan:
     messages: Tuple[Mapping[str, str], ...]
     retrieval_top_k: int
     context_max_chars: int
+    teaching_intent: str = ""
+    teaching_instruction: str = ""
+    adaptive_state: Mapping[str, object] = field(default_factory=dict)
+    retrieval_queries: Tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
