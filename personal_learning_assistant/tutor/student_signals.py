@@ -35,6 +35,8 @@ _ALLOWED_KINDS = {
 class StableTutorSignal:
     kind: str
     text: str
+    course_id: str
+    topic_id: str
     event_count: int
     session_count: int
     first_observed_at: str
@@ -46,8 +48,22 @@ def _clean(value, limit=_MAX_TEXT):
     return " ".join(str(value or "").strip().split())[: int(limit)]
 
 
-def _key(kind, text):
-    return (str(kind or "").strip().casefold(), _clean(text).casefold())
+def _text_key(value):
+    return " ".join(
+        token.casefold()
+        for token in __import__("re").findall(
+            r"[A-Za-z0-9_+\-^]+",
+            _clean(value),
+        )
+    )
+
+
+def _key(kind, text, topic_id):
+    return (
+        str(kind or "").strip().casefold(),
+        _text_key(text),
+        str(topic_id or "").strip(),
+    )
 
 
 def load_signal_history(metadata):
@@ -244,10 +260,13 @@ def aggregate_stable_signals(session_event_groups):
             if kind not in _ALLOWED_KINDS:
                 continue
             text = _clean(event.get("text"))
-            grouped[_key(kind, text)].append(
+            topic_id = _clean(event.get("topic_id"), 120)
+            grouped[_key(kind, text, topic_id)].append(
                 {
                     "kind": kind,
                     "text": text,
+                    "course_id": _clean(event.get("course_id"), 120),
+                    "topic_id": topic_id,
                     "session_id": session_id or _clean(
                         event.get("session_id"), 120
                     ),
@@ -257,7 +276,7 @@ def aggregate_stable_signals(session_event_groups):
             )
 
     stable = []
-    for (_kind_key, _text_key), events in grouped.items():
+    for (_kind_key, _text_key_value, _topic_key), events in grouped.items():
         sessions = {
             item["session_id"]
             for item in events
@@ -287,6 +306,8 @@ def aggregate_stable_signals(session_event_groups):
             StableTutorSignal(
                 kind=ordered[-1]["kind"],
                 text=ordered[-1]["text"],
+                course_id=ordered[-1]["course_id"],
+                topic_id=ordered[-1]["topic_id"],
                 event_count=len(events),
                 session_count=len(sessions),
                 first_observed_at=ordered[0]["observed_at"],
@@ -310,6 +331,8 @@ def stable_signal_mapping(signal):
     return {
         "kind": str(signal.kind or ""),
         "text": str(signal.text or ""),
+        "course_id": str(signal.course_id or ""),
+        "topic_id": str(signal.topic_id or ""),
         "event_count": int(signal.event_count),
         "session_count": int(signal.session_count),
         "first_observed_at": str(signal.first_observed_at or ""),
