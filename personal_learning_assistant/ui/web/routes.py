@@ -1868,7 +1868,7 @@ def academic_agent_create_session():
         session_id = service.create_session(
             course_id=request.form.get("course_id", ""),
             mode=request.form.get("mode", "concept"),
-            source_policy=request.form.get("source_policy", "source_only"),
+            source_policy=request.form.get("source_policy", "source_first"),
             title=request.form.get("title", ""),
         )
         return redirect(
