@@ -23,7 +23,7 @@ from personal_learning_assistant.tutor.socratic_loop import (
 
 
 STATE_KEY = "adaptive_tutor_state"
-STATE_VERSION = 6
+STATE_VERSION = 7
 _MAX_TEXT = 700
 _EVAL_PATTERN = re.compile(
     r"^\s*<!--ANVAYA_EVAL\s+(\{.*?\})\s*-->\s*",
@@ -53,6 +53,7 @@ def default_adaptive_state():
         "practice_step_count": 0,
         "practice_format": "",
         "practice_focus": "",
+        "exit_check_count": 0,
         "unresolved_doubt": "",
         "answer_status": "unassessed",
         "last_evaluation_reason": "",
@@ -114,6 +115,11 @@ def load_adaptive_state(metadata):
         practice_format = ""
     state["practice_format"] = practice_format
     state["practice_focus"] = _clean(raw.get("practice_focus"), 260)
+    try:
+        exit_checks = int(raw.get("exit_check_count") or 0)
+    except (TypeError, ValueError):
+        exit_checks = 0
+    state["exit_check_count"] = max(0, exit_checks)
     state["unresolved_doubt"] = _clean(raw.get("unresolved_doubt"))
     answer_status = _clean(raw.get("answer_status"), 40).casefold()
     if answer_status not in {
@@ -204,6 +210,10 @@ def adaptive_state_prompt(state):
             rows.append(
                 "practice_focus={}".format(clean["practice_focus"])
             )
+    if clean["exit_check_count"]:
+        rows.append(
+            "exit_check_count={}".format(clean["exit_check_count"])
+        )
     if clean["unresolved_doubt"]:
         rows.append("unresolved_doubt={}".format(clean["unresolved_doubt"]))
     if clean["last_student_answer"]:
@@ -519,6 +529,7 @@ def evolve_adaptive_state(
     teaching_intent,
     teaching_move="",
     planned_question="",
+    planned_exit_check="",
     practice_level=0,
     practice_format="",
     practice_focus="",
@@ -555,6 +566,7 @@ def evolve_adaptive_state(
     next_practice_task = _last_practice_task(assistant_message)
 
     planned = _clean(planned_question)
+    exit_check = _clean(planned_exit_check)
     move = _clean(teaching_move, 80).casefold()
 
     if move == "ask_diagnostic":
@@ -571,6 +583,18 @@ def evolve_adaptive_state(
             updated["socratic_step_count"] = (
                 current["socratic_step_count"] + 1
             )
+    elif move == "check_understanding" and exit_check:
+        updated["quiz_active"] = False
+        updated["practice_active"] = False
+        updated["awaiting_student_answer"] = True
+        updated["pending_question"] = exit_check
+        updated["pending_question_kind"] = "exit_check"
+        updated["answer_status"] = "pending"
+        updated["last_socratic_outcome"] = ""
+        updated["exit_check_count"] = current["exit_check_count"] + 1
+        updated["socratic_step_count"] = (
+            current["socratic_step_count"] + 1
+        )
     elif teaching_intent == "practice":
         pending = next_practice_task
         updated["quiz_active"] = False
@@ -619,10 +643,17 @@ def evolve_adaptive_state(
             current["practice_active"]
             or current["pending_question_kind"] == "practice"
         )
-        # Initial practice may use an imperative task without '?'. After an
-        # evaluated answer, require a real next question; otherwise end the
-        # practice loop instead of mistaking feedback for a task.
-        pending_follow_up = next_question
+        exit_check_lineage = (
+            current["pending_question_kind"] == "exit_check"
+        )
+        # Exit checks are deliberately one-shot. Initial practice may use an
+        # imperative task without '?', but after evaluated answers a real next
+        # question is required to continue ordinary quiz/practice lineage.
+        pending_follow_up = (
+            ""
+            if exit_check_lineage
+            else next_question
+        )
         updated["quiz_active"] = (
             quiz_lineage and bool(pending_follow_up)
         )
@@ -638,7 +669,11 @@ def evolve_adaptive_state(
                 else (
                     "practice"
                     if practice_lineage
-                    else "socratic_check"
+                    else (
+                        "exit_check"
+                        if exit_check_lineage
+                        else "socratic_check"
+                    )
                 )
             )
             if pending_follow_up
