@@ -1298,3 +1298,85 @@ Validated properties:
 - repository hygiene.
 
 Tutor 2.3.6 is therefore **COMPLETE**.
+
+
+---
+
+## 2.3.7 — Live Validation
+
+**Implementation status:** READY FOR LOCAL LIVE EXECUTION.
+
+Tutor 2.3.7 adds no new teaching behavior.
+
+Its purpose is to validate the complete Tutor 2.3 orchestration stack through
+the real local UI, configured Tutor provider, disposable SQLite state, and
+read-only inspection.
+
+### Added acceptance tooling
+
+Tutor 2.3.7 adds:
+
+- ANVAYA_TUTOR_2_3_LIVE_VALIDATION.md — manual acceptance protocol;
+- tutor23_live_inspect.py — read-only Tutor 2.3 state inspector;
+- tests/test_tutor23_live_validation.py — inspector and acceptance-boundary tests;
+- tutor23_fix7_gate.ps1 — final automated live-readiness regression gate.
+
+### Read-only inspector
+
+The inspector exposes:
+
+- canonical course / topic scope;
+- session goal and bounded goal evidence;
+- current teaching plan;
+- pending-question and Socratic state;
+- adaptive-practice state;
+- Tutor 2.2 persistent student context and personalized policy;
+- recent turns, provider metadata, support levels, and evidence counts;
+- learning-memory / progress row counts;
+- bounded state-invariant checks.
+
+It opens SQLite in read-only mode.
+
+### Live acceptance scope
+
+Manual validation covers:
+
+1. vague-gap diagnostic questioning;
+2. hint preservation of pending work;
+3. Socratic answer continuation;
+4. prerequisite repair and return-to-goal behavior;
+5. adaptive computational practice;
+6. bounded harder / easier sequencing;
+7. topic-shift cancellation;
+8. the mixed-understanding regression:
+   "I understand span but why does a basis need linear independence?";
+9. self-report -> exit-check behavior;
+10. correct exit-check -> session-local likely_met;
+11. reopening likely_met after new confusion;
+12. Source Only exit-check behavior;
+13. mathematical correctness / rendering;
+14. runtime stability;
+15. protected production-state boundaries.
+
+### Automated gate meaning
+
+Run:
+
+~~~powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tutor23_fix7_gate.ps1
+~~~
+
+A green automated result means:
+
+~~~text
+ANVAYA TUTOR 2.3.7 LIVE VALIDATION READINESS: PASS
+~~~
+
+This is **not** itself a live-validation PASS.
+
+Tutor 2.3 can be declared complete only after the manual scenarios in
+ANVAYA_TUTOR_2_3_LIVE_VALIDATION.md are observed locally and their results are
+recorded.
+
+Do not begin the next Tutor development stage until both the automated
+readiness gate and manual live acceptance are green.
