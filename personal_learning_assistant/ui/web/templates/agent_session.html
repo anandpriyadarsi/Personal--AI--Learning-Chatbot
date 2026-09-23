@@ -51,6 +51,7 @@ window.MathJax = {
           {% if teaching_plan.get('reason') %}<br><span class="microcopy">Reason: {{ teaching_plan.get('reason')|replace('_', ' ') }}</span>{% endif %}
           {% if teaching_plan.get('diagnostic_question') %}<br><span class="microcopy"><strong>Diagnostic question:</strong> {{ teaching_plan.get('diagnostic_question') }}</span>{% endif %}
           {% if teaching_plan.get('prerequisite_concept') %}<br><span class="microcopy"><strong>Prerequisite repair:</strong> {{ teaching_plan.get('prerequisite_concept') }} → {{ teaching_plan.get('target_concept') }}</span>{% endif %}
+          {% if teaching_plan.get('practice_active') %}<br><span class="microcopy"><strong>Practice plan:</strong> Level {{ teaching_plan.get('practice_level') }} · {{ teaching_plan.get('practice_format')|replace('_', ' ')|title }}{% if teaching_plan.get('practice_reason') %} · {{ teaching_plan.get('practice_reason')|replace('_', ' ') }}{% endif %}</span>{% endif %}
         </p>
         {% endif %}
         <p class="microcopy">Session-local orchestration only · not mastery or academic progress.</p>
@@ -68,6 +69,12 @@ window.MathJax = {
         {% if adaptive.get('last_socratic_outcome') %}
         <p><strong>Last Socratic outcome:</strong> {{ adaptive.get('last_socratic_outcome')|replace('_', ' ')|title }}
           {% if adaptive.get('socratic_step_count') %}<br><span class="microcopy">Loop steps: {{ adaptive.get('socratic_step_count') }}</span>{% endif %}
+        </p>
+        {% endif %}
+        {% if adaptive.get('practice_level') %}
+        <p><strong>Practice sequence:</strong> Level {{ adaptive.get('practice_level') }}
+          {% if adaptive.get('practice_format') %} · {{ adaptive.get('practice_format')|replace('_', ' ')|title }}{% endif %}
+          {% if adaptive.get('practice_step_count') %}<br><span class="microcopy">Practice steps: {{ adaptive.get('practice_step_count') }} · Session-local, not mastery</span>{% endif %}
         </p>
         {% endif %}
         {% if adaptive.get('answer_status') not in [none, '', 'unassessed', 'pending'] %}
