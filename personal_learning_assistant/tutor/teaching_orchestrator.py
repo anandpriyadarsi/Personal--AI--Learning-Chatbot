@@ -4,7 +4,7 @@ Tutor 2.3.1 established bounded teaching moves. Tutor 2.3.2 added one bounded
 diagnostic question for genuinely ambiguous initial requests. Tutor 2.3.3
 continues a pending pedagogical question across turns. Tutor 2.3.4 adds
 course-scoped prerequisite repair. Tutor 2.3.5 adds bounded adaptive practice
-sequencing. Goal completion remains reserved for Tutor 2.3.6.
+sequencing. Tutor 2.3.6 adds bounded understanding / exit checks.
 """
 
 from __future__ import annotations
@@ -18,6 +18,9 @@ from personal_learning_assistant.tutor.concept_dependencies import (
 )
 from personal_learning_assistant.tutor.diagnostic_planner import (
     plan_diagnostic_question,
+)
+from personal_learning_assistant.tutor.goal_evaluator import (
+    plan_exit_check,
 )
 from personal_learning_assistant.tutor.practice_sequencer import (
     plan_practice_sequence,
@@ -75,6 +78,7 @@ class TeachingPlan:
     goal_status: str
     student_action_expected: bool = False
     diagnostic_question: str = ""
+    exit_check_question: str = ""
     target_concept: str = ""
     prerequisite_concept: str = ""
     prerequisite_reason: str = ""
@@ -116,9 +120,17 @@ def build_teaching_plan(
         and bool(state.get("awaiting_student_answer"))
         and _clean(state.get("pending_question"), 500)
     ):
-        move = "check_understanding"
-        reason = "pending_socratic_answer"
-        student_action_expected = True
+        if (
+            _clean(state.get("pending_question_kind"), 40).casefold()
+            == "exit_check"
+        ):
+            move = "finish_goal"
+            reason = "pending_exit_check_answer"
+            student_action_expected = False
+        else:
+            move = "check_understanding"
+            reason = "pending_socratic_answer"
+            student_action_expected = True
 
     # Current-session misconception may refine a generic explanation, but it
     # never overrides an explicit student request such as hint/example/quiz.
@@ -131,6 +143,22 @@ def build_teaching_plan(
         student_action_expected = False
 
     diagnostic_question = ""
+    exit_check_question = ""
+    exit_check = plan_exit_check(
+        question,
+        teaching_intent=intent,
+        adaptive_state=state,
+        session_goal=goal,
+    )
+    if (
+        exit_check.should_ask
+        and move in {"explain", "check_understanding"}
+    ):
+        move = "check_understanding"
+        reason = exit_check.reason
+        student_action_expected = True
+        exit_check_question = exit_check.question
+
     if move == "explain" and intent == "explain":
         diagnostic = plan_diagnostic_question(
             question,
@@ -155,6 +183,11 @@ def build_teaching_plan(
     )
     if (
         prerequisite["should_review"]
+        and reason not in {
+            "explicit_exit_check_requested",
+            "student_reports_understanding",
+            "pending_exit_check_answer",
+        }
         and move in {
             "explain",
             "ask_diagnostic",
@@ -194,6 +227,7 @@ def build_teaching_plan(
         goal_status=goal["status"],
         student_action_expected=student_action_expected,
         diagnostic_question=diagnostic_question,
+        exit_check_question=exit_check_question,
         target_concept=prerequisite["target_concept"],
         prerequisite_concept=prerequisite["prerequisite_concept"],
         prerequisite_reason=prerequisite["reason"],
@@ -231,6 +265,10 @@ def teaching_plan_mapping(plan):
             "diagnostic_question": _clean(
                 plan.get("diagnostic_question"),
                 280,
+            ),
+            "exit_check_question": _clean(
+                plan.get("exit_check_question"),
+                500,
             ),
             "target_concept": _clean(plan.get("target_concept"), 220),
             "prerequisite_concept": _clean(
@@ -278,6 +316,7 @@ def teaching_plan_mapping(plan):
         "goal_status": plan.goal_status,
         "student_action_expected": bool(plan.student_action_expected),
         "diagnostic_question": _clean(plan.diagnostic_question, 280),
+        "exit_check_question": _clean(plan.exit_check_question, 500),
         "target_concept": _clean(plan.target_concept, 220),
         "prerequisite_concept": _clean(plan.prerequisite_concept, 220),
         "prerequisite_reason": _clean(plan.prerequisite_reason, 120),
@@ -317,6 +356,9 @@ def teaching_plan_prompt(plan):
             ),
             "diagnostic_question={}".format(
                 data["diagnostic_question"] or "(none)"
+            ),
+            "exit_check_question={}".format(
+                data["exit_check_question"] or "(none)"
             ),
             "target_concept={}".format(
                 data["target_concept"] or "(none)"
@@ -385,13 +427,33 @@ def teaching_plan_instruction(plan):
         ),
         "check_understanding": (
             (
-                "Evaluate the student's answer to the pending Tutor question. "
-                + socratic_outcome_instruction()
+                "Ask exactly this one exit-check question and stop: {}".format(
+                    data["exit_check_question"]
+                )
             )
-            if data["reason"] == "pending_socratic_answer"
+            if data["reason"] in {
+                "explicit_exit_check_requested",
+                "student_reports_understanding",
+            }
             else (
-                "Evaluate the student's current reasoning before introducing new material."
+                (
+                    "Evaluate the student's answer to the pending Tutor question. "
+                    + socratic_outcome_instruction()
+                )
+                if data["reason"] == "pending_socratic_answer"
+                else (
+                    "Evaluate the student's current reasoning before introducing new material."
+                )
             )
+        ),
+        "finish_goal": (
+            "Evaluate the student's answer to the pending session-goal exit check. "
+            "If the answer is correct, briefly confirm the decisive idea and say only "
+            "that the current session goal appears likely met based on this session. "
+            "Do not call it mastery or academic progress. If the answer is partial, "
+            "incorrect, or unclear, identify the minimum missing point and say the "
+            "session goal remains unresolved. Do not ask a second exit check in the "
+            "same turn."
         ),
         "summarize": (
             "Give a concise learning-oriented recap of the current request."
@@ -415,11 +477,13 @@ def teaching_plan_instruction(plan):
             "Teach the current question clearly without changing its subject.",
         ),
         "Treat the session goal as session-local orientation, not proof of mastery or progress.",
-        "Do not declare the goal complete in Tutor 2.3.5.",
+        "A Tutor 2.3.6 goal may become only active, likely_met, or unresolved; never describe likely_met as mastery or academic progress.",
         "When next_move=ask_diagnostic, ask only the supplied diagnostic question and wait. Do not add a second diagnostic question.",
         "When reason=pending_socratic_answer, respond to the pending question before teaching anything unrelated and ask at most one next pedagogical question.",
         "When next_move=review_prerequisite, teach only the named prerequisite, make the bridge back to the target explicit, and do not open a second prerequisite branch.",
         "When practice_active=true, give at most one task at a time and change difficulty by at most one bounded level from evaluated current-session evidence.",
+        "When exit_check_question is present, ask exactly that one question and wait.",
+        "When reason=pending_exit_check_answer, evaluate the exit check once and do not open another exit check in the same turn.",
         "Never describe a practice level as mastery, ability, intelligence, or academic progress.",
     ]
     return " ".join(rows)
