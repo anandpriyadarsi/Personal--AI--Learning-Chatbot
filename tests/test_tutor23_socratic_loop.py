@@ -278,7 +278,7 @@ def test_incorrect_answer_records_repair_outcome(tmp_path):
 def test_unclear_answer_records_unclear_outcome(tmp_path):
     response = (
         '<!--ANVAYA_EVAL {"status":"unclear",'
-        '"reason":"Answer is too short to identify the student's reasoning.",'
+        '"reason":"Answer is too short to identify the student reasoning.",'
         '"misconception":""}-->\n'
         "I cannot tell which part you mean yet.\n\n"
         "Do you mean the multiplier calculation or why it is stored in L?"
