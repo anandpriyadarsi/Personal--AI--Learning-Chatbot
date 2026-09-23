@@ -12,6 +12,8 @@ from datetime import datetime, timezone
 from importlib import import_module
 from pathlib import Path
 from personal_learning_assistant.tutor.adaptive_state import load_adaptive_state
+from personal_learning_assistant.tutor.session_goal import load_session_goal
+from personal_learning_assistant.tutor.teaching_orchestrator import load_teaching_plan
 import sqlite3
 from urllib.parse import quote
 
@@ -132,6 +134,8 @@ def _session_view(session, turns):
         "completed_at": session.completed_at,
         "metadata": dict(session.metadata or {}),
         "adaptive_state": load_adaptive_state(session.metadata),
+        "session_goal": load_session_goal(session.metadata),
+        "teaching_plan": load_teaching_plan(session.metadata),
         "prefill_question": str(
             dict(session.metadata or {}).get("prefill_question") or ""
         ),
