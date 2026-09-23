@@ -55,12 +55,19 @@ window.MathJax = {
         <p class="microcopy">Session-local orchestration only · not mastery or academic progress.</p>
       </details>
       {% endif %}
-      {% if adaptive.get('unresolved_doubt') or adaptive.get('pending_question') or adaptive.get('last_misconception') or adaptive.get('answer_status') not in [none, '', 'unassessed', 'pending'] or adaptive.get('last_math_verification') in ['passed', 'repaired', 'blocked'] %}
+      {% if adaptive.get('unresolved_doubt') or adaptive.get('pending_question') or adaptive.get('last_socratic_outcome') or adaptive.get('last_misconception') or adaptive.get('answer_status') not in [none, '', 'unassessed', 'pending'] or adaptive.get('last_math_verification') in ['passed', 'repaired', 'blocked'] %}
       <details class="tutor-state-summary">
         <summary>Current learning state</summary>
         <p><strong>Unresolved doubt:</strong> {{ adaptive.get('unresolved_doubt') }}</p>
         {% if adaptive.get('pending_question') %}
-        <p><strong>Pending Tutor question:</strong> {{ adaptive.get('pending_question') }}</p>
+        <p><strong>Pending Tutor question:</strong> {{ adaptive.get('pending_question') }}
+          {% if adaptive.get('pending_question_kind') %}<br><span class="microcopy">Kind: {{ adaptive.get('pending_question_kind')|replace('_', ' ')|title }}</span>{% endif %}
+        </p>
+        {% endif %}
+        {% if adaptive.get('last_socratic_outcome') %}
+        <p><strong>Last Socratic outcome:</strong> {{ adaptive.get('last_socratic_outcome')|replace('_', ' ')|title }}
+          {% if adaptive.get('socratic_step_count') %}<br><span class="microcopy">Loop steps: {{ adaptive.get('socratic_step_count') }}</span>{% endif %}
+        </p>
         {% endif %}
         {% if adaptive.get('answer_status') not in [none, '', 'unassessed', 'pending'] %}
         <p><strong>Last answer evaluation:</strong> {{ adaptive.get('answer_status')|title }}</p>
