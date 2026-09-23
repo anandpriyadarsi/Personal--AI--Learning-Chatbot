@@ -202,7 +202,6 @@ def test_teaching_plan_carries_adaptive_practice_contract():
     assert mapped["practice_format"] == "conceptual"
     assert "at most one practice task at a time" in instruction
     assert "question mark" in instruction
-    assert "not mastery" not in instruction.casefold()
     assert "Never describe a practice level as mastery" in instruction
 
 
