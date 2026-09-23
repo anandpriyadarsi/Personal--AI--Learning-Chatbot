@@ -140,11 +140,17 @@ def build_teaching_plan(
     )
     if (
         prerequisite["should_review"]
-        and move in {"explain", "check_understanding", "repair_misconception"}
+        and move in {
+            "explain",
+            "ask_diagnostic",
+            "check_understanding",
+            "repair_misconception",
+        }
     ):
         move = "review_prerequisite"
         reason = prerequisite["reason"]
         student_action_expected = False
+        diagnostic_question = ""
 
     return TeachingPlan(
         next_move=move,
