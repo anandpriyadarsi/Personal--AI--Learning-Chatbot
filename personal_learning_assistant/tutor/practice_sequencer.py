@@ -212,14 +212,22 @@ def plan_practice_sequence(
 
     # Current-session evidence dominates historical policy when starting a new
     # practice sequence.
-    if starting_practice and current_status in {"incorrect", "unclear"}:
+    if (
+        starting_practice
+        and not direction
+        and current_status in {"incorrect", "unclear"}
+    ):
         level = clamp_level(level - 1)
         reason = "current_session_needs_easier_practice"
-    elif starting_practice and current_status == "partial":
-        level = min(level, 3)
+    elif (
+        starting_practice
+        and not direction
+        and current_status == "partial"
+    ):
         reason = "current_session_hold_practice_level"
     elif (
         starting_practice
+        and not direction
         and current_status == "correct"
         and current_outcome == "advance"
     ):
@@ -239,7 +247,8 @@ def plan_practice_sequence(
     ):
         practice_format = "misconception_targeted"
         focus = current_misconception
-        level = clamp_level(level - 1)
+        if not direction:
+            level = clamp_level(level - 1)
         reason = "current_misconception_targeted_practice"
     elif (
         _clean(state.get("last_teaching_move"), 80).casefold()
@@ -247,7 +256,8 @@ def plan_practice_sequence(
     ):
         practice_format = "prerequisite_bridge"
         focus = "bridge the repaired prerequisite back to the session goal"
-        level = clamp_level(level - 1)
+        if not direction:
+            level = clamp_level(level - 1)
         reason = "post_prerequisite_bridge_practice"
     elif requested_format:
         reason = "student_requested_{}_practice".format(requested_format)
