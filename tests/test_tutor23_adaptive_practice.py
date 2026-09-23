@@ -425,6 +425,28 @@ def test_pending_practice_reply_resolves_as_answer_intent():
     assert intent.name == "quiz_answer"
 
 
+def test_student_override_cancels_active_practice_but_keeps_last_level():
+    state = contextualize_adaptive_state(
+        "Just explain it.",
+        {
+            "awaiting_student_answer": True,
+            "pending_question": "What multiplier eliminates a21?",
+            "pending_question_kind": "practice",
+            "practice_active": True,
+            "practice_level": 3,
+            "practice_step_count": 2,
+            "practice_format": "computational",
+            "answer_status": "pending",
+        },
+    )
+
+    assert state["practice_active"] is False
+    assert state["practice_level"] == 3
+    assert state["pending_question"] == ""
+    assert state["pending_question_kind"] == ""
+    assert state["answer_status"] == "unassessed"
+
+
 def test_explicit_topic_shift_resets_practice_sequence():
     state = contextualize_adaptive_state(
         "Now explain cofactor expansion.",
