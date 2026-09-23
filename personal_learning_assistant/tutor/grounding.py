@@ -30,6 +30,17 @@ from personal_learning_assistant.tutor.retrieval_planner import (
     plan_retrieval_queries,
     rerank_retrieval_hits,
 )
+from personal_learning_assistant.tutor.session_goal import (
+    resolve_session_goal,
+    session_goal_mapping,
+    session_goal_prompt,
+)
+from personal_learning_assistant.tutor.teaching_orchestrator import (
+    build_teaching_plan,
+    teaching_plan_instruction,
+    teaching_plan_mapping,
+    teaching_plan_prompt,
+)
 from personal_learning_assistant.tutor.student_model import (
     build_persistent_student_model,
     student_model_mapping,
@@ -204,6 +215,8 @@ def build_provider_request(
     adaptive_state=None,
     persistent_student_model=None,
     teaching_policy=None,
+    session_goal=None,
+    teaching_plan=None,
 ):
     policy = get_mode_policy(session.mode)
     state = (
@@ -215,6 +228,15 @@ def build_provider_request(
     persistent_model_text = student_model_prompt(persistent_student_model)
     intent_name = str(teaching_intent or intent.name)
     intent_instruction = str(teaching_instruction or intent.instruction)
+    resolved_goal = (
+        resolve_session_goal(
+            question,
+            session.metadata,
+            teaching_intent=intent_name,
+        )
+        if session_goal is None
+        else session_goal_mapping(session_goal)
+    )
     if intent_name == "quiz_answer":
         intent_instruction = "{} {}".format(
             intent_instruction,
@@ -236,6 +258,20 @@ def build_provider_request(
     personalized_policy_instruction = teaching_policy_instruction(
         personalized_policy_map
     )
+    resolved_plan = (
+        build_teaching_plan(
+            question,
+            teaching_intent=intent_name,
+            adaptive_state=state,
+            session_goal=resolved_goal,
+            teaching_policy=personalized_policy_map,
+        )
+        if teaching_plan is None
+        else teaching_plan
+    )
+    resolved_plan_map = teaching_plan_mapping(resolved_plan)
+    resolved_plan_text = teaching_plan_prompt(resolved_plan_map)
+    resolved_plan_instruction = teaching_plan_instruction(resolved_plan_map)
     messages = [
         {
             "role": "system",
@@ -254,6 +290,8 @@ def build_provider_request(
             "content": (
                 "SESSION SCOPE\n{}\n\n"
                 "STUDENT STATE\n{}\n\n"
+                "SESSION GOAL (session-local orientation; not mastery/progress)\n{}\n\n"
+                "TEACHING PLAN (deterministic orchestration; CURRENT QUESTION still controls)\n{}\n{}\n\n"
                 "PERSISTENT STUDENT MODEL (historical/advisory only)\n{}\n\n"
                 "PERSONALIZED TEACHING POLICY (style only; CURRENT QUESTION still controls)\n{}\n{}\n\n"
                 "TEACHING INTENT\n{}\n{}\n\n"
@@ -272,6 +310,9 @@ def build_provider_request(
                     ).strip() or None,
                 ),
                 adaptive_state_prompt(state),
+                session_goal_prompt(resolved_goal),
+                resolved_plan_text,
+                resolved_plan_instruction,
                 persistent_model_text,
                 personalized_policy_text,
                 personalized_policy_instruction,
@@ -301,6 +342,8 @@ def build_provider_request(
                 persistent_student_model
             ),
             "teaching_policy": dict(personalized_policy_map),
+            "session_goal": session_goal_mapping(resolved_goal),
+            "teaching_plan": dict(resolved_plan_map),
         },
     )
 
@@ -338,6 +381,11 @@ class TutorGroundingPlanner:
             raw_adaptive_state,
         )
         policy = get_mode_policy(session.mode)
+        session_goal = resolve_session_goal(
+            clean,
+            session.metadata,
+            teaching_intent=intent.name,
+        )
         persistent_student_model = build_persistent_student_model(
             getattr(self.tutor_session_service, "repository", None),
             session,
@@ -346,6 +394,13 @@ class TutorGroundingPlanner:
             persistent_student_model,
             adaptive_state,
             teaching_intent=intent.name,
+        )
+        teaching_plan = build_teaching_plan(
+            clean,
+            teaching_intent=intent.name,
+            adaptive_state=adaptive_state,
+            session_goal=session_goal,
+            teaching_policy=personalized_policy,
         )
         queries = plan_retrieval_queries(
             clean,
@@ -398,6 +453,8 @@ class TutorGroundingPlanner:
             adaptive_state=adaptive_state,
             persistent_student_model=persistent_student_model,
             teaching_policy=personalized_policy,
+            session_goal=session_goal,
+            teaching_plan=teaching_plan,
         )
         return GroundingPlan(
             question=clean,
@@ -412,6 +469,8 @@ class TutorGroundingPlanner:
             teaching_intent=intent.name,
             teaching_instruction=intent.instruction,
             adaptive_state=dict(adaptive_state),
+            session_goal=session_goal_mapping(session_goal),
+            teaching_plan=teaching_plan_mapping(teaching_plan),
             persistent_student_model=student_model_mapping(
                 persistent_student_model
             ),
@@ -433,4 +492,6 @@ class TutorGroundingPlanner:
             adaptive_state=plan.adaptive_state,
             persistent_student_model=plan.persistent_student_model,
             teaching_policy=plan.teaching_policy,
+            session_goal=plan.session_goal,
+            teaching_plan=plan.teaching_plan,
         )
