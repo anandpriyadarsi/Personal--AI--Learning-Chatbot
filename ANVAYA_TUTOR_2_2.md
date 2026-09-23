@@ -462,10 +462,35 @@ Tutor 2.2.4 performs no additional writes to:
 - retrieval indexes;
 - the Obsidian vault.
 
-## Next Tutor 2.2 unit
+## 2.2.5 — Live Cross-Session Validation
 
-### 2.2.5 Live Cross-Session Validation
+Status: **PASS — live validated on 2026-09-23**
 
-Create one MA103N session, establish a real difficulty, close/reopen another
-session, and verify that ANVAYA remembers the useful learning context without
-repeating or forcing the old topic.
+The disposable local-web validation demonstrated:
+
+- canonical topic isolation for LU Factorization;
+- repeated Tutor observations across distinct sessions;
+- stable cross-session signal aggregation;
+- historical support signals changing teaching style in a fresh session;
+- current-question/topic priority over historical context;
+- explicit candidate acceptance creating provenance-linked learning memory;
+- explicit rejection creating no additional accepted memory;
+- accepted memory surviving into later Tutor sessions;
+- user-visible personalization without labelling the student as weak/strong or
+  presenting history as a mastery score;
+- rendered Markdown/LaTeX and stable local runtime during the validated flow.
+
+Detailed evidence and the reproducible validation protocol are recorded in
+`ANVAYA_TUTOR_2_2_LIVE_VALIDATION.md`.
+
+## Tutor 2.2 status
+
+Tutor 2.2 units are complete:
+
+- 2.2.1 Read-Only Cross-Session Student Model — PASS
+- 2.2.2 Stable Signal Aggregation — PASS
+- 2.2.3 Candidate Memory Promotion — PASS
+- 2.2.4 Personalized Teaching Policy — PASS
+- 2.2.5 Live Cross-Session Validation — PASS
+
+The final `tutor22_gate.ps1` must remain green before starting Tutor 2.3.
