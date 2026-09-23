@@ -411,7 +411,8 @@ def practice_sequence_instruction(sequence, *, answering=False):
         )
     else:
         base += (
-            "Ask only the practice task and wait for the student's attempt. Do not "
+            "Ask only the practice task and wait for the student's attempt. End the "
+            "task with a question mark so it can be tracked as pending practice. Do not "
             "supply the full solution in the same turn."
         )
     return base
