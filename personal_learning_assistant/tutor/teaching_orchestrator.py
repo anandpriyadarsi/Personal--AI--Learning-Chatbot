@@ -1,8 +1,9 @@
-"""Deterministic teaching orchestration for ANVAYA Tutor 2.3.1.
+"""Deterministic teaching orchestration for ANVAYA Tutor 2.3.
 
-2.3.1 chooses a bounded next teaching move. Diagnostic questioning, concept
-dependency reasoning, practice sequencing, and goal completion are deliberately
-reserved for later Tutor 2.3 units.
+Tutor 2.3.1 established bounded teaching moves. Tutor 2.3.2 adds one bounded
+diagnostic question for genuinely ambiguous initial requests. Concept
+dependency reasoning, practice sequencing, and goal completion remain reserved
+for later Tutor 2.3 units.
 """
 
 from __future__ import annotations
@@ -10,6 +11,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Mapping
 
+from personal_learning_assistant.tutor.diagnostic_planner import (
+    plan_diagnostic_question,
+)
 from personal_learning_assistant.tutor.session_goal import (
     session_goal_mapping,
 )
@@ -57,6 +61,7 @@ class TeachingPlan:
     goal: str
     goal_status: str
     student_action_expected: bool = False
+    diagnostic_question: str = ""
 
 
 def build_teaching_plan(
@@ -86,14 +91,28 @@ def build_teaching_plan(
         reason = "current_session_misconception"
         student_action_expected = False
 
-    # 2.3.1 deliberately does not autonomously choose ask_diagnostic,
-    # review_prerequisite, or finish_goal. Those belong to later 2.3 units.
+    diagnostic_question = ""
+    if move == "explain" and intent == "explain":
+        diagnostic = plan_diagnostic_question(
+            question,
+            teaching_intent=intent,
+            adaptive_state=state,
+            session_goal=goal,
+        )
+        if diagnostic.should_ask:
+            move = "ask_diagnostic"
+            reason = diagnostic.reason
+            student_action_expected = True
+            diagnostic_question = diagnostic.question
+
+    # review_prerequisite and finish_goal remain reserved for later 2.3 units.
     return TeachingPlan(
         next_move=move,
         reason=reason,
         goal=goal["goal"],
         goal_status=goal["status"],
         student_action_expected=student_action_expected,
+        diagnostic_question=diagnostic_question,
     )
 
 
@@ -112,6 +131,10 @@ def teaching_plan_mapping(plan):
             "student_action_expected": bool(
                 plan.get("student_action_expected", False)
             ),
+            "diagnostic_question": _clean(
+                plan.get("diagnostic_question"),
+                280,
+            ),
             "planned_at": _clean(plan.get("planned_at"), 80),
         }
 
@@ -121,6 +144,7 @@ def teaching_plan_mapping(plan):
         "goal": plan.goal,
         "goal_status": plan.goal_status,
         "student_action_expected": bool(plan.student_action_expected),
+        "diagnostic_question": _clean(plan.diagnostic_question, 280),
         "planned_at": "",
     }
 
@@ -134,6 +158,9 @@ def teaching_plan_prompt(plan):
             "student_action_expected={}".format(
                 str(data["student_action_expected"]).lower()
             ),
+            "diagnostic_question={}".format(
+                data["diagnostic_question"] or "(none)"
+            ),
         )
     )
 
@@ -144,6 +171,13 @@ def teaching_plan_instruction(plan):
     instructions = {
         "explain": (
             "Explain the current question directly in a coherent teaching sequence."
+        ),
+        "ask_diagnostic": (
+            "Ask exactly one short diagnostic question and stop. Do not begin "
+            "the explanation yet. Use this question: {}".format(
+                data["diagnostic_question"]
+                or "Which part is blocking you most?"
+            )
         ),
         "give_hint": (
             "Give only the next useful hint; leave meaningful reasoning for the student."
@@ -174,8 +208,8 @@ def teaching_plan_instruction(plan):
             "Teach the current question clearly without changing its subject.",
         ),
         "Treat the session goal as session-local orientation, not proof of mastery or progress.",
-        "Do not declare the goal complete in Tutor 2.3.1.",
-        "Do not invent a new diagnostic question solely from this orchestration layer; diagnostic planning is reserved for Tutor 2.3.2.",
+        "Do not declare the goal complete in Tutor 2.3.2.",
+        "When next_move=ask_diagnostic, ask only the supplied diagnostic question and wait. Do not add a second diagnostic question.",
     ]
     return " ".join(rows)
 
