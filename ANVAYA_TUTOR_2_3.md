@@ -314,3 +314,107 @@ Validated properties:
 - repository hygiene.
 
 Tutor 2.3.1 is therefore **COMPLETE**.
+
+
+---
+
+## 2.3.2 — Diagnostic Questioning
+
+**Implementation status:** Built; awaiting local gate validation.
+
+### Purpose
+
+Tutor 2.3.2 allows ANVAYA to ask **one short diagnostic question** before
+teaching only when the student's initial gap is genuinely unclear.
+
+Examples that may trigger diagnosis:
+
+- \`I don't understand LU factorization.\`
+- \`I'm confused about basis.\`
+- \`Help me with determinants.\`
+- a bare initial topic such as \`LU factorization\`
+
+Examples that must bypass diagnosis:
+
+- \`Explain LU factorization.\`
+- \`Explain why elimination multipliers enter L.\`
+- \`How is L constructed?\`
+- explicit hint/example/practice/quiz/verification requests;
+- a current-session misconception or unresolved doubt that already identifies
+  the gap.
+
+### Bounded behavior
+
+Tutor 2.3.2 automatically diagnoses only an **initial ambiguous request**.
+
+It does not yet own pending diagnostic state or interpret the student's answer
+to that question. Those multi-turn semantics belong to Tutor 2.3.3.
+
+The deterministic diagnostic question is intentionally simple:
+
+\`Which part is blocking you most: the core idea, how the steps work, or why the method works?\`
+
+The current session goal supplies the topic phrase.
+
+### Teaching-plan integration
+
+When diagnosis is required:
+
+\`\`\`text
+next_move = ask_diagnostic
+reason = initial_gap_unclear
+student_action_expected = true
+diagnostic_question = <bounded exact question>
+\`\`\`
+
+The provider is instructed to:
+
+- ask exactly the supplied question;
+- ask only one diagnostic question;
+- stop after the question;
+- wait for the student's response;
+- not begin the explanation yet.
+
+### Priority / bypass rules
+
+Explicit current intent always wins over diagnostic logic.
+
+\`\`\`text
+explicit hint/example/practice/quiz/check request
+    >
+known current-session misconception/doubt
+    >
+initial ambiguity diagnosis
+    >
+ordinary explanation
+\`\`\`
+
+This remains inside the wider Tutor 2.3 hierarchy:
+
+\`current question > current-session state > session goal/teaching plan > persistent history\`
+
+### Persistence / trust boundary
+
+No new database migration is introduced.
+
+The diagnostic decision is stored only as part of the existing
+\`tutor23_teaching_plan\` in Tutor session metadata.
+
+Tutor 2.3.2 does not automatically write learning memory, mastery, progress,
+grades, study plans, notes/resources, retrieval indexes, or Obsidian vault
+content.
+
+### UI
+
+When the current teaching move is \`Ask Diagnostic\`, the Tutor session summary
+shows the exact planned diagnostic question for inspection.
+
+### Gate
+
+Run:
+
+\`\`\`powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\tutor23_fix2_gate.ps1
+\`\`\`
+
+Do not begin Tutor 2.3.3 until this gate is completely green.
