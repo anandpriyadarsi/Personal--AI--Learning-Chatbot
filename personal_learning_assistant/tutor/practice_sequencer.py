@@ -165,7 +165,15 @@ def plan_practice_sequence(
     if not starting_practice and not continuing_practice:
         return PracticeSequence(active=False)
 
-    existing_level = clamp_level(state.get("practice_level") or 0, default=0)
+    try:
+        raw_existing_level = int(state.get("practice_level") or 0)
+    except (TypeError, ValueError):
+        raw_existing_level = 0
+    existing_level = (
+        clamp_level(raw_existing_level)
+        if raw_existing_level > 0
+        else 0
+    )
     if existing_level:
         level = existing_level
         reason = "continue_session_practice_level"
