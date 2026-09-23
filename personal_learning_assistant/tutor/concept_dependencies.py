@@ -465,10 +465,24 @@ def prerequisite_decision_mapping(decision):
 
 
 def prerequisite_retrieval_query(decision):
-    data = prerequisite_decision_mapping(decision)
-    if not data["should_review"] or not data["prerequisite_concept"]:
+    """Return one bounded prerequisite query from a decision or teaching plan."""
+    if isinstance(decision, Mapping) and "next_move" in decision:
+        data = dict(decision)
+        should_review = (
+            _clean(data.get("next_move"), 80).casefold()
+            == "review_prerequisite"
+        )
+        prerequisite = _clean(data.get("prerequisite_concept"), 220)
+        target = _clean(data.get("target_concept"), 220)
+    else:
+        data = prerequisite_decision_mapping(decision)
+        should_review = bool(data["should_review"])
+        prerequisite = data["prerequisite_concept"]
+        target = data["target_concept"]
+
+    if not should_review or not prerequisite:
         return ""
     return "{} prerequisite for {}".format(
-        data["prerequisite_concept"],
-        data["target_concept"] or "current topic",
+        prerequisite,
+        target or "current topic",
     )
