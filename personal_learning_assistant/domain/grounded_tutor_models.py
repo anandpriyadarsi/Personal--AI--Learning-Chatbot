@@ -23,6 +23,8 @@ class GroundingPlan:
     teaching_intent: str = ""
     teaching_instruction: str = ""
     adaptive_state: Mapping[str, object] = field(default_factory=dict)
+    session_goal: Mapping[str, object] = field(default_factory=dict)
+    teaching_plan: Mapping[str, object] = field(default_factory=dict)
     persistent_student_model: Mapping[str, object] = field(default_factory=dict)
     teaching_policy: Mapping[str, object] = field(default_factory=dict)
     retrieval_queries: Tuple[str, ...] = ()
