@@ -1,10 +1,28 @@
 from __future__ import annotations
 
+import sqlite3
 from pathlib import Path
 
+from personal_learning_assistant.domain.tutor_models import (
+    TutorProviderResponse,
+    TutorSessionSpec,
+)
+from personal_learning_assistant.repositories.sqlite.migration_runner import (
+    apply_migrations,
+)
+from personal_learning_assistant.repositories.sqlite.tutor_repository import (
+    SQLiteTutorRepository,
+)
+from personal_learning_assistant.services.grounded_tutor_service import (
+    GroundedTutorService,
+)
+from personal_learning_assistant.services.tutor_session_service import (
+    TutorSessionService,
+)
 from personal_learning_assistant.tutor.adaptive_state import (
     contextualize_adaptive_state,
     evolve_adaptive_state,
+    load_adaptive_state,
     resolve_adaptive_intent,
 )
 from personal_learning_assistant.tutor.practice_sequencer import (
@@ -468,6 +486,124 @@ def test_practice_instruction_never_claims_mastery():
 
     assert "mastery" not in instruction.casefold()
     assert "one practice task" in instruction
+
+
+
+class _EmptyRetrieval:
+    def search(self, *args, **kwargs):
+        return ()
+
+
+class _SequenceProvider:
+    configured = True
+
+    def __init__(self, responses):
+        self.responses = list(responses)
+        self.requests = []
+
+    def complete(self, request):
+        self.requests.append(request)
+        if not self.responses:
+            raise AssertionError("unexpected provider call")
+        return TutorProviderResponse(
+            content=self.responses.pop(0),
+            provider_name="fake-provider",
+            provider_model="fake-model",
+            request_id="request-{}".format(len(self.requests)),
+        )
+
+
+def test_real_tutor_service_persists_and_advances_practice_loop(tmp_path):
+    path = tmp_path / "tutor23_fix5.db"
+    apply_migrations(path)
+    connection = sqlite3.connect(path, isolation_level=None)
+    connection.row_factory = sqlite3.Row
+    connection.execute("PRAGMA foreign_keys=ON")
+    repository = SQLiteTutorRepository(connection)
+    counters = {"turn": 0, "other": 0}
+
+    def id_factory(prefix):
+        if prefix == "tutor-turn":
+            counters["turn"] += 1
+            return "turn-{}".format(counters["turn"])
+        counters["other"] += 1
+        return "{}-{}".format(prefix, counters["other"])
+
+    sessions = TutorSessionService(
+        repository,
+        now=lambda: "2026-09-23T15:00:00Z",
+        id_factory=id_factory,
+    )
+    session = sessions.create_session(
+        TutorSessionSpec(
+            mode="concept",
+            source_policy="source_first",
+            title="Tutor 2.3.5 practice integration",
+        )
+    )
+    provider = _SequenceProvider(
+        (
+            "For A = [[2,1],[4,3]], what multiplier eliminates the first entry in row 2?",
+            (
+                '<!--ANVAYA_EVAL {"status":"correct",'
+                '"reason":"Correct elimination multiplier.",'
+                '"misconception":""}-->\n'
+                "Correct. What multiplier would eliminate 6 below a pivot of 2?"
+            ),
+        )
+    )
+    engine = GroundedTutorService(
+        tutor_session_service=sessions,
+        retrieval_service=_EmptyRetrieval(),
+        provider=provider,
+    )
+
+    before_memory = connection.execute(
+        "SELECT COUNT(*) FROM learning_memory_entries"
+    ).fetchone()[0]
+    before_progress = connection.execute(
+        "SELECT COUNT(*) FROM progress_snapshots"
+    ).fetchone()[0]
+
+    first = engine.answer(
+        session.session_id,
+        "Give me a computational practice problem on elimination.",
+    )
+    first_state = load_adaptive_state(
+        repository.get_session(session.session_id).metadata
+    )
+
+    assert first.assistant_turn.content.endswith("?")
+    assert first_state["practice_active"] is True
+    assert first_state["practice_level"] == 3
+    assert first_state["practice_format"] == "computational"
+    assert first_state["pending_question_kind"] == "practice"
+    assert first_state["practice_step_count"] == 1
+
+    second = engine.answer(session.session_id, "2")
+    second_state = load_adaptive_state(
+        repository.get_session(session.session_id).metadata
+    )
+
+    assert "ANVAYA_EVAL" not in second.assistant_turn.content
+    assert second_state["answer_status"] == "correct"
+    assert second_state["last_socratic_outcome"] == "advance"
+    assert second_state["practice_level"] == 4
+    assert second_state["practice_active"] is True
+    assert second_state["pending_question_kind"] == "practice"
+    assert second_state["practice_step_count"] == 2
+    assert len(provider.requests) == 2
+    assert (
+        provider.requests[1].metadata["teaching_plan"]["reason"]
+        == "adaptive_practice_answer"
+    )
+    assert connection.execute(
+        "SELECT COUNT(*) FROM learning_memory_entries"
+    ).fetchone()[0] == before_memory
+    assert connection.execute(
+        "SELECT COUNT(*) FROM progress_snapshots"
+    ).fetchone()[0] == before_progress
+    connection.close()
 
 
 def test_tutor_template_exposes_practice_plan_as_session_local():
