@@ -320,7 +320,7 @@ Tutor 2.3.1 is therefore **COMPLETE**.
 
 ## 2.3.2 — Diagnostic Questioning
 
-**Implementation status:** Built; awaiting local gate validation.
+**Implementation status:** PASS — local gate validated on 2026-09-23.
 
 ### Purpose
 
@@ -418,3 +418,31 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\tutor23_fix2_gate.ps1
 \`\`\`
 
 Do not begin Tutor 2.3.3 until this gate is completely green.
+
+### 2.3.2 validation result
+
+Local gate result on 2026-09-23:
+
+```text
+1389 passed
+5 skipped
+1 deselected
+
+ANVAYA TUTOR 2.3.2 DIAGNOSTIC QUESTIONING: PASS
+```
+
+Validated properties:
+
+- bounded diagnostic questioning for ambiguous first-turn confusion;
+- bypass for explicit explanation/hint/example/practice/quiz/check requests;
+- known current-session misconception/doubt takes priority over diagnosis;
+- one-question provider contract;
+- inspectable diagnostic question in Tutor session state/UI;
+- Tutor 2.3.1 session-goal and teaching-plan compatibility;
+- Tutor 2.2 memory/personalization compatibility;
+- Tutor 2.1 adaptive/correctness/retrieval compatibility;
+- Tutor 2.0 grounded/safety behavior;
+- protected production/index/vault hashes;
+- repository hygiene.
+
+Tutor 2.3.2 is therefore **COMPLETE**.
