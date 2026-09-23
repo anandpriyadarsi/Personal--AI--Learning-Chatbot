@@ -2,9 +2,9 @@
 
 Tutor 2.3.1 established bounded teaching moves. Tutor 2.3.2 added one bounded
 diagnostic question for genuinely ambiguous initial requests. Tutor 2.3.3
-continues a pending pedagogical question across turns. Concept dependency
-reasoning, practice sequencing, and goal completion remain reserved for later
-Tutor 2.3 units.
+continues a pending pedagogical question across turns. Tutor 2.3.4 adds
+course-scoped prerequisite repair. Practice sequencing and goal completion
+remain reserved for later Tutor 2.3 units.
 """
 
 from __future__ import annotations
@@ -12,6 +12,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Mapping
 
+from personal_learning_assistant.tutor.concept_dependencies import (
+    plan_prerequisite_review,
+    prerequisite_decision_mapping,
+)
 from personal_learning_assistant.tutor.diagnostic_planner import (
     plan_diagnostic_question,
 )
@@ -66,6 +70,10 @@ class TeachingPlan:
     goal_status: str
     student_action_expected: bool = False
     diagnostic_question: str = ""
+    target_concept: str = ""
+    prerequisite_concept: str = ""
+    prerequisite_reason: str = ""
+    return_to_goal: bool = True
 
 
 def build_teaching_plan(
@@ -75,6 +83,7 @@ def build_teaching_plan(
     adaptive_state,
     session_goal,
     teaching_policy=None,
+    course_context=None,
 ):
     """Choose one deterministic next move while keeping current intent dominant."""
     intent = _clean(teaching_intent, 80).casefold() or "explain"
@@ -118,7 +127,23 @@ def build_teaching_plan(
             student_action_expected = True
             diagnostic_question = diagnostic.question
 
-    # review_prerequisite and finish_goal remain reserved for later 2.3 units.
+    prerequisite = prerequisite_decision_mapping(
+        plan_prerequisite_review(
+            question,
+            teaching_intent=intent,
+            adaptive_state=state,
+            session_goal=goal,
+            course_context=course_context,
+        )
+    )
+    if (
+        prerequisite["should_review"]
+        and move in {"explain", "check_understanding", "repair_misconception"}
+    ):
+        move = "review_prerequisite"
+        reason = prerequisite["reason"]
+        student_action_expected = False
+
     return TeachingPlan(
         next_move=move,
         reason=reason,
@@ -126,6 +151,10 @@ def build_teaching_plan(
         goal_status=goal["status"],
         student_action_expected=student_action_expected,
         diagnostic_question=diagnostic_question,
+        target_concept=prerequisite["target_concept"],
+        prerequisite_concept=prerequisite["prerequisite_concept"],
+        prerequisite_reason=prerequisite["reason"],
+        return_to_goal=prerequisite["return_to_goal"],
     )
 
 
@@ -148,6 +177,16 @@ def teaching_plan_mapping(plan):
                 plan.get("diagnostic_question"),
                 280,
             ),
+            "target_concept": _clean(plan.get("target_concept"), 220),
+            "prerequisite_concept": _clean(
+                plan.get("prerequisite_concept"),
+                220,
+            ),
+            "prerequisite_reason": _clean(
+                plan.get("prerequisite_reason"),
+                120,
+            ),
+            "return_to_goal": bool(plan.get("return_to_goal", True)),
             "planned_at": _clean(plan.get("planned_at"), 80),
         }
 
@@ -158,6 +197,10 @@ def teaching_plan_mapping(plan):
         "goal_status": plan.goal_status,
         "student_action_expected": bool(plan.student_action_expected),
         "diagnostic_question": _clean(plan.diagnostic_question, 280),
+        "target_concept": _clean(plan.target_concept, 220),
+        "prerequisite_concept": _clean(plan.prerequisite_concept, 220),
+        "prerequisite_reason": _clean(plan.prerequisite_reason, 120),
+        "return_to_goal": bool(plan.return_to_goal),
         "planned_at": "",
     }
 
@@ -173,6 +216,18 @@ def teaching_plan_prompt(plan):
             ),
             "diagnostic_question={}".format(
                 data["diagnostic_question"] or "(none)"
+            ),
+            "target_concept={}".format(
+                data["target_concept"] or "(none)"
+            ),
+            "prerequisite_concept={}".format(
+                data["prerequisite_concept"] or "(none)"
+            ),
+            "prerequisite_reason={}".format(
+                data["prerequisite_reason"] or "(none)"
+            ),
+            "return_to_goal={}".format(
+                str(data["return_to_goal"]).lower()
             ),
         )
     )
@@ -220,6 +275,14 @@ def teaching_plan_instruction(plan):
         "repair_misconception": (
             "Repair only the current-session misconception that is relevant to the current question, then return to the question."
         ),
+        "review_prerequisite": (
+            "Repair only the minimum prerequisite needed now: {}. Connect it explicitly "
+            "back to the target concept {} and then return to the original session goal. "
+            "Do not recursively descend into another prerequisite in the same turn."
+        ).format(
+            data["prerequisite_concept"] or "the identified prerequisite",
+            data["target_concept"] or "the current topic",
+        ),
     }
     rows = [
         "The CURRENT QUESTION remains authoritative over this plan.",
@@ -228,9 +291,10 @@ def teaching_plan_instruction(plan):
             "Teach the current question clearly without changing its subject.",
         ),
         "Treat the session goal as session-local orientation, not proof of mastery or progress.",
-        "Do not declare the goal complete in Tutor 2.3.3.",
+        "Do not declare the goal complete in Tutor 2.3.4.",
         "When next_move=ask_diagnostic, ask only the supplied diagnostic question and wait. Do not add a second diagnostic question.",
         "When reason=pending_socratic_answer, respond to the pending question before teaching anything unrelated and ask at most one next pedagogical question.",
+        "When next_move=review_prerequisite, teach only the named prerequisite, make the bridge back to the target explicit, and do not open a second prerequisite branch.",
     ]
     return " ".join(rows)
 
