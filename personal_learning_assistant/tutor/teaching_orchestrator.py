@@ -73,6 +73,8 @@ class TeachingPlan:
     target_concept: str = ""
     prerequisite_concept: str = ""
     prerequisite_reason: str = ""
+    target_topic_id: str = ""
+    prerequisite_topic_id: str = ""
     return_to_goal: bool = True
 
 
@@ -154,6 +156,8 @@ def build_teaching_plan(
         target_concept=prerequisite["target_concept"],
         prerequisite_concept=prerequisite["prerequisite_concept"],
         prerequisite_reason=prerequisite["reason"],
+        target_topic_id=prerequisite["target_topic_id"],
+        prerequisite_topic_id=prerequisite["prerequisite_topic_id"],
         return_to_goal=prerequisite["return_to_goal"],
     )
 
@@ -186,6 +190,11 @@ def teaching_plan_mapping(plan):
                 plan.get("prerequisite_reason"),
                 120,
             ),
+            "target_topic_id": _clean(plan.get("target_topic_id"), 120),
+            "prerequisite_topic_id": _clean(
+                plan.get("prerequisite_topic_id"),
+                120,
+            ),
             "return_to_goal": bool(plan.get("return_to_goal", True)),
             "planned_at": _clean(plan.get("planned_at"), 80),
         }
@@ -200,6 +209,8 @@ def teaching_plan_mapping(plan):
         "target_concept": _clean(plan.target_concept, 220),
         "prerequisite_concept": _clean(plan.prerequisite_concept, 220),
         "prerequisite_reason": _clean(plan.prerequisite_reason, 120),
+        "target_topic_id": _clean(plan.target_topic_id, 120),
+        "prerequisite_topic_id": _clean(plan.prerequisite_topic_id, 120),
         "return_to_goal": bool(plan.return_to_goal),
         "planned_at": "",
     }
