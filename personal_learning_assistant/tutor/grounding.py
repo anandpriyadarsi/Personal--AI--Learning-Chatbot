@@ -236,14 +236,17 @@ def build_provider_request(
     persistent_model_text = student_model_prompt(persistent_student_model)
     intent_name = str(teaching_intent or intent.name)
     intent_instruction = str(teaching_instruction or intent.instruction)
-    resolved_goal = (
-        resolve_session_goal(
-            question,
-            session.metadata,
-            teaching_intent=intent_name,
-        )
-        if session_goal is None
-        else session_goal_mapping(session_goal)
+    resolved_goal = contextualize_goal_for_turn(
+        question,
+        (
+            resolve_session_goal(
+                question,
+                session.metadata,
+                teaching_intent=intent_name,
+            )
+            if session_goal is None
+            else session_goal_mapping(session_goal)
+        ),
     )
     if intent_name == "quiz_answer":
         intent_instruction = "{} {}".format(
