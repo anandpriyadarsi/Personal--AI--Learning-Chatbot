@@ -434,13 +434,25 @@ class TutorGroundingPlanner:
             24,
             max(retrieval_top_k * 2, 12),
         )
+        teaching_plan_map = teaching_plan_mapping(teaching_plan)
+        prerequisite_topic_id = str(
+            teaching_plan_map.get("prerequisite_topic_id") or ""
+        ).strip()
+        retrieval_topic_ids = (
+            (prerequisite_topic_id,)
+            if (
+                teaching_plan_map.get("next_move") == "review_prerequisite"
+                and prerequisite_topic_id
+            )
+            else ((session.topic_id,) if session.topic_id else ())
+        )
         hit_groups = []
         for retrieval_query in queries:
             hit_groups.append(
                 self.retrieval_service.search(
                     retrieval_query,
                     course_ids=(session.course_id,) if session.course_id else (),
-                    topic_ids=(session.topic_id,) if session.topic_id else (),
+                    topic_ids=retrieval_topic_ids,
                     resource_ids=(session.resource_id,) if session.resource_id else (),
                     document_ids=(source_document_id,) if source_document_id else (),
                     top_k=candidate_top_k,
