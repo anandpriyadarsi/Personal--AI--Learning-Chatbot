@@ -189,3 +189,101 @@ Do **not** begin with autonomous agents, voice, web browsing, large local models
 Tutor 2.3 should first prove:
 
 > **Can ANVAYA conduct a coherent, multi-turn tutoring session that diagnoses, teaches, checks, repairs, and advances like a real tutor?**
+
+
+---
+
+## 2.3.1 — Session Goal + Teaching Plan
+
+**Implementation status:** Built; awaiting local gate validation.
+
+### Session goal
+
+Tutor 2.3.1 adds session-local goal state under:
+
+\`tutor23_session_goal\`
+
+The goal contains:
+
+- bounded goal text;
+- status (\`active | likely_met | unresolved\`);
+- bounded goal evidence container for later Tutor 2.3 units;
+- source (\`inferred\` or \`topic_shift\`);
+- created/updated timestamps once persisted.
+
+In 2.3.1 the goal status remains \`active\`; Tutor 2.3.6 will own goal-completion evaluation.
+
+The first real Tutor request infers a goal deterministically. Ordinary follow-ups
+reuse it. An explicit topic-shift request replaces it with a new session-local
+goal.
+
+### Deterministic teaching plan
+
+Tutor 2.3.1 adds:
+
+\`tutor23_teaching_plan\`
+
+and chooses one bounded next teaching move from the Tutor 2.3 move vocabulary.
+
+The first implementation intentionally chooses only moves that already have
+safe Tutor behavior:
+
+- \`explain\`
+- \`give_hint\`
+- \`give_example\`
+- \`practice\`
+- \`quiz\`
+- \`check_understanding\`
+- \`summarize\`
+- \`repair_misconception\`
+
+\`ask_diagnostic\`, \`review_prerequisite\`, and \`finish_goal\` are reserved
+for later Tutor 2.3 units and are not autonomously selected by 2.3.1.
+
+### Provider contract
+
+Every grounded Tutor request now contains explicit sections:
+
+\`SESSION GOAL (session-local orientation; not mastery/progress)\`
+
+and:
+
+\`TEACHING PLAN (deterministic orchestration; CURRENT QUESTION still controls)\`
+
+The priority order is enforced as:
+
+\`current question > current-session state > session goal/teaching plan > persistent history\`
+
+### Persistence boundary
+
+Goal and plan writes occur only inside \`tutor_sessions.metadata_json\`.
+
+Tutor 2.3.1 does not automatically write:
+
+- learning memory;
+- mastery/progress;
+- grades;
+- plans;
+- notes/resources;
+- retrieval indexes;
+- Obsidian vault content.
+
+### UI
+
+The Tutor conversation header now exposes a **Session goal** summary containing:
+
+- current goal;
+- goal status;
+- last deterministic teaching move;
+- plan reason;
+- explicit statement that this is not mastery or academic progress.
+
+### Gate
+
+Run:
+
+\`\`\`powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\tutor23_fix1_gate.ps1
+\`\`\`
+
+Do not begin Tutor 2.3.2 until this gate is completely green.
