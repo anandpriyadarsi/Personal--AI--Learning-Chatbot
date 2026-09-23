@@ -1,9 +1,10 @@
 """Deterministic teaching orchestration for ANVAYA Tutor 2.3.
 
-Tutor 2.3.1 established bounded teaching moves. Tutor 2.3.2 adds one bounded
-diagnostic question for genuinely ambiguous initial requests. Concept
-dependency reasoning, practice sequencing, and goal completion remain reserved
-for later Tutor 2.3 units.
+Tutor 2.3.1 established bounded teaching moves. Tutor 2.3.2 added one bounded
+diagnostic question for genuinely ambiguous initial requests. Tutor 2.3.3
+continues a pending pedagogical question across turns. Concept dependency
+reasoning, practice sequencing, and goal completion remain reserved for later
+Tutor 2.3 units.
 """
 
 from __future__ import annotations
@@ -16,6 +17,9 @@ from personal_learning_assistant.tutor.diagnostic_planner import (
 )
 from personal_learning_assistant.tutor.session_goal import (
     session_goal_mapping,
+)
+from personal_learning_assistant.tutor.socratic_loop import (
+    socratic_outcome_instruction,
 )
 
 
@@ -80,6 +84,15 @@ def build_teaching_plan(
     move = _INTENT_MOVES.get(intent, "explain")
     reason = "current_teaching_intent"
     student_action_expected = move in {"quiz", "practice", "check_understanding"}
+
+    if (
+        intent == "quiz_answer"
+        and bool(state.get("awaiting_student_answer"))
+        and _clean(state.get("pending_question"), 500)
+    ):
+        move = "check_understanding"
+        reason = "pending_socratic_answer"
+        student_action_expected = True
 
     # Current-session misconception may refine a generic explanation, but it
     # never overrides an explicit student request such as hint/example/quiz.
@@ -192,7 +205,14 @@ def teaching_plan_instruction(plan):
             "Ask one short question and wait for the student's answer."
         ),
         "check_understanding": (
-            "Evaluate the student's current reasoning before introducing new material."
+            (
+                "Evaluate the student's answer to the pending Tutor question. "
+                + socratic_outcome_instruction()
+            )
+            if data["reason"] == "pending_socratic_answer"
+            else (
+                "Evaluate the student's current reasoning before introducing new material."
+            )
         ),
         "summarize": (
             "Give a concise learning-oriented recap of the current request."
@@ -208,8 +228,9 @@ def teaching_plan_instruction(plan):
             "Teach the current question clearly without changing its subject.",
         ),
         "Treat the session goal as session-local orientation, not proof of mastery or progress.",
-        "Do not declare the goal complete in Tutor 2.3.2.",
+        "Do not declare the goal complete in Tutor 2.3.3.",
         "When next_move=ask_diagnostic, ask only the supplied diagnostic question and wait. Do not add a second diagnostic question.",
+        "When reason=pending_socratic_answer, respond to the pending question before teaching anything unrelated and ask at most one next pedagogical question.",
     ]
     return " ".join(rows)
 
