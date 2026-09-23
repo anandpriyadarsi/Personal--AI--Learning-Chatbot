@@ -249,3 +249,26 @@ def test_live_inspector_flags_inconsistent_pending_state(tmp_path):
 
     assert check["ok"] is False
     assert payload["all_state_checks_pass"] is False
+
+
+def test_live_validation_protocol_requires_disposable_database_and_manual_result():
+    root = Path(__file__).resolve().parents[1]
+    protocol = (
+        root / "ANVAYA_TUTOR_2_3_LIVE_VALIDATION.md"
+    ).read_text(encoding="utf-8")
+
+    assert "Do not run live validation against the production database." in protocol
+    assert ".live_validation\\tutor23_live.db" in protocol
+    assert "all_state_checks_pass = true" in protocol
+    assert "I understand span but why does a basis need linear independence?" in protocol
+    assert "NOT YET EXECUTED" in protocol
+    assert "necessary but is not sufficient by itself" in protocol
+
+
+def test_fix7_gate_labels_itself_readiness_not_live_pass():
+    root = Path(__file__).resolve().parents[1]
+    gate = (root / "tutor23_fix7_gate.ps1").read_text(encoding="utf-8")
+
+    assert "ANVAYA TUTOR 2.3.7 LIVE VALIDATION READINESS: PASS" in gate
+    assert "LIVE VALIDATION READINESS only" in gate
+    assert "ANVAYA_TUTOR_2_3_LIVE_VALIDATION.md" in gate
