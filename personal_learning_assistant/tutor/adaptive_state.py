@@ -618,11 +618,10 @@ def evolve_adaptive_state(
             current["practice_active"]
             or current["pending_question_kind"] == "practice"
         )
-        pending_follow_up = (
-            next_practice_task
-            if practice_lineage
-            else next_question
-        )
+        # Initial practice may use an imperative task without '?'. After an
+        # evaluated answer, require a real next question; otherwise end the
+        # practice loop instead of mistaking feedback for a task.
+        pending_follow_up = next_question
         updated["quiz_active"] = (
             quiz_lineage and bool(pending_follow_up)
         )
