@@ -530,6 +530,36 @@ def test_real_service_exit_check_then_correct_answer_marks_likely_met(tmp_path):
     connection.close()
 
 
+def test_mixed_understanding_followup_reaches_normal_provider_flow(tmp_path):
+    (
+        connection,
+        _repository,
+        _sessions,
+        session,
+        provider,
+        engine,
+    ) = _environment(
+        tmp_path,
+        responses=(
+            "General explanation (not from project sources)\n\n"
+            "A basis needs linear independence so its vectors contain no redundancy.",
+        ),
+    )
+
+    result = engine.answer(
+        session.session_id,
+        "I understand span but why does a basis need linear independence?",
+    )
+
+    assert len(provider.requests) == 1
+    assert (
+        provider.requests[0].metadata["teaching_plan"]["reason"]
+        != "student_reports_understanding"
+    )
+    assert "no redundancy" in result.assistant_turn.content
+    connection.close()
+
+
 def test_source_only_can_ask_exit_check_without_project_evidence(tmp_path):
     (
         connection,
