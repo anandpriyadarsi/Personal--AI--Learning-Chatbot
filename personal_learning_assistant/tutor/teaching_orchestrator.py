@@ -3,8 +3,8 @@
 Tutor 2.3.1 established bounded teaching moves. Tutor 2.3.2 added one bounded
 diagnostic question for genuinely ambiguous initial requests. Tutor 2.3.3
 continues a pending pedagogical question across turns. Tutor 2.3.4 adds
-course-scoped prerequisite repair. Practice sequencing and goal completion
-remain reserved for later Tutor 2.3 units.
+course-scoped prerequisite repair. Tutor 2.3.5 adds bounded adaptive practice
+sequencing. Goal completion remains reserved for Tutor 2.3.6.
 """
 
 from __future__ import annotations
@@ -18,6 +18,11 @@ from personal_learning_assistant.tutor.concept_dependencies import (
 )
 from personal_learning_assistant.tutor.diagnostic_planner import (
     plan_diagnostic_question,
+)
+from personal_learning_assistant.tutor.practice_sequencer import (
+    plan_practice_sequence,
+    practice_sequence_instruction,
+    practice_sequence_mapping,
 )
 from personal_learning_assistant.tutor.session_goal import (
     session_goal_mapping,
@@ -76,6 +81,16 @@ class TeachingPlan:
     target_topic_id: str = ""
     prerequisite_topic_id: str = ""
     return_to_goal: bool = True
+    practice_active: bool = False
+    practice_level: int = 3
+    practice_level_name: str = "standard_application"
+    practice_format: str = "mixed"
+    practice_focus: str = ""
+    practice_reason: str = ""
+    practice_after_correct_level: int = 4
+    practice_after_partial_level: int = 3
+    practice_after_incorrect_level: int = 2
+    practice_after_unclear_level: int = 2
 
 
 def build_teaching_plan(
@@ -152,6 +167,26 @@ def build_teaching_plan(
         student_action_expected = False
         diagnostic_question = ""
 
+    practice = practice_sequence_mapping(
+        plan_practice_sequence(
+            question,
+            teaching_intent=intent,
+            adaptive_state=state,
+            teaching_policy=teaching_policy,
+        )
+    )
+    if move == "review_prerequisite":
+        practice = practice_sequence_mapping({"active": False})
+    elif (
+        practice["active"]
+        and intent == "quiz_answer"
+        and _clean(state.get("pending_question_kind"), 40).casefold()
+        == "practice"
+    ):
+        move = "practice"
+        reason = "adaptive_practice_answer"
+        student_action_expected = True
+
     return TeachingPlan(
         next_move=move,
         reason=reason,
@@ -165,6 +200,16 @@ def build_teaching_plan(
         target_topic_id=prerequisite["target_topic_id"],
         prerequisite_topic_id=prerequisite["prerequisite_topic_id"],
         return_to_goal=prerequisite["return_to_goal"],
+        practice_active=practice["active"],
+        practice_level=practice["level"],
+        practice_level_name=practice["level_name"],
+        practice_format=practice["format"],
+        practice_focus=practice["focus"],
+        practice_reason=practice["reason"],
+        practice_after_correct_level=practice["after_correct_level"],
+        practice_after_partial_level=practice["after_partial_level"],
+        practice_after_incorrect_level=practice["after_incorrect_level"],
+        practice_after_unclear_level=practice["after_unclear_level"],
     )
 
 
@@ -202,6 +247,27 @@ def teaching_plan_mapping(plan):
                 120,
             ),
             "return_to_goal": bool(plan.get("return_to_goal", True)),
+            "practice_active": bool(plan.get("practice_active", False)),
+            "practice_level": int(plan.get("practice_level") or 3),
+            "practice_level_name": _clean(
+                plan.get("practice_level_name"),
+                80,
+            ) or "standard_application",
+            "practice_format": _clean(plan.get("practice_format"), 60) or "mixed",
+            "practice_focus": _clean(plan.get("practice_focus"), 260),
+            "practice_reason": _clean(plan.get("practice_reason"), 120),
+            "practice_after_correct_level": int(
+                plan.get("practice_after_correct_level") or 4
+            ),
+            "practice_after_partial_level": int(
+                plan.get("practice_after_partial_level") or 3
+            ),
+            "practice_after_incorrect_level": int(
+                plan.get("practice_after_incorrect_level") or 2
+            ),
+            "practice_after_unclear_level": int(
+                plan.get("practice_after_unclear_level") or 2
+            ),
             "planned_at": _clean(plan.get("planned_at"), 80),
         }
 
@@ -218,6 +284,24 @@ def teaching_plan_mapping(plan):
         "target_topic_id": _clean(plan.target_topic_id, 120),
         "prerequisite_topic_id": _clean(plan.prerequisite_topic_id, 120),
         "return_to_goal": bool(plan.return_to_goal),
+        "practice_active": bool(plan.practice_active),
+        "practice_level": int(plan.practice_level),
+        "practice_level_name": _clean(plan.practice_level_name, 80),
+        "practice_format": _clean(plan.practice_format, 60),
+        "practice_focus": _clean(plan.practice_focus, 260),
+        "practice_reason": _clean(plan.practice_reason, 120),
+        "practice_after_correct_level": int(
+            plan.practice_after_correct_level
+        ),
+        "practice_after_partial_level": int(
+            plan.practice_after_partial_level
+        ),
+        "practice_after_incorrect_level": int(
+            plan.practice_after_incorrect_level
+        ),
+        "practice_after_unclear_level": int(
+            plan.practice_after_unclear_level
+        ),
         "planned_at": "",
     }
 
@@ -246,6 +330,18 @@ def teaching_plan_prompt(plan):
             "return_to_goal={}".format(
                 str(data["return_to_goal"]).lower()
             ),
+            "practice_active={}".format(
+                str(data["practice_active"]).lower()
+            ),
+            "practice_level={}".format(data["practice_level"]),
+            "practice_level_name={}".format(data["practice_level_name"]),
+            "practice_format={}".format(data["practice_format"]),
+            "practice_focus={}".format(
+                data["practice_focus"] or "(none)"
+            ),
+            "practice_reason={}".format(
+                data["practice_reason"] or "(none)"
+            ),
         )
     )
 
@@ -271,10 +367,21 @@ def teaching_plan_instruction(plan):
             "Use one concrete example and connect every important step to the idea."
         ),
         "practice": (
-            "Give one suitable practice task and do not reveal the full solution immediately."
+            practice_sequence_instruction(
+                data,
+                answering=(
+                    data["reason"] == "adaptive_practice_answer"
+                ),
+            )
+            if data["practice_active"]
+            else (
+                "Give one suitable practice task and do not reveal the full solution immediately."
+            )
         ),
         "quiz": (
-            "Ask one short question and wait for the student's answer."
+            practice_sequence_instruction(data, answering=False)
+            if data["practice_active"]
+            else "Ask one short question and wait for the student's answer."
         ),
         "check_understanding": (
             (
@@ -308,10 +415,12 @@ def teaching_plan_instruction(plan):
             "Teach the current question clearly without changing its subject.",
         ),
         "Treat the session goal as session-local orientation, not proof of mastery or progress.",
-        "Do not declare the goal complete in Tutor 2.3.4.",
+        "Do not declare the goal complete in Tutor 2.3.5.",
         "When next_move=ask_diagnostic, ask only the supplied diagnostic question and wait. Do not add a second diagnostic question.",
         "When reason=pending_socratic_answer, respond to the pending question before teaching anything unrelated and ask at most one next pedagogical question.",
         "When next_move=review_prerequisite, teach only the named prerequisite, make the bridge back to the target explicit, and do not open a second prerequisite branch.",
+        "When practice_active=true, give at most one task at a time and change difficulty by at most one bounded level from evaluated current-session evidence.",
+        "Never describe a practice level as mastery, ability, intelligence, or academic progress.",
     ]
     return " ".join(rows)
 
