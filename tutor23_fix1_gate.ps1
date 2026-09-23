@@ -39,7 +39,7 @@ $status = @(git status --porcelain=v1 -uall)
 if ($status.Count -ne 0) {
     Write-Host "Working-tree changes:"
     $status | ForEach-Object { Write-Host $_ }
-    Stop-Gate "Working tree must be clean before the Tutor 2.2 gate."
+    Stop-Gate "Working tree must be clean before the Tutor 2.3.1 gate."
 }
 
 $HashScript = @'
@@ -85,7 +85,7 @@ except Exception:
 print(json.dumps(result,sort_keys=True,separators=(",",":")))
 '@
 
-$HashScriptPath = Join-Path ([IO.Path]::GetTempPath()) ("anvaya_tutor22_hash_" + [guid]::NewGuid().ToString("N") + ".py")
+$HashScriptPath = Join-Path ([IO.Path]::GetTempPath()) ("anvaya_tutor23_fix1_hash_" + [guid]::NewGuid().ToString("N") + ".py")
 Set-Content -LiteralPath $HashScriptPath -Value $HashScript -Encoding UTF8
 $BeforeHashes = (& $PythonResolved $HashScriptPath).Trim()
 if ($LASTEXITCODE -ne 0) { Stop-Gate "Could not capture protected hashes." }
@@ -96,8 +96,8 @@ function Show-ProtectedHashDiff {
         [string]$AfterJson
     )
 
-    $BeforePath = Join-Path ([IO.Path]::GetTempPath()) ("anvaya_tutor22_before_" + [guid]::NewGuid().ToString("N") + ".json")
-    $AfterPath = Join-Path ([IO.Path]::GetTempPath()) ("anvaya_tutor22_after_" + [guid]::NewGuid().ToString("N") + ".json")
+    $BeforePath = Join-Path ([IO.Path]::GetTempPath()) ("anvaya_tutor23_fix1_before_" + [guid]::NewGuid().ToString("N") + ".json")
+    $AfterPath = Join-Path ([IO.Path]::GetTempPath()) ("anvaya_tutor23_fix1_after_" + [guid]::NewGuid().ToString("N") + ".json")
     Set-Content -LiteralPath $BeforePath -Value $BeforeJson -Encoding UTF8
     Set-Content -LiteralPath $AfterPath -Value $AfterJson -Encoding UTF8
 
@@ -136,7 +136,7 @@ if not (added or removed or modified):
     print("No protected path-level differences found.")
 '@
 
-    $DiffScriptPath = Join-Path ([IO.Path]::GetTempPath()) ("anvaya_tutor22_diff_" + [guid]::NewGuid().ToString("N") + ".py")
+    $DiffScriptPath = Join-Path ([IO.Path]::GetTempPath()) ("anvaya_tutor23_fix1_diff_" + [guid]::NewGuid().ToString("N") + ".py")
     Set-Content -LiteralPath $DiffScriptPath -Value $DiffScript -Encoding UTF8
     & $PythonResolved $DiffScriptPath $BeforePath $AfterPath
     Remove-Item $DiffScriptPath,$BeforePath,$AfterPath -Force -ErrorAction SilentlyContinue
