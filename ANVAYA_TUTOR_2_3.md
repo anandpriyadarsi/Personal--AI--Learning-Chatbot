@@ -1047,3 +1047,220 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\tutor23_fix5_gate.ps1
 \`\`\`
 
 Do not begin Tutor 2.3.6 until this gate is completely green.
+
+
+---
+
+## 2.3.6 — Understanding / Exit Check
+
+**Implementation status:** Built; awaiting local gate validation.
+
+### Purpose
+
+Tutor 2.3.6 lets ANVAYA close a Tutor session goal conservatively.
+
+It answers a narrower question than mastery:
+
+> Based on evidence from this Tutor session, does the current goal appear met
+> well enough to close, or is something still unresolved?
+
+The only allowed goal states remain:
+
+\`\`\`text
+active
+likely_met
+unresolved
+\`\`\`
+
+\`likely_met\` is a session-local orchestration conclusion only.
+
+It is not:
+
+- mastery;
+- a topic-progress update;
+- a grade;
+- a learning-memory promotion;
+- a claim about intelligence or ability.
+
+### Self-report is not enough
+
+Statements such as:
+
+\`\`\`text
+"I understand now."
+"Got it."
+"That makes sense."
+\`\`\`
+
+do **not** directly set the goal to \`likely_met\`.
+
+Instead, they may trigger one bounded exit check.
+
+This protects ANVAYA from confusing confidence with demonstrated
+understanding.
+
+### Explicit exit-check requests
+
+The student may also request the check directly:
+
+\`\`\`text
+"Check if I understand this."
+"Check my understanding."
+"Am I ready to move on?"
+\`\`\`
+
+If another Tutor question is already pending, ANVAYA does not open a competing
+exit check.
+
+### Exit-check question
+
+Tutor 2.3.6 generates one bounded session-goal check:
+
+\`\`\`text
+Before we close this session goal, explain in your own words the key idea or
+method you would use for: <current session goal>?
+\`\`\`
+
+The question is stored with:
+
+\`\`\`text
+pending_question_kind = exit_check
+\`\`\`
+
+It uses the existing Tutor pending-question and hidden answer-evaluation
+machinery.
+
+The check is deliberately one-shot. Tutor 2.3.6 does not create an endless
+exit-check quiz loop.
+
+### Exit-check result
+
+After the student's answer is evaluated:
+
+\`\`\`text
+correct
+    -> goal status = likely_met
+
+partial
+incorrect
+unclear
+    -> goal status = unresolved
+\`\`\`
+
+A mathematically blocked answer cannot produce \`likely_met\`, even if the
+provider's semantic evaluation says \`correct\`.
+
+If no usable evaluation is available, the goal remains \`active\`.
+
+### Goal evidence
+
+Tutor 2.3.6 records only bounded session-local goal evidence, for example:
+
+\`\`\`text
+exit_check_correct: Correctly explains why L stores elimination multipliers.
+exit_check_partial: Understands U but not where L comes from.
+student_reported_unresolved: I am still confused about the sign in L.
+\`\`\`
+
+The evidence is stored inside the existing Tutor session goal metadata and is
+bounded to a small history.
+
+It is not written into academic progress or long-term learning memory.
+
+### Reopening a goal
+
+A goal that was previously \`likely_met\` may become \`unresolved\` again if
+the student explicitly reports current confusion, for example:
+
+\`\`\`text
+"I am still confused about why the multiplier has a positive sign in L."
+\`\`\`
+
+This is intentional.
+
+Tutor 2.3.6 treats current evidence as more important than an earlier
+session-local conclusion.
+
+An explicit topic shift still creates a new active session goal through Tutor
+2.3.1 behavior.
+
+### Teaching-plan integration
+
+When an exit check is requested:
+
+\`\`\`text
+next_move = check_understanding
+reason =
+    student_reports_understanding
+    | explicit_exit_check_requested
+exit_check_question = <one bounded question>
+\`\`\`
+
+When the student answers that check:
+
+\`\`\`text
+next_move = finish_goal
+reason = pending_exit_check_answer
+\`\`\`
+
+\`finish_goal\` means "evaluate the exit check and update the session-local goal
+status." It does not mean "declare mastery."
+
+### Source policy
+
+The deterministic exit-check question may be asked even in \`source_only\`
+mode when retrieval is empty.
+
+This is allowed because the question does not introduce unsupported academic
+content; it asks the student to demonstrate the current session goal.
+
+The student's answer is still evaluated under the normal Tutor provider,
+grounding, correctness, and safety rules.
+
+### Persistence / trust boundary
+
+Tutor 2.3.6 writes only existing Tutor-owned session metadata:
+
+- session goal status;
+- bounded goal evidence;
+- pending exit-check state;
+- exit-check count;
+- ordinary Tutor answer-evaluation state.
+
+It does not automatically write:
+
+- mastery;
+- topic progress;
+- grades;
+- study plans;
+- learning memory;
+- notes/resources;
+- retrieval indexes;
+- Obsidian vault content.
+
+Any future long-term promotion still belongs to the existing Tutor 2.2
+human-review workflow.
+
+### UI
+
+The Session Goal panel now exposes:
+
+- current goal;
+- \`Active\`, \`Likely Met\`, or \`Unresolved\`;
+- the planned exit-check question when applicable;
+- bounded goal evidence;
+- explicit wording that \`Likely Met\` is current-session evidence only and not
+  mastery.
+
+The Current Learning State panel also exposes the number of session-local exit
+checks asked.
+
+### Gate
+
+Run:
+
+\`\`\`powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\tutor23_fix6_gate.ps1
+\`\`\`
+
+Do not begin Tutor 2.3.7 live validation until this gate is completely green.
