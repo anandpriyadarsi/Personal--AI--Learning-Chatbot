@@ -46,6 +46,17 @@ _EXIT_CHECK_REQUESTS = (
     r"\bdo i understand (?:this|it)\b",
 )
 
+# A student may report understanding of one idea and immediately ask a new
+# learning question. That is continuation, not closure. These cues are used
+# only to suppress *implicit* exit checks; explicit exit-check requests above
+# remain authoritative.
+_SUBSTANTIVE_FOLLOWUP_CUES = (
+    r"\b(?:but|however|though|although|yet)\b.*\b(?:why|how|what|when|where|which)\b",
+    r"\b(?:but|however|though|although|yet)\b.*\b(?:explain|teach|show|tell|help)\b",
+    r"\b(?:now|next)\s+(?:explain|teach|show|tell|help)\b",
+    r"\b(?:why|how|what|when|where|which)\b[^?]*\?",
+)
+
 _MAX_EVIDENCE = 12
 
 
@@ -68,6 +79,10 @@ def has_understanding_cue(question):
 
 def is_exit_check_request(question):
     return _matches_any(question, _EXIT_CHECK_REQUESTS)
+
+
+def has_substantive_followup(question):
+    return _matches_any(question, _SUBSTANTIVE_FOLLOWUP_CUES)
 
 
 def _append_evidence(goal, value):
@@ -142,6 +157,12 @@ def plan_exit_check(
 
     explicit_request = is_exit_check_request(question)
     understanding_claim = has_understanding_cue(question)
+    if (
+        understanding_claim
+        and not explicit_request
+        and has_substantive_followup(question)
+    ):
+        understanding_claim = False
 
     if not explicit_request and not understanding_claim:
         return ExitCheckDecision()
