@@ -195,7 +195,7 @@ Tutor 2.3 should first prove:
 
 ## 2.3.1 — Session Goal + Teaching Plan
 
-**Implementation status:** Built; awaiting local gate validation.
+**Implementation status:** PASS — local gate validated on 2026-09-23.
 
 ### Session goal
 
@@ -287,3 +287,30 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\tutor23_fix1_gate.ps1
 \`\`\`
 
 Do not begin Tutor 2.3.2 until this gate is completely green.
+
+### 2.3.1 validation result
+
+Local gate result on 2026-09-23:
+
+```text
+1375 passed
+5 skipped
+1 deselected
+
+ANVAYA TUTOR 2.3.1 SESSION GOAL + TEACHING PLAN: PASS
+```
+
+Validated properties:
+
+- session-goal inference;
+- goal continuity across ordinary follow-ups;
+- explicit topic-shift goal replacement;
+- deterministic teaching-move selection;
+- current-question priority over orchestration/history;
+- Tutor 2.2 memory/personalization compatibility;
+- Tutor 2.1 adaptive/correctness/retrieval compatibility;
+- provider-output hygiene;
+- protected production/index/vault hashes;
+- repository hygiene.
+
+Tutor 2.3.1 is therefore **COMPLETE**.
