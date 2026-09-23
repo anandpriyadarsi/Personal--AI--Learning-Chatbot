@@ -68,6 +68,40 @@ def test_understanding_claim_requests_exit_check_without_marking_goal_met():
     assert _goal()["status"] == "active"
 
 
+def test_understanding_of_one_idea_plus_new_question_does_not_exit():
+    decision = plan_exit_check(
+        "I understand span but why does a basis need linear independence?",
+        teaching_intent="explain",
+        adaptive_state={},
+        session_goal=_goal(),
+    )
+
+    assert decision.should_ask is False
+
+
+def test_understanding_plus_explicit_new_teaching_request_does_not_exit():
+    decision = plan_exit_check(
+        "I understand span. Now explain linear independence.",
+        teaching_intent="explain",
+        adaptive_state={},
+        session_goal=_goal(),
+    )
+
+    assert decision.should_ask is False
+
+
+def test_explicit_exit_request_still_wins_after_understanding_claim():
+    decision = plan_exit_check(
+        "I understand it now. Can we move on?",
+        teaching_intent="explain",
+        adaptive_state={},
+        session_goal=_goal(),
+    )
+
+    assert decision.should_ask is True
+    assert decision.reason == "explicit_exit_check_requested"
+
+
 def test_explicit_understanding_check_request_is_supported():
     decision = plan_exit_check(
         "Check if I understand this.",
