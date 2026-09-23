@@ -501,14 +501,23 @@ def evolve_adaptive_state(
                 current["socratic_step_count"] + 1
             )
     elif teaching_intent == "quiz_answer":
+        quiz_lineage = bool(
+            current["quiz_active"]
+            or current["pending_question_kind"] == "quiz"
+        )
         updated["quiz_active"] = (
-            current["pending_question_kind"] == "quiz"
-            and bool(next_question)
+            quiz_lineage and bool(next_question)
         )
         updated["awaiting_student_answer"] = bool(next_question)
         updated["pending_question"] = next_question
         updated["pending_question_kind"] = (
-            "socratic_check" if next_question else ""
+            (
+                "quiz"
+                if quiz_lineage
+                else "socratic_check"
+            )
+            if next_question
+            else ""
         )
         updated["last_student_answer"] = student
         evaluation = dict(answer_evaluation or {})
