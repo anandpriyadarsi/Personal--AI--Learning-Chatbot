@@ -494,6 +494,22 @@ def _last_question(text):
     return _clean(matches[-1])
 
 
+def _last_practice_task(text):
+    question = _last_question(text)
+    if question:
+        return question
+    clean = str(text or "").strip()
+    if not clean:
+        return ""
+    clean = re.sub(r"[*_\x60#>]+", "", clean)
+    blocks = [
+        _clean(item, 700)
+        for item in re.split(r"\n\s*\n|\n", clean)
+        if _clean(item, 700)
+    ]
+    return blocks[-1] if blocks else ""
+
+
 def evolve_adaptive_state(
     state,
     *,
@@ -535,6 +551,7 @@ def evolve_adaptive_state(
         updated["unresolved_doubt"] = student
 
     next_question = _last_question(assistant_message)
+    next_practice_task = _last_practice_task(assistant_message)
 
     planned = _clean(planned_question)
     move = _clean(teaching_move, 80).casefold()
@@ -554,7 +571,7 @@ def evolve_adaptive_state(
                 current["socratic_step_count"] + 1
             )
     elif teaching_intent == "practice":
-        pending = next_question
+        pending = next_practice_task
         updated["quiz_active"] = False
         updated["awaiting_student_answer"] = bool(pending)
         updated["pending_question"] = pending
@@ -601,14 +618,19 @@ def evolve_adaptive_state(
             current["practice_active"]
             or current["pending_question_kind"] == "practice"
         )
+        pending_follow_up = (
+            next_practice_task
+            if practice_lineage
+            else next_question
+        )
         updated["quiz_active"] = (
-            quiz_lineage and bool(next_question)
+            quiz_lineage and bool(pending_follow_up)
         )
         updated["practice_active"] = (
-            practice_lineage and bool(next_question)
+            practice_lineage and bool(pending_follow_up)
         )
-        updated["awaiting_student_answer"] = bool(next_question)
-        updated["pending_question"] = next_question
+        updated["awaiting_student_answer"] = bool(pending_follow_up)
+        updated["pending_question"] = pending_follow_up
         updated["pending_question_kind"] = (
             (
                 "quiz"
@@ -619,7 +641,7 @@ def evolve_adaptive_state(
                     else "socratic_check"
                 )
             )
-            if next_question
+            if pending_follow_up
             else ""
         )
         updated["last_student_answer"] = student
@@ -664,7 +686,7 @@ def evolve_adaptive_state(
                 updated["practice_format"] = next_format
             if next_focus:
                 updated["practice_focus"] = next_focus
-            if next_question:
+            if pending_follow_up:
                 updated["practice_step_count"] = (
                     current["practice_step_count"] + 1
                 )
