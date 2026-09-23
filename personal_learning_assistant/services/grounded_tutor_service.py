@@ -223,6 +223,69 @@ class GroundedTutorService:
             max_chars=max_chars,
         )
 
+        teaching_plan = dict(plan.teaching_plan or {})
+        if (
+            teaching_plan.get("next_move") == "ask_diagnostic"
+            and str(teaching_plan.get("diagnostic_question") or "").strip()
+        ):
+            diagnostic_question = str(
+                teaching_plan["diagnostic_question"]
+            ).strip()
+            user_turn = self.tutor_session_service.add_user_turn(
+                session_id,
+                plan.question,
+            )
+            assistant_turn = self.tutor_session_service.add_assistant_turn(
+                session_id,
+                diagnostic_question,
+                support_level=(
+                    "insufficient"
+                    if session.source_policy == "source_only"
+                    else "mixed"
+                ),
+            )
+            next_state = evolve_adaptive_state(
+                plan.adaptive_state,
+                student_message=plan.question,
+                assistant_message=diagnostic_question,
+                teaching_intent=plan.teaching_intent,
+                teaching_move="ask_diagnostic",
+                planned_question=diagnostic_question,
+            )
+            metadata = dict(session.metadata or {})
+            metadata[STATE_KEY] = next_state
+            metadata = append_signal_history(
+                metadata,
+                derive_turn_signals(
+                    session=session,
+                    assistant_turn=assistant_turn,
+                    teaching_intent=plan.teaching_intent,
+                    adaptive_state=next_state,
+                ),
+            )
+            metadata = _commit_orchestration_metadata(
+                metadata,
+                plan,
+                now=assistant_turn.created_at,
+            )
+            try:
+                self.tutor_session_service.update_session_metadata(
+                    session_id,
+                    metadata,
+                )
+            except Exception:
+                pass
+            return GroundedTutorResult(
+                question=plan.question,
+                user_turn=user_turn,
+                assistant_turn=assistant_turn,
+                citations=(),
+                retrieved_chunk_ids=tuple(
+                    item.chunk_id for item in plan.evidence
+                ),
+                provider_request_id="",
+            )
+
         if not plan.evidence and session.source_policy == "source_only":
             user_turn = self.tutor_session_service.add_user_turn(
                 session_id, plan.question
