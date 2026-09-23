@@ -1053,7 +1053,7 @@ Do not begin Tutor 2.3.6 until this gate is completely green.
 
 ## 2.3.6 — Understanding / Exit Check
 
-**Implementation status:** Built; awaiting local gate validation.
+**Implementation status:** PASS — local gate validated on 2026-09-23.
 
 ### Purpose
 
@@ -1264,3 +1264,37 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\tutor23_fix6_gate.ps1
 \`\`\`
 
 Do not begin Tutor 2.3.7 live validation until this gate is completely green.
+
+### 2.3.6 validation result
+
+Local gate result on 2026-09-23:
+
+```text
+1466 passed
+5 skipped
+1 deselected
+
+ANVAYA TUTOR 2.3.6 UNDERSTANDING / EXIT CHECK: PASS
+```
+
+Validated properties:
+
+- one-shot session-goal exit checks;
+- self-reported understanding does not directly close a goal;
+- mixed "I understand X, but why Y?" requests remain normal Tutor questions;
+- correct exit-check answers can set only `likely_met`;
+- partial / incorrect / unclear checks set `unresolved`;
+- current confusion can reopen a previously `likely_met` goal;
+- Source Only exit-check behavior;
+- Tutor 2.3.5 adaptive-practice compatibility;
+- Tutor 2.3.4 prerequisite-reasoning compatibility;
+- Tutor 2.3.3 Socratic continuity compatibility;
+- Tutor 2.3.2 diagnostic compatibility;
+- Tutor 2.3.1 session-goal/teaching-plan compatibility;
+- Tutor 2.2 memory/personalization compatibility;
+- Tutor 2.1 adaptive/correctness/retrieval compatibility;
+- Tutor 2.0 grounding/safety behavior;
+- protected production/index/vault hashes;
+- repository hygiene.
+
+Tutor 2.3.6 is therefore **COMPLETE**.
