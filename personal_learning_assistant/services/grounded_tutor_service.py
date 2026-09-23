@@ -29,6 +29,12 @@ from personal_learning_assistant.tutor.student_signals import (
     append_signal_history,
     derive_turn_signals,
 )
+from personal_learning_assistant.tutor.session_goal import (
+    commit_session_goal,
+)
+from personal_learning_assistant.tutor.teaching_orchestrator import (
+    commit_teaching_plan,
+)
 
 
 _CITATION = re.compile(r"\[(S[1-9][0-9]*)\]")
@@ -36,6 +42,19 @@ _CITATION = re.compile(r"\[(S[1-9][0-9]*)\]")
 
 class GroundedTutorError(RuntimeError):
     pass
+
+
+def _commit_orchestration_metadata(metadata, plan, *, now):
+    payload = commit_session_goal(
+        metadata,
+        plan.session_goal,
+        now=now,
+    )
+    return commit_teaching_plan(
+        payload,
+        plan.teaching_plan,
+        now=now,
+    )
 
 
 _PROVIDER_META_LINE = re.compile(
@@ -216,6 +235,18 @@ class GroundedTutorService:
                 ),
                 support_level="insufficient",
             )
+            try:
+                metadata = _commit_orchestration_metadata(
+                    session.metadata,
+                    plan,
+                    now=assistant_turn.created_at,
+                )
+                self.tutor_session_service.update_session_metadata(
+                    session_id,
+                    metadata,
+                )
+            except Exception:
+                pass
             return GroundedTutorResult(
                 question=plan.question,
                 user_turn=user_turn,
@@ -259,6 +290,18 @@ class GroundedTutorService:
                     provider_name=str(retry_response.provider_name or ""),
                     provider_model=str(retry_response.provider_model or ""),
                 )
+                try:
+                    metadata = _commit_orchestration_metadata(
+                        session.metadata,
+                        plan,
+                        now=assistant_turn.created_at,
+                    )
+                    self.tutor_session_service.update_session_metadata(
+                        session_id,
+                        metadata,
+                    )
+                except Exception:
+                    pass
                 return GroundedTutorResult(
                     question=plan.question,
                     user_turn=user_turn,
@@ -356,6 +399,11 @@ class GroundedTutorService:
                         adaptive_state=blocked_state,
                     ),
                 )
+                blocked_metadata = _commit_orchestration_metadata(
+                    blocked_metadata,
+                    plan,
+                    now=assistant_turn.created_at,
+                )
                 try:
                     self.tutor_session_service.update_session_metadata(
                         session_id,
@@ -441,6 +489,11 @@ class GroundedTutorService:
                 teaching_intent=plan.teaching_intent,
                 adaptive_state=next_state,
             ),
+        )
+        metadata = _commit_orchestration_metadata(
+            metadata,
+            plan,
+            now=assistant_turn.created_at,
         )
         try:
             self.tutor_session_service.update_session_metadata(
