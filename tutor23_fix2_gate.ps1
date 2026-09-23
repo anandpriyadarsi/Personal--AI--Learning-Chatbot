@@ -96,8 +96,8 @@ function Show-ProtectedHashDiff {
         [string]$AfterJson
     )
 
-    $BeforePath = Join-Path ([IO.Path]::GetTempPath()) ("anvaya_tutor23_fix1_before_" + [guid]::NewGuid().ToString("N") + ".json")
-    $AfterPath = Join-Path ([IO.Path]::GetTempPath()) ("anvaya_tutor23_fix1_after_" + [guid]::NewGuid().ToString("N") + ".json")
+    $BeforePath = Join-Path ([IO.Path]::GetTempPath()) ("anvaya_tutor23_fix2_before_" + [guid]::NewGuid().ToString("N") + ".json")
+    $AfterPath = Join-Path ([IO.Path]::GetTempPath()) ("anvaya_tutor23_fix2_after_" + [guid]::NewGuid().ToString("N") + ".json")
     Set-Content -LiteralPath $BeforePath -Value $BeforeJson -Encoding UTF8
     Set-Content -LiteralPath $AfterPath -Value $AfterJson -Encoding UTF8
 
@@ -136,7 +136,7 @@ if not (added or removed or modified):
     print("No protected path-level differences found.")
 '@
 
-    $DiffScriptPath = Join-Path ([IO.Path]::GetTempPath()) ("anvaya_tutor23_fix1_diff_" + [guid]::NewGuid().ToString("N") + ".py")
+    $DiffScriptPath = Join-Path ([IO.Path]::GetTempPath()) ("anvaya_tutor23_fix2_diff_" + [guid]::NewGuid().ToString("N") + ".py")
     Set-Content -LiteralPath $DiffScriptPath -Value $DiffScript -Encoding UTF8
     & $PythonResolved $DiffScriptPath $BeforePath $AfterPath
     Remove-Item $DiffScriptPath,$BeforePath,$AfterPath -Force -ErrorAction SilentlyContinue
