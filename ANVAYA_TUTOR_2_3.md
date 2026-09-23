@@ -609,3 +609,198 @@ Validated properties:
 - repository hygiene.
 
 Tutor 2.3.3 is therefore **COMPLETE**.
+
+
+---
+
+## 2.3.4 — Prerequisite / Concept Dependency Reasoning
+
+**Implementation status:** Built; awaiting local gate validation.
+
+### Purpose
+
+Tutor 2.3.4 lets ANVAYA recognize when the current difficulty is not the target
+topic itself but a smaller prerequisite concept.
+
+The bounded loop is:
+
+\`\`\`text
+current session goal
+        ↓
+current question + current-session evidence
+        ↓
+course-scoped dependency graph
+        ↓
+is one prerequisite gap explicitly justified?
+        ↓
+yes → review only that prerequisite
+        ↓
+bridge back to the original target / session goal
+\`\`\`
+
+ANVAYA must not recursively walk backward through an arbitrary dependency tree.
+
+### Course-scoped dependency graph
+
+Dependencies are explicit, inspectable, and keyed by canonical course code.
+
+The initial conservative graph includes selected stable relationships for:
+
+- \`MA103N\` Linear Algebra;
+- \`UC100N\` Data Science and AI;
+- \`CY100N\` Engineering Chemistry.
+
+The graph is deliberately small. New edges should be added from authoritative
+course material rather than by broad model inference.
+
+Examples in the initial graph include:
+
+\`\`\`text
+MA103N
+LU Factorization
+    <- Gaussian Elimination
+    <- Elimination Multipliers
+    <- Matrix Multiplication
+
+Basis
+    <- Span
+    <- Linear Independence
+
+Coordinate Representation
+    <- Basis
+    <- Linear Independence
+\`\`\`
+
+### Canonical academic scope
+
+Tutor 2.3.4 reads canonical scope through the existing Tutor repository:
+
+- \`course_identity()\`;
+- \`topic_identity()\`;
+- \`list_course_topics()\`.
+
+No new database migration or authoritative academic-data write is introduced.
+
+If no canonical course scope exists, automatic prerequisite reasoning is
+disabled.
+
+A dependency graph for one course cannot leak into another course.
+
+### When prerequisite repair is allowed
+
+ANVAYA may select one prerequisite when either:
+
+1. the current student message explicitly identifies confusion with a known
+   prerequisite of the current target; or
+2. current-session Socratic evidence is \`clarify | repair | unclear\` and the
+   recorded misconception/evaluation identifies a known prerequisite.
+
+Examples:
+
+\`\`\`text
+"I don't understand elimination multipliers in LU factorization."
+    -> review Elimination Multipliers
+    -> return to LU Factorization
+\`\`\`
+
+\`\`\`text
+Current goal: LU Factorization
+Last Socratic outcome: repair
+Misconception: "Student does not understand Gaussian elimination."
+    -> review Gaussian Elimination
+    -> return to LU Factorization
+\`\`\`
+
+### What must not trigger it
+
+Tutor 2.3.4 must not automatically move backward merely because the target has
+prerequisites.
+
+For example:
+
+\`\`\`text
+"Explain LU factorization."
+\`\`\`
+
+does not itself justify prerequisite review.
+
+Explicit requests such as hint, example, practice, quiz, summary, verification,
+or guidance remain authoritative and are not replaced by prerequisite review.
+
+If the gap is vague rather than known, Tutor 2.3.2 Diagnostic Questioning still
+wins.
+
+### Teaching plan
+
+When prerequisite repair is justified:
+
+\`\`\`text
+next_move = review_prerequisite
+target_concept = <current target>
+prerequisite_concept = <one justified prerequisite>
+prerequisite_reason =
+    explicit_prerequisite_gap
+    | current_session_prerequisite_gap
+return_to_goal = true
+\`\`\`
+
+The provider is instructed to:
+
+- teach only the minimum prerequisite required now;
+- explicitly connect it back to the target;
+- return to the original session goal;
+- avoid opening another prerequisite branch in the same turn.
+
+### Retrieval behavior
+
+When the dependency maps to a canonical prerequisite topic, retrieval
+temporarily uses that prerequisite topic while preserving the same course
+scope.
+
+A bounded retrieval query is appended:
+
+\`\`\`text
+<prerequisite> prerequisite for <target>
+\`\`\`
+
+If no canonical prerequisite topic exists, the existing session topic scope is
+retained.
+
+### Trust / persistence boundary
+
+Tutor 2.3.4 persists only the resulting teaching plan in existing Tutor session
+metadata.
+
+It does not automatically write:
+
+- mastery;
+- academic progress;
+- learning memory;
+- grades;
+- study plans;
+- notes/resources;
+- retrieval indexes;
+- Obsidian vault content.
+
+The concept graph itself is code-owned orchestration configuration, not student
+academic state.
+
+### UI
+
+The Tutor session goal panel exposes a compact prerequisite bridge:
+
+\`\`\`text
+Prerequisite repair: Gaussian Elimination -> LU Factorization
+\`\`\`
+
+This is an orchestration explanation, not a mastery judgment.
+
+### Gate
+
+Run:
+
+\`\`\`powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\tutor23_fix4_gate.ps1
+\`\`\`
+
+Do not begin Tutor 2.3.5 until this gate is completely green.
