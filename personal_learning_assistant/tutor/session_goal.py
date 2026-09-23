@@ -25,6 +25,13 @@ _SHIFT_CUES = (
     r"\bdon't continue\b",
 )
 
+_CONTINUITY_CUES = (
+    r"\banother (?:example|way)\b",
+    r"\b(?:this|that|it) again\b",
+    r"\b(?:the )?(?:same|previous|above) (?:example|question|answer|idea)\b",
+    r"\bof (?:this|that|it)\b",
+)
+
 _STOPWORDS = {
     "about", "again", "also", "and", "answer", "because", "but", "can",
     "could", "do", "does", "explain", "for", "from", "give", "how", "into",
@@ -142,6 +149,8 @@ def is_explicit_goal_shift(question, current_goal):
     if not clean or not goal:
         return False
     lowered = clean.casefold()
+    if any(re.search(pattern, lowered) for pattern in _CONTINUITY_CUES):
+        return False
     if not any(re.search(pattern, lowered) for pattern in _SHIFT_CUES):
         return False
 
