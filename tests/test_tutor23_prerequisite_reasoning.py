@@ -204,6 +204,18 @@ def test_correct_prior_outcome_does_not_reopen_prerequisite():
     assert decision.should_review is False
 
 
+def test_prerequisite_retrieval_query_accepts_teaching_plan_mapping():
+    query = prerequisite_retrieval_query(
+        {
+            "next_move": "review_prerequisite",
+            "target_concept": "LU Factorization",
+            "prerequisite_concept": "Elimination Multipliers",
+        }
+    )
+
+    assert query == "Elimination Multipliers prerequisite for LU Factorization"
+
+
 def test_prerequisite_retrieval_query_is_bounded_and_explicit():
     decision = plan_prerequisite_review(
         "I am confused about Gaussian elimination in LU factorization.",
