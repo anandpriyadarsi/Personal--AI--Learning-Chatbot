@@ -446,3 +446,134 @@ Validated properties:
 - repository hygiene.
 
 Tutor 2.3.2 is therefore **COMPLETE**.
+
+
+---
+
+## 2.3.3 — Socratic Multi-Turn Loop
+
+**Implementation status:** Built; awaiting local gate validation.
+
+### Purpose
+
+Tutor 2.3.3 turns a pedagogical question into a real multi-turn Tutor loop:
+
+\`\`\`text
+ANVAYA asks one bounded question
+        ↓
+pending question is stored in Tutor session state
+        ↓
+student replies
+        ↓
+reply is recognized as the answer to that question
+        ↓
+answer is evaluated
+        ↓
+advance / clarify / repair / unclear
+        ↓
+at most one next check question
+\`\`\`
+
+### Session-local state
+
+The existing adaptive Tutor state is extended rather than creating a second
+conversation-state system.
+
+New bounded fields include:
+
+- \`pending_question_kind\`: \`diagnostic | quiz | socratic_check\`;
+- \`last_socratic_outcome\`: \`advance | clarify | repair | unclear\`;
+- \`socratic_step_count\`.
+
+The existing fields remain authoritative for the active exchange:
+
+- \`awaiting_student_answer\`;
+- \`pending_question\`;
+- \`last_student_answer\`;
+- \`answer_status\`;
+- \`last_evaluation_reason\`;
+- \`last_misconception\`.
+
+All state remains inside Tutor session metadata.
+
+### Diagnostic continuity
+
+A Tutor 2.3.2 diagnostic question is now persisted as a genuine pending Tutor
+question.
+
+The deterministic diagnostic question is returned directly without spending a
+provider call. This guarantees exactly one question and also allows a
+diagnostic question in \`source_only\` mode even when no academic evidence was
+retrieved.
+
+### Answer handling
+
+When a pending Tutor question exists, a normal short reply is treated as an
+answer to that question.
+
+The provider receives the pending question, the student's answer, and the
+existing hidden evaluation protocol.
+
+The evaluation maps deterministically to:
+
+\`\`\`text
+correct   -> advance
+partial   -> clarify
+incorrect -> repair
+unclear   -> unclear
+\`\`\`
+
+The provider is instructed to respond to that outcome without restarting the
+topic and to ask **at most one** next pedagogical question.
+
+### Student control
+
+The student can escape the loop.
+
+Requests such as:
+
+- \`Just explain it.\`
+- \`Skip the question.\`
+- \`Don't ask me.\`
+- \`Give me the explanation.\`
+
+cancel the pending pedagogical question and restore direct current-request
+behavior.
+
+An explicit topic shift also clears the old pending question.
+
+A requested hint preserves the pending question so the student can still answer
+it afterward.
+
+### Boundaries
+
+Tutor 2.3.3 does not introduce:
+
+- prerequisite graphs;
+- adaptive practice difficulty;
+- mastery or goal-completion decisions;
+- automatic long-term learning memory;
+- academic progress writes.
+
+Those remain later Tutor 2.3 units.
+
+### UI
+
+The current learning-state panel exposes:
+
+- pending Tutor question;
+- pending-question kind;
+- last Socratic outcome;
+- Socratic loop step count.
+
+These labels are session-local diagnostics, not mastery judgments.
+
+### Gate
+
+Run:
+
+\`\`\`powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\tutor23_fix3_gate.ps1
+\`\`\`
+
+Do not begin Tutor 2.3.4 until this gate is completely green.
