@@ -36,6 +36,17 @@ def _goal(text="Understand LU factorization"):
     }
 
 
+def test_vague_confusion_produces_clean_session_goal_subject():
+    from personal_learning_assistant.tutor.session_goal import infer_session_goal
+
+    goal = infer_session_goal(
+        "I don't understand LU factorization.",
+        "explain",
+    )
+
+    assert goal == "Understand LU factorization"
+
+
 def test_vague_initial_confusion_asks_one_diagnostic_question():
     decision = plan_diagnostic_question(
         "I don't understand LU factorization.",
