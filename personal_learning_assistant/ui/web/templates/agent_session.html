@@ -45,11 +45,23 @@ window.MathJax = {
       <details class="tutor-state-summary tutor-goal-summary" open>
         <summary>Session goal</summary>
         <p><strong>Goal:</strong> {{ goal.get('goal') }}</p>
-        <p><strong>Status:</strong> {{ goal.get('status', 'active')|replace('_', ' ')|title }}</p>
+        <p><strong>Status:</strong> {{ goal.get('status', 'active')|replace('_', ' ')|title }}
+          {% if goal.get('status') == 'likely_met' %}<br><span class="microcopy">Current-session evidence only · not mastery.</span>{% endif %}
+          {% if goal.get('status') == 'unresolved' %}<br><span class="microcopy">The current session still contains unresolved evidence.</span>{% endif %}
+        </p>
+        {% if goal.get('goal_evidence') %}
+        <details>
+          <summary>Goal evidence</summary>
+          {% for item in goal.get('goal_evidence', ()) %}
+          <div class="microcopy">{{ item }}</div>
+          {% endfor %}
+        </details>
+        {% endif %}
         {% if teaching_plan.get('next_move') %}
         <p><strong>Current teaching move:</strong> {{ teaching_plan.get('next_move')|replace('_', ' ')|title }}
           {% if teaching_plan.get('reason') %}<br><span class="microcopy">Reason: {{ teaching_plan.get('reason')|replace('_', ' ') }}</span>{% endif %}
           {% if teaching_plan.get('diagnostic_question') %}<br><span class="microcopy"><strong>Diagnostic question:</strong> {{ teaching_plan.get('diagnostic_question') }}</span>{% endif %}
+          {% if teaching_plan.get('exit_check_question') %}<br><span class="microcopy"><strong>Exit check:</strong> {{ teaching_plan.get('exit_check_question') }}</span>{% endif %}
           {% if teaching_plan.get('prerequisite_concept') %}<br><span class="microcopy"><strong>Prerequisite repair:</strong> {{ teaching_plan.get('prerequisite_concept') }} → {{ teaching_plan.get('target_concept') }}</span>{% endif %}
           {% if teaching_plan.get('practice_active') %}<br><span class="microcopy"><strong>Practice plan:</strong> Level {{ teaching_plan.get('practice_level') }} · {{ teaching_plan.get('practice_format')|replace('_', ' ')|title }}{% if teaching_plan.get('practice_reason') %} · {{ teaching_plan.get('practice_reason')|replace('_', ' ') }}{% endif %}</span>{% endif %}
         </p>
@@ -57,7 +69,7 @@ window.MathJax = {
         <p class="microcopy">Session-local orchestration only · not mastery or academic progress.</p>
       </details>
       {% endif %}
-      {% if adaptive.get('unresolved_doubt') or adaptive.get('pending_question') or adaptive.get('practice_level') or adaptive.get('last_socratic_outcome') or adaptive.get('last_misconception') or adaptive.get('answer_status') not in [none, '', 'unassessed', 'pending'] or adaptive.get('last_math_verification') in ['passed', 'repaired', 'blocked'] %}
+      {% if adaptive.get('unresolved_doubt') or adaptive.get('pending_question') or adaptive.get('practice_level') or adaptive.get('exit_check_count') or adaptive.get('last_socratic_outcome') or adaptive.get('last_misconception') or adaptive.get('answer_status') not in [none, '', 'unassessed', 'pending'] or adaptive.get('last_math_verification') in ['passed', 'repaired', 'blocked'] %}
       <details class="tutor-state-summary">
         <summary>Current learning state</summary>
         <p><strong>Unresolved doubt:</strong> {{ adaptive.get('unresolved_doubt') }}</p>
@@ -69,6 +81,11 @@ window.MathJax = {
         {% if adaptive.get('last_socratic_outcome') %}
         <p><strong>Last Socratic outcome:</strong> {{ adaptive.get('last_socratic_outcome')|replace('_', ' ')|title }}
           {% if adaptive.get('socratic_step_count') %}<br><span class="microcopy">Loop steps: {{ adaptive.get('socratic_step_count') }}</span>{% endif %}
+        </p>
+        {% endif %}
+        {% if adaptive.get('exit_check_count') %}
+        <p><strong>Exit checks asked:</strong> {{ adaptive.get('exit_check_count') }}
+          <br><span class="microcopy">Session-local understanding checks only.</span>
         </p>
         {% endif %}
         {% if adaptive.get('practice_level') %}
