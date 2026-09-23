@@ -15,6 +15,7 @@ PENDING_QUESTION_KINDS = (
     "diagnostic",
     "quiz",
     "practice",
+    "exit_check",
     "socratic_check",
 )
 
