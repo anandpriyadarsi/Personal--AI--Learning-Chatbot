@@ -20,6 +20,7 @@ from personal_learning_assistant.services.tutor_session_service import (
     TutorSessionService,
 )
 from personal_learning_assistant.tutor.adaptive_state import (
+    evolve_adaptive_state,
     load_adaptive_state,
 )
 from personal_learning_assistant.tutor.socratic_loop import (
@@ -433,6 +434,44 @@ def test_socratic_loop_does_not_write_learning_memory_or_progress(tmp_path):
         "SELECT COUNT(*) FROM progress_snapshots"
     ).fetchone()[0] == before_progress
     connection.close()
+
+
+def test_existing_quiz_lineage_remains_quiz_after_answer():
+    next_state = evolve_adaptive_state(
+        {
+            "version": 5,
+            "interaction_count": 1,
+            "last_intent": "quiz",
+            "last_teaching_move": "quiz",
+            "quiz_active": True,
+            "awaiting_student_answer": True,
+            "pending_question": "Why is the set dependent?",
+            "pending_question_kind": "quiz",
+            "last_student_answer": "",
+            "last_socratic_outcome": "",
+            "socratic_step_count": 1,
+            "unresolved_doubt": "",
+            "answer_status": "pending",
+            "last_evaluation_reason": "",
+            "last_misconception": "",
+            "last_math_verification": "not_applicable",
+            "last_math_claims_checked": 0,
+        },
+        student_message="Because one vector depends on the others.",
+        assistant_message="Correct. What property is needed next?",
+        teaching_intent="quiz_answer",
+        teaching_move="check_understanding",
+        answer_evaluation={
+            "status": "correct",
+            "reason": "Identified dependence.",
+            "misconception": "",
+        },
+    )
+
+    assert next_state["quiz_active"] is True
+    assert next_state["awaiting_student_answer"] is True
+    assert next_state["pending_question_kind"] == "quiz"
+    assert next_state["last_socratic_outcome"] == "advance"
 
 
 def test_socratic_state_is_visible_in_tutor_template():
