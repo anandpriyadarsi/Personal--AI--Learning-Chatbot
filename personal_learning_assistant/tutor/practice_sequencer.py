@@ -245,20 +245,27 @@ def plan_practice_sequence(
         current_status in {"partial", "incorrect", "unclear"}
         or current_outcome in {"clarify", "repair", "unclear"}
     ):
-        practice_format = "misconception_targeted"
+        if not requested_format:
+            practice_format = "misconception_targeted"
         focus = current_misconception
-        if not direction:
+        if (
+            not direction
+            and current_status not in {"partial", "incorrect", "unclear"}
+        ):
             level = clamp_level(level - 1)
-        reason = "current_misconception_targeted_practice"
+        if not direction and not requested_format:
+            reason = "current_misconception_targeted_practice"
     elif (
         _clean(state.get("last_teaching_move"), 80).casefold()
         == "review_prerequisite"
     ):
-        practice_format = "prerequisite_bridge"
+        if not requested_format:
+            practice_format = "prerequisite_bridge"
         focus = "bridge the repaired prerequisite back to the session goal"
         if not direction:
             level = clamp_level(level - 1)
-        reason = "post_prerequisite_bridge_practice"
+        if not direction and not requested_format:
+            reason = "post_prerequisite_bridge_practice"
     elif requested_format:
         reason = "student_requested_{}_practice".format(requested_format)
     elif practice_format not in PRACTICE_FORMATS:
