@@ -452,7 +452,7 @@ Tutor 2.3.2 is therefore **COMPLETE**.
 
 ## 2.3.3 — Socratic Multi-Turn Loop
 
-**Implementation status:** Built; awaiting local gate validation.
+**Implementation status:** PASS — local gate validated on 2026-09-23.
 
 ### Purpose
 
@@ -577,3 +577,35 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\tutor23_fix3_gate.ps1
 \`\`\`
 
 Do not begin Tutor 2.3.4 until this gate is completely green.
+
+### 2.3.3 validation result
+
+Local gate result on 2026-09-23:
+
+```text
+1402 passed
+5 skipped
+1 deselected
+
+ANVAYA TUTOR 2.3.3 SOCRATIC MULTI-TURN LOOP: PASS
+```
+
+Validated properties:
+
+- pending-question continuity across Tutor turns;
+- diagnostic-answer evaluation;
+- bounded Socratic outcomes: advance / clarify / repair / unclear;
+- at-most-one next pedagogical question;
+- student override of pending questions;
+- hint-without-consuming-pending-question behavior;
+- explicit topic-shift cancellation;
+- adaptive quiz lineage compatibility;
+- Tutor 2.3.2 diagnostic compatibility;
+- Tutor 2.3.1 session-goal/teaching-plan compatibility;
+- Tutor 2.2 memory/personalization compatibility;
+- Tutor 2.1 adaptive/correctness/retrieval compatibility;
+- Tutor 2.0 grounding/safety behavior;
+- protected production/index/vault hashes;
+- repository hygiene.
+
+Tutor 2.3.3 is therefore **COMPLETE**.
