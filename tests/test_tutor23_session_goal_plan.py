@@ -217,12 +217,19 @@ def _environment(tmp_path):
     connection.row_factory = sqlite3.Row
     connection.execute("PRAGMA foreign_keys=ON")
     repository = SQLiteTutorRepository(connection)
+    counters = {"turn": 0, "other": 0}
+
+    def id_factory(prefix):
+        if prefix == "tutor-turn":
+            counters["turn"] += 1
+            return "turn-{}".format(counters["turn"])
+        counters["other"] += 1
+        return "{}-{}".format(prefix, counters["other"])
+
     sessions = TutorSessionService(
         repository,
         now=lambda: "2026-09-23T10:00:00Z",
-        id_factory=lambda prefix: {
-            "tutor-turn": "turn-fixed",
-        }.get(prefix, "{}-fixed".format(prefix)),
+        id_factory=id_factory,
     )
     session = repository.create_session(
         session_id="session-1",
@@ -313,11 +320,6 @@ def test_follow_up_plan_reuses_persisted_goal(tmp_path):
 
     engine.answer("session-1", "Explain LU factorization.")
     first = load_session_goal(repository.get_session("session-1").metadata)
-
-    # Use a distinct turn id on the second exchange.
-    sessions._id_factory = lambda prefix: {
-        "tutor-turn": "turn-second",
-    }.get(prefix, "{}-second".format(prefix))
 
     engine.answer("session-1", "Show me a small example of that.")
     second = load_session_goal(repository.get_session("session-1").metadata)
