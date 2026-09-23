@@ -140,3 +140,49 @@ After live validation rerun:
     powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tutor22_gate.ps1
 
 Only after both live validation and the gate are green should Tutor 2.2 be marked complete.
+
+---
+
+# Live validation result — PASS
+
+Date: 2026-09-23
+
+Tutor 2.2.5 was exercised in the local web UI against a disposable SQLite
+copy migrated through schema version 9.
+
+Observed results:
+
+| Scenario | Result | Evidence |
+| --- | --- | --- |
+| A — canonical topic isolation | PASS | LU Tutor session persisted a non-null canonical \`topic_id\`; old Basis/Redundancy history was excluded from the topic-scoped model. |
+| B — repeated signal across sessions | PASS | Two separate LU Tutor sessions recorded \`hint_requested\` observations. |
+| C — stable signal personalization | PASS | A fresh LU session projected \`hint_requested\` with \`session_count=2\`, \`event_count=2\`, and derived guided/intuition-first/supported teaching policy from \`repeated_historical_support_signal\`. |
+| D — current question beats history | PASS | A course-level request for determinant cofactor expansion stayed on determinants even while historical LU support context was available internally. |
+| E/F — memory review boundary | PASS | A 2-session/2-observation candidate was explicitly accepted and produced one provenance-linked \`learning_memory_entries\` row. A later stronger 3-session/3-observation candidate was explicitly rejected with \`accepted_memory_entry_id=NULL\`. |
+| G — accepted memory survives | PASS | A later LU Tutor session displayed the accepted \`scaffolding_need\` learning-memory context and used guided, intuition-first teaching. |
+| User-visible safety | PASS | The Tutor adapted style without saying the student was weak/strong, without presenting memory as mastery, and without forcing an old topic into a new question. |
+| Rendering/runtime regression check | PASS | Live runs showed rendered mathematics rather than raw Markdown/LaTeX and no SQLite thread/500 regression was observed during the validated scenarios. |
+
+The accepted and rejected candidate histories remained separately visible in
+the UI:
+
+- accepted: \`scaffolding_need\`, confidence 3/5, 2 sessions, 2 observations;
+- rejected: \`scaffolding_need\`, confidence 4/5, 3 sessions, 3 observations.
+
+The accepted learning-memory context remained explicitly labelled advisory and
+not a mastery score.
+
+## Final conclusion
+
+Tutor 2.2 has now demonstrated the complete cross-session loop:
+
+\`conversation -> Tutor signal -> stable pattern -> human-reviewed candidate ->
+accepted learning memory -> personalized teaching policy -> later Tutor
+response\`
+
+with the current question remaining authoritative.
+
+Tutor 2.2.5 is therefore **LIVE VALIDATED: PASS**.
+
+The final repository gate must still be rerun after pulling this documentation
+commit. Tutor 2.3 must not begin until that gate is green.
