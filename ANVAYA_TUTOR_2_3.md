@@ -835,3 +835,215 @@ Validated properties:
 - repository hygiene.
 
 Tutor 2.3.4 is therefore **COMPLETE**.
+
+
+---
+
+## 2.3.5 — Adaptive Practice Sequencing
+
+**Implementation status:** Built; awaiting local gate validation.
+
+### Purpose
+
+Tutor 2.3.5 gives ANVAYA a bounded practice ladder so practice is not a stream
+of unrelated randomly difficult questions.
+
+The session-local ladder is:
+
+\`\`\`text
+1  Concept check
+2  Guided application
+3  Standard application
+4  Mixed / transfer application
+5  Challenge
+\`\`\`
+
+These levels are orchestration labels only. They are not mastery, ability,
+intelligence, grades, or academic progress.
+
+### Starting level
+
+The current session remains authoritative.
+
+When a new practice sequence starts, Tutor 2.2 personalized policy may provide
+an advisory starting bias:
+
+\`\`\`text
+supported -> level 2
+standard  -> level 3
+challenge -> level 4
+\`\`\`
+
+Tutor 2.2 historical context cannot by itself start at level 5 and cannot prove
+that the student is strong or weak.
+
+An explicit current request such as \`harder\`, \`easier\`, \`conceptual\`, or
+\`computational\` remains authoritative.
+
+### One-step adaptation
+
+After an evaluated practice answer:
+
+\`\`\`text
+correct   -> one level up
+partial   -> hold level
+incorrect -> one level down
+unclear   -> one level down
+\`\`\`
+
+Levels are clamped to 1..5.
+
+One answer can never change difficulty by more than one level.
+
+### Practice formats
+
+Tutor 2.3.5 supports bounded task formats:
+
+- \`conceptual\`;
+- \`computational\`;
+- \`mixed\`;
+- \`misconception_targeted\`;
+- \`prerequisite_bridge\`.
+
+If current-session evidence records a misconception, the next relevant
+practice may target that misconception.
+
+After Tutor 2.3.4 repairs a prerequisite, a later practice request may become a
+\`prerequisite_bridge\` task that reconnects the repaired prerequisite to the
+original session goal.
+
+Explicit student format requests remain authoritative.
+
+### Multi-turn practice loop
+
+Practice now participates in the existing Tutor 2.3 Socratic pending-question
+state.
+
+\`\`\`text
+ANVAYA gives one practice task
+        ↓
+pending_question_kind = practice
+        ↓
+student attempts it
+        ↓
+hidden evaluation
+        ↓
+correct / partial / incorrect / unclear
+        ↓
+bounded level transition
+        ↓
+brief feedback + at most one next practice task
+\`\`\`
+
+Initial imperative tasks such as \`Compute ...\` can still be tracked even if
+they do not end with a question mark.
+
+After an evaluated answer, continuation requires a real next question. This
+prevents ordinary feedback prose from accidentally becoming a pending task.
+
+A requested hint preserves the pending practice task.
+
+An explicit topic shift clears the old practice sequence.
+
+### Teaching-plan fields
+
+Tutor 2.3.5 extends the existing Tutor teaching plan with:
+
+\`\`\`text
+practice_active
+practice_level
+practice_level_name
+practice_format
+practice_focus
+practice_reason
+practice_after_correct_level
+practice_after_partial_level
+practice_after_incorrect_level
+practice_after_unclear_level
+\`\`\`
+
+For an answer inside an active practice loop:
+
+\`\`\`text
+next_move = practice
+reason = adaptive_practice_answer
+\`\`\`
+
+The provider must evaluate the current answer before generating the one next
+task.
+
+### Existing quiz behavior
+
+Tutor 2.3.5 does not silently redefine the existing quiz lineage.
+
+\`pending_question_kind=quiz\` remains a quiz and continues through the Tutor
+2.1 / Tutor 2.3.3 quiz/Socratic behavior.
+
+Adaptive practice sequencing is owned by
+\`pending_question_kind=practice\`.
+
+### Priority
+
+The relevant priority is:
+
+\`\`\`text
+explicit current practice request
+    >
+current-session answer / misconception evidence
+    >
+Tutor 2.3.4 prerequisite repair when strongly justified
+    >
+existing session practice level
+    >
+Tutor 2.2 historical policy
+\`\`\`
+
+If Tutor 2.3.4 has strong evidence that a prerequisite is blocking the current
+work, prerequisite repair may pause practice. The next practice request can
+then bridge back to the target.
+
+### Persistence / trust boundary
+
+Tutor 2.3.5 extends only Tutor-owned session metadata.
+
+Session-local adaptive state includes:
+
+- \`practice_active\`;
+- \`practice_level\`;
+- \`practice_step_count\`;
+- \`practice_format\`;
+- \`practice_focus\`.
+
+It does not automatically write:
+
+- mastery;
+- academic progress;
+- grades;
+- long-term learning memory;
+- study plans;
+- notes/resources;
+- retrieval indexes;
+- Obsidian vault content.
+
+### UI
+
+The Tutor learning-state panel exposes the current practice sequence as
+session-local information:
+
+\`\`\`text
+Practice sequence: Level 3 · Computational
+Practice steps: 2 · Session-local, not mastery
+\`\`\`
+
+The teaching-plan panel also exposes the planned practice level, format, and
+reason.
+
+### Gate
+
+Run:
+
+\`\`\`powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\tutor23_fix5_gate.ps1
+\`\`\`
+
+Do not begin Tutor 2.3.6 until this gate is completely green.
