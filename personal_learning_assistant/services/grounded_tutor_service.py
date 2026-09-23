@@ -475,6 +475,15 @@ class GroundedTutorService:
             student_message=plan.question,
             assistant_message=content,
             teaching_intent=plan.teaching_intent,
+            teaching_move=str(
+                dict(plan.teaching_plan or {}).get("next_move") or ""
+            ),
+            planned_question=str(
+                dict(plan.teaching_plan or {}).get(
+                    "diagnostic_question"
+                )
+                or ""
+            ),
             answer_evaluation=answer_evaluation,
             math_verification=math_verification,
             math_repaired=correctness_repaired,
