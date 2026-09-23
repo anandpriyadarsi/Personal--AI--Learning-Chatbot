@@ -10,7 +10,13 @@ from typing import Mapping
 
 
 SOCRATIC_OUTCOMES = ("", "advance", "clarify", "repair", "unclear")
-PENDING_QUESTION_KINDS = ("", "diagnostic", "quiz", "socratic_check")
+PENDING_QUESTION_KINDS = (
+    "",
+    "diagnostic",
+    "quiz",
+    "practice",
+    "socratic_check",
+)
 
 
 def _clean(value, limit=280):
