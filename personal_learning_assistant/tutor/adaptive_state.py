@@ -11,6 +11,10 @@ import re
 from typing import Mapping
 
 from personal_learning_assistant.tutor.intent import TutorIntent, classify_tutor_intent
+from personal_learning_assistant.tutor.practice_sequencer import (
+    clamp_level,
+    next_level_for_status,
+)
 from personal_learning_assistant.tutor.socratic_loop import (
     normalize_pending_kind,
     normalize_socratic_outcome,
@@ -19,7 +23,7 @@ from personal_learning_assistant.tutor.socratic_loop import (
 
 
 STATE_KEY = "adaptive_tutor_state"
-STATE_VERSION = 5
+STATE_VERSION = 6
 _MAX_TEXT = 700
 _EVAL_PATTERN = re.compile(
     r"^\s*<!--ANVAYA_EVAL\s+(\{.*?\})\s*-->\s*",
@@ -44,6 +48,11 @@ def default_adaptive_state():
         "last_student_answer": "",
         "last_socratic_outcome": "",
         "socratic_step_count": 0,
+        "practice_active": False,
+        "practice_level": 0,
+        "practice_step_count": 0,
+        "practice_format": "",
+        "practice_focus": "",
         "unresolved_doubt": "",
         "answer_status": "unassessed",
         "last_evaluation_reason": "",
@@ -78,6 +87,33 @@ def load_adaptive_state(metadata):
     except (TypeError, ValueError):
         socratic_steps = 0
     state["socratic_step_count"] = max(0, socratic_steps)
+    state["practice_active"] = bool(raw.get("practice_active", False))
+    try:
+        raw_practice_level = int(raw.get("practice_level") or 0)
+    except (TypeError, ValueError):
+        raw_practice_level = 0
+    state["practice_level"] = (
+        clamp_level(raw_practice_level)
+        if raw_practice_level > 0
+        else 0
+    )
+    try:
+        practice_steps = int(raw.get("practice_step_count") or 0)
+    except (TypeError, ValueError):
+        practice_steps = 0
+    state["practice_step_count"] = max(0, practice_steps)
+    practice_format = _clean(raw.get("practice_format"), 60).casefold()
+    if practice_format not in {
+        "",
+        "conceptual",
+        "computational",
+        "mixed",
+        "misconception_targeted",
+        "prerequisite_bridge",
+    }:
+        practice_format = ""
+    state["practice_format"] = practice_format
+    state["practice_focus"] = _clean(raw.get("practice_focus"), 260)
     state["unresolved_doubt"] = _clean(raw.get("unresolved_doubt"))
     answer_status = _clean(raw.get("answer_status"), 40).casefold()
     if answer_status not in {
@@ -146,6 +182,28 @@ def adaptive_state_prompt(state):
                 clean["socratic_step_count"]
             )
         )
+    if clean["practice_level"]:
+        rows.append(
+            "practice_active={}".format(
+                str(clean["practice_active"]).lower()
+            )
+        )
+        rows.append(
+            "practice_level={}".format(clean["practice_level"])
+        )
+        rows.append(
+            "practice_step_count={}".format(
+                clean["practice_step_count"]
+            )
+        )
+        if clean["practice_format"]:
+            rows.append(
+                "practice_format={}".format(clean["practice_format"])
+            )
+        if clean["practice_focus"]:
+            rows.append(
+                "practice_focus={}".format(clean["practice_focus"])
+            )
     if clean["unresolved_doubt"]:
         rows.append("unresolved_doubt={}".format(clean["unresolved_doubt"]))
     if clean["last_student_answer"]:
@@ -284,6 +342,11 @@ def contextualize_adaptive_state(question, state):
     updated["last_evaluation_reason"] = ""
     updated["last_misconception"] = ""
     updated["last_socratic_outcome"] = ""
+    updated["practice_active"] = False
+    updated["practice_level"] = 0
+    updated["practice_step_count"] = 0
+    updated["practice_format"] = ""
+    updated["practice_focus"] = ""
     return updated
 
 
@@ -439,6 +502,9 @@ def evolve_adaptive_state(
     teaching_intent,
     teaching_move="",
     planned_question="",
+    practice_level=0,
+    practice_format="",
+    practice_focus="",
     answer_evaluation=None,
     math_verification=None,
     math_repaired=False,
@@ -487,6 +553,32 @@ def evolve_adaptive_state(
             updated["socratic_step_count"] = (
                 current["socratic_step_count"] + 1
             )
+    elif teaching_intent == "practice":
+        pending = next_question
+        updated["quiz_active"] = False
+        updated["awaiting_student_answer"] = bool(pending)
+        updated["pending_question"] = pending
+        updated["pending_question_kind"] = (
+            "practice" if pending else ""
+        )
+        updated["answer_status"] = "pending" if pending else "unassessed"
+        updated["last_socratic_outcome"] = ""
+        updated["practice_active"] = bool(pending)
+        planned_level = int(practice_level or 0)
+        if planned_level > 0:
+            updated["practice_level"] = clamp_level(planned_level)
+        updated["practice_format"] = _clean(
+            practice_format,
+            60,
+        ).casefold()
+        updated["practice_focus"] = _clean(practice_focus, 260)
+        if pending:
+            updated["practice_step_count"] = (
+                current["practice_step_count"] + 1
+            )
+            updated["socratic_step_count"] = (
+                current["socratic_step_count"] + 1
+            )
     elif teaching_intent == "quiz":
         updated["quiz_active"] = True
         updated["awaiting_student_answer"] = bool(next_question)
@@ -505,8 +597,15 @@ def evolve_adaptive_state(
             current["quiz_active"]
             or current["pending_question_kind"] == "quiz"
         )
+        practice_lineage = bool(
+            current["practice_active"]
+            or current["pending_question_kind"] == "practice"
+        )
         updated["quiz_active"] = (
             quiz_lineage and bool(next_question)
+        )
+        updated["practice_active"] = (
+            practice_lineage and bool(next_question)
         )
         updated["awaiting_student_answer"] = bool(next_question)
         updated["pending_question"] = next_question
@@ -514,7 +613,11 @@ def evolve_adaptive_state(
             (
                 "quiz"
                 if quiz_lineage
-                else "socratic_check"
+                else (
+                    "practice"
+                    if practice_lineage
+                    else "socratic_check"
+                )
             )
             if next_question
             else ""
@@ -537,6 +640,34 @@ def evolve_adaptive_state(
         updated["socratic_step_count"] = (
             current["socratic_step_count"] + 1
         )
+        if practice_lineage:
+            base_level = int(current.get("practice_level") or 0)
+            if base_level <= 0:
+                base_level = int(practice_level or 3)
+            updated["practice_level"] = next_level_for_status(
+                base_level,
+                status,
+            )
+            next_format = _clean(practice_format, 60).casefold()
+            next_focus = _clean(practice_focus, 260)
+            misconception = _clean(
+                evaluation.get("misconception"),
+                240,
+            )
+            if (
+                status in {"partial", "incorrect", "unclear"}
+                and misconception
+            ):
+                next_format = "misconception_targeted"
+                next_focus = misconception
+            if next_format:
+                updated["practice_format"] = next_format
+            if next_focus:
+                updated["practice_focus"] = next_focus
+            if next_question:
+                updated["practice_step_count"] = (
+                    current["practice_step_count"] + 1
+                )
     elif (
         teaching_intent == "hint"
         and current["awaiting_student_answer"]
@@ -549,12 +680,18 @@ def evolve_adaptive_state(
         updated["pending_question_kind"] = current["pending_question_kind"]
         updated["answer_status"] = current["answer_status"]
         updated["last_socratic_outcome"] = current["last_socratic_outcome"]
+        updated["practice_active"] = current["practice_active"]
+        updated["practice_level"] = current["practice_level"]
+        updated["practice_step_count"] = current["practice_step_count"]
+        updated["practice_format"] = current["practice_format"]
+        updated["practice_focus"] = current["practice_focus"]
     else:
         updated["quiz_active"] = False
         updated["awaiting_student_answer"] = False
         updated["pending_question"] = ""
         updated["pending_question_kind"] = ""
         updated["answer_status"] = "unassessed"
+        updated["practice_active"] = False
         if teaching_intent != "quiz_answer":
             updated["last_socratic_outcome"] = current[
                 "last_socratic_outcome"
