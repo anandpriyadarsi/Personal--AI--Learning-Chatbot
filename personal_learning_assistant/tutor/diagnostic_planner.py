@@ -28,6 +28,7 @@ _EXPLICIT_TEACHING_INTENTS = {
 }
 
 _DIRECT_EXPLANATION_CUES = (
+    r"^(?:please\s+)?(?:explain|teach me|tell me about)\b",
     r"\bexplain\s+(?:why|how|what|when|where)\b",
     r"\bwhy\b",
     r"\bhow\b",
@@ -48,11 +49,6 @@ _AMBIGUOUS_GAP_CUES = (
     r"\bnot clear\b",
     r"\bunclear\b",
 )
-
-_BARE_REQUEST_PREFIXES = (
-    r"^(?:please\s+)?(?:teach me|help me with|tell me about)\b",
-)
-
 
 def _clean(value, limit=_MAX_QUESTION):
     return " ".join(str(value or "").strip().split())[: int(limit)]
@@ -151,15 +147,9 @@ def plan_diagnostic_question(
     ambiguous = any(
         re.search(pattern, lowered) for pattern in _AMBIGUOUS_GAP_CUES
     )
-    bare_request = any(
-        re.search(pattern, lowered) for pattern in _BARE_REQUEST_PREFIXES
-    )
     word_count = len(re.findall(r"\b[\w^+-]+\b", clean))
 
-    if not ambiguous and not bare_request and word_count > 5:
-        return DiagnosticDecision(False, "enough_request_detail")
-
-    if not ambiguous and not bare_request and word_count > 3:
+    if not ambiguous and word_count > 3:
         return DiagnosticDecision(False, "no_clear_diagnostic_need")
 
     return DiagnosticDecision(
