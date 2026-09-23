@@ -25,6 +25,9 @@ from personal_learning_assistant.tutor.grounding import (
     TutorGroundingError,
     TutorGroundingPlanner,
 )
+from personal_learning_assistant.tutor.goal_evaluator import (
+    evaluate_goal_after_turn,
+)
 from personal_learning_assistant.tutor.student_signals import (
     append_signal_history,
     derive_turn_signals,
@@ -44,10 +47,23 @@ class GroundedTutorError(RuntimeError):
     pass
 
 
-def _commit_orchestration_metadata(metadata, plan, *, now):
+def _commit_orchestration_metadata(
+    metadata,
+    plan,
+    *,
+    now,
+    adaptive_state=None,
+):
+    resolved_goal = plan.session_goal
+    if adaptive_state is not None:
+        resolved_goal = evaluate_goal_after_turn(
+            plan.session_goal,
+            teaching_plan=plan.teaching_plan,
+            adaptive_state=adaptive_state,
+        )
     payload = commit_session_goal(
         metadata,
-        plan.session_goal,
+        resolved_goal,
         now=now,
     )
     return commit_teaching_plan(
@@ -251,6 +267,74 @@ class GroundedTutorService:
                 teaching_intent=plan.teaching_intent,
                 teaching_move="ask_diagnostic",
                 planned_question=diagnostic_question,
+            )
+            metadata = dict(session.metadata or {})
+            metadata[STATE_KEY] = next_state
+            metadata = append_signal_history(
+                metadata,
+                derive_turn_signals(
+                    session=session,
+                    assistant_turn=assistant_turn,
+                    teaching_intent=plan.teaching_intent,
+                    adaptive_state=next_state,
+                ),
+            )
+            metadata = _commit_orchestration_metadata(
+                metadata,
+                plan,
+                now=assistant_turn.created_at,
+            )
+            try:
+                self.tutor_session_service.update_session_metadata(
+                    session_id,
+                    metadata,
+                )
+            except Exception:
+                pass
+            return GroundedTutorResult(
+                question=plan.question,
+                user_turn=user_turn,
+                assistant_turn=assistant_turn,
+                citations=(),
+                retrieved_chunk_ids=tuple(
+                    item.chunk_id for item in plan.evidence
+                ),
+                provider_request_id="",
+            )
+
+        if (
+            teaching_plan.get("next_move") == "check_understanding"
+            and teaching_plan.get("reason") in {
+                "explicit_exit_check_requested",
+                "student_reports_understanding",
+            }
+            and str(
+                teaching_plan.get("exit_check_question") or ""
+            ).strip()
+        ):
+            exit_question = str(
+                teaching_plan["exit_check_question"]
+            ).strip()
+            user_turn = self.tutor_session_service.add_user_turn(
+                session_id,
+                plan.question,
+            )
+            assistant_turn = self.tutor_session_service.add_assistant_turn(
+                session_id,
+                exit_question,
+                support_level=(
+                    "insufficient"
+                    if session.source_policy == "source_only"
+                    else "mixed"
+                ),
+            )
+            next_state = evolve_adaptive_state(
+                plan.adaptive_state,
+                student_message=plan.question,
+                assistant_message=exit_question,
+                teaching_intent=plan.teaching_intent,
+                teaching_move="check_understanding",
+                planned_exit_check=exit_question,
             )
             metadata = dict(session.metadata or {})
             metadata[STATE_KEY] = next_state
@@ -584,6 +668,7 @@ class GroundedTutorService:
             metadata,
             plan,
             now=assistant_turn.created_at,
+            adaptive_state=next_state,
         )
         try:
             self.tutor_session_service.update_session_metadata(
