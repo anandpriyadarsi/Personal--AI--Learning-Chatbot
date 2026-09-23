@@ -82,6 +82,28 @@ def test_follow_up_keeps_existing_goal():
     assert goal["created_at"] == "2026-09-23T10:00:00Z"
 
 
+def test_now_another_example_is_continuity_not_topic_shift():
+    metadata = {
+        SESSION_GOAL_KEY: {
+            "version": 1,
+            "goal": "Understand why elimination multipliers form L",
+            "status": "active",
+            "goal_evidence": [],
+            "source": "inferred",
+            "created_at": "2026-09-23T10:00:00Z",
+            "updated_at": "2026-09-23T10:00:00Z",
+        }
+    }
+
+    goal = resolve_session_goal(
+        "Now show me another example of that.",
+        metadata,
+        teaching_intent="example",
+    )
+
+    assert goal["goal"] == "Understand why elimination multipliers form L"
+
+
 def test_explicit_topic_shift_replaces_old_goal():
     metadata = {
         SESSION_GOAL_KEY: {
