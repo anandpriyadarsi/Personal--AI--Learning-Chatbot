@@ -18,6 +18,10 @@ from personal_learning_assistant.tutor.adaptive_state import (
     load_adaptive_state,
     resolve_adaptive_intent,
 )
+from personal_learning_assistant.tutor.concept_dependencies import (
+    course_context_from_repository,
+    prerequisite_retrieval_query,
+)
 from personal_learning_assistant.tutor.correctness import correctness_protocol
 from personal_learning_assistant.tutor.policy import get_mode_policy
 from personal_learning_assistant.tutor.personalized_policy import (
@@ -396,18 +400,35 @@ class TutorGroundingPlanner:
             adaptive_state,
             teaching_intent=intent.name,
         )
+        repository = getattr(
+            self.tutor_session_service,
+            "repository",
+            None,
+        )
+        course_context = course_context_from_repository(
+            repository,
+            session,
+        )
         teaching_plan = build_teaching_plan(
             clean,
             teaching_intent=intent.name,
             adaptive_state=adaptive_state,
             session_goal=session_goal,
             teaching_policy=personalized_policy,
+            course_context=course_context,
         )
         queries = plan_retrieval_queries(
             clean,
             adaptive_state,
             intent.name,
         )
+        prerequisite_query = prerequisite_retrieval_query(
+            teaching_plan_mapping(teaching_plan)
+        )
+        if prerequisite_query:
+            seen_queries = {str(item).casefold() for item in queries}
+            if prerequisite_query.casefold() not in seen_queries:
+                queries = tuple(queries) + (prerequisite_query,)
 
         candidate_top_k = min(
             24,
