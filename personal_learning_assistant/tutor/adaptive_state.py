@@ -11,10 +11,15 @@ import re
 from typing import Mapping
 
 from personal_learning_assistant.tutor.intent import TutorIntent, classify_tutor_intent
+from personal_learning_assistant.tutor.socratic_loop import (
+    normalize_pending_kind,
+    normalize_socratic_outcome,
+    outcome_from_evaluation,
+)
 
 
 STATE_KEY = "adaptive_tutor_state"
-STATE_VERSION = 4
+STATE_VERSION = 5
 _MAX_TEXT = 700
 _EVAL_PATTERN = re.compile(
     r"^\s*<!--ANVAYA_EVAL\s+(\{.*?\})\s*-->\s*",
@@ -35,7 +40,10 @@ def default_adaptive_state():
         "quiz_active": False,
         "awaiting_student_answer": False,
         "pending_question": "",
+        "pending_question_kind": "",
         "last_student_answer": "",
+        "last_socratic_outcome": "",
+        "socratic_step_count": 0,
         "unresolved_doubt": "",
         "answer_status": "unassessed",
         "last_evaluation_reason": "",
@@ -58,7 +66,18 @@ def load_adaptive_state(metadata):
         raw.get("awaiting_student_answer", False)
     )
     state["pending_question"] = _clean(raw.get("pending_question"))
+    state["pending_question_kind"] = normalize_pending_kind(
+        raw.get("pending_question_kind")
+    )
     state["last_student_answer"] = _clean(raw.get("last_student_answer"))
+    state["last_socratic_outcome"] = normalize_socratic_outcome(
+        raw.get("last_socratic_outcome")
+    )
+    try:
+        socratic_steps = int(raw.get("socratic_step_count") or 0)
+    except (TypeError, ValueError):
+        socratic_steps = 0
+    state["socratic_step_count"] = max(0, socratic_steps)
     state["unresolved_doubt"] = _clean(raw.get("unresolved_doubt"))
     answer_status = _clean(raw.get("answer_status"), 40).casefold()
     if answer_status not in {
@@ -109,6 +128,24 @@ def adaptive_state_prompt(state):
     ]
     if clean["pending_question"]:
         rows.append("pending_question={}".format(clean["pending_question"]))
+        if clean["pending_question_kind"]:
+            rows.append(
+                "pending_question_kind={}".format(
+                    clean["pending_question_kind"]
+                )
+            )
+    if clean["last_socratic_outcome"]:
+        rows.append(
+            "last_socratic_outcome={}".format(
+                clean["last_socratic_outcome"]
+            )
+        )
+    if clean["socratic_step_count"]:
+        rows.append(
+            "socratic_step_count={}".format(
+                clean["socratic_step_count"]
+            )
+        )
     if clean["unresolved_doubt"]:
         rows.append("unresolved_doubt={}".format(clean["unresolved_doubt"]))
     if clean["last_student_answer"]:
@@ -162,6 +199,40 @@ _CONTINUITY_PHRASES = (
     r"\bthis again\b",
 )
 
+_PENDING_OVERRIDE_CUES = (
+    r"\bjust explain\b",
+    r"\bexplain (?:it|this|the topic)\b",
+    r"\bskip (?:the )?(?:question|diagnostic|quiz)\b",
+    r"\bdo not ask\b",
+    r"\bdon't ask\b",
+    r"\bgive me (?:the )?(?:answer|explanation)\b",
+)
+
+
+def is_pending_override_request(question, state):
+    current = load_adaptive_state({STATE_KEY: state})
+    if not (
+        current["awaiting_student_answer"]
+        and current["pending_question"]
+    ):
+        return False
+    lowered = _clean(question, 1200).casefold()
+    return any(
+        re.search(pattern, lowered)
+        for pattern in _PENDING_OVERRIDE_CUES
+    )
+
+
+def _clear_pending_question(state):
+    updated = dict(state)
+    updated["quiz_active"] = False
+    updated["awaiting_student_answer"] = False
+    updated["pending_question"] = ""
+    updated["pending_question_kind"] = ""
+    if updated["answer_status"] == "pending":
+        updated["answer_status"] = "unassessed"
+    return updated
+
 
 def _topic_terms(value):
     return {
@@ -198,26 +269,31 @@ def is_explicit_topic_shift(question, state):
 
 
 def contextualize_adaptive_state(question, state):
-    """Drop stale conversational anchors when the student explicitly changes topic."""
+    """Drop stale conversational anchors on explicit student override/topic shift."""
     current = load_adaptive_state({STATE_KEY: state})
+
+    if is_pending_override_request(question, current):
+        return _clear_pending_question(current)
+
     if not is_explicit_topic_shift(question, current):
         return current
 
-    updated = dict(current)
-    updated["quiz_active"] = False
-    updated["awaiting_student_answer"] = False
-    updated["pending_question"] = ""
+    updated = _clear_pending_question(current)
     updated["unresolved_doubt"] = ""
     updated["answer_status"] = "unassessed"
     updated["last_evaluation_reason"] = ""
     updated["last_misconception"] = ""
+    updated["last_socratic_outcome"] = ""
     return updated
 
 
 def resolve_adaptive_intent(question, state):
     base = classify_tutor_intent(question)
     raw_state = load_adaptive_state({STATE_KEY: state})
-    if is_explicit_topic_shift(question, raw_state):
+    if (
+        is_pending_override_request(question, raw_state)
+        or is_explicit_topic_shift(question, raw_state)
+    ):
         return base
     clean_state = contextualize_adaptive_state(question, raw_state)
     if (
@@ -242,7 +318,7 @@ def resolve_adaptive_intent(question, state):
 
 def evaluation_protocol():
     return (
-        "For this quiz-answer turn, begin your raw response with exactly one hidden "
+        "For this answer to a pending Tutor question, begin your raw response with exactly one hidden "
         "machine-readable line in this format: "
         '<!--ANVAYA_EVAL {"status":"STATUS",'
         '"reason":"brief reason","misconception":"brief misconception or empty"}--> '
@@ -361,6 +437,8 @@ def evolve_adaptive_state(
     student_message,
     assistant_message,
     teaching_intent,
+    teaching_move="",
+    planned_question="",
     answer_evaluation=None,
     math_verification=None,
     math_repaired=False,
@@ -369,7 +447,10 @@ def evolve_adaptive_state(
     updated = dict(current)
     updated["interaction_count"] = current["interaction_count"] + 1
     updated["last_intent"] = _clean(teaching_intent, 80)
-    updated["last_teaching_move"] = _clean(teaching_intent, 80)
+    updated["last_teaching_move"] = _clean(
+        teaching_move or teaching_intent,
+        80,
+    )
 
     student = _clean(student_message)
     lowered = student.casefold()
@@ -389,15 +470,46 @@ def evolve_adaptive_state(
 
     next_question = _last_question(assistant_message)
 
-    if teaching_intent == "quiz":
+    planned = _clean(planned_question)
+    move = _clean(teaching_move, 80).casefold()
+
+    if move == "ask_diagnostic":
+        pending = planned or next_question
+        updated["quiz_active"] = False
+        updated["awaiting_student_answer"] = bool(pending)
+        updated["pending_question"] = pending
+        updated["pending_question_kind"] = (
+            "diagnostic" if pending else ""
+        )
+        updated["answer_status"] = "pending" if pending else "unassessed"
+        updated["last_socratic_outcome"] = ""
+        if pending:
+            updated["socratic_step_count"] = (
+                current["socratic_step_count"] + 1
+            )
+    elif teaching_intent == "quiz":
         updated["quiz_active"] = True
         updated["awaiting_student_answer"] = bool(next_question)
         updated["pending_question"] = next_question
+        updated["pending_question_kind"] = (
+            "quiz" if next_question else ""
+        )
         updated["answer_status"] = "pending" if next_question else "unassessed"
+        updated["last_socratic_outcome"] = ""
+        if next_question:
+            updated["socratic_step_count"] = (
+                current["socratic_step_count"] + 1
+            )
     elif teaching_intent == "quiz_answer":
-        updated["quiz_active"] = bool(next_question)
+        updated["quiz_active"] = (
+            current["pending_question_kind"] == "quiz"
+            and bool(next_question)
+        )
         updated["awaiting_student_answer"] = bool(next_question)
         updated["pending_question"] = next_question
+        updated["pending_question_kind"] = (
+            "socratic_check" if next_question else ""
+        )
         updated["last_student_answer"] = student
         evaluation = dict(answer_evaluation or {})
         status = _clean(evaluation.get("status"), 40).casefold()
@@ -410,17 +522,34 @@ def evolve_adaptive_state(
         updated["last_misconception"] = _clean(
             evaluation.get("misconception"), 240
         )
-    elif teaching_intent == "hint" and current["quiz_active"]:
-        # A hint during a quiz does not consume the pending question.
-        updated["quiz_active"] = True
-        updated["awaiting_student_answer"] = current["awaiting_student_answer"]
+        updated["last_socratic_outcome"] = outcome_from_evaluation(
+            evaluation
+        )
+        updated["socratic_step_count"] = (
+            current["socratic_step_count"] + 1
+        )
+    elif (
+        teaching_intent == "hint"
+        and current["awaiting_student_answer"]
+        and current["pending_question"]
+    ):
+        # A requested hint does not consume the pending pedagogical question.
+        updated["quiz_active"] = current["quiz_active"]
+        updated["awaiting_student_answer"] = True
         updated["pending_question"] = current["pending_question"]
+        updated["pending_question_kind"] = current["pending_question_kind"]
         updated["answer_status"] = current["answer_status"]
+        updated["last_socratic_outcome"] = current["last_socratic_outcome"]
     else:
         updated["quiz_active"] = False
         updated["awaiting_student_answer"] = False
         updated["pending_question"] = ""
+        updated["pending_question_kind"] = ""
         updated["answer_status"] = "unassessed"
+        if teaching_intent != "quiz_answer":
+            updated["last_socratic_outcome"] = current[
+                "last_socratic_outcome"
+            ]
 
     if math_verification is not None and bool(
         getattr(math_verification, "applicable", False)
