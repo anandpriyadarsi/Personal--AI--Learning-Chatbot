@@ -23,6 +23,9 @@ from personal_learning_assistant.tutor.concept_dependencies import (
     prerequisite_retrieval_query,
 )
 from personal_learning_assistant.tutor.correctness import correctness_protocol
+from personal_learning_assistant.tutor.goal_evaluator import (
+    contextualize_goal_for_turn,
+)
 from personal_learning_assistant.tutor.policy import get_mode_policy
 from personal_learning_assistant.tutor.personalized_policy import (
     build_personalized_teaching_policy,
@@ -386,10 +389,13 @@ class TutorGroundingPlanner:
             raw_adaptive_state,
         )
         policy = get_mode_policy(session.mode)
-        session_goal = resolve_session_goal(
+        session_goal = contextualize_goal_for_turn(
             clean,
-            session.metadata,
-            teaching_intent=intent.name,
+            resolve_session_goal(
+                clean,
+                session.metadata,
+                teaching_intent=intent.name,
+            ),
         )
         persistent_student_model = build_persistent_student_model(
             getattr(self.tutor_session_service, "repository", None),
