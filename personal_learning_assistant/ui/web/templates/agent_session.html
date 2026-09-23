@@ -57,7 +57,7 @@ window.MathJax = {
         <p class="microcopy">Session-local orchestration only · not mastery or academic progress.</p>
       </details>
       {% endif %}
-      {% if adaptive.get('unresolved_doubt') or adaptive.get('pending_question') or adaptive.get('last_socratic_outcome') or adaptive.get('last_misconception') or adaptive.get('answer_status') not in [none, '', 'unassessed', 'pending'] or adaptive.get('last_math_verification') in ['passed', 'repaired', 'blocked'] %}
+      {% if adaptive.get('unresolved_doubt') or adaptive.get('pending_question') or adaptive.get('practice_level') or adaptive.get('last_socratic_outcome') or adaptive.get('last_misconception') or adaptive.get('answer_status') not in [none, '', 'unassessed', 'pending'] or adaptive.get('last_math_verification') in ['passed', 'repaired', 'blocked'] %}
       <details class="tutor-state-summary">
         <summary>Current learning state</summary>
         <p><strong>Unresolved doubt:</strong> {{ adaptive.get('unresolved_doubt') }}</p>
