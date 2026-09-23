@@ -547,6 +547,24 @@ class GroundedTutorService:
                 )
                 or ""
             ),
+            practice_level=int(
+                dict(plan.teaching_plan or {}).get(
+                    "practice_level"
+                )
+                or 0
+            ),
+            practice_format=str(
+                dict(plan.teaching_plan or {}).get(
+                    "practice_format"
+                )
+                or ""
+            ),
+            practice_focus=str(
+                dict(plan.teaching_plan or {}).get(
+                    "practice_focus"
+                )
+                or ""
+            ),
             answer_evaluation=answer_evaluation,
             math_verification=math_verification,
             math_repaired=correctness_repaired,
