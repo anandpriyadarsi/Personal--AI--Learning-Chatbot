@@ -22,11 +22,13 @@ window.MathJax = {
 {% block content %}
 {% set adaptive = session.adaptive_state if session and session.adaptive_state is defined else {} %}
 {% set persistent = session.persistent_student_model if session and session.persistent_student_model is defined else {} %}
+{% set goal = session.session_goal if session and session.session_goal is defined else {} %}
+{% set teaching_plan = session.teaching_plan if session and session.teaching_plan is defined else {} %}
 {% set memory_candidates = session.memory_candidates if session and session.memory_candidates is defined else [] %}
 <div class="tutor-chat-shell">
   <header class="tutor-chat-header">
     <div class="tutor-heading-copy">
-      <p class="eyebrow">ANVAYA Tutor 2.2</p>
+      <p class="eyebrow">ANVAYA Tutor 2.3</p>
       <h2>{% if session %}{{ session.title or 'New conversation' }}{% else %}Tutor session{% endif %}</h2>
       {% if session %}
       <div class="tutor-scope" aria-label="Tutor scope">
@@ -39,6 +41,19 @@ window.MathJax = {
         {% if adaptive.get('quiz_active', false) %}<span class="tag">Adaptive quiz active</span>{% endif %}
         {% if adaptive.get('awaiting_student_answer', false) %}<span class="tag">Waiting for your answer</span>{% endif %}
       </div>
+      {% if goal.get('goal') %}
+      <details class="tutor-state-summary tutor-goal-summary" open>
+        <summary>Session goal</summary>
+        <p><strong>Goal:</strong> {{ goal.get('goal') }}</p>
+        <p><strong>Status:</strong> {{ goal.get('status', 'active')|replace('_', ' ')|title }}</p>
+        {% if teaching_plan.get('next_move') %}
+        <p><strong>Current teaching move:</strong> {{ teaching_plan.get('next_move')|replace('_', ' ')|title }}
+          {% if teaching_plan.get('reason') %}<br><span class="microcopy">Reason: {{ teaching_plan.get('reason')|replace('_', ' ') }}</span>{% endif %}
+        </p>
+        {% endif %}
+        <p class="microcopy">Session-local orchestration only · not mastery or academic progress.</p>
+      </details>
+      {% endif %}
       {% if adaptive.get('unresolved_doubt') or adaptive.get('pending_question') or adaptive.get('last_misconception') or adaptive.get('answer_status') not in [none, '', 'unassessed', 'pending'] or adaptive.get('last_math_verification') in ['passed', 'repaired', 'blocked'] %}
       <details class="tutor-state-summary">
         <summary>Current learning state</summary>
