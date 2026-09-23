@@ -287,6 +287,7 @@ def _clear_pending_question(state):
     updated["awaiting_student_answer"] = False
     updated["pending_question"] = ""
     updated["pending_question_kind"] = ""
+    updated["practice_active"] = False
     if updated["answer_status"] == "pending":
         updated["answer_status"] = "unassessed"
     return updated
