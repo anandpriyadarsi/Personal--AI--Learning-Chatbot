@@ -49,6 +49,7 @@ window.MathJax = {
         {% if teaching_plan.get('next_move') %}
         <p><strong>Current teaching move:</strong> {{ teaching_plan.get('next_move')|replace('_', ' ')|title }}
           {% if teaching_plan.get('reason') %}<br><span class="microcopy">Reason: {{ teaching_plan.get('reason')|replace('_', ' ') }}</span>{% endif %}
+          {% if teaching_plan.get('diagnostic_question') %}<br><span class="microcopy"><strong>Diagnostic question:</strong> {{ teaching_plan.get('diagnostic_question') }}</span>{% endif %}
         </p>
         {% endif %}
         <p class="microcopy">Session-local orchestration only · not mastery or academic progress.</p>
