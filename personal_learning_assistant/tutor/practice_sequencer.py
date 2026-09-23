@@ -40,9 +40,10 @@ _EXPLICIT_EASIER = (
 )
 _EXPLICIT_HARDER = (
     r"\bharder\b",
-    r"\bhard\b",
-    r"\bchallenge\b",
+    r"\bchallenging\b",
+    r"\bchallenge question\b",
     r"\badvanced\b",
+    r"\bdifficult (?:question|problem|practice)\b",
     r"\bstep up\b",
 )
 _CONCEPTUAL_CUES = (
@@ -58,7 +59,6 @@ _COMPUTATIONAL_CUES = (
     r"\bcalculate\b",
     r"\bcalculation\b",
     r"\bsolve\b",
-    r"\bmatrix\b",
     r"\bpython\b",
     r"\bcode\b",
 )
@@ -160,7 +160,7 @@ def plan_practice_sequence(
         and bool(state.get("awaiting_student_answer"))
         and pending_kind == "practice"
     )
-    starting_practice = intent in {"practice", "quiz"}
+    starting_practice = intent == "practice"
 
     if not starting_practice and not continuing_practice:
         return PracticeSequence(active=False)
@@ -213,7 +213,7 @@ def plan_practice_sequence(
     # Current-session evidence dominates historical policy when starting a new
     # practice sequence.
     if starting_practice and current_status in {"incorrect", "unclear"}:
-        level = min(level, 2)
+        level = clamp_level(level - 1)
         reason = "current_session_needs_easier_practice"
     elif starting_practice and current_status == "partial":
         level = min(level, 3)
@@ -223,7 +223,7 @@ def plan_practice_sequence(
         and current_status == "correct"
         and current_outcome == "advance"
     ):
-        level = clamp_level(max(level, 3) + 1)
+        level = clamp_level(level + 1)
         reason = "current_session_success_allows_step_up"
 
     requested_format = _requested_format(question)
@@ -239,7 +239,7 @@ def plan_practice_sequence(
     ):
         practice_format = "misconception_targeted"
         focus = current_misconception
-        level = min(level, 2)
+        level = clamp_level(level - 1)
         reason = "current_misconception_targeted_practice"
     elif (
         _clean(state.get("last_teaching_move"), 80).casefold()
@@ -247,7 +247,7 @@ def plan_practice_sequence(
     ):
         practice_format = "prerequisite_bridge"
         focus = "bridge the repaired prerequisite back to the session goal"
-        level = min(level, 3)
+        level = clamp_level(level - 1)
         reason = "post_prerequisite_bridge_practice"
     elif requested_format:
         reason = "student_requested_{}_practice".format(requested_format)
@@ -275,9 +275,35 @@ def plan_practice_sequence(
 
 def practice_sequence_mapping(sequence):
     if isinstance(sequence, Mapping):
-        active = bool(sequence.get("active", False))
-        level = clamp_level(sequence.get("level"), default=3)
-        fmt = _clean(sequence.get("format"), 60).casefold()
+        source = dict(sequence)
+        if "practice_active" in source:
+            source = {
+                "active": source.get("practice_active", False),
+                "level": source.get("practice_level", 3),
+                "format": source.get("practice_format", "mixed"),
+                "focus": source.get("practice_focus", ""),
+                "reason": source.get("practice_reason", ""),
+                "after_correct_level": source.get(
+                    "practice_after_correct_level",
+                    4,
+                ),
+                "after_partial_level": source.get(
+                    "practice_after_partial_level",
+                    3,
+                ),
+                "after_incorrect_level": source.get(
+                    "practice_after_incorrect_level",
+                    2,
+                ),
+                "after_unclear_level": source.get(
+                    "practice_after_unclear_level",
+                    2,
+                ),
+                "one_task_only": True,
+            }
+        active = bool(source.get("active", False))
+        level = clamp_level(source.get("level"), default=3)
+        fmt = _clean(source.get("format"), 60).casefold()
         if fmt not in PRACTICE_FORMATS:
             fmt = "mixed"
         return {
@@ -285,25 +311,25 @@ def practice_sequence_mapping(sequence):
             "level": level,
             "level_name": level_name(level),
             "format": fmt,
-            "focus": _clean(sequence.get("focus"), 260),
-            "reason": _clean(sequence.get("reason"), 120),
+            "focus": _clean(source.get("focus"), 260),
+            "reason": _clean(source.get("reason"), 120),
             "after_correct_level": clamp_level(
-                sequence.get("after_correct_level"),
+                source.get("after_correct_level"),
                 default=next_level_for_status(level, "correct"),
             ),
             "after_partial_level": clamp_level(
-                sequence.get("after_partial_level"),
+                source.get("after_partial_level"),
                 default=level,
             ),
             "after_incorrect_level": clamp_level(
-                sequence.get("after_incorrect_level"),
+                source.get("after_incorrect_level"),
                 default=next_level_for_status(level, "incorrect"),
             ),
             "after_unclear_level": clamp_level(
-                sequence.get("after_unclear_level"),
+                source.get("after_unclear_level"),
                 default=next_level_for_status(level, "unclear"),
             ),
-            "one_task_only": bool(sequence.get("one_task_only", True)),
+            "one_task_only": bool(source.get("one_task_only", True)),
         }
 
     return practice_sequence_mapping(
