@@ -89,9 +89,64 @@ def _verify_sqlite(database_path: Path):
         # applied history to be an exact prefix of source; reject drift,
         # gaps, renamed/checksum-changed migrations, or source rollback.
         if len(current) > len(source) or current != source[: len(current)]:
+            diagnostics = []
+            max_rows = max(len(current), len(source))
+            for index in range(max_rows):
+                applied_row = current[index] if index < len(current) else None
+                source_row = source[index] if index < len(source) else None
+                if applied_row == source_row:
+                    continue
+                version = (
+                    applied_row[0]
+                    if applied_row is not None
+                    else source_row[0]
+                    if source_row is not None
+                    else index + 1
+                )
+                if applied_row is None:
+                    diagnostics.append(
+                        "v{:04d}: not applied; source={} checksum={}".format(
+                            version,
+                            source_row[1],
+                            source_row[2][:12],
+                        )
+                    )
+                elif source_row is None:
+                    diagnostics.append(
+                        "v{:04d}: applied={} checksum={} but missing from source".format(
+                            version,
+                            applied_row[1],
+                            applied_row[2][:12],
+                        )
+                    )
+                else:
+                    fields = []
+                    if applied_row[1] != source_row[1]:
+                        fields.append(
+                            "name applied={!r} source={!r}".format(
+                                applied_row[1],
+                                source_row[1],
+                            )
+                        )
+                    if applied_row[2] != source_row[2]:
+                        fields.append(
+                            "checksum applied={} source={}".format(
+                                applied_row[2][:12],
+                                source_row[2][:12],
+                            )
+                        )
+                    diagnostics.append(
+                        "v{:04d}: {}".format(
+                            version,
+                            "; ".join(fields) or "ordering mismatch",
+                        )
+                    )
+
             raise FinalReconciliationError(
                 "SQLite applied migration history is not a checksum-valid "
-                "prefix of current migration source"
+                "prefix of current migration source. Differences: {}".format(
+                    " | ".join(diagnostics[:12])
+                )
             )
 
         pending = source[len(current) :]
