@@ -73,6 +73,10 @@ from personal_learning_assistant.services.notes_studio_read_service import (
 from personal_learning_assistant.services.notes_studio_reader_service import (
     build_notes_studio_reader_web_service,
 )
+from personal_learning_assistant.services.notes_studio_template_service import (
+    NotesStudioTemplateNotFoundError,
+    build_notes_studio_template_service,
+)
 from personal_learning_assistant.services.obsidian_workspace_service import (
     ObsidianWorkspaceNotFoundError,
     ObsidianWorkspaceUnavailableError,
@@ -248,6 +252,11 @@ def _notes_studio_library_service():
 def _notes_studio_reader_service():
     factory = current_app.config.get("NOTES_STUDIO_READER_SERVICE_FACTORY")
     return factory() if factory is not None else build_notes_studio_reader_web_service()
+
+
+def _notes_studio_template_service():
+    factory = current_app.config.get("NOTES_STUDIO_TEMPLATE_SERVICE_FACTORY")
+    return factory() if factory is not None else build_notes_studio_template_service()
 
 
 def _legacy_notes_get_override_configured():
@@ -1003,6 +1012,74 @@ def notes():
         dashboard=workspace,
         error_message="",
     )
+
+
+@web_blueprint.get("/notes/templates")
+def notes_templates():
+    """Render the five read-only academic Notes Studio templates."""
+    try:
+        templates = _notes_studio_template_service().list_templates()
+        return render_template(
+            "notes_templates.html",
+            active_page="notes",
+            templates=templates,
+            error_message="",
+        )
+    except Exception as error:
+        current_app.logger.warning(
+            "Notes Studio templates unavailable (%s).",
+            type(error).__name__,
+        )
+        return (
+            render_template(
+                "notes_templates.html",
+                active_page="notes",
+                templates=[],
+                error_message="Academic note templates are temporarily unavailable.",
+            ),
+            503,
+        )
+
+
+@web_blueprint.get("/notes/templates/<template_id>")
+def notes_template_preview(template_id):
+    """Preview one deterministic Markdown scaffold without creating a note."""
+    try:
+        template = _notes_studio_template_service().template_view(template_id)
+        return render_template(
+            "notes_template_preview.html",
+            active_page="notes",
+            template=template,
+            error_message="",
+        )
+    except NotesStudioTemplateNotFoundError as error:
+        current_app.logger.warning(
+            "Notes Studio template not found (%s).",
+            type(error).__name__,
+        )
+        return (
+            render_template(
+                "notes_template_preview.html",
+                active_page="notes",
+                template=None,
+                error_message="Template not found.",
+            ),
+            404,
+        )
+    except Exception as error:
+        current_app.logger.warning(
+            "Notes Studio template preview unavailable (%s).",
+            type(error).__name__,
+        )
+        return (
+            render_template(
+                "notes_template_preview.html",
+                active_page="notes",
+                template=None,
+                error_message="This template preview is temporarily unavailable.",
+            ),
+            503,
+        )
 
 
 @web_blueprint.get("/notes/note")
