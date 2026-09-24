@@ -42,6 +42,18 @@ if ($status.Count -ne 0) {
     Stop-Gate "Working tree must be clean before the Tutor 2.3.7 gate."
 }
 
+$PreexistingWalWithFrames = @(
+    Get-ChildItem -Path "data" -File -Filter "*-wal" -ErrorAction SilentlyContinue |
+        Where-Object { $_.Length -gt 32 }
+)
+if ($PreexistingWalWithFrames.Count -ne 0) {
+    Write-Host "Pre-existing SQLite WAL files with page frames:"
+    $PreexistingWalWithFrames | ForEach-Object {
+        Write-Host ("  " + $_.FullName + " (" + $_.Length + " bytes)")
+    }
+    Stop-Gate "Protected SQLite WAL contains page frames before the gate. Stop any process using the production database and reconcile/checkpoint that database before validation."
+}
+
 $HashScript = @'
 from __future__ import annotations
 from pathlib import Path
