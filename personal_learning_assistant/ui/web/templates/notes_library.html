@@ -113,7 +113,7 @@
 
         <div class="notes-studio-card-heading">
           <h3 id="note-card-title-{{ loop.index }}">
-            <a href="{{ url_for('web.obsidian_note', path=note.relative_path) }}">{{ note.title }}</a>
+            <a href="{{ url_for('web.notes_reader', path=note.relative_path) }}">{{ note.title }}</a>
           </h3>
           {% if note.topic %}
             <p>{{ note.topic }}</p>
@@ -140,7 +140,7 @@
 
         <div class="notes-studio-card-footer">
           <span class="notes-studio-status">{{ note.revision_status|replace('_', ' ')|title }}</span>
-          <a class="notes-studio-open" href="{{ url_for('web.obsidian_note', path=note.relative_path) }}">
+          <a class="notes-studio-open" href="{{ url_for('web.notes_reader', path=note.relative_path) }}">
             Open note <span aria-hidden="true">→</span>
           </a>
         </div>
