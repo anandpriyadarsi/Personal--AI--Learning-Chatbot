@@ -274,3 +274,13 @@ def test_fix7_gate_labels_itself_readiness_not_live_pass():
     assert "ANVAYA TUTOR 2.3.7 LIVE VALIDATION READINESS: PASS" in gate
     assert "LIVE VALIDATION READINESS only" in gate
     assert "ANVAYA_TUTOR_2_3_LIVE_VALIDATION.md" in gate
+
+
+def test_fix7_gate_handles_only_nonpersistent_sqlite_sidecars_specially():
+    root = Path(__file__).resolve().parents[1]
+    gate = (root / "tutor23_fix7_gate.ps1").read_text(encoding="utf-8")
+
+    assert 'name.endswith("-shm")' in gate
+    assert 'name.endswith("-wal") and p.stat().st_size <= 32' in gate
+    assert "Do NOT ignore a WAL containing frames" in gate
+    assert 'result.update(tree("data"))' in gate
