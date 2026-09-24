@@ -8,12 +8,10 @@ from __future__ import annotations
 
 from datetime import date
 from importlib import import_module
-from pathlib import Path
-from typing import Any, Iterable, Mapping, Optional
+from typing import Any, Iterable, Mapping
 
 from personal_learning_assistant.services.notes_studio_read_service import (
-    NotesStudioReadService,
-    NotesStudioReadUnavailableError,
+    build_configured_notes_studio_read_service,
 )
 
 
@@ -185,43 +183,9 @@ def unavailable_notes_studio_library(message: str = "") -> dict:
 
 
 def build_notes_studio_library_web_service() -> NotesStudioLibraryWebService:
-    """Build the library lazily around the existing safe Obsidian reader."""
-    config_api = import_module("obsidian_integration")
-    reader_module = import_module(
-        "personal_learning_assistant.repositories.filesystem.obsidian_workspace_reader"
-    )
+    """Build the library lazily around the canonical configured read service."""
 
-    def configured_reader():
-        try:
-            config = config_api.load_config()
-            config = dict(config) if isinstance(config, dict) else {}
-            vault_path = str(config.get("vault_path") or "").strip()
-            if not vault_path or not bool(config.get("enabled", False)):
-                raise NotesStudioReadUnavailableError(
-                    "Connect and enable an Obsidian vault before opening Notes Studio."
-                )
-            candidate = Path(vault_path)
-            if candidate.is_symlink():
-                raise NotesStudioReadUnavailableError(
-                    "The configured Obsidian vault is unavailable."
-                )
-            valid, _message = config_api.validate_vault_path(vault_path)
-            if not valid:
-                raise NotesStudioReadUnavailableError(
-                    "The configured Obsidian vault is unavailable."
-                )
-            return reader_module.ObsidianWorkspaceReader(
-                vault_path,
-                vault_key="obsidian-vault",
-            )
-        except NotesStudioReadUnavailableError:
-            raise
-        except Exception as error:
-            raise NotesStudioReadUnavailableError(
-                "The configured Obsidian vault is unavailable."
-            ) from error
-
-    read_service = NotesStudioReadService(configured_reader)
+    read_service = build_configured_notes_studio_read_service()
 
     # Legacy JSON remains a compatibility source only. Its bodies are never
     # copied into the rich card model or rendered by the visual library.
