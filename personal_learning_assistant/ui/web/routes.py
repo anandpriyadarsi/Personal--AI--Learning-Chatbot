@@ -66,6 +66,13 @@ from personal_learning_assistant.services.notes_studio_library_service import (
     build_notes_studio_library_web_service,
     unavailable_notes_studio_library,
 )
+from personal_learning_assistant.services.notes_studio_read_service import (
+    NotesStudioReadNotFoundError,
+    NotesStudioReadUnavailableError,
+)
+from personal_learning_assistant.services.notes_studio_reader_service import (
+    build_notes_studio_reader_web_service,
+)
 from personal_learning_assistant.services.obsidian_workspace_service import (
     ObsidianWorkspaceNotFoundError,
     ObsidianWorkspaceUnavailableError,
@@ -236,6 +243,11 @@ def _notes_resources_service():
 def _notes_studio_library_service():
     factory = current_app.config.get("NOTES_STUDIO_LIBRARY_SERVICE_FACTORY")
     return factory() if factory is not None else build_notes_studio_library_web_service()
+
+
+def _notes_studio_reader_service():
+    factory = current_app.config.get("NOTES_STUDIO_READER_SERVICE_FACTORY")
+    return factory() if factory is not None else build_notes_studio_reader_web_service()
 
 
 def _legacy_notes_get_override_configured():
@@ -991,6 +1003,63 @@ def notes():
         dashboard=workspace,
         error_message="",
     )
+
+
+@web_blueprint.get("/notes/note")
+def notes_reader():
+    """Render one full canonical Markdown note through the safe Notes Studio reader."""
+    try:
+        note = _notes_studio_reader_service().reader_view(
+            request.args.get("path", "", type=str)
+        )
+        return render_template(
+            "notes_reader.html",
+            active_page="notes",
+            note=note,
+            error_message="",
+        )
+    except NotesStudioReadNotFoundError as error:
+        current_app.logger.warning(
+            "Notes Studio Reader note not found (%s).",
+            type(error).__name__,
+        )
+        return (
+            render_template(
+                "notes_reader.html",
+                active_page="notes",
+                note=None,
+                error_message="That Markdown note was not found in the current Notes Studio vault.",
+            ),
+            404,
+        )
+    except NotesStudioReadUnavailableError as error:
+        current_app.logger.warning(
+            "Notes Studio Reader unavailable (%s).",
+            type(error).__name__,
+        )
+        return (
+            render_template(
+                "notes_reader.html",
+                active_page="notes",
+                note=None,
+                error_message="The note changed or could not be read safely. Refresh Notes Studio and try again.",
+            ),
+            503,
+        )
+    except Exception as error:
+        current_app.logger.warning(
+            "Notes Studio Reader unavailable (%s).",
+            type(error).__name__,
+        )
+        return (
+            render_template(
+                "notes_reader.html",
+                active_page="notes",
+                note=None,
+                error_message="The note changed or could not be read safely. Refresh Notes Studio and try again.",
+            ),
+            503,
+        )
 
 
 @web_blueprint.post("/notes")
