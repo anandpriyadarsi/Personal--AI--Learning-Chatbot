@@ -58,9 +58,10 @@
     </section>
 
     <section class="dashboard-panel template-preview-panel template-editor-note">
-      <p class="eyebrow">Read-only phase</p>
-      <h3>Template is ready</h3>
-      <p>Editor integration arrives in Phase 7.5.15.6. This phase defines and previews the scaffold without creating or changing any note.</p>
+      <p class="eyebrow">Ready to write</p>
+      <h3>Use this template</h3>
+      <p>Start a managed Markdown note with this scaffold. Saving uses Notes Studio's expected-hash and atomic-write protocol.</p>
+      <a class="button compact-button template-use-button" href="{{ url_for('web.notes_new', template=template.id) }}">Use this template</a>
     </section>
   </aside>
 </div>
