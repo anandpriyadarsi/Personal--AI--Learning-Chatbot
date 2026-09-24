@@ -549,7 +549,7 @@ def test_reader_and_library_templates_expose_lifecycle_without_permanent_delete(
         "Mastered",
     ):
         assert expected in reader
-    assert "view=archived" in library or "view', 'archived" in library
+    assert "url_for('web.notes', view='archived')" in library
     assert "Notes Studio Trash" in trash
 
     combined = (reader + library + trash).casefold()
