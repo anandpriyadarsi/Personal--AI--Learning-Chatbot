@@ -517,9 +517,24 @@ class NotesStudioService:
             keep_existing=True,
         )
 
-    def trash(self, note_id):
+    def set_study_status(self, note_id, expected_hash, status):
+        if status not in _CANON:
+            raise ValueError("unsupported revision_status")
+        return self.update_note(
+            UpdateNoteRequest(
+                note_id=note_id,
+                expected_hash=str(expected_hash or ""),
+                revision_status=status,
+            )
+        )
+
+    def trash(self, note_id, expected_hash=None):
         current = self.notes.get(note_id)
         _raw, current_hash = self.store.read(current.relative_path)
+        if expected_hash is not None and current_hash != str(expected_hash or ""):
+            raise MarkdownConflictError(
+                "note changed on disk; refresh before moving to trash"
+            )
         target = (
             ".trash/Personal AI Learning Assistant/"
             + current.relative_path
@@ -559,11 +574,18 @@ class NotesStudioService:
                 pass
             raise
 
-    def restore(self, note_id, relative_path):
+    def restore(self, note_id, relative_path, expected_hash=None):
         current = self.notes.get(note_id)
         if current.trashed_at is None:
             raise ValueError("note is not trashed")
+        target = str(relative_path or "").strip().replace("\\", "/")
+        if not target or target.startswith(".trash/"):
+            raise ValueError("explicit restore destination is required")
         _raw, current_hash = self.store.read(current.relative_path)
+        if expected_hash is not None and current_hash != str(expected_hash or ""):
+            raise MarkdownConflictError(
+                "note changed on disk; refresh before restoring"
+            )
         op = self.coordination.begin_operation(
             kind="notes_studio_restore",
             target_path=current.relative_path,
@@ -572,7 +594,7 @@ class NotesStudioService:
         try:
             self.store.move(
                 current.relative_path,
-                relative_path,
+                target,
                 expected_hash=current_hash,
             )
             self.coordination.mark_file_applied(
@@ -581,8 +603,8 @@ class NotesStudioService:
             )
             view = self.notes.update_path_and_trash(
                 note_id,
-                relative_path=relative_path,
-                path_key=normalized_note_path_key(relative_path),
+                relative_path=target,
+                path_key=normalized_note_path_key(target),
                 trashed_at=None,
                 now=self._now(),
             )
