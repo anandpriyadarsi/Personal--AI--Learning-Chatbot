@@ -66,7 +66,10 @@ def _card_row(card) -> dict:
         "tags": [str(item) for item in (card.tags or ())],
         "revision_status": str(card.revision_status or "unreviewed"),
         "source": str(getattr(card, "source", "") or ""),
-        "managed": bool(getattr(card, "managed", False)),
+        "managed": bool(
+            getattr(card, "managed", False)
+            or str(card.identity).startswith("assistant:")
+        ),
         "pinned_at": str(getattr(card, "pinned_at", "") or ""),
         "archived_at": str(getattr(card, "archived_at", "") or ""),
         "trashed_at": str(getattr(card, "trashed_at", "") or ""),
