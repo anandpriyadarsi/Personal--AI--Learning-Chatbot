@@ -62,6 +62,10 @@ from personal_learning_assistant.services.notes_resources_web_service import (
     NotesResourcesWebValidationError,
     build_notes_resources_web_service,
 )
+from personal_learning_assistant.services.notes_studio_library_service import (
+    build_notes_studio_library_web_service,
+    unavailable_notes_studio_library,
+)
 from personal_learning_assistant.services.obsidian_workspace_service import (
     ObsidianWorkspaceNotFoundError,
     ObsidianWorkspaceUnavailableError,
@@ -227,6 +231,22 @@ def _notes_resources_service():
         or build_notes_resources_web_service
     )
     return factory()
+
+
+def _notes_studio_library_service():
+    factory = current_app.config.get("NOTES_STUDIO_LIBRARY_SERVICE_FACTORY")
+    return factory() if factory is not None else build_notes_studio_library_web_service()
+
+
+def _legacy_notes_get_override_configured():
+    """Preserve explicit Phase 7.5.11 test/host overrides without affecting production."""
+    return (
+        current_app.config.get("NOTES_STUDIO_LIBRARY_SERVICE_FACTORY") is None
+        and (
+            current_app.config.get("NOTES_DASHBOARD_PROVIDER") is not None
+            or current_app.config.get("NOTES_RESOURCES_WEB_SERVICE_FACTORY") is not None
+        )
+    )
 
 
 def _obsidian_workspace_service():
@@ -933,16 +953,40 @@ def calendar_assessment_schedule(assessment_id):
 
 @web_blueprint.get("/notes")
 def notes():
-    """Render the operational Notes workspace."""
+    """Render the visual, read-only Notes Studio library."""
+    if _legacy_notes_get_override_configured():
+        query = {
+            "search": request.args.get("q", "", type=str),
+            "topic": request.args.get("topic", "", type=str),
+            "difficulty": request.args.get("difficulty", "", type=str),
+        }
+        service = _notes_resources_service()
+        workspace = _safe_notes_workspace(service, query)
+        return render_template(
+            "notes.html",
+            active_page="notes",
+            dashboard=workspace,
+            error_message="",
+        )
+
     query = {
         "search": request.args.get("q", "", type=str),
-        "topic": request.args.get("topic", "", type=str),
-        "difficulty": request.args.get("difficulty", "", type=str),
+        "course": request.args.get("course", "", type=str),
+        "note_type": request.args.get("type", "", type=str),
+        "tag": request.args.get("tag", "", type=str),
     }
-    service = _notes_resources_service()
-    workspace = _safe_notes_workspace(service, query)
+    try:
+        workspace = _notes_studio_library_service().workspace(**query)
+    except Exception as error:
+        current_app.logger.warning(
+            "Notes Studio library unavailable (%s).",
+            type(error).__name__,
+        )
+        workspace = unavailable_notes_studio_library()
+        workspace["query"] = dict(query)
+
     return render_template(
-        "notes.html",
+        "notes_library.html",
         active_page="notes",
         dashboard=workspace,
         error_message="",
