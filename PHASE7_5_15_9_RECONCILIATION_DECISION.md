@@ -66,7 +66,23 @@ Adoption of an unmanaged note is deferred to an explicit future workflow if desi
 
 ## Migration evidence
 
-Phase 7.5.15.9 introduces **no SQLite migration**.
+Phase 7.5.15.9 introduces **no SQLite migration** for Notes Studio.
+
+During final reconciliation, the production `schema_migrations` table proved that historical migration version 8, `moodle_sync`, had already been applied on `2026-09-22T13:04:58Z`, while its source file was missing from the current branch. Git object history still contained the exact original blob:
+
+`37952ec7145b1cc7e15f7e34fa49e41ae6a7c99d`
+
+The recovered file:
+
+`personal_learning_assistant/repositories/sqlite/migrations/0008_moodle_sync.sql`
+
+has SHA-256:
+
+`915903ca7d7845c1d85c0b9ccb149ecff111d2f20fbf7dd7faa4a6b87e7a8e96`
+
+which exactly matches the checksum already recorded in the production database.
+
+This is **historical migration-source recovery**, not a new migration, not a schema mutation, and not a production-database write. The production database is left unchanged.
 
 The final gate verifies:
 
