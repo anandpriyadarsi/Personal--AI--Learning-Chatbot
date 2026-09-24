@@ -1,7 +1,7 @@
 # Phase 7.5.15.9 — Notes Studio Reconciliation Decision
 
-Status: FINAL RECONCILIATION DECISION  
-Branch: `phase7.5.15/notes-studio-rich`  
+Status: FINAL RECONCILIATION DECISION
+Branch: `phase7.5.15/notes-studio-rich`
 Baseline: Phase 7.5.15.8 closure `f780cab7eaf8f55b2d0e963e4f317d61adcdbe29`
 
 ## Decision
