@@ -25,6 +25,10 @@ from personal_learning_assistant.tutor.concept_dependencies import (
     prerequisite_retrieval_query,
 )
 from personal_learning_assistant.tutor.grounding import TutorGroundingPlanner
+from personal_learning_assistant.tutor.adaptive_state import (
+    evolve_adaptive_state,
+    resolve_adaptive_intent,
+)
 from personal_learning_assistant.tutor.teaching_orchestrator import (
     build_teaching_plan,
     load_teaching_plan,
@@ -448,6 +452,78 @@ def test_successful_prerequisite_repair_persists_only_tutor_plan_metadata(tmp_pa
         "SELECT COUNT(*) FROM progress_snapshots"
     ).fetchone()[0] == before_progress
     connection.close()
+
+
+def test_prerequisite_repair_question_becomes_pending_socratic_check():
+    state = evolve_adaptive_state(
+        {},
+        student_message=(
+            "I do not understand elimination multipliers in LU factorization."
+        ),
+        assistant_message=(
+            "The multiplier goes into L with its positive sign. "
+            "If the multiplier is 3, what entry goes in position (2,1) of L?"
+        ),
+        teaching_intent="explain",
+        teaching_move="review_prerequisite",
+    )
+
+    assert state["awaiting_student_answer"] is True
+    assert state["pending_question_kind"] == "socratic_check"
+    assert state["pending_question"].endswith(
+        "what entry goes in position (2,1) of L?"
+    )
+    assert state["answer_status"] == "pending"
+
+
+def test_prerequisite_repair_without_question_remains_noninteractive():
+    state = evolve_adaptive_state(
+        {},
+        student_message=(
+            "I do not understand elimination multipliers in LU factorization."
+        ),
+        assistant_message=(
+            "The multiplier used during elimination is stored in L with its "
+            "positive sign, which reconnects Gaussian elimination to LU."
+        ),
+        teaching_intent="explain",
+        teaching_move="review_prerequisite",
+    )
+
+    assert state["awaiting_student_answer"] is False
+    assert state["pending_question"] == ""
+    assert state["pending_question_kind"] == ""
+    assert state["answer_status"] == "unassessed"
+
+
+def test_short_answer_to_prerequisite_check_uses_pending_socratic_lineage():
+    state = evolve_adaptive_state(
+        {},
+        student_message=(
+            "I do not understand elimination multipliers in LU factorization."
+        ),
+        assistant_message=(
+            "If the elimination multiplier is 3, what entry goes in "
+            "position (2,1) of L?"
+        ),
+        teaching_intent="explain",
+        teaching_move="review_prerequisite",
+    )
+
+    intent = resolve_adaptive_intent("3", state)
+    plan = build_teaching_plan(
+        "3",
+        teaching_intent=intent.name,
+        adaptive_state=state,
+        session_goal=_goal(),
+        teaching_policy={},
+        course_context=_ma_context(),
+    )
+
+    assert intent.name == "quiz_answer"
+    assert plan.next_move == "check_understanding"
+    assert plan.reason == "pending_socratic_answer"
+    assert plan.student_action_expected is True
 
 
 def test_tutor_template_exposes_prerequisite_bridge():
