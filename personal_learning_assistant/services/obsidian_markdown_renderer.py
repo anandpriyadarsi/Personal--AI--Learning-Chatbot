@@ -18,7 +18,7 @@ _MARKDOWN = mistune.create_markdown(
 )
 _WIKILINK = re.compile(r"(?<!!)\[\[([^\[\]\r\n]+)\]\]")
 _OBSIDIAN_IMAGE = re.compile(r"(?m)^!\[\[([^\[\]\r\n]+)\]\]\s*$")
-_MARKDOWN_IMAGE = re.compile(r"(?m)^!\[([^\]\r\n]*)\]\(([^)\r\n]+)\)\s*$")
+_MARKDOWN_IMAGE = re.compile(r"(?m)^!\[([^\]\r\n]*)\]\(([^\r\n]*)\)\s*$")
 _RICH_FENCE = re.compile(
     r"(?ms)^(?P<fence>\x60{3,}|~{3,})(?P<kind>flowchart|diagram|concept-map)\s*\n"
     r"(?P<body>.*?)^(?P=fence)\s*$"
