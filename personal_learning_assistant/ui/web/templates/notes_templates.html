@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block title %}Academic note templates · ANVAYA{% endblock %}
+
+{% block content %}
+<nav class="notes-reader-back" aria-label="Notes Studio navigation">
+  <a href="{{ url_for('web.notes') }}">← Back to Notes Studio</a>
+</nav>
+
+<section class="workspace-header template-gallery-header" aria-labelledby="template-gallery-title">
+  <div>
+    <p class="eyebrow">Notes Studio scaffolds</p>
+    <h2 id="template-gallery-title">Academic note templates</h2>
+    <p class="lede">Choose a structure that matches how you are studying. These are portable Markdown scaffolds, not separate note formats.</p>
+  </div>
+</section>
+
+{% if error_message %}
+<section class="notice-panel error-panel" role="alert">
+  <h3>Templates unavailable</h3>
+  <p>{{ error_message }}</p>
+</section>
+{% elif templates %}
+<section class="template-gallery-grid" aria-label="Academic note templates">
+  {% for template in templates %}
+  <article class="template-gallery-card" aria-labelledby="template-title-{{ loop.index }}">
+    <div class="template-gallery-card-top">
+      <span class="notes-studio-type">{{ template.note_type|replace('_', ' ')|title }}</span>
+      <span class="template-section-count">{{ template.section_count }} sections</span>
+    </div>
+
+    <div>
+      <h3 id="template-title-{{ loop.index }}">{{ template.name }}</h3>
+      <p class="template-description">{{ template.description }}</p>
+    </div>
+
+    <div class="template-best-for">
+      <span>Best for</span>
+      <p>{{ template.best_for }}</p>
+    </div>
+
+    <div class="template-section-preview" aria-label="{{ template.name }} sections">
+      {% for section in template.section_names[:4] %}
+        <span>{{ section }}</span>
+      {% endfor %}
+      {% if template.section_count > 4 %}
+        <span>+{{ template.section_count - 4 }} more</span>
+      {% endif %}
+    </div>
+
+    <a class="template-preview-link" href="{{ url_for('web.notes_template_preview', template_id=template.id) }}">
+      Preview template <span aria-hidden="true">→</span>
+    </a>
+  </article>
+  {% endfor %}
+</section>
+{% else %}
+<section class="dashboard-panel">
+  <p class="empty-state">No academic templates are available.</p>
+</section>
+{% endif %}
+{% endblock %}
