@@ -55,13 +55,17 @@ if($LASTEXITCODE -ne 0){Stop-Gate "Phase 7.5.15.8 closure commit is not an ances
 
 $Allowed=@(
   "PHASE7_5_15_9_IMPLEMENTATION_REPORT.md",
+  "PHASE7_5_15_9_MIGRATION_RECOVERY.md",
   "PHASE7_5_15_9_RECONCILIATION_DECISION.md",
+  "personal_learning_assistant/repositories/sqlite/migrations/0008_moodle_sync.sql",
   "personal_learning_assistant/services/notes_studio_reconciliation_service.py",
   "personal_learning_assistant/ui/web/routes.py",
   "personal_learning_assistant/ui/web/static/css/app.css",
   "personal_learning_assistant/ui/web/templates/notes_library.html",
   "personal_learning_assistant/ui/web/templates/notes_reconciliation.html",
+  "tests/test_phase7_5_12_2_recovery.py",
   "tests/test_phase7_5_15_9_final_reconciliation.py",
+  "tests/test_phase7_5_15_9_migration_recovery.py",
   "phase7_5_15_9_gate.ps1",
   "phase7_5_15_9_verify.py"
 )
@@ -108,7 +112,7 @@ Set-Content $tmp $VaultHashScript -Encoding UTF8
 $VaultBefore=(& $Py $tmp).Trim()
 
 Run-Step "[1/17] Phase 7.5.15.9 focused final-reconciliation tests" {
-  & $Py -m pytest -q tests/test_phase7_5_15_9_final_reconciliation.py
+  & $Py -m pytest -q tests/test_phase7_5_15_9_final_reconciliation.py tests/test_phase7_5_15_9_migration_recovery.py
 }
 
 Run-Step "[2/17] Read-only production reconciliation verifier" {
@@ -175,6 +179,16 @@ Run-Step "[16/17] Explicit SQLite integrity and foreign-key checks" {
 
 Write-Host ""
 Write-Host "[17/17] Final authority, compatibility and scoped-diff protections"
+
+$RecoveredMigration="personal_learning_assistant/repositories/sqlite/migrations/0008_moodle_sync.sql"
+$ExpectedMigrationHash="915903CA7D7845C1D85C0B9CCB149ECFF111D2F20FBF7DD7FAA4A6B87E7A8E96"
+if(-not (Test-Path $RecoveredMigration)){
+  Stop-Gate "Recovered historical migration source is missing."
+}
+$RecoveredMigrationHash=(Get-FileHash $RecoveredMigration -Algorithm SHA256).Hash
+if($RecoveredMigrationHash -ne $ExpectedMigrationHash){
+  Stop-Gate "Recovered historical migration checksum does not match production history."
+}
 
 Assert-Same $DataBefore (Hash-Tree ".\data") "Production data / legacy JSON / Obsidian config"
 Assert-Same $RetrievalBefore (Hash-Tree ".\.phase5_retrieval") "Retrieval state"
@@ -262,6 +276,7 @@ foreach($file in @(
   "PHASE7_5_15_6_IMPLEMENTATION_REPORT.md",
   "PHASE7_5_15_7_IMPLEMENTATION_REPORT.md",
   "PHASE7_5_15_8_IMPLEMENTATION_REPORT.md",
+  "PHASE7_5_15_9_MIGRATION_RECOVERY.md",
   "PHASE7_5_15_9_RECONCILIATION_DECISION.md"
 )){
   if(-not (Test-Path $file)){Stop-Gate "Phase 7.5.15 evidence file is missing: $file"}
@@ -273,5 +288,6 @@ Write-Host " PHASE 7.5.15.9 RECONCILIATION + FINAL GATE: PASS"
 Write-Host "================================================================"
 Write-Host "Notes Studio 2.0 is reconciled end to end."
 Write-Host "Obsidian Markdown remains authoritative; legacy JSON is preserved with no automatic migration."
-Write-Host "All Phase 7.5.15 units are green; production data, vault, retrieval, Tutor and migrations are protected."
+Write-Host "All Phase 7.5.15 units are green; production data, vault, retrieval and Tutor are protected."
+Write-Host "Historical migration 0008 source is restored exactly; no new Notes Studio migration was introduced."
 Write-Host "Phase 7.5.15 is ready for merge consideration after explicit integration review."
