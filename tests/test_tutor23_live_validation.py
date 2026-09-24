@@ -283,4 +283,6 @@ def test_fix7_gate_handles_only_nonpersistent_sqlite_sidecars_specially():
     assert 'name.endswith("-shm")' in gate
     assert 'name.endswith("-wal") and p.stat().st_size <= 32' in gate
     assert "Do NOT ignore a WAL containing frames" in gate
+    assert "$PreexistingWalWithFrames" in gate
+    assert "Protected SQLite WAL contains page frames before the gate" in gate
     assert 'result.update(tree("data"))' in gate
