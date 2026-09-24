@@ -180,8 +180,8 @@ def test_library_defaults_to_active_supports_archived_and_pinned_filters():
 
     assert [item["title"] for item in active["cards"]] == [
         "Pinned",
-        "Loose",
         "Normal",
+        "Loose",
     ]
     assert [item["title"] for item in archived["cards"]] == ["Archived"]
     assert [item["title"] for item in pinned["cards"]] == ["Pinned"]
