@@ -311,7 +311,8 @@ def test_visual_library_card_links_to_full_notes_studio_reader():
 
     assert "/notes/note?path=Math/LU.md" in text or "/notes/note?path=Math%2FLU.md" in text
     assert "Edit note" not in text
-    assert "+ New Note" not in text
+    assert "New note" in text
+    assert "/notes/new" in text
 
 
 def test_visual_library_empty_and_unavailable_states_are_safe():
