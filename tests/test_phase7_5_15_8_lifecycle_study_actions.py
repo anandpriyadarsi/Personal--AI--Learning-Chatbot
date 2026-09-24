@@ -334,6 +334,20 @@ def test_unknown_lifecycle_action_is_rejected_before_mutation():
     assert mutation.calls == []
 
 
+def test_pin_and_archive_can_be_reversed_without_touching_markdown(tmp_path):
+    vault, _db, connection, _notes, _journal, service = _env(tmp_path)
+    created = service.create_note(CreateNoteRequest(title="Lifecycle", body="# Lifecycle\n"))
+    path = vault / created.relative_path
+    before = path.read_bytes()
+
+    assert service.pin(created.id, True).pinned_at == NOW
+    assert service.pin(created.id, False).pinned_at is None
+    assert service.archive(created.id, True).archived_at == NOW
+    assert service.archive(created.id, False).archived_at is None
+    assert path.read_bytes() == before
+    connection.close()
+
+
 def test_trash_requires_expected_hash_and_restore_requires_explicit_safe_target(tmp_path):
     vault, _db, connection, _notes, _journal, service = _env(tmp_path)
     created = service.create_note(CreateNoteRequest(title="LU", body="# LU\n"))
