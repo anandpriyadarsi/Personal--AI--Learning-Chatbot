@@ -81,16 +81,28 @@ def _verify_sqlite(database_path: Path):
             (int(row["version"]), str(row["name"]), str(row["checksum"]))
             for row in applied
         ]
-        if current != source:
+
+        # Production data is protected by the phase gates and is not migrated
+        # as a side effect of Notes Studio validation. A production database
+        # may therefore be behind the latest source migration while still
+        # having a valid, checksum-matching applied history. Require the
+        # applied history to be an exact prefix of source; reject drift,
+        # gaps, renamed/checksum-changed migrations, or source rollback.
+        if len(current) > len(source) or current != source[: len(current)]:
             raise FinalReconciliationError(
-                "SQLite migration history does not match current migration source"
+                "SQLite applied migration history is not a checksum-valid "
+                "prefix of current migration source"
             )
 
+        pending = source[len(current) :]
         return {
             "integrity_check": "ok",
             "foreign_key_violations": 0,
-            "migration_count": len(current),
+            "migration_history_status": "applied_prefix_matches_source",
+            "applied_migration_count": len(current),
+            "source_migration_count": len(source),
             "migration_versions": [item[0] for item in current],
+            "pending_migration_versions": [item[0] for item in pending],
         }
     finally:
         connection.close()
