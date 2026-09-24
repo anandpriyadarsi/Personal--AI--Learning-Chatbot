@@ -30,6 +30,22 @@ def safe_filename(title: str) -> str:
     value = value[:120].rstrip(" .") or "Untitled"
     return value + ".md"
 
+
+def safe_attachment_filename(filename: str) -> str:
+    raw = str(filename or "").replace("\\", "/").rsplit("/", 1)[-1]
+    raw = unicodedata.normalize("NFC", raw.strip())
+    suffix = Path(raw).suffix.casefold()
+    if suffix not in {".png", ".jpg", ".jpeg", ".gif", ".webp"}:
+        raise MarkdownPathError("unsupported attachment type")
+    stem = Path(raw).stem
+    stem = _INVALID.sub("-", stem).rstrip(" .")
+    stem = re.sub(r"[\[\]()]", "-", stem)
+    stem = re.sub(r"\s+", " ", stem).strip() or "image"
+    if stem.upper() in _RESERVED:
+        stem += "-image"
+    stem = stem[:100].rstrip(" .") or "image"
+    return stem + suffix
+
 class AtomicMarkdownNoteStore:
     def __init__(self, vault_root: PathLike):
         self.root = Path(vault_root).resolve(strict=False)
@@ -81,6 +97,43 @@ class AtomicMarkdownNoteStore:
                 try: temp.unlink()
                 except OSError: pass
         return sha256_bytes(payload)
+
+    def choose_attachment_path(self, note_relative: str, note_id: str, filename: str) -> str:
+        note_path = Path(str(note_relative).replace("\\", "/"))
+        namespace = re.sub(r"[^A-Za-z0-9_-]", "-", str(note_id or "").strip())
+        if not namespace:
+            raise MarkdownPathError("note identity is required for attachment path")
+        base = safe_attachment_filename(filename)
+        folder = note_path.parent / "_attachments" / namespace
+        candidate = folder / base
+        stem, suffix = Path(base).stem, Path(base).suffix
+        number = 2
+        while self._resolve(candidate.as_posix()).exists():
+            candidate = folder / f"{stem} ({number}){suffix}"
+            number += 1
+        return candidate.as_posix()
+
+    def atomic_write_attachment(
+        self,
+        note_relative: str,
+        note_id: str,
+        filename: str,
+        payload: bytes,
+        *,
+        expected_note_hash: str,
+    ):
+        _raw, current_hash = self.read(note_relative)
+        if current_hash != str(expected_note_hash or ""):
+            raise MarkdownConflictError(
+                "note changed on disk; refresh before attaching files"
+            )
+        relative_path = self.choose_attachment_path(
+            note_relative,
+            note_id,
+            filename,
+        )
+        asset_hash = self.atomic_write(relative_path, bytes(payload))
+        return relative_path, asset_hash
 
     def move(self, source_relative: str, target_relative: str, *, expected_hash: str) -> str:
         source=self._resolve(source_relative); target=self._resolve(target_relative)

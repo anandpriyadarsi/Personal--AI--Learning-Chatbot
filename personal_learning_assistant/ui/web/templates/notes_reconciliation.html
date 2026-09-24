@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block title %}Notes Studio Reconciliation · ANVAYA{% endblock %}
+
+{% block content %}
+<nav class="notes-reader-back" aria-label="Notes Studio navigation">
+  <a href="{{ url_for('web.notes') }}">← Back to Notes Studio</a>
+</nav>
+
+<section class="workspace-header notes-reconciliation-header" aria-labelledby="notes-reconciliation-title">
+  <div>
+    <p class="eyebrow">Phase 7.5.15 final compatibility review</p>
+    <h2 id="notes-reconciliation-title">Notes Studio Reconciliation</h2>
+    <p class="lede">Review the remaining boundary between rich Obsidian Markdown notes and the preserved legacy JSON store. This page never migrates or rewrites notes.</p>
+  </div>
+</section>
+
+{% if error_message %}
+<section class="notice-panel error-panel" role="alert">
+  <strong>{{ error_message }}</strong>
+</section>
+{% elif report %}
+<section class="notes-reconciliation-decision" aria-label="Cutover decision">
+  <article class="dashboard-panel notes-reconciliation-decision-card">
+    <p class="eyebrow">Authority</p>
+    <h3>Obsidian Markdown remains authoritative</h3>
+    <p>Rich note bodies stay in the configured vault. SQLite continues to own managed identity, lifecycle, and operational metadata only.</p>
+  </article>
+  <article class="dashboard-panel notes-reconciliation-decision-card">
+    <p class="eyebrow">Legacy compatibility</p>
+    <h3>Legacy JSON remains preserved</h3>
+    <p>The existing <code>data/notes.json</code> compatibility store is kept intact for the current compatibility surface.</p>
+  </article>
+  <article class="dashboard-panel notes-reconciliation-decision-card">
+    <p class="eyebrow">Migration decision</p>
+    <h3>No automatic migration</h3>
+    <p>Any future legacy-to-Markdown adoption requires a separate reviewed migration unit. This phase performs no automatic copy, adoption, or deletion.</p>
+  </article>
+</section>
+
+<section class="workspace-summary notes-studio-summary" aria-label="Reconciliation summary">
+  <span><strong>{{ report.rich_note_count }}</strong> rich note{% if report.rich_note_count != 1 %}s{% endif %}</span>
+  <span><strong>{{ report.managed_note_count }}</strong> managed</span>
+  <span><strong>{{ report.unmanaged_note_count }}</strong> unmanaged</span>
+  <span><strong>{{ report.legacy_record_count }}</strong> legacy record{% if report.legacy_record_count != 1 %}s{% endif %}</span>
+</section>
+
+<section class="dashboard-panel notes-reconciliation-status" aria-labelledby="reconciliation-status-title">
+  <div class="section-heading-row">
+    <div>
+      <p class="eyebrow">Read-only classification</p>
+      <h3 id="reconciliation-status-title">Legacy reconciliation preview</h3>
+    </div>
+    <span class="tag">{{ report.legacy_status|title }}</span>
+  </div>
+
+  <div class="notes-reconciliation-counts" aria-label="Decision counts">
+    <span><strong>{{ report['decision_counts']['match_existing'] }}</strong> Match existing</span>
+    <span><strong>{{ report['decision_counts']['needs_review'] }}</strong> Needs review</span>
+    <span><strong>{{ report['decision_counts']['create_markdown'] }}</strong> Create Markdown candidate</span>
+  </div>
+
+  {% if report['items'] %}
+  <div class="notes-reconciliation-table-wrap">
+    <table class="notes-reconciliation-table">
+      <thead>
+        <tr>
+          <th>Legacy note</th>
+          <th>Decision</th>
+          <th>Evidence</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in report['items'] %}
+        <tr>
+          <td>
+            <strong>{{ item.legacy_title or "Untitled / invalid record" }}</strong>
+            {% if item.legacy_index >= 0 %}
+              <small>Legacy row {{ item.legacy_index + 1 }}</small>
+            {% endif %}
+          </td>
+          <td>
+            {% if item.decision == "match_existing" %}
+              <span class="notes-reconciliation-state is-match">Match existing</span>
+            {% elif item.decision == "create_markdown" %}
+              <span class="notes-reconciliation-state is-create">Create Markdown candidate</span>
+            {% else %}
+              <span class="notes-reconciliation-state is-review">Needs review</span>
+            {% endif %}
+          </td>
+          <td>
+            <p>{{ item.reason }}</p>
+            {% if item.candidate_note_ids %}
+              <small>{{ item.candidate_note_ids|length }} candidate rich note{% if item.candidate_note_ids|length != 1 %}s{% endif %}</small>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <p class="empty-state">No legacy note records require reconciliation.</p>
+  {% endif %}
+</section>
+
+<section class="dashboard-panel notes-reconciliation-next">
+  <p class="eyebrow">Final decision</p>
+  <h3>Compatibility is preserved; migration is deferred</h3>
+  <p>Phase 7.5.15 closes with the rich Notes Studio as the default experience while retaining the legacy JSON store and its explicit compatibility endpoints. A separate reviewed migration is required before legacy rows can be imported, adopted, or retired.</p>
+</section>
+{% endif %}
+{% endblock %}

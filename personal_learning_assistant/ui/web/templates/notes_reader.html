@@ -1,0 +1,255 @@
+{% extends "base.html" %}
+
+{% block title %}{% if note %}{{ note.title }} · {% endif %}Notes Studio · ANVAYA{% endblock %}
+
+{% block content %}
+<nav class="notes-reader-back" aria-label="Notes Studio navigation">
+  <a href="{{ url_for('web.notes') }}">← Back to Notes Studio</a>
+</nav>
+
+{% if error_message %}
+<section class="notice-panel error-panel" role="alert">
+  <h3>Full Note Reader unavailable</h3>
+  <p>{{ error_message }}</p>
+  <a class="button secondary-button compact-button" href="{{ url_for('web.notes') }}">Return to Notes Studio</a>
+</section>
+{% elif note %}
+<header class="notes-reader-header" aria-labelledby="notes-reader-title">
+  <div class="notes-reader-title-block">
+    <p class="eyebrow">Full Note Reader</p>
+    <h2 id="notes-reader-title">{{ note.title }}</h2>
+    {% if note.topic %}
+      <p class="notes-reader-topic">{{ note.topic }}</p>
+    {% endif %}
+    <div class="notes-reader-meta-row" aria-label="Note metadata">
+      {% if note.course %}
+        <span class="notes-reader-meta-chip notes-reader-course">{{ note.course }}</span>
+      {% endif %}
+      <span class="notes-reader-meta-chip">{{ note.note_type|replace('_', ' ')|title }}</span>
+      {% if note.note_date_label %}
+        <time class="notes-reader-meta-chip" datetime="{{ note.note_date }}">{{ note.note_date_label }}</time>
+      {% endif %}
+      <span class="notes-reader-meta-chip">{{ note.revision_status|replace('_', ' ')|title }}</span>
+      {% if note.pinned %}
+        <span class="notes-reader-meta-chip notes-lifecycle-chip">Pinned</span>
+      {% endif %}
+      {% if note.archived %}
+        <span class="notes-reader-meta-chip notes-lifecycle-chip">Archived</span>
+      {% endif %}
+    </div>
+    {% if note.tags %}
+      <div class="tag-row notes-reader-tags" aria-label="Tags">
+        {% for tag in note.tags %}
+          <span class="tag">#{{ tag }}</span>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </div>
+  {% if note.editable %}
+    <div class="notes-reader-header-actions">
+      <a class="button secondary-button" href="{{ url_for('web.notes_edit', path=note.relative_path) }}">Edit note</a>
+    </div>
+  {% endif %}
+</header>
+
+<div class="notes-reader-layout">
+  <main class="dashboard-panel notes-reader-document" aria-label="Full note content">
+    <article class="notes-reader-reading-view">
+      {{ note.rendered_html }}
+    </article>
+  </main>
+
+  <aside class="notes-reader-sidebar" aria-label="Note context">
+    {% if note.managed %}
+    <section class="dashboard-panel notes-reader-side-panel notes-lifecycle-panel">
+      <div class="notes-reader-side-heading">
+        <div>
+          <p class="eyebrow">Note lifecycle</p>
+          <h3>{{ note.lifecycle_state|title }}</h3>
+        </div>
+      </div>
+      <div class="notes-lifecycle-actions">
+        <form method="post" action="{{ url_for('web.notes_lifecycle') }}">
+          <input type="hidden" name="note_id" value="{{ note.note_id }}">
+          <input type="hidden" name="expected_hash" value="{{ note.source_hash }}">
+          <input type="hidden" name="path" value="{{ note.relative_path }}">
+          <input type="hidden" name="action" value="{% if note.pinned %}unpin{% else %}pin{% endif %}">
+          <button class="button secondary-button compact-button" type="submit">{% if note.pinned %}Unpin note{% else %}Pin note{% endif %}</button>
+        </form>
+        <form method="post" action="{{ url_for('web.notes_lifecycle') }}">
+          <input type="hidden" name="note_id" value="{{ note.note_id }}">
+          <input type="hidden" name="expected_hash" value="{{ note.source_hash }}">
+          <input type="hidden" name="path" value="{{ note.relative_path }}">
+          <input type="hidden" name="action" value="{% if note.archived %}unarchive{% else %}archive{% endif %}">
+          <button class="button secondary-button compact-button" type="submit">{% if note.archived %}Unarchive note{% else %}Archive note{% endif %}</button>
+        </form>
+        <form method="post" action="{{ url_for('web.notes_lifecycle') }}">
+          <input type="hidden" name="note_id" value="{{ note.note_id }}">
+          <input type="hidden" name="expected_hash" value="{{ note.source_hash }}">
+          <input type="hidden" name="path" value="{{ note.relative_path }}">
+          <input type="hidden" name="action" value="trash">
+          <button class="button secondary-button compact-button notes-danger-button" type="submit">Move to trash</button>
+        </form>
+      </div>
+    </section>
+
+    <section class="dashboard-panel notes-reader-side-panel notes-study-actions-panel">
+      <p class="eyebrow">Study actions</p>
+      <h3>Update study state</h3>
+      <p class="notes-study-actions-copy">These actions only update this note's revision status. They do not start Tutor or AI.</p>
+      <div class="notes-study-action-grid">
+        {% for action, label in (
+          ("needs_practice", "Needs practice"),
+          ("review_due", "Review due"),
+          ("revised", "Revised"),
+          ("mastered", "Mastered")
+        ) %}
+        <form method="post" action="{{ url_for('web.notes_lifecycle') }}">
+          <input type="hidden" name="note_id" value="{{ note.note_id }}">
+          <input type="hidden" name="expected_hash" value="{{ note.source_hash }}">
+          <input type="hidden" name="path" value="{{ note.relative_path }}">
+          <input type="hidden" name="action" value="{{ action }}">
+          <button class="notes-study-action{% if note.revision_status == action %} is-current{% endif %}" type="submit">{{ label }}</button>
+        </form>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
+    {% if note.card_summary %}
+    <section class="dashboard-panel notes-reader-side-panel">
+      <p class="eyebrow">Key points</p>
+      <ul class="note-key-points notes-reader-key-points">
+        {% for point in note.card_summary %}
+          <li>{{ point }}</li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+
+    {% if note.connection_facets %}
+    <section class="dashboard-panel notes-reader-side-panel">
+      <div class="notes-reader-side-heading">
+        <div>
+          <p class="eyebrow">Knowledge connections</p>
+          <h3>Study context</h3>
+        </div>
+      </div>
+      <div class="notes-connection-facets">
+        {% for facet in note.connection_facets %}
+          {% if facet.kind == "course" %}
+            <a href="{{ url_for('web.notes', course=facet.label) }}">
+          {% else %}
+            <a href="{{ url_for('web.notes', q=facet.label) }}">
+          {% endif %}
+              <span>{{ facet.kind|title }}</span>
+              <strong>{{ facet.label }}</strong>
+              <small>{{ facet.peer_count }} related note{% if facet.peer_count != 1 %}s{% endif %}</small>
+            </a>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
+
+    <section class="dashboard-panel notes-reader-side-panel">
+      <div class="notes-reader-side-heading">
+        <div>
+          <p class="eyebrow">Knowledge connections</p>
+          <h3>Related notes</h3>
+        </div>
+        <span class="count-badge">{{ note.related_notes|length }}</span>
+      </div>
+      {% if note.related_notes %}
+        <ul class="notes-related-list">
+          {% for item in note.related_notes %}
+            <li>
+              <a class="notes-related-title" href="{{ url_for('web.notes_reader', path=item.relative_path) }}">{{ item.title }}</a>
+              <div class="notes-related-meta">
+                {% if item.course %}<span>{{ item.course }}</span>{% endif %}
+                {% if item.note_type %}<span>{{ item.note_type|replace('_', ' ')|title }}</span>{% endif %}
+              </div>
+              <div class="notes-related-reasons" aria-label="Why this note is related">
+                {% for reason in item.reasons %}
+                  <span>{{ reason }}</span>
+                {% endfor %}
+              </div>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="empty-state">No related notes found from links or shared course, topic, source, or tags.</p>
+      {% endif %}
+    </section>
+
+    <section class="dashboard-panel notes-reader-side-panel">
+      <div class="notes-reader-side-heading">
+        <div>
+          <p class="eyebrow">Connections</p>
+          <h3>Backlinks</h3>
+        </div>
+        <span class="count-badge">{{ note.backlinks|length }}</span>
+      </div>
+      {% if note.backlinks %}
+        <ul class="notes-reader-link-list">
+          {% for item in note.backlinks %}
+            <li>
+              <a href="{{ url_for('web.notes_reader', path=item.relative_path) }}">{{ item.title }}</a>
+              <span>{{ item.relative_path }}</span>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="empty-state">No backlinks found in the current vault.</p>
+      {% endif %}
+    </section>
+
+    <section class="dashboard-panel notes-reader-side-panel">
+      <div class="notes-reader-side-heading">
+        <div>
+          <p class="eyebrow">Connections</p>
+          <h3>Linked notes</h3>
+        </div>
+        <span class="count-badge">{{ note.wikilinks|length }}</span>
+      </div>
+      {% if note.wikilinks %}
+        <ul class="notes-reader-link-list">
+          {% for item in note.wikilinks %}
+            <li>
+              {% if item.resolved_path %}
+                <a href="{{ url_for('web.notes_reader', path=item.resolved_path) }}">{{ item.resolved_title or item.label }}</a>
+                <span>{{ item.resolved_path }}</span>
+              {% else %}
+                <strong>{{ item.label }}</strong>
+                <span>{% if item.ambiguous %}Ambiguous link{% else %}Unresolved link{% endif %}</span>
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="empty-state">No linked notes found in this note.</p>
+      {% endif %}
+    </section>
+
+    <section class="dashboard-panel notes-reader-side-panel notes-reader-source">
+      <p class="eyebrow">Source</p>
+      <dl class="notes-reader-source-grid">
+        <div>
+          <dt>Vault path</dt>
+          <dd>{{ note.relative_path }}</dd>
+        </div>
+        {% if note.source %}
+        <div>
+          <dt>Academic source</dt>
+          <dd>{{ note.source }}</dd>
+        </div>
+        {% endif %}
+        <div>
+          <dt>Fingerprint</dt>
+          <dd><code>{{ note.source_hash_short }}</code></dd>
+        </div>
+      </dl>
+      <a class="notes-reader-secondary-link" href="{{ url_for('web.obsidian_note', path=note.relative_path) }}">Open in Obsidian Reader →</a>
+    </section>
+  </aside>
+</div>
+{% endif %}
+{% endblock %}

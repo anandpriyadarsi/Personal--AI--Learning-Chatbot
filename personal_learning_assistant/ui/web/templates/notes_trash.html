@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}Notes Studio Trash · ANVAYA{% endblock %}
+
+{% block content %}
+<nav class="notes-reader-back" aria-label="Notes Studio navigation">
+  <a href="{{ url_for('web.notes') }}">← Back to Notes Studio</a>
+</nav>
+
+<section class="workspace-header notes-trash-header" aria-labelledby="notes-trash-title">
+  <div>
+    <p class="eyebrow">Recoverable lifecycle state</p>
+    <h2 id="notes-trash-title">Notes Studio Trash</h2>
+    <p class="lede">Trashed managed notes can be restored to an explicit vault-relative path. This screen does not permanently delete notes.</p>
+  </div>
+</section>
+
+{% if error_message %}
+<section class="notice-panel error-panel" role="alert">
+  <strong>{{ error_message }}</strong>
+</section>
+{% endif %}
+
+<section class="workspace-summary notes-studio-summary" aria-label="Trash summary">
+  <span><strong>{{ workspace.count }}</strong> trashed note{% if workspace.count != 1 %}s{% endif %}</span>
+</section>
+
+{% if not workspace.notes %}
+<section class="dashboard-panel notes-studio-empty">
+  <h3>Trash is empty</h3>
+  <p class="empty-state">Managed notes moved to Trash will appear here with a safe restore destination.</p>
+</section>
+{% else %}
+<div class="notes-trash-list">
+  {% for note in workspace.notes %}
+  <article class="dashboard-panel notes-trash-card">
+    <div class="notes-trash-card-heading">
+      <div>
+        <p class="eyebrow">Trashed note</p>
+        <h3>{{ note.title }}</h3>
+      </div>
+      {% if note.trashed_at %}
+        <span class="notes-lifecycle-badge">Trashed</span>
+      {% endif %}
+    </div>
+    <dl class="notes-trash-meta">
+      <div>
+        <dt>Current path</dt>
+        <dd>{{ note.relative_path }}</dd>
+      </div>
+      <div>
+        <dt>Trashed at</dt>
+        <dd>{{ note.trashed_at }}</dd>
+      </div>
+    </dl>
+    <form class="notes-restore-form" method="post" action="{{ url_for('web.notes_restore') }}">
+      <input type="hidden" name="note_id" value="{{ note.id }}">
+      <input type="hidden" name="expected_hash" value="{{ note.source_hash }}">
+      <label class="form-field">
+        <span>Restore destination</span>
+        <input name="relative_path" value="{{ note.restore_target }}" required autocomplete="off" aria-describedby="restore-help-{{ loop.index }}">
+        <small id="restore-help-{{ loop.index }}" class="notes-editor-help">Confirm or edit this vault-relative Markdown path before restoring.</small>
+      </label>
+      <button class="button compact-button" type="submit">Restore note</button>
+    </form>
+  </article>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

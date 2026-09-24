@@ -19,6 +19,14 @@ from personal_learning_assistant.repositories.filesystem.obsidian_vault_scanner 
 
 
 MAX_EXCERPT_CHARS = 360
+MAX_ASSET_BYTES = 20 * 1024 * 1024
+_ALLOWED_ASSET_MIMETYPES = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".gif": "image/gif",
+    ".webp": "image/webp",
+}
 _WINDOWS_ABSOLUTE = re.compile(r"^[A-Za-z]:[\\/]")
 
 
@@ -138,6 +146,89 @@ class ObsidianWorkspaceReader:
         if not target.is_file():
             raise ObsidianWorkspacePathError("The selected note is unavailable.")
         return target, normalized
+
+    def normalize_asset_path(self, relative_path: str) -> str:
+        text = str(relative_path or "").strip()
+        if not text:
+            raise ObsidianWorkspacePathError("Choose an image inside the vault.")
+        if _is_absolute_like(text):
+            raise ObsidianWorkspacePathError(
+                "Image path must stay inside the vault."
+            )
+        try:
+            normalized = normalize_relative_path(text)
+        except (TypeError, ValueError) as error:
+            raise ObsidianWorkspacePathError(
+                "Image path must stay inside the vault."
+            ) from error
+        suffix = Path(normalized).suffix.casefold()
+        if suffix not in _ALLOWED_ASSET_MIMETYPES:
+            raise ObsidianWorkspacePathError(
+                "Only PNG, JPEG, GIF, and WebP images can be opened."
+            )
+        return normalized
+
+    def _resolve_asset(self, relative_path: str):
+        normalized = self.normalize_asset_path(relative_path)
+        candidate = self.root / Path(normalized)
+        current = self.root
+        if current.is_symlink():
+            raise ObsidianWorkspacePathError("The selected image is unavailable.")
+        for part in Path(normalized).parts:
+            current = current / part
+            if current.is_symlink():
+                raise ObsidianWorkspacePathError(
+                    "The selected image is unavailable."
+                )
+        root = self.root.resolve(strict=False)
+        target = candidate.resolve(strict=False)
+        if target == root or root not in target.parents:
+            raise ObsidianWorkspacePathError(
+                "Image path must stay inside the vault."
+            )
+        if not target.is_file():
+            raise ObsidianWorkspacePathError(
+                "The selected image is unavailable."
+            )
+        return target, normalized
+
+    def read_asset(self, relative_path: str) -> Dict[str, object]:
+        target, normalized = self._resolve_asset(relative_path)
+        try:
+            before = target.stat()
+            if before.st_size > MAX_ASSET_BYTES:
+                raise ObsidianWorkspaceReadError(
+                    "The selected image is too large to open safely."
+                )
+            raw = target.read_bytes()
+            after = target.stat()
+        except ObsidianWorkspaceReadError:
+            raise
+        except OSError as error:
+            raise ObsidianWorkspaceReadError(
+                "The selected image could not be read safely."
+            ) from error
+
+        if (
+            before.st_size != after.st_size
+            or before.st_mtime_ns != after.st_mtime_ns
+        ):
+            raise ObsidianWorkspaceReadError(
+                "The image changed while it was being read. Refresh and try again."
+            )
+        if len(raw) > MAX_ASSET_BYTES:
+            raise ObsidianWorkspaceReadError(
+                "The selected image is too large to open safely."
+            )
+
+        suffix = Path(normalized).suffix.casefold()
+        return {
+            "relative_path": normalized,
+            "bytes": raw,
+            "mimetype": _ALLOWED_ASSET_MIMETYPES[suffix],
+            "source_hash": _hash_bytes(raw),
+            "size_bytes": len(raw),
+        }
 
     def read_note(self, relative_path: str, *, expected_hash: str = "") -> Dict[str, object]:
         target, normalized = self._resolve_markdown(relative_path)
