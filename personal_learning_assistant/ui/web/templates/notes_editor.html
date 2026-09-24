@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+
+{% block title %}{% if editor.mode == "edit" %}Edit {{ editor.title }}{% else %}New note{% endif %} · Notes Studio · ANVAYA{% endblock %}
+
+{% block content %}
+<nav class="notes-reader-back" aria-label="Notes Studio navigation">
+  {% if editor.mode == "edit" and editor.relative_path %}
+    <a href="{{ url_for('web.notes_reader', path=editor.relative_path) }}">← Back to note</a>
+  {% else %}
+    <a href="{{ url_for('web.notes') }}">← Back to Notes Studio</a>
+  {% endif %}
+</nav>
+
+<header class="notes-editor-header" aria-labelledby="notes-editor-title">
+  <div>
+    <p class="eyebrow">Safe Note Editor</p>
+    <h2 id="notes-editor-title">{% if editor.mode == "edit" %}Edit note{% else %}Create a new note{% endif %}</h2>
+    <p class="lede">
+      Markdown remains authoritative in your Obsidian vault. Saves use atomic writes and conflict protection.
+    </p>
+  </div>
+  {% if editor.mode == "create" %}
+    <a class="button secondary-button" href="{{ url_for('web.notes_templates') }}">Choose template</a>
+  {% endif %}
+</header>
+
+{% if error_message %}
+<section class="notice-panel error-panel notes-editor-error" role="alert">
+  <strong>{{ error_message }}</strong>
+</section>
+{% endif %}
+
+<div class="notes-editor-layout">
+  <main class="dashboard-panel notes-editor-main">
+    <form class="notes-editor-form" method="post" action="{% if editor.mode == 'edit' %}{{ url_for('web.notes_edit_save') }}{% else %}{{ url_for('web.notes_new_create') }}{% endif %}">
+      {% if editor.mode == "edit" %}
+        <input type="hidden" name="note_id" value="{{ editor.note_id }}">
+        <input type="hidden" name="expected_hash" value="{{ editor.expected_hash }}">
+        <input type="hidden" name="relative_path" value="{{ editor.relative_path }}">
+      {% endif %}
+      {% if editor.template_id %}
+        <input type="hidden" name="template_id" value="{{ editor.template_id }}">
+      {% endif %}
+
+      <div class="notes-editor-fields">
+        <label class="form-field form-field-full">
+          <span>Title</span>
+          <input name="title" value="{{ editor.title }}" maxlength="200" required autocomplete="off" placeholder="e.g. LU Factorization">
+        </label>
+
+        <label class="form-field">
+          <span>Course</span>
+          <input name="course" value="{{ editor.course }}" maxlength="100" autocomplete="off" placeholder="e.g. MA103N">
+        </label>
+
+        <label class="form-field">
+          <span>Topic</span>
+          <input name="topic" value="{{ editor.topic }}" maxlength="200" autocomplete="off" placeholder="e.g. Matrix factorization">
+        </label>
+
+        <label class="form-field">
+          <span>Note date</span>
+          <input type="date" name="note_date" value="{{ editor.note_date }}">
+        </label>
+
+        <label class="form-field">
+          <span>Note type</span>
+          <select name="note_type">
+            {% for value, label in (
+              ("note", "Note"),
+              ("quick", "Quick Note"),
+              ("concept", "Concept Note"),
+              ("lecture", "Lecture Note"),
+              ("revision", "Revision Note"),
+              ("formula_sheet", "Formula Sheet"),
+              ("problem_solving", "Problem-Solving Note")
+            ) %}
+              <option value="{{ value }}" {% if editor.note_type == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+
+        <label class="form-field">
+          <span>Revision status</span>
+          <select name="revision_status">
+            {% for value, label in (
+              ("unreviewed", "Unreviewed"),
+              ("learning", "Learning"),
+              ("needs_practice", "Needs practice"),
+              ("review_due", "Review due"),
+              ("revised", "Revised"),
+              ("mastered", "Mastered")
+            ) %}
+              <option value="{{ value }}" {% if editor.revision_status == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+
+        <label class="form-field">
+          <span>Tags</span>
+          <input name="tags" value="{{ editor.tags }}" maxlength="1000" autocomplete="off" placeholder="linear-algebra, exam">
+        </label>
+
+        <label class="form-field form-field-full">
+          <span>Card key points</span>
+          <textarea name="card_summary" rows="4" maxlength="3000" placeholder="One key point per line — up to 5">{{ editor.card_summary }}</textarea>
+          <small class="notes-editor-help">These 2–5 points appear on the Notes Library card. They are stored in Markdown frontmatter.</small>
+        </label>
+
+        <label class="form-field form-field-full notes-editor-body-field">
+          <span>Markdown body</span>
+          <textarea name="body" rows="28" spellcheck="true" aria-describedby="notes-editor-markdown-help">{{ editor.body }}</textarea>
+          <small id="notes-editor-markdown-help" class="notes-editor-help">
+            Supports headings, tables, callouts, math, local images, flowcharts and concept diagrams.
+          </small>
+        </label>
+      </div>
+
+      <div class="notes-editor-save-row">
+        <button class="button" type="submit">{% if editor.mode == "edit" %}Save changes{% else %}Create note{% endif %}</button>
+        {% if editor.mode == "edit" %}
+          <a class="button secondary-button" href="{{ url_for('web.notes_reader', path=editor.relative_path) }}">Cancel</a>
+        {% else %}
+          <a class="button secondary-button" href="{{ url_for('web.notes') }}">Cancel</a>
+        {% endif %}
+      </div>
+    </form>
+  </main>
+
+  <aside class="notes-editor-sidebar" aria-label="Editor help and attachments">
+    <section class="dashboard-panel notes-editor-side-panel">
+      <p class="eyebrow">Write safely</p>
+      <h3>What ANVAYA protects</h3>
+      <ul class="notes-editor-safety-list">
+        <li>External edits cannot be silently overwritten.</li>
+        <li>Unknown frontmatter is preserved on managed-note updates.</li>
+        <li>Markdown stays in your Obsidian vault.</li>
+        <li>No AI runs while you type or save.</li>
+      </ul>
+    </section>
+
+    {% if editor.mode == "edit" %}
+    <section class="dashboard-panel notes-editor-side-panel">
+      <p class="eyebrow">Attachments</p>
+      <h3>Add an image</h3>
+      <p class="notes-editor-side-copy">PNG, JPEG, GIF or WebP. Maximum 10 MB. The image is stored beside this managed note in its private attachment folder.</p>
+
+      <form class="notes-attachment-form" method="post" action="{{ url_for('web.notes_attachment_upload') }}" enctype="multipart/form-data">
+        <input type="hidden" name="note_id" value="{{ editor.note_id }}">
+        <input type="hidden" name="expected_hash" value="{{ editor.expected_hash }}">
+        <label class="form-field">
+          <span>Image file</span>
+          <input type="file" name="file" accept=".png,.jpg,.jpeg,.gif,.webp,image/png,image/jpeg,image/gif,image/webp" required>
+        </label>
+        <button class="button secondary-button compact-button" type="submit">Upload image</button>
+      </form>
+
+      {% if editor.attachment_reference %}
+      <div class="notes-attachment-result" role="status">
+        <strong>Attachment uploaded</strong>
+        <p>Paste this Markdown where you want the image to appear:</p>
+        <code>{{ editor.attachment_reference }}</code>
+      </div>
+      {% endif %}
+    </section>
+    {% else %}
+    <section class="dashboard-panel notes-editor-side-panel">
+      <p class="eyebrow">Attachments</p>
+      <h3>Create the note first</h3>
+      <p class="notes-editor-side-copy">After the note has a stable managed identity, reopen it in the editor to attach images safely.</p>
+    </section>
+    {% endif %}
+
+    <section class="dashboard-panel notes-editor-side-panel">
+      <p class="eyebrow">Visual block syntax</p>
+      <div class="notes-editor-syntax">
+        <code>&gt; [!IMPORTANT] Exam condition</code>
+        <code>$A=LU$</code>
+        <code>$$Ax=b$$</code>
+        <code>~~~flowchart<br>Start -&gt; Step -&gt; End<br>~~~</code>
+      </div>
+    </section>
+  </aside>
+</div>
+{% endblock %}
