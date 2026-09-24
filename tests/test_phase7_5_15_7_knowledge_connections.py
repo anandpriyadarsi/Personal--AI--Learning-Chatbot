@@ -164,12 +164,12 @@ def test_related_notes_are_ranked_by_explicit_links_and_shared_metadata():
         "Gaussian Elimination",
     ]
     rank_reasons = context["related_notes"][0]["reasons"]
-    assert rank_reasons[:4] == [
+    assert rank_reasons[:4] == (
         "Linked from this note",
         "Same course",
         "Same topic",
         "Same source",
-    ]
+    )
     assert "Shared tag: linear-algebra" in rank_reasons
 
     elimination_reasons = context["related_notes"][1]["reasons"]
