@@ -66,6 +66,12 @@ def _card_row(card) -> dict:
         "tags": [str(item) for item in (card.tags or ())],
         "revision_status": str(card.revision_status or "unreviewed"),
         "source": str(getattr(card, "source", "") or ""),
+        "managed": bool(getattr(card, "managed", False)),
+        "pinned_at": str(getattr(card, "pinned_at", "") or ""),
+        "archived_at": str(getattr(card, "archived_at", "") or ""),
+        "trashed_at": str(getattr(card, "trashed_at", "") or ""),
+        "pinned": bool(getattr(card, "pinned_at", "")),
+        "archived": bool(getattr(card, "archived_at", "")),
     }
 
 
@@ -109,12 +115,26 @@ class NotesStudioLibraryWebService:
             )
         return rows
 
-    def workspace(self, *, search="", course="", note_type="", tag=""):
+    def workspace(
+        self,
+        *,
+        search="",
+        course="",
+        note_type="",
+        tag="",
+        view="active",
+        pinned="",
+    ):
+        requested_view = _clean(view, limit=20).casefold() or "active"
+        if requested_view not in {"active", "archived", "all"}:
+            requested_view = "active"
         query = {
             "search": _clean(search),
             "course": _clean(course),
             "note_type": _clean(note_type),
             "tag": _clean(tag),
+            "view": requested_view,
+            "pinned": "1" if str(pinned or "").strip() == "1" else "",
         }
         try:
             cards = tuple(self.read_service.list_cards())
@@ -137,6 +157,16 @@ class NotesStudioLibraryWebService:
 
         filtered = []
         for row in rows:
+            if query["view"] == "active" and (
+                row["archived_at"] or row["trashed_at"]
+            ):
+                continue
+            if query["view"] == "archived" and not row["archived_at"]:
+                continue
+            if query["view"] == "all" and row["trashed_at"]:
+                continue
+            if query["pinned"] and not row["pinned"]:
+                continue
             if search_key and search_key not in _search_scope(row):
                 continue
             if course_key and _key(row["course"]) != course_key:
@@ -146,6 +176,14 @@ class NotesStudioLibraryWebService:
             if tag_key and not any(_key(item) == tag_key for item in row["tags"]):
                 continue
             filtered.append(row)
+
+        filtered.sort(
+            key=lambda row: (
+                0 if row["pinned"] else 1,
+                _key(row["title"]),
+                _key(row["relative_path"]),
+            )
+        )
 
         legacy_notes = self._legacy_notes()
         return {
@@ -159,6 +197,8 @@ class NotesStudioLibraryWebService:
                 "courses": len(options["courses"]),
                 "types": len(options["note_types"]),
                 "legacy": len(legacy_notes),
+                "pinned": sum(1 for row in rows if row["pinned"]),
+                "archived": sum(1 for row in rows if row["archived_at"]),
             },
             "query": query,
             "filter_options": options,
@@ -178,8 +218,17 @@ def unavailable_notes_studio_library(message: str = "") -> dict:
             "courses": 0,
             "types": 0,
             "legacy": 0,
+            "pinned": 0,
+            "archived": 0,
         },
-        "query": {"search": "", "course": "", "note_type": "", "tag": ""},
+        "query": {
+            "search": "",
+            "course": "",
+            "note_type": "",
+            "tag": "",
+            "view": "active",
+            "pinned": "",
+        },
         "filter_options": {"courses": [], "note_types": [], "tags": []},
     }
 
