@@ -518,6 +518,34 @@ hygiene, and the full Tutor regression stack were green.
 
 ## Live result
 
-**NOT YET EXECUTED.**
+### Scenario A — PASS
+
+Observed locally on 2026-09-24 using the disposable Tutor 2.3.7 database.
+
+Browser behavior:
+
+- one diagnostic question was shown;
+- no full explanation was dumped before diagnosis.
+
+Inspector state:
+
+~~~text
+teaching_plan.next_move = ask_diagnostic
+teaching_plan.reason = initial_gap_unclear
+pending_question_kind = diagnostic
+awaiting_student_answer = true
+all_state_checks_pass = true
+~~~
+
+Non-blocking observation: the inferred session-goal text retained part of the
+student's instruction ("Help me figure out what part I am missing before you
+explain everything") instead of reducing the goal to only "Understand LU
+factorization." This is recorded for final live-review and does not block
+Scenario A.
+
+### Remaining scenarios
+
+B through K remain pending.
+
 
 Do not mark Tutor 2.3 complete until observed local results are recorded here.
