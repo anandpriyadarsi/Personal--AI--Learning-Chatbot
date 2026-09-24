@@ -16,31 +16,24 @@ _MARKDOWN = mistune.create_markdown(
     hard_wrap=False,
     plugins=["table"],
 )
-_WIKILINK = re.compile(r"(?<!!)[[([^[]
-]+)]]")
-_OBSIDIAN_IMAGE = re.compile(r"(?m)^![[([^[]
-]+)]]s*$")
-_MARKDOWN_IMAGE = re.compile(r"(?m)^![([^]
-]*)](([^)
-]+))s*$")
+_WIKILINK = re.compile(r"(?<!!)\[\[([^\[\]\r\n]+)\]\]")
+_OBSIDIAN_IMAGE = re.compile(r"(?m)^!\[\[([^\[\]\r\n]+)\]\]\s*$")
+_MARKDOWN_IMAGE = re.compile(r"(?m)^!\[([^\]\r\n]*)\]\(([^)\r\n]+)\)\s*$")
 _RICH_FENCE = re.compile(
-    r"(?ms)^(?P<fence>`{3,}|~{3,})(?P<kind>flowchart|diagram|concept-map)s*
-"
-    r"(?P<body>.*?)^(?P=fence)s*$"
+    r"(?ms)^(?P<fence>\x60{3,}|~{3,})(?P<kind>flowchart|diagram|concept-map)\s*\n"
+    r"(?P<body>.*?)^(?P=fence)\s*$"
 )
-_BLOCK_MATH = re.compile(r"(?ms)^$$s*
-?(?P<body>.*?)
-?$$s*$")
-_INLINE_MATH = re.compile(r"(?<!$)$(?!$)([^$
-]+?)$(?!$)")
+_CODE_FENCE = re.compile(
+    r"(?ms)^(?P<fence>\x60{3,}|~{3,})[^\r\n]*\r?\n.*?^(?P=fence)\s*$"
+)
+_INLINE_CODE = re.compile(r"(?<!\x60)\x60([^\x60\r\n]+)\x60(?!\x60)")
+_BLOCK_MATH = re.compile(r"(?ms)^\$\$\s*\n?(?P<body>.*?)\n?\$\$\s*$")
+_INLINE_MATH = re.compile(r"(?<!\$)\$(?!\$)([^$\r\n]+?)\$(?!\$)")
 _CALLOUT = re.compile(
-    r"(?ms)^>s*[!(?P<kind>[A-Za-z][A-Za-z0-9_-]*)]s*(?P<title>[^
-]*)?
-"
-    r"(?P<body>(?:>s?.*(?:?
-|$))*)"
+    r"(?m)^>\s*\[!(?P<kind>[A-Za-z][A-Za-z0-9_-]*)\]\s*(?P<title>[^\r\n]*)\r?\n"
+    r"(?P<body>(?:>[^\r\n]*(?:\r?\n|$))*)"
 )
-_WINDOWS_ABSOLUTE = re.compile(r"^[A-Za-z]:[\/]")
+_WINDOWS_ABSOLUTE = re.compile(r"^[A-Za-z]:[\\/]")
 _ALLOWED_IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".gif", ".webp"}
 _ALLOWED_CALLOUTS = {
     "note",
@@ -57,22 +50,21 @@ def _reading_body(markdown_text: str) -> str:
     """Omit valid leading frontmatter from reading mode, never from source."""
     text = str(markdown_text or "")
     lines = text.splitlines(keepends=True)
-    if not lines or lines[0].lstrip("﻿").strip() != "---":
+    if not lines or lines[0].lstrip("\ufeff").strip() != "---":
         return text
 
     for index in range(1, len(lines)):
         if lines[index].strip() in ("---", "..."):
-            return "".join(lines[index + 1 :]).lstrip("
-")
+            return "".join(lines[index + 1 :]).lstrip("\r\n")
     return text
 
 
 def _markdown_label(value: str) -> str:
     return (
         str(value or "")
-        .replace("\", "\\")
-        .replace("[", "\[")
-        .replace("]", "\]")
+        .replace("\\", "\\\\")
+        .replace("[", "\\[")
+        .replace("]", "\\]")
     )
 
 
@@ -112,7 +104,9 @@ class _Placeholders:
         digest = hashlib.sha256(seed).hexdigest()[:20].upper()
         token = "ANVAYARICH{}TOKEN".format(digest)
         while token in self.source or any(token == item[0] for item in self.items):
-            digest = hashlib.sha256((digest + "x").encode("ascii")).hexdigest()[:20].upper()
+            digest = hashlib.sha256(
+                (digest + "x").encode("ascii")
+            ).hexdigest()[:20].upper()
             token = "ANVAYARICH{}TOKEN".format(digest)
         self.items.append((token, str(html), block))
         return token
@@ -167,7 +161,9 @@ def _relationship_markup(body: str, *, kind: str) -> Markup:
         pieces = []
         for index, node in enumerate(nodes):
             if index:
-                pieces.append('<span class="rich-visual-arrow" aria-hidden="true">→</span>')
+                pieces.append(
+                    '<span class="rich-visual-arrow" aria-hidden="true">→</span>'
+                )
             pieces.append(
                 '<span class="rich-visual-node">{}</span>'.format(escape(node))
             )
@@ -177,7 +173,10 @@ def _relationship_markup(body: str, *, kind: str) -> Markup:
     css_kind = "rich-flowchart" if kind == "flowchart" else "rich-diagram"
     label = "Flowchart" if kind == "flowchart" else "Concept diagram"
     if not rows:
-        rows.append('<div class="rich-visual-row"><span class="rich-visual-node">Empty visual block</span></div>')
+        rows.append(
+            '<div class="rich-visual-row">'
+            '<span class="rich-visual-node">Empty visual block</span></div>'
+        )
     return Markup(
         '<figure class="{}" aria-label="{}"><div class="rich-visual-canvas">{}</div>'
         '<figcaption>{}</figcaption></figure>'
@@ -208,13 +207,15 @@ def _image_target(target: str, *, note_path: str, asset_route: str):
         raw = raw[1:-1].strip()
     if not raw or not note_path or not asset_route:
         return None
-    if _WINDOWS_ABSOLUTE.match(raw) or raw.startswith(("/", "\")):
+    if _WINDOWS_ABSOLUTE.match(raw) or raw.startswith(("/", "\\")):
         return None
     split = urlsplit(raw)
     if split.scheme or split.netloc or split.query:
         return None
-    path_text = split.path.replace("\", "/")
-    base_parts = list(PurePosixPath(str(note_path).replace("\", "/")).parent.parts)
+    path_text = split.path.replace("\\", "/")
+    base_parts = list(
+        PurePosixPath(str(note_path).replace("\\", "/")).parent.parts
+    )
     for part in PurePosixPath(path_text).parts:
         if part in ("", "."):
             continue
@@ -235,7 +236,13 @@ def _image_target(target: str, *, note_path: str, asset_route: str):
     )
 
 
-def _image_markup(target: str, alt: str, *, note_path: str, asset_route: str) -> Markup:
+def _image_markup(
+    target: str,
+    alt: str,
+    *,
+    note_path: str,
+    asset_route: str,
+) -> Markup:
     resolved = _image_target(
         target,
         note_path=note_path,
@@ -267,16 +274,6 @@ def _extract_rich_blocks(
     placeholders = _Placeholders(source)
     current = str(source or "")
 
-    def callout(match):
-        html = _callout_markup(
-            match.group("kind"),
-            match.group("title"),
-            match.group("body"),
-        )
-        return placeholders.add(html, block=True) + "\n"
-
-    current = _CALLOUT.sub(callout, current)
-
     def fenced(match):
         kind = str(match.group("kind") or "").casefold()
         html = _relationship_markup(
@@ -286,6 +283,28 @@ def _extract_rich_blocks(
         return placeholders.add(html, block=True) + "\n"
 
     current = _RICH_FENCE.sub(fenced, current)
+
+    def ordinary_code(match):
+        rendered = Markup(str(_MARKDOWN(match.group(0))))
+        return placeholders.add(rendered, block=True) + "\n"
+
+    current = _CODE_FENCE.sub(ordinary_code, current)
+
+    def inline_code(match):
+        html = Markup("<code>{}</code>").format(escape(match.group(1)))
+        return placeholders.add(html, block=False)
+
+    current = _INLINE_CODE.sub(inline_code, current)
+
+    def callout(match):
+        html = _callout_markup(
+            match.group("kind"),
+            match.group("title"),
+            match.group("body"),
+        )
+        return placeholders.add(html, block=True) + "\n"
+
+    current = _CALLOUT.sub(callout, current)
 
     def block_math(match):
         return placeholders.add(
@@ -299,7 +318,11 @@ def _extract_rich_blocks(
         def obsidian_image(match):
             raw = str(match.group(1) or "")
             target, separator, label = raw.partition("|")
-            caption = label.strip() if separator else PurePosixPath(target.strip()).stem
+            caption = (
+                label.strip()
+                if separator
+                else PurePosixPath(target.strip()).stem
+            )
             return placeholders.add(
                 _image_markup(
                     target.strip(),
