@@ -17,7 +17,10 @@ from personal_learning_assistant.repositories.sqlite.migration_runner import (
 
 def _migrated(tmp_path):
     path = tmp_path / "learning_assistant.db"
-    assert apply_migrations(path)[-1] == 7
+    # Current migration source includes the recovered historical
+    # 0008_moodle_sync migration. Phase 7.5.12.2-specific 0007 tests below
+    # still exercise a deliberately bounded 0001..0007 migration set.
+    assert apply_migrations(path)[-1] == 8
     return path
 
 
