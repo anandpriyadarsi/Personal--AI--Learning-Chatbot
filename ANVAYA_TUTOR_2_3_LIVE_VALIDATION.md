@@ -575,9 +575,52 @@ bundles several operations (multiplier, L/U construction, and LU=A
 verification) into a relatively heavy single step. Record for final pedagogy
 review; it does not block Scenario B.
 
+### Scenario C — FIX IMPLEMENTED, RETEST REQUIRED
+
+Initial live run on 2026-09-24 correctly selected prerequisite repair:
+
+~~~text
+teaching_plan.next_move = review_prerequisite
+teaching_plan.reason = explicit_prerequisite_gap
+prerequisite_concept = Elimination Multipliers
+target_concept = LU Factorization
+return_to_goal = true
+all_state_checks_pass = true
+~~~
+
+The visible prerequisite explanation was well scoped and correctly bridged
+elimination multipliers back to L in LU.
+
+Live validation then exposed an orchestration-continuity bug: the provider
+ended the prerequisite repair with a check-for-understanding question, but
+Tutor state still recorded:
+
+~~~text
+awaiting_student_answer = false
+pending_question = ""
+pending_question_kind = ""
+~~~
+
+The student's short reply "3" was understood from transcript context, but was
+classified internally as a fresh explain/current_teaching_intent turn rather
+than as an answer to the Tutor's own question.
+
+Fix implemented:
+
+- a provider-generated question at the end of review_prerequisite is now
+  recorded as pending_question_kind = socratic_check;
+- a declarative prerequisite repair remains non-interactive;
+- the next short student reply is routed through quiz_answer /
+  pending_socratic_answer lineage.
+
+Focused regression coverage was added.
+
+Because runtime code changed during live validation, the Tutor 2.3.7 automated
+readiness gate must be rerun before Scenario C is retested.
+
 ### Remaining scenarios
 
-C through K remain pending.
+C retest and D through K remain pending.
 
 
 Do not mark Tutor 2.3 complete until observed local results are recorded here.
