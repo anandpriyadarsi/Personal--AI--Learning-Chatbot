@@ -264,10 +264,11 @@ def test_template_preview_route_renders_sections_and_safe_preview():
         "Key Points",
         "Core Explanation",
         "Preview body.",
-        "Editor integration arrives in Phase 7.5.15.6",
+        "Use this template",
     ):
         assert expected in html
     assert "<h1>Concept Note</h1>" in html
+    assert "/notes/new?template=concept" in html
     assert "textarea" not in html.lower()
 
 
