@@ -21,6 +21,10 @@ class NoteCard:
     tags: Tuple[str, ...]
     revision_status: str
     source: str = ""
+    managed: bool = False
+    pinned_at: str = ""
+    archived_at: str = ""
+    trashed_at: str = ""
 
 
 @dataclass(frozen=True)
