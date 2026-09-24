@@ -116,6 +116,8 @@ def test_library_workspace_builds_compact_cards_without_body_field():
         "courses": 2,
         "types": 3,
         "legacy": 1,
+        "pinned": 0,
+        "archived": 0,
     }
     assert workspace["cards"][0]["title"] == "LU Factorization"
     assert workspace["cards"][0]["card_summary"] == [
@@ -145,6 +147,8 @@ def test_library_filters_are_case_insensitive_and_metadata_only():
         "course": "ma103n",
         "note_type": "CONCEPT",
         "tag": "EXAM",
+        "view": "active",
+        "pinned": "",
     }
 
 
@@ -238,8 +242,23 @@ class FakeLibraryWebService:
                     "difficulty": "Medium",
                 }
             ],
-            "summary": {"total": 2, "displayed": 2, "courses": 1, "types": 2, "legacy": 1},
-            "query": {"search": "", "course": "", "note_type": "", "tag": ""},
+            "summary": {
+                "total": 2,
+                "displayed": 2,
+                "courses": 1,
+                "types": 2,
+                "legacy": 1,
+                "pinned": 0,
+                "archived": 0,
+            },
+            "query": {
+                "search": "",
+                "course": "",
+                "note_type": "",
+                "tag": "",
+                "view": "active",
+                "pinned": "",
+            },
             "filter_options": {
                 "courses": ["MA103N"],
                 "note_types": ["concept", "revision"],
@@ -255,6 +274,8 @@ class FakeLibraryWebService:
             "course": kwargs.get("course", ""),
             "note_type": kwargs.get("note_type", ""),
             "tag": kwargs.get("tag", ""),
+            "view": kwargs.get("view", "active"),
+            "pinned": kwargs.get("pinned", ""),
         }
         return value
 
@@ -284,6 +305,8 @@ def test_notes_route_renders_visual_cards_and_never_full_body():
             "course": "MA103N",
             "note_type": "concept",
             "tag": "exam",
+            "view": "active",
+            "pinned": "",
         }
     ]
     for expected in (
@@ -322,8 +345,23 @@ def test_visual_library_empty_and_unavailable_states_are_safe():
             "message": "",
             "cards": [],
             "legacy_notes": [],
-            "summary": {"total": 0, "displayed": 0, "courses": 0, "types": 0, "legacy": 0},
-            "query": {"search": "", "course": "", "note_type": "", "tag": ""},
+            "summary": {
+                "total": 0,
+                "displayed": 0,
+                "courses": 0,
+                "types": 0,
+                "legacy": 0,
+                "pinned": 0,
+                "archived": 0,
+            },
+            "query": {
+                "search": "",
+                "course": "",
+                "note_type": "",
+                "tag": "",
+                "view": "active",
+                "pinned": "",
+            },
             "filter_options": {"courses": [], "note_types": [], "tags": []},
         }
     )
