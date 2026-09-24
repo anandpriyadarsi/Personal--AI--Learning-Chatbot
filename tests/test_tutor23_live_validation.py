@@ -261,7 +261,9 @@ def test_live_validation_protocol_requires_disposable_database_and_manual_result
     assert ".live_validation\\tutor23_live.db" in protocol
     assert "all_state_checks_pass = true" in protocol
     assert "I understand span but why does a basis need linear independence?" in protocol
-    assert "NOT YET EXECUTED" in protocol
+    assert "manual live validation pending" in protocol
+    assert "Remaining scenarios" in protocol
+    assert "Do not mark Tutor 2.3 complete until observed local results are recorded here." in protocol
     assert "necessary but is not sufficient by itself" in protocol
 
 
