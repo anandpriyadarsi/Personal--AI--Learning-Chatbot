@@ -595,6 +595,27 @@ def evolve_adaptive_state(
         updated["socratic_step_count"] = (
             current["socratic_step_count"] + 1
         )
+    elif move == "review_prerequisite":
+        # A prerequisite repair may finish with one provider-generated
+        # check-for-understanding question. If it does, keep that question in
+        # the same deterministic pending-question lineage so the student's
+        # short reply is evaluated as an answer rather than reclassified as a
+        # fresh request. Declarative prerequisite explanations remain
+        # non-interactive.
+        pending = next_question
+        updated["quiz_active"] = False
+        updated["practice_active"] = False
+        updated["awaiting_student_answer"] = bool(pending)
+        updated["pending_question"] = pending
+        updated["pending_question_kind"] = (
+            "socratic_check" if pending else ""
+        )
+        updated["answer_status"] = "pending" if pending else "unassessed"
+        updated["last_socratic_outcome"] = ""
+        if pending:
+            updated["socratic_step_count"] = (
+                current["socratic_step_count"] + 1
+            )
     elif teaching_intent == "practice":
         pending = next_practice_task
         updated["quiz_active"] = False
