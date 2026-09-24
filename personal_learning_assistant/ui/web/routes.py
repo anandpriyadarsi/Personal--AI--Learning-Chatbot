@@ -71,6 +71,13 @@ from personal_learning_assistant.services.notes_studio_asset_service import (
     NotesStudioAssetUnavailableError,
     build_notes_studio_asset_service,
 )
+from personal_learning_assistant.services.notes_studio_editor_service import (
+    NotesStudioEditorConflictError,
+    NotesStudioEditorNotFoundError,
+    NotesStudioEditorUnavailableError,
+    NotesStudioEditorValidationError,
+    build_notes_studio_editor_web_service,
+)
 from personal_learning_assistant.services.notes_studio_read_service import (
     NotesStudioReadNotFoundError,
     NotesStudioReadUnavailableError,
@@ -257,6 +264,11 @@ def _notes_studio_library_service():
 def _notes_studio_asset_service():
     factory = current_app.config.get("NOTES_STUDIO_ASSET_SERVICE_FACTORY")
     return factory() if factory is not None else build_notes_studio_asset_service()
+
+
+def _notes_studio_editor_service():
+    factory = current_app.config.get("NOTES_STUDIO_EDITOR_SERVICE_FACTORY")
+    return factory() if factory is not None else build_notes_studio_editor_web_service()
 
 
 def _notes_studio_reader_service():
@@ -1022,6 +1034,189 @@ def notes():
         dashboard=workspace,
         error_message="",
     )
+
+
+def _notes_editor_form_view(mode):
+    return {
+        "mode": mode,
+        "title": request.form.get("title", ""),
+        "body": request.form.get("body", ""),
+        "note_type": request.form.get("note_type", "note"),
+        "topic": request.form.get("topic", ""),
+        "course": request.form.get("course", ""),
+        "note_date": request.form.get("note_date", ""),
+        "card_summary": request.form.get("card_summary", ""),
+        "tags": request.form.get("tags", ""),
+        "revision_status": request.form.get("revision_status", "unreviewed"),
+        "template_id": request.form.get("template_id", ""),
+        "relative_path": request.form.get("relative_path", ""),
+        "note_id": request.form.get("note_id", ""),
+        "expected_hash": request.form.get("expected_hash", ""),
+        "attachment_reference": "",
+    }
+
+
+def _render_notes_editor_error(view, message, status):
+    return (
+        render_template(
+            "notes_editor.html",
+            active_page="notes",
+            editor=view,
+            error_message=message,
+        ),
+        status,
+    )
+
+
+@web_blueprint.get("/notes/new")
+def notes_new():
+    """Open a safe Notes Studio create form, optionally from a template."""
+    try:
+        editor = _notes_studio_editor_service().new_note_view(
+            request.args.get("template", "", type=str)
+        )
+        return render_template(
+            "notes_editor.html",
+            active_page="notes",
+            editor=editor,
+            error_message="",
+        )
+    except NotesStudioEditorNotFoundError:
+        return _render_notes_editor_error(
+            _notes_editor_form_view("create"),
+            "That note template was not found.",
+            404,
+        )
+    except Exception as error:
+        current_app.logger.warning(
+            "Notes Studio editor unavailable (%s).",
+            type(error).__name__,
+        )
+        return _render_notes_editor_error(
+            _notes_editor_form_view("create"),
+            "Notes Studio editing is temporarily unavailable.",
+            503,
+        )
+
+
+@web_blueprint.post("/notes/new")
+def notes_new_create():
+    """Create a managed Markdown note through the Phase 5.4 command protocol."""
+    service = _notes_studio_editor_service()
+    try:
+        result = service.create_note(request.form)
+        return redirect(
+            url_for("web.notes_reader", path=result["relative_path"]),
+            code=303,
+        )
+    except NotesStudioEditorValidationError:
+        return _render_notes_editor_error(
+            _notes_editor_form_view("create"),
+            "Check the note fields and try again.",
+            400,
+        )
+    except NotesStudioEditorUnavailableError:
+        return _render_notes_editor_error(
+            _notes_editor_form_view("create"),
+            "The note could not be created. Existing notes were not changed.",
+            503,
+        )
+
+
+@web_blueprint.get("/notes/edit")
+def notes_edit():
+    """Open an expected-hash editor for one managed Notes Studio note."""
+    try:
+        editor = _notes_studio_editor_service().edit_view(
+            request.args.get("path", "", type=str),
+            attachment_reference=request.args.get("attachment", "", type=str),
+        )
+        return render_template(
+            "notes_editor.html",
+            active_page="notes",
+            editor=editor,
+            error_message="",
+        )
+    except NotesStudioEditorNotFoundError:
+        return _render_notes_editor_error(
+            _notes_editor_form_view("edit"),
+            "That note is not available for Notes Studio editing.",
+            404,
+        )
+    except NotesStudioEditorUnavailableError:
+        return _render_notes_editor_error(
+            _notes_editor_form_view("edit"),
+            "The note could not be opened safely for editing.",
+            503,
+        )
+
+
+@web_blueprint.post("/notes/edit")
+def notes_edit_save():
+    """Update one managed note with exact expected-hash conflict protection."""
+    service = _notes_studio_editor_service()
+    try:
+        result = service.update_note(request.form)
+        return redirect(
+            url_for("web.notes_reader", path=result["relative_path"]),
+            code=303,
+        )
+    except NotesStudioEditorConflictError:
+        return _render_notes_editor_error(
+            _notes_editor_form_view("edit"),
+            "This note changed since you opened it. Refresh the note before saving.",
+            409,
+        )
+    except NotesStudioEditorValidationError:
+        return _render_notes_editor_error(
+            _notes_editor_form_view("edit"),
+            "Check the note fields and try again.",
+            400,
+        )
+    except NotesStudioEditorNotFoundError:
+        return _render_notes_editor_error(
+            _notes_editor_form_view("edit"),
+            "That managed note no longer exists.",
+            404,
+        )
+    except NotesStudioEditorUnavailableError:
+        return _render_notes_editor_error(
+            _notes_editor_form_view("edit"),
+            "The note could not be saved. Existing note content was not overwritten.",
+            503,
+        )
+
+
+@web_blueprint.post("/notes/attachments")
+def notes_attachment_upload():
+    """Upload one safe raster attachment through the Notes Studio write protocol."""
+    service = _notes_studio_editor_service()
+    file_item = request.files.get("file")
+    filename = "" if file_item is None else str(file_item.filename or "")
+    payload = b"" if file_item is None else file_item.read(10 * 1024 * 1024 + 1)
+    try:
+        result = service.upload_attachment(
+            note_id=request.form.get("note_id", ""),
+            expected_hash=request.form.get("expected_hash", ""),
+            filename=filename,
+            payload=payload,
+        )
+        return redirect(
+            url_for(
+                "web.notes_edit",
+                path=result["note_relative_path"],
+                attachment=result["markdown_reference"],
+            ),
+            code=303,
+        )
+    except NotesStudioEditorConflictError:
+        return "The note changed since you opened it. Refresh before attaching an image.", 409
+    except NotesStudioEditorValidationError:
+        return "Choose a valid PNG, JPEG, GIF, or WebP image smaller than 10 MB.", 400
+    except NotesStudioEditorNotFoundError:
+        return "That managed note no longer exists.", 404
+    except NotesStudioEditorUnavailableError:
+        return "The image could not be attached. Existing notes were not changed.", 503
 
 
 @web_blueprint.get("/notes/asset")
