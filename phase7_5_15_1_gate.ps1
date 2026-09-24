@@ -1,4 +1,4 @@
-param([string]$Python = ".\.venv\Scripts\python.exe")
+﻿param([string]$Python = ".\.venv\Scripts\python.exe")
 $ErrorActionPreference = "Stop"
 $ExpectedBranch = "phase7.5.15/notes-studio-rich"
 $AuditCommit = "7c0ada081976252485131e0ccf863b5c6d48de7e"
@@ -38,10 +38,11 @@ $Allowed=@(
  "personal_learning_assistant/domain/notes_studio_read_models.py",
  "personal_learning_assistant/services/notes_studio_read_service.py",
  "tests/test_phase7_5_15_1_notes_studio_read_model.py",
+ "tests/test_phase7_5_academic_agent_web.py",
  "phase7_5_15_1_gate.ps1",
  "PHASE7_5_15_1_IMPLEMENTATION_REPORT.md"
 )
-$changed=@(git diff --name-only $AuditCommit..HEAD; git status --porcelain=v1 -uall | ForEach-Object {$_.Substring(3).Trim().Replace("\","/")})
+$changed=@(git diff --name-only "${AuditCommit}..HEAD"; git status --porcelain=v1 -uall | ForEach-Object {$_.Substring(3).Trim().Replace("\","/")})
 $unexpected=@($changed | Where-Object {$_ -and $_ -notin $Allowed} | Sort-Object -Unique)
 if($unexpected.Count){$unexpected|ForEach-Object{Write-Host "Unexpected: $_"};Stop-Gate "15.1 diff escaped approved scope."}
 
@@ -92,7 +93,7 @@ if($AuthorityBefore -and (Get-FileHash ".\.phase4_authority.json" -Algorithm SHA
 $VaultAfter=(& $Py $tmp).Trim();if($VaultBefore -ne $VaultAfter){Stop-Gate "Configured vault Markdown changed."}
 Remove-Item $tmp -Force -ErrorAction SilentlyContinue
 
-git diff --check $AuditCommit..HEAD
+git diff --check "${AuditCommit}..HEAD"
 if($LASTEXITCODE -ne 0){Stop-Gate "git diff --check failed."}
 $source=Get-Content "personal_learning_assistant/services/notes_studio_read_service.py" -Raw
 foreach($token in @("personal_learning_assistant.tutor","NotesStudioService","KnowledgeReaderService","LegacyJsonNoteRepository","sqlite3","write_text(","write_bytes(","os.replace(","apply_snapshot(")){
@@ -104,3 +105,5 @@ Write-Host " PHASE 7.5.15.1 CANONICAL NOTES READ MODEL: PASS"
 Write-Host "============================================================"
 Write-Host "NoteCard/NoteDetail and the canonical read-only service are green."
 Write-Host "Legacy Notes, Tutor, SQLite migrations, retrieval state and vault Markdown are protected."
+
+
