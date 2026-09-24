@@ -30,7 +30,8 @@ function Assert-Same { param([hashtable]$Before,[hashtable]$After,[string]$Label
 if(Test-Path $Python){$Py=(Resolve-Path $Python).Path}else{$cmd=Get-Command $Python -ErrorAction SilentlyContinue;if($null -eq $cmd){Stop-Gate "Python not found."};$Py=$cmd.Source}
 $branch=(git branch --show-current).Trim()
 if($branch -ne $ExpectedBranch){Stop-Gate "Expected $ExpectedBranch but found $branch."}
-if(-not (git merge-base --is-ancestor $AuditCommit HEAD)){Stop-Gate "15.1 pre-edit audit commit is not an ancestor of HEAD."}
+git merge-base --is-ancestor $AuditCommit HEAD | Out-Null
+if($LASTEXITCODE -ne 0){Stop-Gate "15.1 pre-edit audit commit is not an ancestor of HEAD."}
 
 $Allowed=@(
  "PHASE7_5_15_1_PRE_EDIT_AUDIT.md",
