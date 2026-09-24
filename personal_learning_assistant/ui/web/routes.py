@@ -66,6 +66,11 @@ from personal_learning_assistant.services.notes_studio_library_service import (
     build_notes_studio_library_web_service,
     unavailable_notes_studio_library,
 )
+from personal_learning_assistant.services.notes_studio_asset_service import (
+    NotesStudioAssetNotFoundError,
+    NotesStudioAssetUnavailableError,
+    build_notes_studio_asset_service,
+)
 from personal_learning_assistant.services.notes_studio_read_service import (
     NotesStudioReadNotFoundError,
     NotesStudioReadUnavailableError,
@@ -247,6 +252,11 @@ def _notes_resources_service():
 def _notes_studio_library_service():
     factory = current_app.config.get("NOTES_STUDIO_LIBRARY_SERVICE_FACTORY")
     return factory() if factory is not None else build_notes_studio_library_web_service()
+
+
+def _notes_studio_asset_service():
+    factory = current_app.config.get("NOTES_STUDIO_ASSET_SERVICE_FACTORY")
+    return factory() if factory is not None else build_notes_studio_asset_service()
 
 
 def _notes_studio_reader_service():
@@ -1012,6 +1022,57 @@ def notes():
         dashboard=workspace,
         error_message="",
     )
+
+
+@web_blueprint.get("/notes/asset")
+def notes_asset():
+    """Serve one approved read-only image from the configured Notes Studio vault."""
+    try:
+        payload = _notes_studio_asset_service().read_asset(
+            request.args.get("path", "", type=str)
+        )
+        response = current_app.response_class(
+            payload["bytes"],
+            status=200,
+            mimetype=str(payload["mimetype"]),
+        )
+        response.headers["Cache-Control"] = "private, max-age=300"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["Content-Security-Policy"] = "default-src 'none'; img-src 'self'"
+        return response
+    except NotesStudioAssetNotFoundError as error:
+        current_app.logger.warning(
+            "Notes Studio asset not found (%s).",
+            type(error).__name__,
+        )
+        response = current_app.response_class(
+            "Image not found.",
+            status=404,
+            mimetype="text/plain",
+        )
+    except NotesStudioAssetUnavailableError as error:
+        current_app.logger.warning(
+            "Notes Studio asset unavailable (%s).",
+            type(error).__name__,
+        )
+        response = current_app.response_class(
+            "Image temporarily unavailable.",
+            status=503,
+            mimetype="text/plain",
+        )
+    except Exception as error:
+        current_app.logger.warning(
+            "Notes Studio asset unavailable (%s).",
+            type(error).__name__,
+        )
+        response = current_app.response_class(
+            "Image temporarily unavailable.",
+            status=503,
+            mimetype="text/plain",
+        )
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    return response
 
 
 @web_blueprint.get("/notes/templates")
