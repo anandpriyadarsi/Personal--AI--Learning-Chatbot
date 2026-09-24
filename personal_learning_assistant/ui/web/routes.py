@@ -66,6 +66,13 @@ from personal_learning_assistant.services.notes_studio_library_service import (
     build_notes_studio_library_web_service,
     unavailable_notes_studio_library,
 )
+from personal_learning_assistant.services.notes_studio_lifecycle_service import (
+    NotesStudioLifecycleConflictError,
+    NotesStudioLifecycleNotFoundError,
+    NotesStudioLifecycleUnavailableError,
+    NotesStudioLifecycleValidationError,
+    build_notes_studio_lifecycle_service,
+)
 from personal_learning_assistant.services.notes_studio_asset_service import (
     NotesStudioAssetNotFoundError,
     NotesStudioAssetUnavailableError,
@@ -259,6 +266,11 @@ def _notes_resources_service():
 def _notes_studio_library_service():
     factory = current_app.config.get("NOTES_STUDIO_LIBRARY_SERVICE_FACTORY")
     return factory() if factory is not None else build_notes_studio_library_web_service()
+
+
+def _notes_studio_lifecycle_service():
+    factory = current_app.config.get("NOTES_STUDIO_LIFECYCLE_SERVICE_FACTORY")
+    return factory() if factory is not None else build_notes_studio_lifecycle_service()
 
 
 def _notes_studio_asset_service():
@@ -1017,6 +1029,8 @@ def notes():
         "course": request.args.get("course", "", type=str),
         "note_type": request.args.get("type", "", type=str),
         "tag": request.args.get("tag", "", type=str),
+        "view": request.args.get("view", "active", type=str),
+        "pinned": request.args.get("pinned", "", type=str),
     }
     try:
         workspace = _notes_studio_library_service().workspace(**query)
@@ -1034,6 +1048,87 @@ def notes():
         dashboard=workspace,
         error_message="",
     )
+
+
+@web_blueprint.post("/notes/lifecycle")
+def notes_lifecycle():
+    """Apply one bounded lifecycle or study action to a managed note."""
+    try:
+        result = _notes_studio_lifecycle_service().apply_action(
+            note_id=request.form.get("note_id", ""),
+            action=request.form.get("action", ""),
+            expected_hash=request.form.get("expected_hash", ""),
+        )
+        if result.get("trashed"):
+            return redirect(url_for("web.notes_trash"), code=303)
+        return redirect(
+            url_for(
+                "web.notes_reader",
+                path=result.get("relative_path")
+                or request.form.get("path", ""),
+            ),
+            code=303,
+        )
+    except NotesStudioLifecycleConflictError:
+        return (
+            "This note changed since you opened it. Refresh before continuing.",
+            409,
+        )
+    except NotesStudioLifecycleValidationError:
+        return "Choose a supported note action and try again.", 400
+    except NotesStudioLifecycleNotFoundError:
+        return "That managed note no longer exists.", 404
+    except NotesStudioLifecycleUnavailableError:
+        return "The note action could not be completed safely.", 503
+
+
+@web_blueprint.get("/notes/trash")
+def notes_trash():
+    """Show recoverable managed notes without exposing note bodies."""
+    try:
+        workspace = _notes_studio_lifecycle_service().trash_workspace()
+        return render_template(
+            "notes_trash.html",
+            active_page="notes",
+            workspace=workspace,
+            error_message="",
+        )
+    except NotesStudioLifecycleUnavailableError:
+        return (
+            render_template(
+                "notes_trash.html",
+                active_page="notes",
+                workspace={"notes": [], "count": 0},
+                error_message="Notes Studio Trash is temporarily unavailable.",
+            ),
+            503,
+        )
+
+
+@web_blueprint.post("/notes/restore")
+def notes_restore():
+    """Restore a trashed managed note to an explicit vault-relative destination."""
+    try:
+        result = _notes_studio_lifecycle_service().restore_note(
+            note_id=request.form.get("note_id", ""),
+            expected_hash=request.form.get("expected_hash", ""),
+            relative_path=request.form.get("relative_path", ""),
+        )
+        return redirect(
+            url_for("web.notes_reader", path=result["relative_path"]),
+            code=303,
+        )
+    except NotesStudioLifecycleConflictError:
+        return (
+            "This note or restore destination changed. Refresh Trash before restoring.",
+            409,
+        )
+    except NotesStudioLifecycleValidationError:
+        return "Choose a safe vault-relative restore destination.", 400
+    except NotesStudioLifecycleNotFoundError:
+        return "That trashed note no longer exists.", 404
+    except NotesStudioLifecycleUnavailableError:
+        return "The note could not be restored safely.", 503
 
 
 def _notes_editor_form_view(mode):
