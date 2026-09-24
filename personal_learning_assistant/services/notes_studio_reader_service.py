@@ -77,7 +77,10 @@ class NotesStudioReaderWebService:
             "tags": [str(item) for item in (card.tags or ())],
             "revision_status": str(card.revision_status or "unreviewed"),
             "source": str(getattr(card, "source", "") or ""),
-            "managed": bool(getattr(card, "managed", False)),
+            "managed": bool(
+                getattr(card, "managed", False)
+                or identity.startswith("assistant:")
+            ),
             "pinned": bool(getattr(card, "pinned_at", "")),
             "archived": bool(getattr(card, "archived_at", "")),
             "trashed": bool(getattr(card, "trashed_at", "")),
