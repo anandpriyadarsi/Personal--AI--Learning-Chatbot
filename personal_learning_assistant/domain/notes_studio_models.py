@@ -25,6 +25,10 @@ class CreateNoteRequest:
     confidence: Optional[int] = None
     revision_status: str = "unreviewed"
     tags: Tuple[str, ...] = ()
+    topic: str = ""
+    course: str = ""
+    note_date: str = ""
+    card_summary: Tuple[str, ...] = ()
 
 @dataclass(frozen=True)
 class UpdateNoteRequest:
@@ -36,6 +40,10 @@ class UpdateNoteRequest:
     confidence: Optional[int] = None
     revision_status: Optional[str] = None
     tags: Optional[Tuple[str, ...]] = None
+    topic: Optional[str] = None
+    course: Optional[str] = None
+    note_date: Optional[str] = None
+    card_summary: Optional[Tuple[str, ...]] = None
 
 @dataclass(frozen=True)
 class LegacyNoteDecision:
