@@ -2067,3 +2067,108 @@ details[open] > .details-action::after { content: " −"; }
   }
 }
 
+/* Phase 7.5.15.7 Knowledge Connections. */
+.notes-connection-facets {
+  display: grid;
+  gap: .48rem;
+  margin-top: .72rem;
+}
+.notes-connection-facets a {
+  display: grid;
+  gap: .12rem;
+  padding: .58rem .65rem;
+  border: 1px solid rgba(100, 116, 139, .24);
+  border-radius: .58rem;
+  background: var(--surface-muted);
+  text-decoration: none;
+}
+.notes-connection-facets a:hover {
+  border-color: rgba(85, 194, 184, .38);
+  background: rgba(85, 194, 184, .055);
+}
+.notes-connection-facets span {
+  color: var(--accent);
+  font-size: .6rem;
+  font-weight: 850;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+.notes-connection-facets strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-size: .78rem;
+}
+.notes-connection-facets small {
+  color: var(--text-muted);
+  font-size: .66rem;
+}
+
+.notes-related-list {
+  display: grid;
+  gap: .15rem;
+  margin: .72rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.notes-related-list > li {
+  display: grid;
+  gap: .38rem;
+  padding: .68rem 0;
+  border-top: 1px solid rgba(100, 116, 139, .22);
+}
+.notes-related-list > li:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+.notes-related-title {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-size: .8rem;
+  font-weight: 780;
+  text-decoration: none;
+}
+.notes-related-title:hover { color: var(--accent); }
+.notes-related-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .32rem;
+}
+.notes-related-meta span {
+  color: var(--text-muted);
+  font-size: .65rem;
+}
+.notes-related-meta span + span::before {
+  content: "•";
+  margin-right: .32rem;
+  color: rgba(148, 163, 184, .55);
+}
+.notes-related-reasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .28rem;
+}
+.notes-related-reasons span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.35rem;
+  padding: .16rem .38rem;
+  border: 1px solid rgba(85, 194, 184, .2);
+  border-radius: 999px;
+  background: rgba(85, 194, 184, .045);
+  color: #b9cfcc;
+  font-size: .61rem;
+  line-height: 1.25;
+}
+
+@media (max-width: 680px) {
+  .notes-connection-facets {
+    grid-template-columns: 1fr;
+  }
+  .notes-related-reasons span {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+}
+
