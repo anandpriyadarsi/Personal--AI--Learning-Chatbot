@@ -1,6 +1,6 @@
 # ANVAYA Tutor 2.3.7 — Live Teaching-Orchestration Validation
 
-**Status:** READY FOR LOCAL EXECUTION — not yet live-validated.
+**Status:** AUTOMATED READINESS PASS — manual live validation pending.
 
 Tutor 2.3.7 is the final acceptance stage for Tutor 2.3. It adds no new
 teaching behavior. It validates the complete chain through the real local web
@@ -500,6 +500,21 @@ Tutor 2.3 may be declared live validated only if:
 19. Tutor 2.3 does not automatically write learning memory or progress;
 20. production database, retrieval index, and vault remain protected;
 21. final automated gate passes.
+
+## Automated readiness result
+
+Local gate result on 2026-09-24:
+
+~~~text
+1474 passed
+5 skipped
+1 deselected
+
+ANVAYA TUTOR 2.3.7 LIVE VALIDATION READINESS: PASS
+~~~
+
+Compile/dependency checks, protected production/index/vault hashes, repository
+hygiene, and the full Tutor regression stack were green.
 
 ## Live result
 
