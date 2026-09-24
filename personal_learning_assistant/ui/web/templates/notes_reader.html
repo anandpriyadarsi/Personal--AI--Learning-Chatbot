@@ -65,6 +65,60 @@
     </section>
     {% endif %}
 
+    {% if note.connection_facets %}
+    <section class="dashboard-panel notes-reader-side-panel">
+      <div class="notes-reader-side-heading">
+        <div>
+          <p class="eyebrow">Knowledge connections</p>
+          <h3>Study context</h3>
+        </div>
+      </div>
+      <div class="notes-connection-facets">
+        {% for facet in note.connection_facets %}
+          {% if facet.kind == "course" %}
+            <a href="{{ url_for('web.notes', course=facet.label) }}">
+          {% else %}
+            <a href="{{ url_for('web.notes', q=facet.label) }}">
+          {% endif %}
+              <span>{{ facet.kind|title }}</span>
+              <strong>{{ facet.label }}</strong>
+              <small>{{ facet.peer_count }} related note{% if facet.peer_count != 1 %}s{% endif %}</small>
+            </a>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
+
+    <section class="dashboard-panel notes-reader-side-panel">
+      <div class="notes-reader-side-heading">
+        <div>
+          <p class="eyebrow">Knowledge connections</p>
+          <h3>Related notes</h3>
+        </div>
+        <span class="count-badge">{{ note.related_notes|length }}</span>
+      </div>
+      {% if note.related_notes %}
+        <ul class="notes-related-list">
+          {% for item in note.related_notes %}
+            <li>
+              <a class="notes-related-title" href="{{ url_for('web.notes_reader', path=item.relative_path) }}">{{ item.title }}</a>
+              <div class="notes-related-meta">
+                {% if item.course %}<span>{{ item.course }}</span>{% endif %}
+                {% if item.note_type %}<span>{{ item.note_type|replace('_', ' ')|title }}</span>{% endif %}
+              </div>
+              <div class="notes-related-reasons" aria-label="Why this note is related">
+                {% for reason in item.reasons %}
+                  <span>{{ reason }}</span>
+                {% endfor %}
+              </div>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="empty-state">No related notes found from links or shared course, topic, source, or tags.</p>
+      {% endif %}
+    </section>
+
     <section class="dashboard-panel notes-reader-side-panel">
       <div class="notes-reader-side-heading">
         <div>
@@ -121,6 +175,12 @@
           <dt>Vault path</dt>
           <dd>{{ note.relative_path }}</dd>
         </div>
+        {% if note.source %}
+        <div>
+          <dt>Academic source</dt>
+          <dd>{{ note.source }}</dd>
+        </div>
+        {% endif %}
         <div>
           <dt>Fingerprint</dt>
           <dd><code>{{ note.source_hash_short }}</code></dd>
