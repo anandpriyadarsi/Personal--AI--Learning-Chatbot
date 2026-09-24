@@ -152,6 +152,8 @@ class FakeReaderWebService:
             raise self.error
         return {
             "title": "LU Factorization",
+            "editable": True,
+            "note_id": "11111111-1111-4111-8111-111111111111",
             "topic": "Matrix factorization",
             "course": "MA103N",
             "note_type": "concept",
@@ -217,7 +219,8 @@ def test_notes_reader_route_renders_academic_layout_and_connections():
         "Math/LU.md",
     ):
         assert expected in html
-    assert "Edit note" not in html
+    assert "Edit note" in html
+    assert "/notes/edit?path=Math/LU.md" in html or "/notes/edit?path=Math%2FLU.md" in html
     assert "textarea" not in html.lower()
 
 
