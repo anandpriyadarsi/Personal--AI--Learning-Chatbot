@@ -543,9 +543,41 @@ explain everything") instead of reducing the goal to only "Understand LU
 factorization." This is recorded for final live-review and does not block
 Scenario A.
 
+### Scenario B — PASS
+
+Observed locally on 2026-09-24 in the same disposable Scenario A session.
+
+Hint behavior:
+
+~~~text
+pending_question_kind = diagnostic
+awaiting_student_answer = true
+all_state_checks_pass = true
+~~~
+
+The browser showed a bounded hint and did not consume the diagnostic lineage.
+
+After the student answered the diagnostic, ANVAYA continued with one
+Socratic follow-up. Inspector state showed:
+
+~~~text
+pending_question_kind = socratic_check
+awaiting_student_answer = true
+teaching_plan.next_move = check_understanding
+teaching_plan.reason = pending_socratic_answer
+all_state_checks_pass = true
+~~~
+
+No raw ANVAYA_EVAL marker was visible in the browser.
+
+Non-blocking observation: the Socratic follow-up is one question, but it
+bundles several operations (multiplier, L/U construction, and LU=A
+verification) into a relatively heavy single step. Record for final pedagogy
+review; it does not block Scenario B.
+
 ### Remaining scenarios
 
-B through K remain pending.
+C through K remain pending.
 
 
 Do not mark Tutor 2.3 complete until observed local results are recorded here.
