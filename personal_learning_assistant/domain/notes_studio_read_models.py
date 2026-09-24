@@ -20,6 +20,7 @@ class NoteCard:
     card_summary: Tuple[str, ...]
     tags: Tuple[str, ...]
     revision_status: str
+    source: str = ""
 
 
 @dataclass(frozen=True)
@@ -30,3 +31,5 @@ class NoteDetail:
     text: str
     wikilinks: Tuple[Mapping[str, object], ...]
     backlinks: Tuple[Mapping[str, object], ...]
+    related_notes: Tuple[Mapping[str, object], ...] = ()
+    connection_facets: Tuple[Mapping[str, object], ...] = ()
