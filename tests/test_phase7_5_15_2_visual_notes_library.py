@@ -305,11 +305,11 @@ def test_notes_route_renders_visual_cards_and_never_full_body():
     assert "note-content" not in text
 
 
-def test_visual_library_card_links_to_existing_safe_reader():
+def test_visual_library_card_links_to_full_notes_studio_reader():
     response = _app_with_library(FakeLibraryWebService()).test_client().get("/notes")
     text = response.get_data(as_text=True)
 
-    assert "/obsidian/note?path=Math/LU.md" in text or "/obsidian/note?path=Math%2FLU.md" in text
+    assert "/notes/note?path=Math/LU.md" in text or "/notes/note?path=Math%2FLU.md" in text
     assert "Edit note" not in text
     assert "+ New Note" not in text
 
