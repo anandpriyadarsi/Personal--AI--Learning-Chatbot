@@ -498,23 +498,17 @@ class NotesStudioService:
             raise
 
     def pin(self, note_id, pinned=True):
-        return self.notes.set_lifecycle(
+        return self.notes.set_pinned(
             note_id,
             pinned_at=self._now() if pinned else None,
-            archived_at=None,
-            trashed_at=None,
             now=self._now(),
-            keep_existing=True,
         )
 
     def archive(self, note_id, archived=True):
-        return self.notes.set_lifecycle(
+        return self.notes.set_archived(
             note_id,
-            pinned_at=None,
             archived_at=self._now() if archived else None,
-            trashed_at=None,
             now=self._now(),
-            keep_existing=True,
         )
 
     def set_study_status(self, note_id, expected_hash, status):
