@@ -40,7 +40,7 @@ def _markdown_label(value: str) -> str:
     )
 
 
-def _activate_wikilinks(source: str, wikilinks=()) -> str:
+def _activate_wikilinks(source: str, wikilinks=(), *, note_route="/obsidian/note") -> str:
     resolved = {
         str(item.get("raw") or ""): item
         for item in tuple(wikilinks or ())
@@ -53,19 +53,21 @@ def _activate_wikilinks(source: str, wikilinks=()) -> str:
         if item is None:
             return match.group(0)
         label = _markdown_label(item.get("label") or raw)
-        target = "/obsidian/note?path={}".format(
-            quote(str(item["resolved_path"]), safe="")
+        target = "{}?path={}".format(
+            str(note_route or "/obsidian/note"),
+            quote(str(item["resolved_path"]), safe=""),
         )
         return "[{}]({})".format(label, target)
 
     return _WIKILINK.sub(replace, str(source or ""))
 
 
-def render_markdown(markdown_text: str, *, wikilinks=()) -> Markup:
+def render_markdown(markdown_text: str, *, wikilinks=(), note_route="/obsidian/note") -> Markup:
     """Return escaped parser-generated HTML with safe resolved Obsidian links."""
     source = _activate_wikilinks(
         _reading_body(str(markdown_text or "")),
         wikilinks=wikilinks,
+        note_route=note_route,
     )
     try:
         rendered: Any = _MARKDOWN(source)
