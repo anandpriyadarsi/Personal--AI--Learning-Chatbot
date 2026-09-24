@@ -59,8 +59,12 @@ class NotesStudioReaderWebService:
         except Exception:
             rendered = _escaped_fallback(source)
 
+        identity = str(card.identity)
+        note_id = identity.split(":", 1)[1] if identity.startswith("assistant:") else ""
         return {
-            "identity": str(card.identity),
+            "identity": identity,
+            "note_id": note_id,
+            "editable": bool(note_id),
             "title": str(card.title),
             "topic": str(card.topic),
             "course": str(card.course),
