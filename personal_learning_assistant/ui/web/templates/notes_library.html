@@ -16,6 +16,13 @@
   </div>
 </section>
 
+<nav class="notes-library-lifecycle-nav" aria-label="Notes lifecycle views">
+  <a class="{% if dashboard.query.view == 'active' and not dashboard.query.pinned %}is-active{% endif %}" href="{{ url_for('web.notes') }}">Active</a>
+  <a class="{% if dashboard.query.pinned %}is-active{% endif %}" href="{{ url_for('web.notes', pinned='1') }}">Pinned</a>
+  <a class="{% if dashboard.query.view == 'archived' %}is-active{% endif %}" href="{{ url_for('web.notes', view='archived') }}">Archived</a>
+  <a href="{{ url_for('web.notes_trash') }}">Trash</a>
+</nav>
+
 {% if error_message %}
 <section class="notice-panel error-panel" role="alert">
   <strong>{{ error_message }}</strong>
@@ -31,6 +38,8 @@
 {% else %}
 <section class="dashboard-panel notes-studio-toolbar" aria-label="Filter Notes Studio">
   <form class="notes-studio-filter-form" method="get" action="{{ url_for('web.notes') }}">
+    <input type="hidden" name="view" value="{{ dashboard.query.view }}">
+    <input type="hidden" name="pinned" value="{{ dashboard.query.pinned }}">
     <label class="form-field notes-studio-search">
       <span>Search cards</span>
       <input type="search" name="q" value="{{ dashboard.query.search }}" placeholder="Title, topic, tag, or key point">
@@ -69,7 +78,7 @@
     <div class="form-actions notes-studio-filter-actions">
       <button class="button" type="submit">Filter</button>
       {% if dashboard.query.search or dashboard.query.course or dashboard.query.note_type or dashboard.query.tag %}
-        <a class="button secondary-button" href="{{ url_for('web.notes') }}">Clear</a>
+        <a class="button secondary-button" href="{{ url_for('web.notes', view=dashboard.query.view, pinned=dashboard.query.pinned) }}">Clear</a>
       {% endif %}
     </div>
   </form>
@@ -105,6 +114,12 @@
       <article class="notes-studio-card" aria-labelledby="note-card-title-{{ loop.index }}">
         <div class="notes-studio-card-topline">
           <div class="notes-studio-badges">
+            {% if note.pinned %}
+              <span class="notes-lifecycle-badge">Pinned</span>
+            {% endif %}
+            {% if note.archived %}
+              <span class="notes-lifecycle-badge">Archived</span>
+            {% endif %}
             {% if note.course %}
               <span class="notes-studio-course">{{ note.course }}</span>
             {% endif %}
