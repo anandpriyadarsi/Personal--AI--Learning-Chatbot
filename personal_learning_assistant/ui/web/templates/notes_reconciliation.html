@@ -55,12 +55,12 @@
   </div>
 
   <div class="notes-reconciliation-counts" aria-label="Decision counts">
-    <span><strong>{{ report.decision_counts.match_existing }}</strong> Match existing</span>
-    <span><strong>{{ report.decision_counts.needs_review }}</strong> Needs review</span>
-    <span><strong>{{ report.decision_counts.create_markdown }}</strong> Create Markdown candidate</span>
+    <span><strong>{{ report['decision_counts']['match_existing'] }}</strong> Match existing</span>
+    <span><strong>{{ report['decision_counts']['needs_review'] }}</strong> Needs review</span>
+    <span><strong>{{ report['decision_counts']['create_markdown'] }}</strong> Create Markdown candidate</span>
   </div>
 
-  {% if report.items %}
+  {% if report['items'] %}
   <div class="notes-reconciliation-table-wrap">
     <table class="notes-reconciliation-table">
       <thead>
@@ -71,7 +71,7 @@
         </tr>
       </thead>
       <tbody>
-        {% for item in report.items %}
+        {% for item in report['items'] %}
         <tr>
           <td>
             <strong>{{ item.legacy_title or "Untitled / invalid record" }}</strong>
