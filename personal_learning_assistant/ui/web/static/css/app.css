@@ -1871,3 +1871,199 @@ details[open] > .details-action::after { content: " −"; }
   .rich-comparison-table table { min-width: 24rem; }
 }
 
+/* Phase 7.5.15.6 Safe Editor + Attachments. */
+.notes-reader-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.notes-reader-header-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: .5rem;
+}
+.notes-editor-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: .9rem;
+  padding: clamp(1rem, 2.5vw, 1.4rem);
+  border: 1px solid rgba(85, 194, 184, .24);
+  border-radius: .95rem;
+  background:
+    linear-gradient(145deg, rgba(85, 194, 184, .07), transparent 46%),
+    var(--surface);
+  box-shadow: var(--shadow);
+}
+.notes-editor-header h2 {
+  margin: .3rem 0 .22rem;
+  font-size: clamp(1.65rem, 3.5vw, 2.35rem);
+}
+.notes-editor-header .lede {
+  margin: 0;
+  max-width: 66ch;
+}
+.notes-editor-error { margin-bottom: .9rem; }
+.notes-editor-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(18rem, 22rem);
+  gap: 1rem;
+  align-items: start;
+}
+.notes-editor-main {
+  min-width: 0;
+  padding: 1rem;
+}
+.notes-editor-form { display: grid; gap: 1rem; }
+.notes-editor-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .8rem;
+}
+.notes-editor-fields .form-field-full { grid-column: 1 / -1; }
+.notes-editor-fields input,
+.notes-editor-fields select,
+.notes-editor-fields textarea {
+  border: 1px solid var(--border);
+  border-radius: .62rem;
+  background: var(--surface-muted);
+  color: var(--text);
+  padding: .68rem .72rem;
+}
+.notes-editor-fields textarea {
+  resize: vertical;
+  line-height: 1.5;
+}
+.notes-editor-body-field textarea {
+  min-height: 30rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: .82rem;
+  tab-size: 2;
+}
+.notes-editor-help {
+  color: var(--text-muted);
+  font-size: .68rem;
+  line-height: 1.45;
+}
+.notes-editor-save-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  padding-top: .2rem;
+}
+.notes-editor-sidebar {
+  display: grid;
+  gap: .8rem;
+  position: sticky;
+  top: 4.55rem;
+}
+.notes-editor-side-panel { padding: .9rem; }
+.notes-editor-side-panel h3 {
+  margin: .18rem 0 .55rem;
+  font-size: .98rem;
+}
+.notes-editor-side-copy {
+  margin: 0 0 .75rem;
+  color: var(--text-muted);
+  font-size: .76rem;
+  line-height: 1.5;
+}
+.notes-editor-safety-list {
+  display: grid;
+  gap: .46rem;
+  margin: .65rem 0 0;
+  padding-left: 1.1rem;
+  color: var(--text-muted);
+  font-size: .76rem;
+  line-height: 1.45;
+}
+.notes-attachment-form {
+  display: grid;
+  gap: .65rem;
+}
+.notes-attachment-form input[type="file"] {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: .58rem;
+  background: var(--surface-muted);
+  color: var(--text-muted);
+  padding: .5rem;
+  font-size: .72rem;
+}
+.notes-attachment-result {
+  margin-top: .8rem;
+  padding: .7rem;
+  border: 1px solid rgba(85, 194, 184, .3);
+  border-radius: .62rem;
+  background: var(--accent-soft);
+}
+.notes-attachment-result strong {
+  color: var(--accent);
+  font-size: .76rem;
+}
+.notes-attachment-result p {
+  margin: .35rem 0 .45rem;
+  color: var(--text-muted);
+  font-size: .7rem;
+  line-height: 1.4;
+}
+.notes-attachment-result code {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  padding: .5rem;
+  border-radius: .45rem;
+  background: rgba(11, 15, 20, .7);
+  color: var(--text);
+  font-size: .68rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.notes-editor-syntax {
+  display: grid;
+  gap: .45rem;
+}
+.notes-editor-syntax code {
+  display: block;
+  padding: .55rem;
+  border: 1px solid rgba(100, 116, 139, .24);
+  border-radius: .5rem;
+  background: var(--surface-muted);
+  color: #d6dee6;
+  font-size: .68rem;
+  line-height: 1.45;
+  white-space: normal;
+}
+.template-use-button { margin-top: .75rem; }
+
+@media (max-width: 900px) {
+  .notes-editor-layout { grid-template-columns: minmax(0, 1fr); }
+  .notes-editor-sidebar {
+    position: static;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .notes-editor-sidebar .notes-editor-side-panel:first-child {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 680px) {
+  .notes-reader-header,
+  .notes-editor-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .notes-reader-header-actions { width: 100%; }
+  .notes-reader-header-actions .button { width: 100%; }
+  .notes-editor-fields { grid-template-columns: 1fr; }
+  .notes-editor-fields .form-field-full { grid-column: auto; }
+  .notes-editor-sidebar { grid-template-columns: 1fr; }
+  .notes-editor-sidebar .notes-editor-side-panel:first-child { grid-column: auto; }
+  .notes-editor-save-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
