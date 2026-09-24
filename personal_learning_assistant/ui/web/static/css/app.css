@@ -2355,3 +2355,135 @@ details[open] > .details-action::after { content: " −"; }
   }
 }
 
+/* Phase 7.5.15.9 Final Reconciliation. */
+.notes-reconciliation-header { margin-bottom: .9rem; }
+.notes-reconciliation-decision {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: .8rem;
+  margin-bottom: .9rem;
+}
+.notes-reconciliation-decision-card {
+  min-width: 0;
+  padding: .95rem;
+}
+.notes-reconciliation-decision-card h3 {
+  margin: .2rem 0 .45rem;
+  font-size: .98rem;
+}
+.notes-reconciliation-decision-card p:last-child {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: .75rem;
+  line-height: 1.5;
+}
+.notes-reconciliation-status,
+.notes-reconciliation-next {
+  margin-top: .9rem;
+  padding: .95rem;
+}
+.notes-reconciliation-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .45rem;
+  margin: .8rem 0;
+}
+.notes-reconciliation-counts span {
+  display: inline-flex;
+  gap: .28rem;
+  align-items: center;
+  padding: .3rem .48rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-size: .66rem;
+}
+.notes-reconciliation-counts strong { color: var(--text); }
+.notes-reconciliation-table-wrap {
+  overflow-x: auto;
+  border: 1px solid rgba(100, 116, 139, .22);
+  border-radius: .7rem;
+}
+.notes-reconciliation-table {
+  width: 100%;
+  min-width: 42rem;
+  border-collapse: collapse;
+}
+.notes-reconciliation-table th,
+.notes-reconciliation-table td {
+  padding: .7rem;
+  border-bottom: 1px solid rgba(100, 116, 139, .2);
+  vertical-align: top;
+  text-align: left;
+}
+.notes-reconciliation-table tr:last-child td { border-bottom: 0; }
+.notes-reconciliation-table th {
+  background: rgba(85, 194, 184, .05);
+  color: var(--text-muted);
+  font-size: .62rem;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+.notes-reconciliation-table td {
+  color: var(--text-muted);
+  font-size: .72rem;
+  line-height: 1.45;
+}
+.notes-reconciliation-table td strong {
+  display: block;
+  color: var(--text);
+  font-size: .76rem;
+}
+.notes-reconciliation-table td small {
+  display: block;
+  margin-top: .18rem;
+  color: var(--text-muted);
+  font-size: .62rem;
+}
+.notes-reconciliation-table td p { margin: 0; }
+.notes-reconciliation-state {
+  display: inline-flex;
+  padding: .2rem .4rem;
+  border-radius: 999px;
+  font-size: .62rem;
+  font-weight: 800;
+}
+.notes-reconciliation-state.is-match {
+  background: rgba(85, 194, 184, .08);
+  color: var(--accent);
+}
+.notes-reconciliation-state.is-review {
+  background: rgba(210, 161, 93, .08);
+  color: #ddb77f;
+}
+.notes-reconciliation-state.is-create {
+  background: rgba(122, 170, 141, .08);
+  color: #a5cfb5;
+}
+.notes-reconciliation-next h3 {
+  margin: .2rem 0 .45rem;
+}
+.notes-reconciliation-next p:last-child {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: .76rem;
+  line-height: 1.52;
+}
+.notes-reconciliation-link { margin-top: .65rem; }
+
+@media (max-width: 900px) {
+  .notes-reconciliation-decision {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 680px) {
+  .notes-reconciliation-counts {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+  .notes-reconciliation-counts span {
+    justify-content: space-between;
+  }
+}
+
