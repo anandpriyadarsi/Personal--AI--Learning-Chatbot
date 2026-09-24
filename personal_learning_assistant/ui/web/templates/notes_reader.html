@@ -39,6 +39,11 @@
       </div>
     {% endif %}
   </div>
+  {% if note.editable %}
+    <div class="notes-reader-header-actions">
+      <a class="button secondary-button" href="{{ url_for('web.notes_edit', path=note.relative_path) }}">Edit note</a>
+    </div>
+  {% endif %}
 </header>
 
 <div class="notes-reader-layout">
