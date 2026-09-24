@@ -1,6 +1,6 @@
 # Phase 7.5.15.9 — Historical Migration Source Recovery
 
-Status: VERIFIED RECOVERY  
+Status: VERIFIED RECOVERY
 Branch: `phase7.5.15/notes-studio-rich`
 
 ## Problem discovered by the final gate
