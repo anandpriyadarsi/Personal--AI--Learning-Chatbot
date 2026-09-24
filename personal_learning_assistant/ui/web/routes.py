@@ -73,6 +73,9 @@ from personal_learning_assistant.services.notes_studio_lifecycle_service import 
     NotesStudioLifecycleValidationError,
     build_notes_studio_lifecycle_service,
 )
+from personal_learning_assistant.services.notes_studio_reconciliation_service import (
+    build_notes_studio_reconciliation_service,
+)
 from personal_learning_assistant.services.notes_studio_asset_service import (
     NotesStudioAssetNotFoundError,
     NotesStudioAssetUnavailableError,
@@ -271,6 +274,11 @@ def _notes_studio_library_service():
 def _notes_studio_lifecycle_service():
     factory = current_app.config.get("NOTES_STUDIO_LIFECYCLE_SERVICE_FACTORY")
     return factory() if factory is not None else build_notes_studio_lifecycle_service()
+
+
+def _notes_studio_reconciliation_service():
+    factory = current_app.config.get("NOTES_STUDIO_RECONCILIATION_SERVICE_FACTORY")
+    return factory() if factory is not None else build_notes_studio_reconciliation_service()
 
 
 def _notes_studio_asset_service():
@@ -1048,6 +1056,33 @@ def notes():
         dashboard=workspace,
         error_message="",
     )
+
+
+@web_blueprint.get("/notes/reconciliation")
+def notes_reconciliation():
+    """Show the non-destructive legacy/rich Notes Studio reconciliation preview."""
+    try:
+        report = _notes_studio_reconciliation_service().report()
+        return render_template(
+            "notes_reconciliation.html",
+            active_page="notes",
+            report=report,
+            error_message="",
+        )
+    except Exception as error:
+        current_app.logger.warning(
+            "Notes Studio reconciliation unavailable (%s).",
+            type(error).__name__,
+        )
+        return (
+            render_template(
+                "notes_reconciliation.html",
+                active_page="notes",
+                report=None,
+                error_message="Notes Studio reconciliation is temporarily unavailable.",
+            ),
+            503,
+        )
 
 
 @web_blueprint.post("/notes/lifecycle")
