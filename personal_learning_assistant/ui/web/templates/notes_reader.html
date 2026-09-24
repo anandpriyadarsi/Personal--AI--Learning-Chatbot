@@ -30,6 +30,12 @@
         <time class="notes-reader-meta-chip" datetime="{{ note.note_date }}">{{ note.note_date_label }}</time>
       {% endif %}
       <span class="notes-reader-meta-chip">{{ note.revision_status|replace('_', ' ')|title }}</span>
+      {% if note.pinned %}
+        <span class="notes-reader-meta-chip notes-lifecycle-chip">Pinned</span>
+      {% endif %}
+      {% if note.archived %}
+        <span class="notes-reader-meta-chip notes-lifecycle-chip">Archived</span>
+      {% endif %}
     </div>
     {% if note.tags %}
       <div class="tag-row notes-reader-tags" aria-label="Tags">
@@ -54,6 +60,61 @@
   </main>
 
   <aside class="notes-reader-sidebar" aria-label="Note context">
+    {% if note.managed %}
+    <section class="dashboard-panel notes-reader-side-panel notes-lifecycle-panel">
+      <div class="notes-reader-side-heading">
+        <div>
+          <p class="eyebrow">Note lifecycle</p>
+          <h3>{{ note.lifecycle_state|title }}</h3>
+        </div>
+      </div>
+      <div class="notes-lifecycle-actions">
+        <form method="post" action="{{ url_for('web.notes_lifecycle') }}">
+          <input type="hidden" name="note_id" value="{{ note.note_id }}">
+          <input type="hidden" name="expected_hash" value="{{ note.source_hash }}">
+          <input type="hidden" name="path" value="{{ note.relative_path }}">
+          <input type="hidden" name="action" value="{% if note.pinned %}unpin{% else %}pin{% endif %}">
+          <button class="button secondary-button compact-button" type="submit">{% if note.pinned %}Unpin note{% else %}Pin note{% endif %}</button>
+        </form>
+        <form method="post" action="{{ url_for('web.notes_lifecycle') }}">
+          <input type="hidden" name="note_id" value="{{ note.note_id }}">
+          <input type="hidden" name="expected_hash" value="{{ note.source_hash }}">
+          <input type="hidden" name="path" value="{{ note.relative_path }}">
+          <input type="hidden" name="action" value="{% if note.archived %}unarchive{% else %}archive{% endif %}">
+          <button class="button secondary-button compact-button" type="submit">{% if note.archived %}Unarchive note{% else %}Archive note{% endif %}</button>
+        </form>
+        <form method="post" action="{{ url_for('web.notes_lifecycle') }}">
+          <input type="hidden" name="note_id" value="{{ note.note_id }}">
+          <input type="hidden" name="expected_hash" value="{{ note.source_hash }}">
+          <input type="hidden" name="path" value="{{ note.relative_path }}">
+          <input type="hidden" name="action" value="trash">
+          <button class="button secondary-button compact-button notes-danger-button" type="submit">Move to trash</button>
+        </form>
+      </div>
+    </section>
+
+    <section class="dashboard-panel notes-reader-side-panel notes-study-actions-panel">
+      <p class="eyebrow">Study actions</p>
+      <h3>Update study state</h3>
+      <p class="notes-study-actions-copy">These actions only update this note's revision status. They do not start Tutor or AI.</p>
+      <div class="notes-study-action-grid">
+        {% for action, label in (
+          ("needs_practice", "Needs practice"),
+          ("review_due", "Review due"),
+          ("revised", "Revised"),
+          ("mastered", "Mastered")
+        ) %}
+        <form method="post" action="{{ url_for('web.notes_lifecycle') }}">
+          <input type="hidden" name="note_id" value="{{ note.note_id }}">
+          <input type="hidden" name="expected_hash" value="{{ note.source_hash }}">
+          <input type="hidden" name="path" value="{{ note.relative_path }}">
+          <input type="hidden" name="action" value="{{ action }}">
+          <button class="notes-study-action{% if note.revision_status == action %} is-current{% endif %}" type="submit">{{ label }}</button>
+        </form>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
     {% if note.card_summary %}
     <section class="dashboard-panel notes-reader-side-panel">
       <p class="eyebrow">Key points</p>
