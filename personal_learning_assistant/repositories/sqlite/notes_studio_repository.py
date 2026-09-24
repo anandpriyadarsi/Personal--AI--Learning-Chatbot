@@ -50,6 +50,22 @@ class SQLiteNotesStudioRepository:
             self.connection.execute("INSERT INTO tags (id,name,normalized_name,created_at) VALUES (?,?,?,?) ON CONFLICT(normalized_name) DO NOTHING",(tid,display,normalized,now))
             row=self.connection.execute("SELECT id FROM tags WHERE normalized_name=?",(normalized,)).fetchone()
             self.connection.execute("INSERT OR IGNORE INTO note_tags(note_id,tag_id) VALUES (?,?)",(note_id,str(row[0])))
+    def set_pinned(self,note_id,*,pinned_at,now):
+        self.get(note_id)
+        with transaction(self.connection,immediate=True):
+            self.connection.execute(
+                "UPDATE note_metadata SET pinned_at=?,updated_at=? WHERE id=?",
+                (pinned_at,now,note_id),
+            )
+        return self.get(note_id)
+    def set_archived(self,note_id,*,archived_at,now):
+        self.get(note_id)
+        with transaction(self.connection,immediate=True):
+            self.connection.execute(
+                "UPDATE note_metadata SET archived_at=?,updated_at=? WHERE id=?",
+                (archived_at,now,note_id),
+            )
+        return self.get(note_id)
     def set_lifecycle(self,note_id,*,pinned_at=None,archived_at=None,trashed_at=None,now,keep_existing=False):
         current=self.connection.execute("SELECT pinned_at,archived_at,trashed_at FROM note_metadata WHERE id=?",(note_id,)).fetchone()
         if current is None: raise NotesStudioNotFoundError("unknown note")
