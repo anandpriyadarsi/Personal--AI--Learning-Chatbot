@@ -2172,3 +2172,186 @@ details[open] > .details-action::after { content: " −"; }
   }
 }
 
+/* Phase 7.5.15.8 Lifecycle + Study Actions. */
+.notes-library-lifecycle-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .45rem;
+  margin: -.2rem 0 .9rem;
+}
+.notes-library-lifecycle-nav a {
+  display: inline-flex;
+  min-height: 2rem;
+  align-items: center;
+  padding: .35rem .65rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-size: .72rem;
+  font-weight: 760;
+  text-decoration: none;
+}
+.notes-library-lifecycle-nav a:hover,
+.notes-library-lifecycle-nav a.is-active {
+  border-color: rgba(85, 194, 184, .4);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.notes-lifecycle-badge,
+.notes-lifecycle-chip {
+  border-color: rgba(85, 194, 184, .28);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.notes-lifecycle-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.35rem;
+  padding: .16rem .38rem;
+  border: 1px solid rgba(85, 194, 184, .24);
+  border-radius: 999px;
+  font-size: .61rem;
+  font-weight: 800;
+}
+.notes-lifecycle-panel {
+  border-color: rgba(85, 194, 184, .24);
+}
+.notes-lifecycle-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .42rem;
+  margin-top: .72rem;
+}
+.notes-lifecycle-actions form {
+  margin: 0;
+}
+.notes-lifecycle-actions .button {
+  width: 100%;
+  min-height: 2.1rem;
+  margin: 0;
+}
+.notes-lifecycle-actions form:last-child {
+  grid-column: 1 / -1;
+}
+.notes-danger-button {
+  border-color: rgba(201, 111, 111, .35);
+  color: #e6b0b0;
+}
+.notes-danger-button:hover {
+  border-color: rgba(201, 111, 111, .58);
+  background: rgba(201, 111, 111, .08);
+}
+.notes-study-actions-panel h3 {
+  margin: .2rem 0 0;
+}
+.notes-study-actions-copy {
+  margin: .45rem 0 .7rem;
+  color: var(--text-muted);
+  font-size: .72rem;
+  line-height: 1.45;
+}
+.notes-study-action-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .4rem;
+}
+.notes-study-action-grid form {
+  margin: 0;
+}
+.notes-study-action {
+  width: 100%;
+  min-height: 2rem;
+  padding: .35rem .45rem;
+  border: 1px solid var(--border);
+  border-radius: .5rem;
+  background: var(--surface-muted);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: .68rem;
+  font-weight: 760;
+  cursor: pointer;
+}
+.notes-study-action:hover,
+.notes-study-action.is-current {
+  border-color: rgba(85, 194, 184, .38);
+  background: rgba(85, 194, 184, .065);
+  color: var(--accent);
+}
+
+.notes-trash-header { margin-bottom: .9rem; }
+.notes-trash-list {
+  display: grid;
+  gap: .8rem;
+}
+.notes-trash-card {
+  padding: .95rem;
+}
+.notes-trash-card-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: .75rem;
+}
+.notes-trash-card-heading h3 {
+  margin: .18rem 0 0;
+}
+.notes-trash-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .65rem;
+  margin: .8rem 0;
+}
+.notes-trash-meta > div {
+  min-width: 0;
+  padding: .58rem;
+  border: 1px solid rgba(100, 116, 139, .22);
+  border-radius: .55rem;
+  background: var(--surface-muted);
+}
+.notes-trash-meta dt {
+  color: var(--text-muted);
+  font-size: .62rem;
+  font-weight: 800;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+.notes-trash-meta dd {
+  margin: .25rem 0 0;
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-size: .73rem;
+  line-height: 1.45;
+}
+.notes-restore-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: .65rem;
+  align-items: end;
+}
+.notes-restore-form .button {
+  margin: 0;
+  white-space: nowrap;
+}
+
+@media (max-width: 680px) {
+  .notes-library-lifecycle-nav {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .notes-library-lifecycle-nav a {
+    justify-content: center;
+  }
+  .notes-lifecycle-actions,
+  .notes-study-action-grid,
+  .notes-trash-meta,
+  .notes-restore-form {
+    grid-template-columns: 1fr;
+  }
+  .notes-lifecycle-actions form:last-child {
+    grid-column: auto;
+  }
+  .notes-trash-card-heading {
+    flex-direction: column;
+  }
+}
+
