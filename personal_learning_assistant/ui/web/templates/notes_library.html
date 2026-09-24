@@ -178,7 +178,8 @@
     </span>
     <span class="notes-studio-legacy-action">Review list</span>
   </summary>
-  <p class="microcopy">They are intentionally not copied into Markdown or rewritten during this read-only library phase.</p>
+  <p class="microcopy">They remain in the legacy JSON store and are not automatically copied into Markdown. Any migration requires a separate reviewed unit.</p>
+  <a class="button secondary-button compact-button notes-reconciliation-link" href="{{ url_for('web.notes_reconciliation') }}">Review reconciliation</a>
   <ul class="notes-studio-legacy-list">
     {% for note in dashboard.legacy_notes %}
       <li>
