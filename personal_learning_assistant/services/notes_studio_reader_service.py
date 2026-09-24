@@ -51,6 +51,8 @@ class NotesStudioReaderWebService:
                 source,
                 wikilinks=tuple(detail.wikilinks or ()),
                 note_route="/notes/note",
+                note_path=str(card.relative_path),
+                asset_route="/notes/asset",
             )
             if not isinstance(rendered, Markup):
                 rendered = Markup(escape(str(rendered)))
