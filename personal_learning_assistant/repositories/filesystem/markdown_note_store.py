@@ -39,6 +39,7 @@ def safe_attachment_filename(filename: str) -> str:
         raise MarkdownPathError("unsupported attachment type")
     stem = Path(raw).stem
     stem = _INVALID.sub("-", stem).rstrip(" .")
+    stem = re.sub(r"[\[\]()]", "-", stem)
     stem = re.sub(r"\s+", " ", stem).strip() or "image"
     if stem.upper() in _RESERVED:
         stem += "-image"
