@@ -78,8 +78,8 @@ class FakeReadService:
 def test_reader_view_renders_full_markdown_but_does_not_expose_raw_body():
     calls = []
 
-    def renderer(source, *, wikilinks=(), note_route="/obsidian/note"):
-        calls.append((source, wikilinks, note_route))
+    def renderer(source, *, wikilinks=(), note_route="/obsidian/note", note_path="", asset_route=""):
+        calls.append((source, wikilinks, note_route, note_path, asset_route))
         return Markup("<h1>LU Factorization</h1><p>Rendered body</p>")
 
     read = FakeReadService()
@@ -88,6 +88,8 @@ def test_reader_view_renders_full_markdown_but_does_not_expose_raw_body():
     assert read.paths == ["Math/LU.md"]
     assert calls[0][0].startswith("---\ntitle:")
     assert calls[0][2] == "/notes/note"
+    assert calls[0][3] == "Math/LU.md"
+    assert calls[0][4] == "/notes/asset"
     assert "text" not in view
     assert "body" not in view
     assert view["rendered_html"] == Markup(
