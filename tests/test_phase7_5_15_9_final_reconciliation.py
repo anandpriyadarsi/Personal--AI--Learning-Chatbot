@@ -3,6 +3,8 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
+
+import pytest
 from pathlib import Path
 
 from markupsafe import Markup
@@ -240,6 +242,61 @@ def _temp_notes_environment(tmp_path):
         now=lambda: NOW,
     )
     return vault, db, connection, service
+
+
+def test_final_verifier_accepts_checksum_valid_production_migration_prefix(tmp_path):
+    import shutil
+
+    from personal_learning_assistant.repositories.sqlite.migration_runner import (
+        DEFAULT_MIGRATIONS_PATH,
+        apply_migrations,
+    )
+    from phase7_5_15_9_verify import _verify_sqlite
+
+    subset = tmp_path / "migrations"
+    subset.mkdir()
+    source_files = sorted(DEFAULT_MIGRATIONS_PATH.glob("*.sql"))
+    assert len(source_files) >= 2
+
+    for source in source_files[:-1]:
+        shutil.copyfile(source, subset / source.name)
+
+    database = tmp_path / "production-like.db"
+    applied = apply_migrations(database, migrations_path=subset)
+    before = database.read_bytes()
+
+    report = _verify_sqlite(database)
+
+    assert report["migration_history_status"] == "applied_prefix_matches_source"
+    assert report["applied_migration_count"] == len(source_files) - 1
+    assert report["source_migration_count"] == len(source_files)
+    assert report["pending_migration_versions"] == [len(source_files)]
+    assert database.read_bytes() == before
+
+
+def test_final_verifier_rejects_applied_migration_checksum_drift(tmp_path):
+    from personal_learning_assistant.repositories.sqlite.migration_runner import (
+        apply_migrations,
+    )
+    from phase7_5_15_9_verify import (
+        FinalReconciliationError,
+        _verify_sqlite,
+    )
+
+    database = tmp_path / "drift.db"
+    apply_migrations(database)
+    connection = sqlite3.connect(database)
+    try:
+        connection.execute(
+            "UPDATE schema_migrations SET checksum=? WHERE version=1",
+            ("0" * 64,),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    with pytest.raises(FinalReconciliationError):
+        _verify_sqlite(database)
 
 
 def test_final_stack_round_trip_keeps_markdown_authority_and_lifecycle_overlay(tmp_path):
