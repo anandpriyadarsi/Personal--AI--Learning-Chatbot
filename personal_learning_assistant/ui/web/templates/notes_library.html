@@ -9,7 +9,10 @@
     <h2 id="notes-studio-title">Notes Studio</h2>
     <p class="lede">Scan concise study cards, filter your vault, and open the full note only when you need it.</p>
   </div>
-  <a class="button secondary-button" href="{{ url_for('web.obsidian') }}">Open Obsidian workspace</a>
+  <div class="notes-studio-header-actions">
+    <a class="button secondary-button" href="{{ url_for('web.notes_templates') }}">Browse templates</a>
+    <a class="button secondary-button" href="{{ url_for('web.obsidian') }}">Open Obsidian workspace</a>
+  </div>
 </section>
 
 {% if error_message %}
