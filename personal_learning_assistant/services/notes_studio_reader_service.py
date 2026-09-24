@@ -88,10 +88,11 @@ class NotesStudioReaderWebService:
                     **dict(item),
                     "reasons": [str(reason) for reason in item.get("reasons", ())],
                 }
-                for item in (detail.related_notes or ())
+                for item in (getattr(detail, "related_notes", ()) or ())
             ),
             "connection_facets": tuple(
-                dict(item) for item in (detail.connection_facets or ())
+                dict(item)
+                for item in (getattr(detail, "connection_facets", ()) or ())
             ),
         }
 
