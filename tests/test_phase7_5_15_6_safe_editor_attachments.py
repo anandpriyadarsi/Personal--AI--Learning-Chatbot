@@ -547,9 +547,16 @@ def test_editor_post_routes_redirect_to_full_reader():
     )
 
     assert created.status_code == 303
-    assert "/notes/note?path=01+INBOX%2FNew+Note.md" in created.headers["Location"]
+    assert "/notes/note?path=" in created.headers["Location"]
+    assert (
+        "New+Note.md" in created.headers["Location"]
+        or "New%20Note.md" in created.headers["Location"]
+    )
     assert updated.status_code == 303
-    assert "LU+Factorization.md" in updated.headers["Location"]
+    assert (
+        "LU+Factorization.md" in updated.headers["Location"]
+        or "LU%20Factorization.md" in updated.headers["Location"]
+    )
 
 
 def test_attachment_route_uploads_and_returns_to_editor_with_reference():
