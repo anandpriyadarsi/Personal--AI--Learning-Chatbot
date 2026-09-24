@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}{% if template %}{{ template.name }} · {% endif %}Notes Studio templates · ANVAYA{% endblock %}
+
+{% block content %}
+<nav class="notes-reader-back" aria-label="Template navigation">
+  <a href="{{ url_for('web.notes_templates') }}">← Back to templates</a>
+</nav>
+
+{% if error_message %}
+<section class="notice-panel error-panel" role="alert">
+  <h3>{{ error_message }}</h3>
+  <p>Return to the template gallery and choose one of the available academic scaffolds.</p>
+</section>
+{% elif template %}
+<header class="template-preview-header" aria-labelledby="template-preview-title">
+  <div>
+    <p class="eyebrow">Template preview</p>
+    <h2 id="template-preview-title">{{ template.name }}</h2>
+    <p class="lede">{{ template.description }}</p>
+    <div class="notes-reader-meta-row" aria-label="Template metadata">
+      <span class="notes-reader-meta-chip">{{ template.note_type|replace('_', ' ')|title }}</span>
+      <span class="notes-reader-meta-chip">{{ template.sections|length }} sections</span>
+      <span class="notes-reader-meta-chip">{{ template.defaults.revision_status|replace('_', ' ')|title }}</span>
+    </div>
+  </div>
+</header>
+
+<div class="template-preview-layout">
+  <main class="dashboard-panel template-preview-document" aria-label="{{ template.name }} rendered preview">
+    <article class="notes-reader-reading-view template-rendered-preview">
+      {{ template.rendered_preview }}
+    </article>
+  </main>
+
+  <aside class="template-preview-sidebar" aria-label="Template structure">
+    <section class="dashboard-panel template-preview-panel">
+      <p class="eyebrow">Use this for</p>
+      <p>{{ template.best_for }}</p>
+    </section>
+
+    <section class="dashboard-panel template-preview-panel">
+      <div class="notes-reader-side-heading">
+        <div>
+          <p class="eyebrow">Structure</p>
+          <h3>Sections</h3>
+        </div>
+        <span class="count-badge">{{ template.sections|length }}</span>
+      </div>
+      <ol class="template-section-list">
+        {% for section in template.sections %}
+          <li>
+            <strong>{{ section.heading }}</strong>
+            <span>{{ section.guidance }}</span>
+          </li>
+        {% endfor %}
+      </ol>
+    </section>
+
+    <section class="dashboard-panel template-preview-panel template-editor-note">
+      <p class="eyebrow">Read-only phase</p>
+      <h3>Template is ready</h3>
+      <p>Editor integration arrives in Phase 7.5.15.6. This phase defines and previews the scaffold without creating or changing any note.</p>
+    </section>
+  </aside>
+</div>
+{% endif %}
+{% endblock %}
