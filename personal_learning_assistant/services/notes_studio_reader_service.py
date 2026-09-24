@@ -76,12 +76,23 @@ class NotesStudioReaderWebService:
             ],
             "tags": [str(item) for item in (card.tags or ())],
             "revision_status": str(card.revision_status or "unreviewed"),
+            "source": str(getattr(card, "source", "") or ""),
             "relative_path": str(card.relative_path),
             "source_hash": str(card.source_hash),
             "source_hash_short": str(card.source_hash)[:12],
             "rendered_html": rendered,
             "wikilinks": tuple(dict(item) for item in (detail.wikilinks or ())),
             "backlinks": tuple(dict(item) for item in (detail.backlinks or ())),
+            "related_notes": tuple(
+                {
+                    **dict(item),
+                    "reasons": [str(reason) for reason in item.get("reasons", ())],
+                }
+                for item in (detail.related_notes or ())
+            ),
+            "connection_facets": tuple(
+                dict(item) for item in (detail.connection_facets or ())
+            ),
         }
 
 
