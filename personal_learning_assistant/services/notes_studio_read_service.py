@@ -12,6 +12,9 @@ from pathlib import Path
 from typing import Mapping
 
 from personal_learning_assistant.domain.notes_studio_read_models import NoteCard, NoteDetail
+from personal_learning_assistant.services.notes_studio_connections_service import (
+    build_connection_context,
+)
 
 
 class NotesStudioReadError(RuntimeError):
@@ -125,6 +128,11 @@ class NotesStudioReadService:
         extra = dict(note.frontmatter_extra or {})
         values = _frontmatter_values(extra.get("raw_frontmatter", ""))
         note_date = _text(values, "note_date") or _text(values, "date")
+        source = (
+            _text(values, "source")
+            or _text(values, "source_title")
+            or _text(values, "source_name")
+        )
         return NoteCard(
             identity=_identity(note),
             relative_path=str(note.relative_path),
@@ -137,6 +145,7 @@ class NotesStudioReadService:
             card_summary=_summary(values),
             tags=tuple(str(item) for item in (note.tags or ())),
             revision_status=str(note.revision_status or "unreviewed"),
+            source=source,
         )
 
     def list_cards(self):
@@ -180,11 +189,21 @@ class NotesStudioReadService:
             str(note.relative_path),
             str(payload["text"]),
         )
+        current_card = self._card(note)
+        cards = tuple(self._card(item) for item in scan.notes)
+        connections = build_connection_context(
+            current_card,
+            cards,
+            wikilinks=tuple(links["outgoing"]),
+            backlinks=tuple(links["backlinks"]),
+        )
         return NoteDetail(
-            card=self._card(note),
+            card=current_card,
             text=str(payload["text"]),
             wikilinks=tuple(links["outgoing"]),
             backlinks=tuple(links["backlinks"]),
+            related_notes=tuple(connections["related_notes"]),
+            connection_facets=tuple(connections["facets"]),
         )
 
 
