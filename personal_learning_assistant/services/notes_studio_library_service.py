@@ -180,13 +180,9 @@ class NotesStudioLibraryWebService:
                 continue
             filtered.append(row)
 
-        filtered.sort(
-            key=lambda row: (
-                0 if row["pinned"] else 1,
-                _key(row["title"]),
-                _key(row["relative_path"]),
-            )
-        )
+        # Python's sort is stable: pinned cards float to the front while
+        # preserving the scanner's established deterministic order otherwise.
+        filtered.sort(key=lambda row: 0 if row["pinned"] else 1)
 
         legacy_notes = self._legacy_notes()
         return {
