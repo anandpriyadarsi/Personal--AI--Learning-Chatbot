@@ -1304,7 +1304,7 @@ Tutor 2.3.6 is therefore **COMPLETE**.
 
 ## 2.3.7 — Live Validation
 
-**Implementation status:** READY FOR LOCAL LIVE EXECUTION.
+**Implementation status:** AUTOMATED READINESS PASS — manual live validation pending.
 
 Tutor 2.3.7 adds no new teaching behavior.
 
@@ -1380,3 +1380,20 @@ recorded.
 
 Do not begin the next Tutor development stage until both the automated
 readiness gate and manual live acceptance are green.
+
+
+### 2.3.7 readiness result
+
+Local automated readiness gate on 2026-09-24:
+
+~~~text
+1474 passed
+5 skipped
+1 deselected
+
+ANVAYA TUTOR 2.3.7 LIVE VALIDATION READINESS: PASS
+~~~
+
+This proves automated live-validation readiness only. Tutor 2.3 remains open
+until the manual browser scenarios in ANVAYA_TUTOR_2_3_LIVE_VALIDATION.md are
+observed and recorded.
