@@ -7,6 +7,7 @@ adoption, registry refresh, indexing, persistence, or note mutation.
 from __future__ import annotations
 
 import re
+from importlib import import_module
 from pathlib import Path
 from typing import Mapping
 
@@ -185,3 +186,44 @@ class NotesStudioReadService:
             wikilinks=tuple(links["outgoing"]),
             backlinks=tuple(links["backlinks"]),
         )
+
+
+def build_configured_notes_studio_read_service() -> NotesStudioReadService:
+    """Build the canonical read service lazily from the configured Obsidian vault."""
+
+    config_api = import_module("obsidian_integration")
+    reader_module = import_module(
+        "personal_learning_assistant.repositories.filesystem.obsidian_workspace_reader"
+    )
+
+    def configured_reader():
+        try:
+            config = config_api.load_config()
+            config = dict(config) if isinstance(config, dict) else {}
+            vault_path = str(config.get("vault_path") or "").strip()
+            if not vault_path or not bool(config.get("enabled", False)):
+                raise NotesStudioReadUnavailableError(
+                    "Connect and enable an Obsidian vault before opening Notes Studio."
+                )
+            candidate = Path(vault_path)
+            if candidate.is_symlink():
+                raise NotesStudioReadUnavailableError(
+                    "The configured Obsidian vault is unavailable."
+                )
+            valid, _message = config_api.validate_vault_path(vault_path)
+            if not valid:
+                raise NotesStudioReadUnavailableError(
+                    "The configured Obsidian vault is unavailable."
+                )
+            return reader_module.ObsidianWorkspaceReader(
+                vault_path,
+                vault_key="obsidian-vault",
+            )
+        except NotesStudioReadUnavailableError:
+            raise
+        except Exception as error:
+            raise NotesStudioReadUnavailableError(
+                "The configured Obsidian vault is unavailable."
+            ) from error
+
+    return NotesStudioReadService(configured_reader)
