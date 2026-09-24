@@ -110,8 +110,9 @@ def _identity(note) -> str:
 class NotesStudioReadService:
     """Compose rich card/detail reads from the existing safe vault reader."""
 
-    def __init__(self, reader_factory):
+    def __init__(self, reader_factory, lifecycle_provider=None):
         self.reader_factory = reader_factory
+        self.lifecycle_provider = lifecycle_provider
 
     def _reader_and_scan(self):
         try:
@@ -124,7 +125,8 @@ class NotesStudioReadService:
             ) from error
 
     @staticmethod
-    def _card(note) -> NoteCard:
+    def _card(note, lifecycle=None) -> NoteCard:
+        lifecycle = dict(lifecycle or {})
         extra = dict(note.frontmatter_extra or {})
         values = _frontmatter_values(extra.get("raw_frontmatter", ""))
         note_date = _text(values, "note_date") or _text(values, "date")
@@ -146,11 +148,37 @@ class NotesStudioReadService:
             tags=tuple(str(item) for item in (note.tags or ())),
             revision_status=str(note.revision_status or "unreviewed"),
             source=source,
+            managed=bool(str(note.assistant_id or "").strip()),
+            pinned_at=str(lifecycle.get("pinned_at") or ""),
+            archived_at=str(lifecycle.get("archived_at") or ""),
+            trashed_at=str(lifecycle.get("trashed_at") or ""),
         )
+
+    def _lifecycle(self, notes):
+        if self.lifecycle_provider is None:
+            return {}
+        ids = tuple(
+            str(note.assistant_id).strip()
+            for note in notes
+            if str(note.assistant_id or "").strip()
+        )
+        if not ids:
+            return {}
+        try:
+            return dict(self.lifecycle_provider(ids) or {})
+        except Exception:
+            return {}
 
     def list_cards(self):
         _reader, scan = self._reader_and_scan()
-        return tuple(self._card(note) for note in scan.notes)
+        lifecycle = self._lifecycle(scan.notes)
+        return tuple(
+            self._card(
+                note,
+                lifecycle.get(str(note.assistant_id or "").strip(), {}),
+            )
+            for note in scan.notes
+        )
 
     def get_detail(self, relative_path: str) -> NoteDetail:
         reader, scan = self._reader_and_scan()
@@ -189,8 +217,18 @@ class NotesStudioReadService:
             str(note.relative_path),
             str(payload["text"]),
         )
-        current_card = self._card(note)
-        cards = tuple(self._card(item) for item in scan.notes)
+        lifecycle = self._lifecycle(scan.notes)
+        current_card = self._card(
+            note,
+            lifecycle.get(str(note.assistant_id or "").strip(), {}),
+        )
+        cards = tuple(
+            self._card(
+                item,
+                lifecycle.get(str(item.assistant_id or "").strip(), {}),
+            )
+            for item in scan.notes
+        )
         connections = build_connection_context(
             current_card,
             cards,
@@ -245,4 +283,17 @@ def build_configured_notes_studio_read_service() -> NotesStudioReadService:
                 "The configured Obsidian vault is unavailable."
             ) from error
 
-    return NotesStudioReadService(configured_reader)
+    lifecycle_module = import_module(
+        "personal_learning_assistant.services.notes_studio_lifecycle_service"
+    )
+
+    def lifecycle_provider(note_ids):
+        return lifecycle_module.read_lifecycle_snapshot(
+            "data/learning_assistant.db",
+            note_ids,
+        )
+
+    return NotesStudioReadService(
+        configured_reader,
+        lifecycle_provider=lifecycle_provider,
+    )
