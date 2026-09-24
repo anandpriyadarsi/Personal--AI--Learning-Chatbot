@@ -28,12 +28,12 @@ class _RegisteredNote:
 
 def _strip_frontmatter(source: str) -> str:
     text = str(source or "")
-    lines = text.splitlines()
+    lines = text.splitlines(keepends=True)
     if not lines or lines[0].lstrip("\ufeff").strip() != "---":
         return text
     for index in range(1, len(lines)):
         if lines[index].strip() in ("---", "..."):
-            return "\n".join(lines[index + 1 :]).lstrip("\n")
+            return "".join(lines[index + 1 :]).lstrip("\r\n")
     return text
 
 
