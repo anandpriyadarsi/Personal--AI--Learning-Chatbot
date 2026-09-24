@@ -67,6 +67,19 @@ def tree(root, suffix=None):
             continue
         if "__pycache__" in p.parts or p.suffix in {".pyc",".pyo"}:
             continue
+
+        # SQLite may create transient runtime sidecars merely by opening a WAL
+        # database during regression tests. The SHM file contains coordination
+        # state, not durable database content. A WAL file with no page frames
+        # is at most its 32-byte header and likewise carries no committed page
+        # content. Do NOT ignore a WAL containing frames: those remain part of
+        # the protected-state comparison and will block the gate.
+        name = p.name.lower()
+        if name.endswith("-shm"):
+            continue
+        if name.endswith("-wal") and p.stat().st_size <= 32:
+            continue
+
         if suffix and p.suffix.lower()!=suffix:
             continue
         out[str(p).replace("\\","/")]=hash_file(p)
