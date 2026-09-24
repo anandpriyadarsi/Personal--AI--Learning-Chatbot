@@ -1663,3 +1663,211 @@ details[open] > .details-action::after { content: " −"; }
   .template-preview-sidebar .template-preview-panel:last-child { grid-column: auto; }
 }
 
+/* Phase 7.5.15.5 Rich Visual Blocks. */
+.rich-image {
+  display: grid;
+  gap: .45rem;
+  margin: 1.15rem 0;
+}
+.rich-image img {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  max-height: min(68vh, 48rem);
+  margin: 0 auto;
+  border: 1px solid rgba(100, 116, 139, .28);
+  border-radius: .8rem;
+  background: var(--surface-muted);
+  object-fit: contain;
+}
+.rich-image figcaption {
+  color: var(--text-muted);
+  font-size: .72rem;
+  line-height: 1.45;
+  text-align: center;
+}
+.rich-image-unavailable {
+  display: block;
+  margin: .8rem 0;
+  padding: .72rem .85rem;
+  border: 1px dashed rgba(100, 116, 139, .34);
+  border-radius: .65rem;
+  background: var(--surface-muted);
+  color: var(--text-muted);
+  font-size: .76rem;
+}
+
+.rich-callout {
+  margin: 1rem 0;
+  padding: .85rem .95rem;
+  border: 1px solid rgba(85, 194, 184, .26);
+  border-left-width: .28rem;
+  border-radius: .7rem;
+  background: linear-gradient(135deg, rgba(85, 194, 184, .07), rgba(19, 27, 35, .72));
+}
+.rich-callout-important,
+.rich-callout-key-idea,
+.rich-callout-exam-tip { border-left-color: var(--accent); }
+.rich-callout-warning,
+.rich-callout-common-mistake { border-left-color: #d2a15d; }
+.rich-callout-tip { border-left-color: #7aaa8d; }
+.rich-callout-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: .45rem .65rem;
+  margin-bottom: .48rem;
+}
+.rich-callout-label {
+  color: var(--accent);
+  font-size: .62rem;
+  font-weight: 850;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+.rich-callout-heading strong {
+  color: var(--text);
+  font-size: .88rem;
+}
+.rich-callout-body {
+  color: #d5dde5;
+  font-size: .84rem;
+  line-height: 1.58;
+}
+.rich-callout-body > :first-child { margin-top: 0; }
+.rich-callout-body > :last-child { margin-bottom: 0; }
+
+.rich-math-inline {
+  display: inline-block;
+  max-width: 100%;
+  padding: .06em .3em;
+  border-radius: .3rem;
+  background: rgba(85, 194, 184, .065);
+  color: #e8f2f1;
+  font-family: "Cambria Math", "STIX Two Math", "Times New Roman", serif;
+  white-space: nowrap;
+}
+.rich-math-block {
+  margin: 1rem 0;
+  padding: .9rem 1rem;
+  overflow-x: auto;
+  border: 1px solid rgba(100, 116, 139, .28);
+  border-radius: .7rem;
+  background: var(--surface-muted);
+  text-align: center;
+}
+.rich-math-block code {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #eef5f4;
+  font-family: "Cambria Math", "STIX Two Math", "Times New Roman", serif;
+  font-size: 1.02rem;
+  white-space: pre-wrap;
+}
+
+.rich-flowchart,
+.rich-diagram {
+  display: grid;
+  gap: .7rem;
+  margin: 1.15rem 0;
+  padding: .95rem;
+  border: 1px solid rgba(100, 116, 139, .28);
+  border-radius: .8rem;
+  background:
+    linear-gradient(145deg, rgba(85, 194, 184, .045), transparent 55%),
+    var(--surface-muted);
+}
+.rich-visual-canvas {
+  display: grid;
+  gap: .7rem;
+}
+.rich-visual-row {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: .42rem;
+}
+.rich-visual-node {
+  display: inline-flex;
+  min-width: 5.5rem;
+  max-width: min(18rem, 100%);
+  align-items: center;
+  justify-content: center;
+  padding: .52rem .65rem;
+  border: 1px solid rgba(85, 194, 184, .3);
+  border-radius: .58rem;
+  background: rgba(11, 15, 20, .72);
+  color: var(--text);
+  font-size: .76rem;
+  font-weight: 720;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+.rich-diagram .rich-visual-node {
+  border-radius: 999px;
+}
+.rich-visual-arrow {
+  flex: 0 0 auto;
+  color: var(--accent);
+  font-size: 1rem;
+  font-weight: 900;
+}
+.rich-flowchart figcaption,
+.rich-diagram figcaption {
+  color: var(--text-muted);
+  font-size: .68rem;
+  text-align: center;
+}
+
+.rich-comparison-table {
+  width: 100%;
+  margin: 1rem 0;
+  overflow-x: auto;
+  border: 1px solid rgba(100, 116, 139, .26);
+  border-radius: .72rem;
+  background: var(--surface-muted);
+}
+.rich-comparison-table table {
+  display: table;
+  width: 100%;
+  min-width: 28rem;
+  margin: 0;
+  border: 0;
+}
+.rich-comparison-table th {
+  background: rgba(85, 194, 184, .07);
+}
+.rich-comparison-table th,
+.rich-comparison-table td {
+  border-width: 0 1px 1px 0;
+}
+.rich-comparison-table tr:last-child td {
+  border-bottom: 0;
+}
+.rich-comparison-table th:last-child,
+.rich-comparison-table td:last-child {
+  border-right: 0;
+}
+
+@media (max-width: 680px) {
+  .rich-image img { max-height: 58vh; }
+  .rich-visual-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .rich-visual-node {
+    width: 100%;
+    max-width: none;
+  }
+  .rich-visual-arrow {
+    align-self: center;
+    transform: rotate(90deg);
+  }
+  .rich-math-block { text-align: left; }
+  .rich-comparison-table table { min-width: 24rem; }
+}
+
