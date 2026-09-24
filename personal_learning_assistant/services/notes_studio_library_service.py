@@ -65,6 +65,7 @@ def _card_row(card) -> dict:
         "card_summary": [str(item) for item in tuple(card.card_summary or ())[:5]],
         "tags": [str(item) for item in (card.tags or ())],
         "revision_status": str(card.revision_status or "unreviewed"),
+        "source": str(getattr(card, "source", "") or ""),
     }
 
 
@@ -75,6 +76,7 @@ def _search_scope(card: Mapping[str, object]) -> str:
         card.get("course", ""),
         card.get("note_type", ""),
         card.get("revision_status", ""),
+        card.get("source", ""),
     ]
     values.extend(card.get("tags", ()) or ())
     values.extend(card.get("card_summary", ()) or ())
