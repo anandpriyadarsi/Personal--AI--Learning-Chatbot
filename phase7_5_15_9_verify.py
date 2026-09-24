@@ -9,9 +9,11 @@ from pathlib import Path
 from urllib.parse import quote
 
 from personal_learning_assistant.repositories.sqlite.migration_runner import (
+    MigrationError,
     discover_migrations,
 )
 from personal_learning_assistant.services.notes_studio_read_service import (
+    NotesStudioReadError,
     build_configured_notes_studio_read_service,
 )
 from personal_learning_assistant.services.notes_studio_reconciliation_service import (
@@ -136,6 +138,8 @@ def main(argv=None):
         OSError,
         ValueError,
         sqlite3.Error,
+        MigrationError,
+        NotesStudioReadError,
         FinalReconciliationError,
     ) as error:
         print(
