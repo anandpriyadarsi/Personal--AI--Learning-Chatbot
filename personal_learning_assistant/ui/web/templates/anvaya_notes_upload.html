@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}Upload Handwritten Note · ANVAYA{% endblock %}
+
+{% block content %}
+<nav class="notes-reader-back"><a href="{{ url_for('web.anvaya_notes_create') }}">← Back to Create Note</a></nav>
+
+<section class="anvaya-notes-hero">
+  <div>
+    <p class="eyebrow">Handwritten personal note</p>
+    <h2>Upload handwritten note</h2>
+    <p class="lede">Upload your notebook pages. ANVAYA keeps the originals and records the date and time automatically.</p>
+  </div>
+</section>
+
+{% if error_message %}<section class="notice-panel error-panel" role="alert"><strong>{{ error_message }}</strong></section>{% endif %}
+
+<form class="dashboard-panel anvaya-native-note-form" method="post" enctype="multipart/form-data" action="{{ url_for('web.anvaya_notes_upload_create') }}">
+  <div class="anvaya-native-note-fields">
+    <label class="form-field form-field-full">
+      <span>Topic / Note name</span>
+      <input name="title" value="{{ form.title }}" maxlength="200" required autocomplete="off" placeholder="e.g. Atomic Absorption Spectroscopy">
+    </label>
+    <label class="form-field">
+      <span>Course <small>(optional)</small></span>
+      <input name="course" value="{{ form.course }}" maxlength="100" autocomplete="off" placeholder="e.g. CY100N">
+    </label>
+    <fieldset class="anvaya-card-style-field">
+      <legend>Card style</legend>
+      <div class="anvaya-card-style-options">
+        {% for value, label in (('iris','IRIS Academic'),('preview','Preview Card'),('square','Minimal Square')) %}
+        <label class="anvaya-card-style-option">
+          <input type="radio" name="card_style" value="{{ value }}" {% if form.card_style == value or (not form.card_style and value == 'preview') %}checked{% endif %}>
+          <span class="anvaya-card-style-mini anvaya-note-card--{{ value }}"><strong>{{ label }}</strong></span>
+        </label>
+        {% endfor %}
+      </div>
+    </fieldset>
+    <label class="form-field form-field-full">
+      <span>Key points <small>(optional · up to 5)</small></span>
+      <textarea name="key_points" rows="5" maxlength="1800" placeholder="One key point per line">{{ form.key_points }}</textarea>
+    </label>
+    <label class="form-field form-field-full anvaya-upload-drop">
+      <span>Handwritten pages</span>
+      <input type="file" name="files" multiple required accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg">
+      <strong>PDF, JPG, JPEG or PNG</strong>
+      <small>You can select several images/pages together.</small>
+    </label>
+  </div>
+  <div class="form-actions">
+    <button class="button" type="submit">Create note</button>
+    <a class="button secondary-button" href="{{ url_for('web.notes') }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}
