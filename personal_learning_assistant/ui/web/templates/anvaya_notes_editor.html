@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}{% if editor.id %}Edit{% else %}Typed Note{% endif %} · ANVAYA{% endblock %}
+
+{% block content %}
+<nav class="notes-reader-back">
+  {% if editor.id %}
+    <a href="{{ url_for('web.anvaya_note_reader', note_id=editor.id) }}">← Back to note</a>
+  {% else %}
+    <a href="{{ url_for('web.anvaya_notes_create') }}">← Back to Create Note</a>
+  {% endif %}
+</nav>
+
+<section class="anvaya-notes-hero">
+  <div>
+    <p class="eyebrow">{% if editor.id %}Edit personal note{% else %}Typed personal note{% endif %}</p>
+    <h2>{% if editor.id %}Edit {{ editor.title }}{% else %}Create typed note{% endif %}</h2>
+    <p class="lede">Topic and key points shape the card. Creation date and time are recorded automatically.</p>
+  </div>
+</section>
+
+{% if error_message %}<section class="notice-panel error-panel" role="alert"><strong>{{ error_message }}</strong></section>{% endif %}
+
+<form class="dashboard-panel anvaya-native-note-form" method="post" enctype="multipart/form-data"
+  action="{% if editor.id %}{{ url_for('web.anvaya_note_edit_save', note_id=editor.id) }}{% else %}{{ url_for('web.anvaya_notes_typed_create') }}{% endif %}">
+  {% if editor.id %}<input type="hidden" name="expected_updated_at" value="{{ editor.updated_at }}">{% endif %}
+
+  <div class="anvaya-native-note-fields">
+    <label class="form-field form-field-full">
+      <span>Topic / Note name</span>
+      <input name="title" value="{{ editor.title }}" maxlength="200" required autocomplete="off" placeholder="e.g. LU Factorization">
+    </label>
+    <label class="form-field">
+      <span>Course <small>(optional)</small></span>
+      <input name="course" value="{{ editor.course }}" maxlength="100" autocomplete="off" placeholder="e.g. MA103N">
+    </label>
+    <fieldset class="anvaya-card-style-field">
+      <legend>Card style</legend>
+      <div class="anvaya-card-style-options">
+        {% for value, label in (('iris','IRIS Academic'),('preview','Preview Card'),('square','Minimal Square')) %}
+        <label class="anvaya-card-style-option">
+          <input type="radio" name="card_style" value="{{ value }}" {% if editor.card_style == value or (not editor.card_style and value == 'iris') %}checked{% endif %}>
+          <span class="anvaya-card-style-mini anvaya-note-card--{{ value }}"><strong>{{ label }}</strong></span>
+        </label>
+        {% endfor %}
+      </div>
+    </fieldset>
+    <label class="form-field form-field-full">
+      <span>Key points <small>(optional · up to 5)</small></span>
+      <textarea name="key_points" rows="5" maxlength="1800" placeholder="One key point per line">{{ editor.key_points_text }}</textarea>
+    </label>
+    <label class="form-field form-field-full anvaya-native-body-field">
+      <span>Full note</span>
+      <textarea name="body" rows="26" spellcheck="true" placeholder="Write your note here...">{{ editor.body }}</textarea>
+      <small>Supports Markdown, tables, math, callouts, ~~~flowchart blocks and ~~~diagram blocks.</small>
+    </label>
+    <label class="form-field form-field-full">
+      <span>Add images / PDF <small>(optional)</small></span>
+      <input type="file" name="files" multiple accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg">
+      <small>Files are stored with this ANVAYA note, not in the external vault.</small>
+    </label>
+  </div>
+  <div class="form-actions">
+    <button class="button" type="submit">{% if editor.id %}Save changes{% else %}Create note{% endif %}</button>
+    <a class="button secondary-button" href="{% if editor.id %}{{ url_for('web.anvaya_note_reader', note_id=editor.id) }}{% else %}{{ url_for('web.notes') }}{% endif %}">Cancel</a>
+  </div>
+</form>
+{% endblock %}
