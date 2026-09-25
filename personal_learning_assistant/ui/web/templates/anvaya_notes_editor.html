@@ -49,6 +49,7 @@
       <span>Key points <small>(optional · up to 5)</small></span>
       <textarea name="key_points" rows="5" maxlength="1800" placeholder="One key point per line">{{ editor.key_points_text }}</textarea>
     </label>
+    {% if editor.note_kind != 'handwritten' %}
     <label class="form-field form-field-full anvaya-native-body-field">
       <span>Full note</span>
       <div class="anvaya-note-editor-toolbar" aria-label="Quick formatting">
@@ -64,8 +65,9 @@
       <textarea id="anvaya-note-body" name="body" rows="26" spellcheck="true" placeholder="Write your note here...">{{ editor.body }}</textarea>
       <small>Use the quick buttons for headings, equations, tables, flowcharts and diagrams. You can still type Markdown directly.</small>
     </label>
+    {% endif %}
     <label class="form-field form-field-full">
-      <span>Add images / PDF <small>(optional)</small></span>
+      <span>{% if editor.note_kind == 'handwritten' %}Add more pages{% else %}Add images / PDF{% endif %} <small>(optional)</small></span>
       <input type="file" name="files" multiple accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg">
       <small>Files are stored with this ANVAYA note, not in the external vault.</small>
     </label>
