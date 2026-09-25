@@ -2487,3 +2487,450 @@ details[open] > .details-action::after { content: " −"; }
   }
 }
 
+/* Phase 7.5.15.10 — independent ANVAYA Notes + IRIS-style cards. */
+.anvaya-notes-hero {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+.anvaya-notes-hero h2,
+.anvaya-native-reader-header h1 {
+  margin: .18rem 0 .3rem;
+}
+.anvaya-notes-create-button {
+  flex: 0 0 auto;
+}
+.anvaya-notes-toolbar {
+  padding: .85rem;
+  margin-bottom: .8rem;
+}
+.anvaya-notes-toolbar form {
+  display: grid;
+  grid-template-columns: minmax(13rem, 2fr) repeat(2, minmax(9rem, 1fr)) auto;
+  gap: .7rem;
+  align-items: end;
+}
+.anvaya-notes-toolbar .form-actions {
+  margin: 0;
+}
+.anvaya-notes-summary {
+  margin-bottom: .9rem;
+}
+.anvaya-notes-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .9rem;
+}
+.anvaya-note-card-link {
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+  outline: none;
+}
+.anvaya-note-card {
+  position: relative;
+  min-height: 13rem;
+  overflow: hidden;
+  border: 1px solid rgba(100, 116, 139, .22);
+  border-radius: 1rem;
+  background: linear-gradient(145deg, rgba(33, 37, 46, .98), rgba(22, 25, 32, .98));
+  box-shadow: 0 8px 30px rgba(0, 0, 0, .14);
+  transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease;
+}
+.anvaya-note-card-link:hover .anvaya-note-card,
+.anvaya-note-card-link:focus-visible .anvaya-note-card {
+  transform: translateY(-2px);
+  border-color: rgba(107, 114, 255, .45);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, .2);
+}
+.anvaya-note-card--iris {
+  border-radius: 1rem;
+}
+.anvaya-note-card--iris::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: .23rem;
+  background: linear-gradient(180deg, #7774ff, #5b7cff);
+}
+.anvaya-note-card--preview {
+  display: grid;
+  grid-template-columns: minmax(7rem, 35%) 1fr;
+}
+.anvaya-note-card--square {
+  aspect-ratio: 1 / 1;
+  max-height: 20rem;
+}
+.anvaya-note-card-preview {
+  min-height: 100%;
+  background: rgba(255,255,255,.04);
+}
+.anvaya-note-card-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.anvaya-note-card-body {
+  display: flex;
+  min-width: 0;
+  min-height: 13rem;
+  flex-direction: column;
+  padding: 1rem 1.05rem;
+}
+.anvaya-note-card-topline {
+  display: flex;
+  justify-content: space-between;
+  gap: .6rem;
+  align-items: center;
+  min-height: 1.4rem;
+}
+.anvaya-note-course {
+  color: #8582ff;
+  font-size: .72rem;
+  font-weight: 850;
+  letter-spacing: .025em;
+}
+.anvaya-note-kind {
+  display: inline-grid;
+  width: 1.7rem;
+  height: 1.7rem;
+  place-items: center;
+  border: 1px solid rgba(129, 140, 248, .22);
+  border-radius: .48rem;
+  background: rgba(99, 102, 241, .07);
+  color: #9d9aff;
+  font-size: .9rem;
+}
+.anvaya-note-card h3 {
+  margin: .72rem 0 .48rem;
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-size: 1.03rem;
+  line-height: 1.25;
+}
+.anvaya-note-card ul {
+  display: grid;
+  gap: .26rem;
+  margin: 0 0 .8rem;
+  padding-left: 1.05rem;
+  color: var(--text-muted);
+  font-size: .73rem;
+  line-height: 1.42;
+}
+.anvaya-note-card-empty {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: .72rem;
+}
+.anvaya-note-card time {
+  margin-top: auto;
+  padding-top: .75rem;
+  color: rgba(184, 194, 210, .72);
+  font-size: .65rem;
+  font-weight: 650;
+}
+.anvaya-notes-empty {
+  display: grid;
+  justify-items: center;
+  gap: .55rem;
+  padding: 2.2rem 1rem;
+  text-align: center;
+}
+.anvaya-notes-empty h3,
+.anvaya-notes-empty p {
+  margin: 0;
+}
+.anvaya-notes-empty-icon {
+  display: grid;
+  width: 3.1rem;
+  height: 3.1rem;
+  place-items: center;
+  border: 1px solid rgba(129,140,248,.26);
+  border-radius: 1rem;
+  background: rgba(99,102,241,.08);
+  color: #9693ff;
+  font-size: 1.5rem;
+}
+
+.anvaya-note-kind-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .9rem;
+  margin-bottom: .95rem;
+}
+.anvaya-note-kind-card {
+  display: grid;
+  gap: .45rem;
+  min-height: 12rem;
+  padding: 1.1rem;
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  background: var(--surface);
+  color: var(--text);
+  text-decoration: none;
+}
+.anvaya-note-kind-card:hover {
+  border-color: rgba(129,140,248,.42);
+  background: rgba(99,102,241,.045);
+}
+.anvaya-note-kind-card h3,
+.anvaya-note-kind-card p {
+  margin: 0;
+}
+.anvaya-note-kind-card p {
+  color: var(--text-muted);
+  font-size: .76rem;
+  line-height: 1.5;
+}
+.anvaya-note-kind-card > span:last-child {
+  margin-top: auto;
+  color: #9290ff;
+  font-size: .72rem;
+  font-weight: 780;
+}
+.anvaya-note-kind-icon {
+  display: grid;
+  width: 2.6rem;
+  height: 2.6rem;
+  place-items: center;
+  border-radius: .72rem;
+  background: rgba(99,102,241,.09);
+  color: #a09eff;
+  font-size: 1.15rem;
+}
+.anvaya-card-style-picker-info,
+.anvaya-native-note-form {
+  padding: 1rem;
+}
+.anvaya-card-style-picker-info h3 {
+  margin: .2rem 0 .75rem;
+}
+.anvaya-card-style-showcase,
+.anvaya-card-style-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: .65rem;
+}
+.anvaya-style-demo,
+.anvaya-card-style-mini {
+  display: flex;
+  min-height: 6.4rem;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: .7rem;
+  border: 1px solid rgba(100,116,139,.24);
+  border-radius: .75rem;
+  background: linear-gradient(145deg, rgba(33,37,46,.98), rgba(22,25,32,.98));
+  color: var(--text);
+}
+.anvaya-style-demo span,
+.anvaya-style-demo small {
+  color: var(--text-muted);
+  font-size: .65rem;
+}
+.anvaya-style-demo-preview {
+  height: 2rem;
+  border-radius: .35rem;
+  background: linear-gradient(135deg, rgba(129,140,248,.16), rgba(85,194,184,.08));
+}
+
+.anvaya-native-note-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .75rem;
+}
+.anvaya-native-note-fields .form-field-full {
+  grid-column: 1 / -1;
+}
+.anvaya-card-style-field {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.anvaya-card-style-field legend {
+  margin-bottom: .35rem;
+  color: var(--text-muted);
+  font-size: .68rem;
+  font-weight: 780;
+}
+.anvaya-card-style-option {
+  position: relative;
+  cursor: pointer;
+}
+.anvaya-card-style-option input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.anvaya-card-style-mini {
+  min-height: 4.7rem;
+  justify-content: center;
+  font-size: .68rem;
+}
+.anvaya-card-style-option input:checked + .anvaya-card-style-mini {
+  border-color: rgba(129,140,248,.62);
+  box-shadow: 0 0 0 2px rgba(99,102,241,.1);
+}
+.anvaya-native-body-field textarea {
+  min-height: 25rem;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Consolas, monospace);
+}
+.anvaya-upload-drop {
+  padding: .85rem;
+  border: 1px dashed rgba(129,140,248,.35);
+  border-radius: .75rem;
+  background: rgba(99,102,241,.035);
+}
+.anvaya-upload-drop strong,
+.anvaya-upload-drop small {
+  display: block;
+  margin-top: .35rem;
+}
+
+.anvaya-native-reader-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: .9rem;
+}
+.anvaya-native-reader-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .35rem;
+  margin-bottom: .45rem;
+}
+.anvaya-native-reader-meta span {
+  padding: .18rem .38rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-size: .62rem;
+}
+.anvaya-native-reader-points {
+  display: grid;
+  gap: .32rem;
+  max-width: 50rem;
+  margin: .65rem 0 0;
+  padding-left: 1.1rem;
+  color: var(--text-muted);
+  font-size: .78rem;
+}
+.anvaya-native-rendered-note {
+  padding: clamp(.9rem, 2vw, 1.4rem);
+  margin-bottom: .9rem;
+  line-height: 1.65;
+}
+.anvaya-native-assets {
+  padding: 1rem;
+  margin-top: .9rem;
+}
+.anvaya-native-asset-list {
+  display: grid;
+  gap: 1rem;
+}
+.anvaya-native-file-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: .6rem;
+  margin-bottom: .45rem;
+}
+.anvaya-native-file-heading a {
+  color: var(--accent);
+  font-size: .7rem;
+}
+.anvaya-native-pdf iframe {
+  width: 100%;
+  min-height: 70vh;
+  border: 1px solid var(--border);
+  border-radius: .65rem;
+  background: white;
+}
+.anvaya-native-image-page {
+  margin: 0;
+}
+.anvaya-native-image-page img {
+  display: block;
+  width: min(100%, 70rem);
+  max-height: 85vh;
+  margin: 0 auto;
+  object-fit: contain;
+  border: 1px solid var(--border);
+  border-radius: .7rem;
+  background: rgba(255,255,255,.02);
+}
+.anvaya-native-image-page figcaption {
+  margin-top: .35rem;
+  color: var(--text-muted);
+  font-size: .65rem;
+  text-align: center;
+}
+.anvaya-native-reader-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: .7rem;
+  padding: .8rem 0;
+  color: var(--text-muted);
+  font-size: .65rem;
+}
+
+@media (max-width: 900px) {
+  .anvaya-notes-toolbar form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .anvaya-notes-search {
+    grid-column: 1 / -1;
+  }
+  .anvaya-notes-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .anvaya-card-style-showcase,
+  .anvaya-card-style-options {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 680px) {
+  .anvaya-notes-hero,
+  .anvaya-native-reader-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .anvaya-notes-create-button {
+    width: 100%;
+    justify-content: center;
+  }
+  .anvaya-notes-toolbar form,
+  .anvaya-note-kind-grid,
+  .anvaya-native-note-fields {
+    grid-template-columns: 1fr;
+  }
+  .anvaya-notes-search,
+  .anvaya-native-note-fields .form-field-full {
+    grid-column: auto;
+  }
+  .anvaya-notes-grid {
+    grid-template-columns: 1fr;
+  }
+  .anvaya-note-card--preview {
+    grid-template-columns: minmax(6.5rem, 34%) 1fr;
+  }
+  .anvaya-note-card--square {
+    aspect-ratio: auto;
+    min-height: 12rem;
+  }
+  .anvaya-card-style-showcase,
+  .anvaya-card-style-options {
+    grid-template-columns: 1fr;
+  }
+  .anvaya-native-reader-footer {
+    flex-direction: column;
+  }
+  .anvaya-native-pdf iframe {
+    min-height: 60vh;
+  }
+}
+
