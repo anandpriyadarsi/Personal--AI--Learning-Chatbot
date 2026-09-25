@@ -284,7 +284,12 @@ class AnvayaNotesService:
         return view
 
     def edit_view(self, note_id):
-        row = self.repository.get_note(note_id)
+        try:
+            row = self.repository.get_note(note_id)
+        except AnvayaNotesNotFoundError:
+            raise
+        except AnvayaNotesRepositoryError as error:
+            raise AnvayaNotesUnavailableError("The note could not be opened.") from error
         return {
             "id": row["id"],
             "title": str(row.get("title") or ""),
@@ -298,7 +303,12 @@ class AnvayaNotesService:
         }
 
     def update_note(self, note_id, payload, uploads=()):
-        current = self.repository.get_note(note_id)
+        try:
+            current = self.repository.get_note(note_id)
+        except AnvayaNotesNotFoundError:
+            raise
+        except AnvayaNotesRepositoryError as error:
+            raise AnvayaNotesUnavailableError("The note could not be opened.") from error
         title = _text(payload.get("title"), limit=200)
         if not title:
             raise AnvayaNotesValidationError("Note name is required.")
