@@ -2934,3 +2934,26 @@ details[open] > .details-action::after { content: " −"; }
   }
 }
 
+.anvaya-note-editor-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .38rem;
+  margin-bottom: .45rem;
+}
+.anvaya-note-editor-toolbar button {
+  min-height: 1.9rem;
+  padding: .28rem .5rem;
+  border: 1px solid rgba(100,116,139,.26);
+  border-radius: .48rem;
+  background: var(--surface-muted);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: .64rem;
+  font-weight: 740;
+  cursor: pointer;
+}
+.anvaya-note-editor-toolbar button:hover {
+  border-color: rgba(129,140,248,.42);
+  color: #a3a1ff;
+}
+
