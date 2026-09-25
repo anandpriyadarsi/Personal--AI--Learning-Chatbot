@@ -47,7 +47,7 @@ class AnvayaNotesUnavailableError(AnvayaNotesError):
 
 
 def _utc_now():
-    return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+    return datetime.now(timezone.utc).isoformat(timespec="microseconds").replace("+00:00", "Z")
 
 
 def _text(value, *, limit):
@@ -90,7 +90,9 @@ def _validated_uploads(uploads):
         rule = _ALLOWED.get(suffix)
         if rule is None or not rule[1](raw):
             raise AnvayaNotesValidationError("Only valid PDF, PNG, JPG, or JPEG files are allowed.")
-        safe_name = Path(str(filename or "")).name[:220] or ("note" + suffix)
+        safe_name = Path(str(filename or "")).name
+        safe_name = re.sub(r"[^A-Za-z0-9._() \-]+", "_", safe_name).strip(" .")[:220]
+        safe_name = safe_name or ("note" + suffix)
         clean.append(
             {
                 "filename": safe_name,
