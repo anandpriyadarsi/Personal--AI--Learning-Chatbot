@@ -96,7 +96,12 @@ class AnvayaNotesRepository:
             return []
         note_id = _safe_id(note_id)
         target_dir = self.assets_root / note_id
-        target_dir.mkdir(parents=True, exist_ok=True)
+        if target_dir.exists() and target_dir.is_symlink():
+            raise AnvayaNotesRepositoryError("Notes asset directory is unsafe.")
+        try:
+            target_dir.mkdir(parents=True, exist_ok=True)
+        except OSError as error:
+            raise AnvayaNotesRepositoryError("Notes asset directory could not be created.") from error
         stored = []
         created_paths = []
         try:
@@ -106,7 +111,10 @@ class AnvayaNotesRepository:
                 stored_name = asset_id + suffix
                 target = target_dir / stored_name
                 payload = bytes(item["bytes"])
-                target.write_bytes(payload)
+                try:
+                    target.write_bytes(payload)
+                except OSError as error:
+                    raise AnvayaNotesRepositoryError("Note asset could not be saved.") from error
                 created_paths.append(target)
                 stored.append(
                     {
@@ -194,11 +202,14 @@ class AnvayaNotesRepository:
         if asset is None:
             raise AnvayaNotesNotFoundError("Asset was not found.")
         stored_name = Path(str(asset.get("stored_name") or "")).name
-        path = self.assets_root / _safe_id(note_id) / stored_name
+        note_dir = self.assets_root / _safe_id(note_id)
+        path = note_dir / stored_name
         try:
-            resolved_root = (self.assets_root / _safe_id(note_id)).resolve(strict=False)
+            if note_dir.is_symlink() or path.is_symlink():
+                raise AnvayaNotesNotFoundError("Asset was not found.")
+            resolved_root = note_dir.resolve(strict=False)
             resolved = path.resolve(strict=True)
-            if resolved.parent != resolved_root or resolved.is_symlink() or not resolved.is_file():
+            if resolved.parent != resolved_root or not resolved.is_file():
                 raise AnvayaNotesNotFoundError("Asset was not found.")
             payload = resolved.read_bytes()
         except (OSError, RuntimeError) as error:
