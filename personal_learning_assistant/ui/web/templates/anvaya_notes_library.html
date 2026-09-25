@@ -61,9 +61,13 @@
   {% for note in dashboard.cards %}
   <a class="anvaya-note-card-link" href="{{ url_for('web.anvaya_note_reader', note_id=note.id) }}" aria-label="Open {{ note.title }}">
     <article class="anvaya-note-card anvaya-note-card--{{ note.card_style }}">
-      {% if note.card_style == 'preview' and note.thumbnail_url %}
+      {% if note.card_style == 'preview' %}
       <div class="anvaya-note-card-preview">
-        <img src="{{ note.thumbnail_url }}" alt="" loading="lazy">
+        {% if note.thumbnail_url %}
+          <img src="{{ note.thumbnail_url }}" alt="" loading="lazy">
+        {% else %}
+          <span class="anvaya-note-preview-placeholder" aria-hidden="true">{% if note.note_kind == 'handwritten' %}PDF{% else %}NOTE{% endif %}</span>
+        {% endif %}
       </div>
       {% endif %}
       <div class="anvaya-note-card-body">
