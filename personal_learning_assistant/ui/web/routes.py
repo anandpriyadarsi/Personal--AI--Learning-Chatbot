@@ -316,6 +316,11 @@ def _notes_studio_template_service():
     return factory() if factory is not None else build_notes_studio_template_service()
 
 
+def _compat_factory_configured(name):
+    """Old Phase 7.5.15 Notes/Obsidian bridges run only when explicitly injected."""
+    return current_app.config.get(name) is not None
+
+
 def _legacy_notes_get_override_configured():
     """Preserve explicit Phase 7.5.11 test/host overrides without affecting production."""
     return (
@@ -1322,7 +1327,9 @@ def anvaya_note_file(note_id, asset_id):
 
 @web_blueprint.get("/notes/reconciliation")
 def notes_reconciliation():
-    """Show the non-destructive legacy/rich Notes Studio reconciliation preview."""
+    """Compatibility-only preview from the retired Obsidian-backed Notes bridge."""
+    if not _compat_factory_configured("NOTES_STUDIO_RECONCILIATION_SERVICE_FACTORY"):
+        return redirect(url_for("web.notes"), code=303)
     try:
         report = _notes_studio_reconciliation_service().report()
         return render_template(
@@ -1349,7 +1356,9 @@ def notes_reconciliation():
 
 @web_blueprint.post("/notes/lifecycle")
 def notes_lifecycle():
-    """Apply one bounded lifecycle or study action to a managed note."""
+    """Compatibility-only lifecycle command from the retired vault-backed Notes UI."""
+    if not _compat_factory_configured("NOTES_STUDIO_LIFECYCLE_SERVICE_FACTORY"):
+        return "This retired Notes lifecycle endpoint is unavailable.", 410
     try:
         result = _notes_studio_lifecycle_service().apply_action(
             note_id=request.form.get("note_id", ""),
@@ -1381,7 +1390,9 @@ def notes_lifecycle():
 
 @web_blueprint.get("/notes/trash")
 def notes_trash():
-    """Show recoverable managed notes without exposing note bodies."""
+    """Compatibility-only Trash view from the retired vault-backed Notes UI."""
+    if not _compat_factory_configured("NOTES_STUDIO_LIFECYCLE_SERVICE_FACTORY"):
+        return redirect(url_for("web.notes"), code=303)
     try:
         workspace = _notes_studio_lifecycle_service().trash_workspace()
         return render_template(
@@ -1404,7 +1415,9 @@ def notes_trash():
 
 @web_blueprint.post("/notes/restore")
 def notes_restore():
-    """Restore a trashed managed note to an explicit vault-relative destination."""
+    """Compatibility-only restore command from the retired vault-backed Notes UI."""
+    if not _compat_factory_configured("NOTES_STUDIO_LIFECYCLE_SERVICE_FACTORY"):
+        return "This retired Notes restore endpoint is unavailable.", 410
     try:
         result = _notes_studio_lifecycle_service().restore_note(
             note_id=request.form.get("note_id", ""),
@@ -1462,7 +1475,9 @@ def _render_notes_editor_error(view, message, status):
 
 @web_blueprint.get("/notes/new")
 def notes_new():
-    """Open a safe Notes Studio create form, optionally from a template."""
+    """Compatibility alias; production Notes creation uses the independent store."""
+    if not _compat_factory_configured("NOTES_STUDIO_EDITOR_SERVICE_FACTORY"):
+        return redirect(url_for("web.anvaya_notes_create"), code=303)
     try:
         editor = _notes_studio_editor_service().new_note_view(
             request.args.get("template", "", type=str)
@@ -1493,7 +1508,9 @@ def notes_new():
 
 @web_blueprint.post("/notes/new")
 def notes_new_create():
-    """Create a managed Markdown note through the Phase 5.4 command protocol."""
+    """Compatibility-only old vault-backed note creation."""
+    if not _compat_factory_configured("NOTES_STUDIO_EDITOR_SERVICE_FACTORY"):
+        return "The old vault-backed Notes creation endpoint is retired.", 410
     service = _notes_studio_editor_service()
     try:
         result = service.create_note(request.form)
@@ -1517,7 +1534,10 @@ def notes_new_create():
 
 @web_blueprint.get("/notes/edit")
 def notes_edit():
-    """Open an expected-hash editor for one managed Notes Studio note."""
+    """Compatibility-only old vault-backed note editor."""
+    if not _compat_factory_configured("NOTES_STUDIO_EDITOR_SERVICE_FACTORY"):
+        path = request.args.get("path", "", type=str)
+        return redirect(url_for("web.obsidian_note", path=path), code=303)
     try:
         editor = _notes_studio_editor_service().edit_view(
             request.args.get("path", "", type=str),
@@ -1545,7 +1565,9 @@ def notes_edit():
 
 @web_blueprint.post("/notes/edit")
 def notes_edit_save():
-    """Update one managed note with exact expected-hash conflict protection."""
+    """Compatibility-only old vault-backed note update."""
+    if not _compat_factory_configured("NOTES_STUDIO_EDITOR_SERVICE_FACTORY"):
+        return "The old vault-backed Notes editor is retired.", 410
     service = _notes_studio_editor_service()
     try:
         result = service.update_note(request.form)
@@ -1581,7 +1603,9 @@ def notes_edit_save():
 
 @web_blueprint.post("/notes/attachments")
 def notes_attachment_upload():
-    """Upload one safe raster attachment through the Notes Studio write protocol."""
+    """Compatibility-only old vault-backed attachment upload."""
+    if not _compat_factory_configured("NOTES_STUDIO_EDITOR_SERVICE_FACTORY"):
+        return "The old vault-backed Notes attachment endpoint is retired.", 410
     service = _notes_studio_editor_service()
     file_item = request.files.get("file")
     filename = "" if file_item is None else str(file_item.filename or "")
@@ -1613,7 +1637,9 @@ def notes_attachment_upload():
 
 @web_blueprint.get("/notes/asset")
 def notes_asset():
-    """Serve one approved read-only image from the configured Notes Studio vault."""
+    """Compatibility-only old vault-backed Notes asset."""
+    if not _compat_factory_configured("NOTES_STUDIO_ASSET_SERVICE_FACTORY"):
+        return "The old vault-backed Notes asset endpoint is retired.", 410
     try:
         payload = _notes_studio_asset_service().read_asset(
             request.args.get("path", "", type=str)
@@ -1664,7 +1690,9 @@ def notes_asset():
 
 @web_blueprint.get("/notes/templates")
 def notes_templates():
-    """Render the five read-only academic Notes Studio templates."""
+    """Compatibility alias; production templates are visual card styles."""
+    if not _compat_factory_configured("NOTES_STUDIO_TEMPLATE_SERVICE_FACTORY"):
+        return redirect(url_for("web.anvaya_notes_create"), code=303)
     try:
         templates = _notes_studio_template_service().list_templates()
         return render_template(
@@ -1691,7 +1719,9 @@ def notes_templates():
 
 @web_blueprint.get("/notes/templates/<template_id>")
 def notes_template_preview(template_id):
-    """Preview one deterministic Markdown scaffold without creating a note."""
+    """Compatibility-only preview for retired Markdown scaffolds."""
+    if not _compat_factory_configured("NOTES_STUDIO_TEMPLATE_SERVICE_FACTORY"):
+        return redirect(url_for("web.anvaya_notes_create"), code=303)
     try:
         template = _notes_studio_template_service().template_view(template_id)
         return render_template(
@@ -1732,7 +1762,15 @@ def notes_template_preview(template_id):
 
 @web_blueprint.get("/notes/note")
 def notes_reader():
-    """Render one full canonical Markdown note through the safe Notes Studio reader."""
+    """Compatibility alias; vault Markdown belongs to the Obsidian product."""
+    if not _compat_factory_configured("NOTES_STUDIO_READER_SERVICE_FACTORY"):
+        return redirect(
+            url_for(
+                "web.obsidian_note",
+                path=request.args.get("path", "", type=str),
+            ),
+            code=303,
+        )
     try:
         note = _notes_studio_reader_service().reader_view(
             request.args.get("path", "", type=str)
