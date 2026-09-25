@@ -51,8 +51,18 @@
     </label>
     <label class="form-field form-field-full anvaya-native-body-field">
       <span>Full note</span>
-      <textarea name="body" rows="26" spellcheck="true" placeholder="Write your note here...">{{ editor.body }}</textarea>
-      <small>Supports Markdown, tables, math, callouts, ~~~flowchart blocks and ~~~diagram blocks.</small>
+      <div class="anvaya-note-editor-toolbar" aria-label="Quick formatting">
+        <button type="button" data-note-insert="## Heading\n">Heading</button>
+        <button type="button" data-note-wrap="**">Bold</button>
+        <button type="button" data-note-insert="- Item\n- Item\n">List</button>
+        <button type="button" data-note-insert="| Column 1 | Column 2 |\n| --- | --- |\n| Value | Value |\n">Table</button>
+        <button type="button" data-note-insert="> [!IMPORTANT] Key idea\n> Write the important point here.\n">Callout</button>
+        <button type="button" data-note-insert="$\nA = LU\n$\n">Equation</button>
+        <button type="button" data-note-insert="~~~flowchart\nStart -> Step -> Result\n~~~\n">Flowchart</button>
+        <button type="button" data-note-insert="~~~diagram\nConcept -> Idea A\nConcept -> Idea B\n~~~\n">Diagram</button>
+      </div>
+      <textarea id="anvaya-note-body" name="body" rows="26" spellcheck="true" placeholder="Write your note here...">{{ editor.body }}</textarea>
+      <small>Use the quick buttons for headings, equations, tables, flowcharts and diagrams. You can still type Markdown directly.</small>
     </label>
     <label class="form-field form-field-full">
       <span>Add images / PDF <small>(optional)</small></span>
@@ -66,3 +76,29 @@
   </div>
 </form>
 {% endblock %}
+
+<script>
+(() => {
+  const textarea = document.getElementById("anvaya-note-body");
+  if (!textarea) return;
+
+  const replaceSelection = (before, after = "") => {
+    const start = textarea.selectionStart ?? textarea.value.length;
+    const end = textarea.selectionEnd ?? start;
+    const selected = textarea.value.slice(start, end);
+    textarea.setRangeText(before + selected + after, start, end, "end");
+    textarea.focus();
+  };
+
+  document.querySelectorAll("[data-note-insert]").forEach((button) => {
+    button.addEventListener("click", () => replaceSelection(button.dataset.noteInsert || ""));
+  });
+
+  document.querySelectorAll("[data-note-wrap]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const token = button.dataset.noteWrap || "";
+      replaceSelection(token, token);
+    });
+  });
+})();
+</script>
