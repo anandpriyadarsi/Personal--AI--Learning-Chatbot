@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 import json
 from pathlib import Path
 
@@ -354,8 +355,8 @@ def test_handwritten_upload_route_accepts_multiple_pages():
             "key_points": "Principle",
             "card_style": "preview",
             "files": [
-                (pytest.importorskip("io").BytesIO(b"%PDF-1.4\n%%EOF"), "aas.pdf"),
-                (pytest.importorskip("io").BytesIO(b"\x89PNG\r\n\x1a\n123"), "p2.png"),
+                (io.BytesIO(b"%PDF-1.4\n%%EOF"), "aas.pdf"),
+                (io.BytesIO(b"\x89PNG\r\n\x1a\n123"), "p2.png"),
             ],
         },
         content_type="multipart/form-data",
@@ -386,6 +387,30 @@ def test_native_asset_route_is_id_scoped():
     assert response.data == b"asset"
     assert response.mimetype == "image/png"
     assert service.calls == [("asset", "n1", "a1")]
+
+
+def test_retired_obsidian_backed_notes_routes_are_not_production_notes():
+    from personal_learning_assistant.ui.web import create_app
+
+    client = create_app({"TESTING": True}).test_client()
+
+    old_new = client.get("/notes/new")
+    old_reader = client.get("/notes/note?path=Math%2FLU.md")
+    old_templates = client.get("/notes/templates")
+
+    assert old_new.status_code == 303
+    assert old_new.headers["Location"].endswith("/notes/create")
+    assert old_reader.status_code == 303
+    assert "/obsidian/note" in old_reader.headers["Location"]
+    assert old_templates.status_code == 303
+    assert old_templates.headers["Location"].endswith("/notes/create")
+
+
+def test_personal_notes_runtime_files_are_gitignored():
+    root = Path(__file__).resolve().parents[1]
+    ignore = (root / ".gitignore").read_text(encoding="utf-8")
+    assert "data/anvaya_notes.json" in ignore
+    assert "data/anvaya_notes_assets/" in ignore
 
 
 def test_native_notes_source_has_no_obsidian_scanner_or_tutor_dependency():
