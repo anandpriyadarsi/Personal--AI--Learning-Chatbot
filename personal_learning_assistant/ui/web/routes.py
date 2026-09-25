@@ -1192,7 +1192,7 @@ def anvaya_notes_upload():
     return render_template(
         "anvaya_notes_upload.html",
         active_page="notes",
-        form={"title": "", "course": "", "key_points": "", "card_style": "preview"},
+        form={"title": "", "course": "", "key_points": "", "card_style": "iris"},
         error_message="",
     )
 
