@@ -30,7 +30,7 @@
       <div class="anvaya-card-style-options">
         {% for value, label in (('iris','IRIS Academic'),('preview','Preview Card'),('square','Minimal Square')) %}
         <label class="anvaya-card-style-option">
-          <input type="radio" name="card_style" value="{{ value }}" {% if form.card_style == value or (not form.card_style and value == 'preview') %}checked{% endif %}>
+          <input type="radio" name="card_style" value="{{ value }}" {% if form.card_style == value or (not form.card_style and value == 'iris') %}checked{% endif %}>
           <span class="anvaya-card-style-mini anvaya-note-card--{{ value }}"><strong>{{ label }}</strong></span>
         </label>
         {% endfor %}
