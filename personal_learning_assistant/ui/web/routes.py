@@ -12,6 +12,16 @@ from flask import (
     url_for,
 )
 
+from personal_learning_assistant.repositories.json.anvaya_notes_repository import (
+    AnvayaNotesConflictError,
+    AnvayaNotesNotFoundError,
+)
+from personal_learning_assistant.services.anvaya_notes_service import (
+    AnvayaNotesUnavailableError,
+    AnvayaNotesValidationError,
+    build_anvaya_notes_service,
+)
+
 from personal_learning_assistant.services.academic_agent_web_service import (
     AcademicAgentWebNotFoundError,
     AcademicAgentWebUnavailableError,
@@ -256,6 +266,11 @@ def _academic_agent_service():
         or build_academic_agent_web_service
     )
     return factory()
+
+
+def _anvaya_notes_service():
+    factory = current_app.config.get("ANVAYA_NOTES_SERVICE_FACTORY")
+    return factory() if factory is not None else build_anvaya_notes_service()
 
 
 def _notes_resources_service():
@@ -1016,7 +1031,7 @@ def calendar_assessment_schedule(assessment_id):
 
 @web_blueprint.get("/notes")
 def notes():
-    """Render the visual, read-only Notes Studio library."""
+    """Render ANVAYA personal Notes, independent from the Obsidian workspace."""
     if _legacy_notes_get_override_configured():
         query = {
             "search": request.args.get("q", "", type=str),
@@ -1032,30 +1047,277 @@ def notes():
             error_message="",
         )
 
+    # Preserve Phase 7.5.15 injected-library tests/hosts without making the
+    # old Obsidian-backed reader the production default.
+    if current_app.config.get("NOTES_STUDIO_LIBRARY_SERVICE_FACTORY") is not None:
+        query = {
+            "search": request.args.get("q", "", type=str),
+            "course": request.args.get("course", "", type=str),
+            "note_type": request.args.get("type", "", type=str),
+            "tag": request.args.get("tag", "", type=str),
+            "view": request.args.get("view", "active", type=str),
+            "pinned": request.args.get("pinned", "", type=str),
+        }
+        try:
+            workspace = _notes_studio_library_service().workspace(**query)
+        except Exception as error:
+            current_app.logger.warning(
+                "Compatibility Notes Studio library unavailable (%s).",
+                type(error).__name__,
+            )
+            workspace = unavailable_notes_studio_library()
+            workspace["query"] = dict(query)
+        return render_template(
+            "notes_library.html",
+            active_page="notes",
+            dashboard=workspace,
+            error_message="",
+        )
+
     query = {
         "search": request.args.get("q", "", type=str),
         "course": request.args.get("course", "", type=str),
-        "note_type": request.args.get("type", "", type=str),
-        "tag": request.args.get("tag", "", type=str),
-        "view": request.args.get("view", "active", type=str),
-        "pinned": request.args.get("pinned", "", type=str),
+        "kind": request.args.get("kind", "", type=str),
     }
     try:
-        workspace = _notes_studio_library_service().workspace(**query)
+        workspace = _anvaya_notes_service().library(**query)
+        error_message = ""
     except Exception as error:
         current_app.logger.warning(
-            "Notes Studio library unavailable (%s).",
+            "ANVAYA personal Notes unavailable (%s).",
             type(error).__name__,
         )
-        workspace = unavailable_notes_studio_library()
-        workspace["query"] = dict(query)
+        workspace = {
+            "available": False,
+            "cards": [],
+            "summary": {"total": 0, "typed": 0, "handwritten": 0},
+            "query": dict(query),
+            "filter_options": {"courses": [], "kinds": []},
+        }
+        error_message = "Your personal Notes library is temporarily unavailable."
 
     return render_template(
-        "notes_library.html",
+        "anvaya_notes_library.html",
         active_page="notes",
         dashboard=workspace,
+        error_message=error_message,
+    )
+
+
+def _native_note_form_payload():
+    return {
+        "title": request.form.get("title", ""),
+        "course": request.form.get("course", ""),
+        "key_points": request.form.get("key_points", ""),
+        "card_style": request.form.get("card_style", "iris"),
+        "body": request.form.get("body", ""),
+    }
+
+
+def _native_note_uploads():
+    uploads = []
+    for item in request.files.getlist("files"):
+        if item is None or not item.filename:
+            continue
+        uploads.append((str(item.filename), item.read(25 * 1024 * 1024 + 1)))
+    return tuple(uploads)
+
+
+def _native_note_editor_view(payload=None, *, note_id=""):
+    payload = dict(payload or {})
+    return {
+        "id": str(note_id or ""),
+        "title": str(payload.get("title") or ""),
+        "course": str(payload.get("course") or ""),
+        "card_style": str(payload.get("card_style") or "iris"),
+        "key_points_text": str(payload.get("key_points") or ""),
+        "body": str(payload.get("body") or ""),
+        "updated_at": str(payload.get("expected_updated_at") or ""),
+        "assets": [],
+    }
+
+
+@web_blueprint.get("/notes/create")
+def anvaya_notes_create():
+    return render_template(
+        "anvaya_notes_create.html",
+        active_page="notes",
+    )
+
+
+@web_blueprint.get("/notes/create/typed")
+def anvaya_notes_typed():
+    return render_template(
+        "anvaya_notes_editor.html",
+        active_page="notes",
+        editor=_native_note_editor_view(),
         error_message="",
     )
+
+
+@web_blueprint.post("/notes/create/typed")
+def anvaya_notes_typed_create():
+    service = _anvaya_notes_service()
+    payload = _native_note_form_payload()
+    try:
+        result = service.create_typed_note(payload, _native_note_uploads())
+        return redirect(
+            url_for("web.anvaya_note_reader", note_id=result["id"]),
+            code=303,
+        )
+    except AnvayaNotesValidationError:
+        return (
+            render_template(
+                "anvaya_notes_editor.html",
+                active_page="notes",
+                editor=_native_note_editor_view(payload),
+                error_message="Check the note name, key points, and attached files.",
+            ),
+            400,
+        )
+    except AnvayaNotesUnavailableError:
+        return (
+            render_template(
+                "anvaya_notes_editor.html",
+                active_page="notes",
+                editor=_native_note_editor_view(payload),
+                error_message="The note could not be saved. Existing Notes were not changed.",
+            ),
+            503,
+        )
+
+
+@web_blueprint.get("/notes/create/upload")
+def anvaya_notes_upload():
+    return render_template(
+        "anvaya_notes_upload.html",
+        active_page="notes",
+        form={"title": "", "course": "", "key_points": "", "card_style": "preview"},
+        error_message="",
+    )
+
+
+@web_blueprint.post("/notes/create/upload")
+def anvaya_notes_upload_create():
+    service = _anvaya_notes_service()
+    payload = _native_note_form_payload()
+    try:
+        result = service.create_handwritten_note(payload, _native_note_uploads())
+        return redirect(
+            url_for("web.anvaya_note_reader", note_id=result["id"]),
+            code=303,
+        )
+    except AnvayaNotesValidationError:
+        return (
+            render_template(
+                "anvaya_notes_upload.html",
+                active_page="notes",
+                form=payload,
+                error_message="Choose a note name and valid PDF/JPG/PNG pages.",
+            ),
+            400,
+        )
+    except AnvayaNotesUnavailableError:
+        return (
+            render_template(
+                "anvaya_notes_upload.html",
+                active_page="notes",
+                form=payload,
+                error_message="The handwritten note could not be saved.",
+            ),
+            503,
+        )
+
+
+@web_blueprint.get("/notes/view/<note_id>")
+def anvaya_note_reader(note_id):
+    try:
+        note = _anvaya_notes_service().reader(note_id)
+        return render_template(
+            "anvaya_notes_reader.html",
+            active_page="notes",
+            note=note,
+            error_message="",
+        )
+    except AnvayaNotesNotFoundError:
+        return (
+            render_template(
+                "anvaya_notes_reader.html",
+                active_page="notes",
+                note=None,
+                error_message="That personal note was not found.",
+            ),
+            404,
+        )
+    except AnvayaNotesUnavailableError:
+        return (
+            render_template(
+                "anvaya_notes_reader.html",
+                active_page="notes",
+                note=None,
+                error_message="That personal note could not be read safely.",
+            ),
+            503,
+        )
+
+
+@web_blueprint.get("/notes/edit/<note_id>")
+def anvaya_note_edit(note_id):
+    try:
+        editor = _anvaya_notes_service().edit_view(note_id)
+        return render_template(
+            "anvaya_notes_editor.html",
+            active_page="notes",
+            editor=editor,
+            error_message="",
+        )
+    except AnvayaNotesNotFoundError:
+        return "That personal note was not found.", 404
+    except AnvayaNotesUnavailableError:
+        return "That personal note is temporarily unavailable.", 503
+
+
+@web_blueprint.post("/notes/edit/<note_id>")
+def anvaya_note_edit_save(note_id):
+    service = _anvaya_notes_service()
+    payload = _native_note_form_payload()
+    payload["expected_updated_at"] = request.form.get("expected_updated_at", "")
+    try:
+        result = service.update_note(note_id, payload, _native_note_uploads())
+        return redirect(
+            url_for("web.anvaya_note_reader", note_id=result["id"]),
+            code=303,
+        )
+    except AnvayaNotesConflictError:
+        return "This note changed since you opened it. Refresh before saving.", 409
+    except AnvayaNotesNotFoundError:
+        return "That personal note was not found.", 404
+    except AnvayaNotesValidationError:
+        return "Check the note fields and attached files.", 400
+    except AnvayaNotesUnavailableError:
+        return "The personal note could not be saved.", 503
+
+
+@web_blueprint.get("/notes/file/<note_id>/<asset_id>")
+def anvaya_note_file(note_id, asset_id):
+    try:
+        item = _anvaya_notes_service().read_asset(note_id, asset_id)
+        response = current_app.response_class(
+            item["bytes"],
+            status=200,
+            mimetype=str(item["mimetype"]),
+        )
+        response.headers["Content-Disposition"] = 'inline; filename="{}"'.format(
+            str(item["filename"]).replace('"', "")
+        )
+        response.headers["Cache-Control"] = "private, max-age=300"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["Content-Security-Policy"] = "default-src 'none'; img-src 'self'; style-src 'none'"
+        return response
+    except AnvayaNotesNotFoundError:
+        return "Note file not found.", 404
+    except AnvayaNotesUnavailableError:
+        return "Note file temporarily unavailable.", 503
 
 
 @web_blueprint.get("/notes/reconciliation")
