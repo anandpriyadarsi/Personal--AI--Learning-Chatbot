@@ -1,4 +1,4 @@
-param([string]$Python = ".\\.venv\\Scripts\\python.exe")
+param([string]$Python = ".\.venv\Scripts\python.exe")
 $ErrorActionPreference = "Stop"
 $ExpectedBranch = "phase7.5.15.11/inline-note-media"
 $Baseline = "efd5bbb00e9d4561051b2baa0d3608fc3f79f31e"
@@ -68,7 +68,7 @@ $Allowed=@(
 $changed=@(
   git diff --name-only $Range
   git status --porcelain=v1 -uall | ForEach-Object {
-    if($_.Length -ge 4){$_.Substring(3).Trim().Replace("\\","/")}
+    if($_.Length -ge 4){$_.Substring(3).Trim().Replace("\","/")}
   }
 )
 $unexpected=@($changed | Where-Object {$_ -and $_ -notin $Allowed} | Sort-Object -Unique)
@@ -77,10 +77,10 @@ if($unexpected.Count){
   Stop-Gate "15.11 diff escaped the approved inline-media scope."
 }
 
-$DataBefore=Hash-Tree ".\\data"
-$RetrievalBefore=Hash-Tree ".\\.phase5_retrieval"
-$TutorBefore=Hash-Tree ".\\personal_learning_assistant\\tutor"
-$MigrationsBefore=Hash-Tree ".\\personal_learning_assistant\\repositories\\sqlite\\migrations"
+$DataBefore=Hash-Tree ".\data"
+$RetrievalBefore=Hash-Tree ".\.phase5_retrieval"
+$TutorBefore=Hash-Tree ".\personal_learning_assistant\tutor"
+$MigrationsBefore=Hash-Tree ".\personal_learning_assistant\repositories\sqlite\migrations"
 
 $VaultHashScript=@'
 from pathlib import Path
@@ -158,10 +158,10 @@ foreach($required in @(".anvaya-inline-media",".anvaya-media-width-70",".anvaya-
   if(-not $css.Contains($required)){Stop-Gate "Inline media presentation CSS missing: $required"}
 }
 
-Assert-Same $DataBefore (Hash-Tree ".\\data") "Production data"
-Assert-Same $RetrievalBefore (Hash-Tree ".\\.phase5_retrieval") "Retrieval state"
-Assert-Same $TutorBefore (Hash-Tree ".\\personal_learning_assistant\\tutor") "Tutor code"
-Assert-Same $MigrationsBefore (Hash-Tree ".\\personal_learning_assistant\\repositories\\sqlite\\migrations") "SQLite migrations"
+Assert-Same $DataBefore (Hash-Tree ".\data") "Production data"
+Assert-Same $RetrievalBefore (Hash-Tree ".\.phase5_retrieval") "Retrieval state"
+Assert-Same $TutorBefore (Hash-Tree ".\personal_learning_assistant\tutor") "Tutor code"
+Assert-Same $MigrationsBefore (Hash-Tree ".\personal_learning_assistant\repositories\sqlite\migrations") "SQLite migrations"
 $VaultAfter=(& $Py $tmp).Trim()
 Remove-Item $tmp -Force -ErrorAction SilentlyContinue
 if($VaultBefore -ne $VaultAfter){Stop-Gate "Configured Obsidian vault changed during inline-media validation."}
