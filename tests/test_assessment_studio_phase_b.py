@@ -374,6 +374,24 @@ def test_review_required_question_can_be_explicitly_confirmed_and_edited(tmp_pat
     assert service.review(batch["id"])["can_approve"] is True
 
 
+def test_non_subjective_segmentation_is_rejected(tmp_path):
+    from personal_learning_assistant.services.assessment_package_service import (
+        AssessmentPackageService,
+        AssessmentPackageValidationError,
+    )
+
+    service = AssessmentPackageService(_database(tmp_path))
+    batch = service.stage_upload("quiz.json", _raw())
+    questions = list(service.review(batch["id"])["questions"])
+    mcq = questions[0]
+
+    with pytest.raises(AssessmentPackageValidationError, match="Only subjective"):
+        service.split(mcq["id"], "which factor")
+
+    with pytest.raises(AssessmentPackageValidationError, match="Only adjacent subjective"):
+        service.merge_next(mcq["id"])
+
+
 def test_split_merge_reorder_and_remove_only_change_staging(tmp_path):
     from personal_learning_assistant.services.assessment_package_service import (
         AssessmentPackageService,
