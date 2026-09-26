@@ -39,6 +39,14 @@ from personal_learning_assistant.services.assessment_studio_service import (
     AssessmentStudioValidationError,
     build_assessment_studio_service,
 )
+from personal_learning_assistant.services.assessment_package_service import (
+    MAX_PACKAGE_BYTES,
+    AssessmentPackageConflictError,
+    AssessmentPackageNotFoundError,
+    AssessmentPackageUnavailableError,
+    AssessmentPackageValidationError,
+    build_assessment_package_service,
+)
 from personal_learning_assistant.services.calendar_grades_dashboard_service import (
     load_calendar_grades_dashboard,
     unavailable_calendar_grades_dashboard,
@@ -188,6 +196,21 @@ def _assessment_catalogue():
 def _assessment_studio_service():
     factory = current_app.config.get("ASSESSMENT_STUDIO_SERVICE_FACTORY")
     return factory() if factory is not None else build_assessment_studio_service()
+
+
+def _assessment_package_service():
+    factory = current_app.config.get("ASSESSMENT_PACKAGE_SERVICE_FACTORY")
+    return factory() if factory is not None else build_assessment_package_service()
+
+
+def _assessment_package_error_status(error):
+    if isinstance(error, AssessmentPackageValidationError):
+        return 400
+    if isinstance(error, AssessmentPackageNotFoundError):
+        return 404
+    if isinstance(error, AssessmentPackageConflictError):
+        return 409
+    return 503
 
 
 def _unavailable_assessment_studio():
@@ -965,6 +988,333 @@ def assessment_template_reactivate(template_id):
         )
     except Exception as error:
         return str(error), _assessment_studio_error_status(error)
+
+
+@web_blueprint.get("/assessments/import")
+def assessment_import():
+    """List staged packages and render the explicit package upload form."""
+    try:
+        workspace = _assessment_package_service().workspace()
+        return render_template(
+            "assessment_import.html",
+            active_page="assessments",
+            workspace=workspace,
+            error_message="",
+        )
+    except Exception as error:
+        return (
+            render_template(
+                "assessment_import.html",
+                active_page="assessments",
+                workspace={
+                    "available": False,
+                    "batches": (),
+                    "schema": "anvaya.assessment-package",
+                    "version": 1,
+                },
+                error_message=str(error),
+            ),
+            _assessment_package_error_status(error),
+        )
+
+
+@web_blueprint.post("/assessments/import")
+def assessment_import_create():
+    """Validate and stage one external ANVAYA Assessment Package."""
+    service = _assessment_package_service()
+    upload = request.files.get("package")
+    try:
+        if upload is None or not upload.filename:
+            raise AssessmentPackageValidationError(
+                "Choose an ANVAYA Assessment Package JSON file."
+            )
+        item = service.stage_upload(
+            upload.filename,
+            upload.read(MAX_PACKAGE_BYTES + 1),
+        )
+        return redirect(
+            url_for("web.assessment_import_review", batch_id=item["id"], staged="1"),
+            code=303,
+        )
+    except Exception as error:
+        try:
+            workspace = service.workspace()
+        except Exception:
+            workspace = {
+                "available": False,
+                "batches": (),
+                "schema": "anvaya.assessment-package",
+                "version": 1,
+            }
+        return (
+            render_template(
+                "assessment_import.html",
+                active_page="assessments",
+                workspace=workspace,
+                error_message=str(error),
+            ),
+            _assessment_package_error_status(error),
+        )
+
+
+@web_blueprint.get("/assessments/import/<batch_id>/review")
+def assessment_import_review(batch_id):
+    try:
+        batch = _assessment_package_service().review(batch_id)
+        notice = ""
+        if request.args.get("staged") == "1":
+            notice = "Package validated and staged. Review it before approval."
+        elif request.args.get("saved") == "1":
+            notice = "Review changes saved."
+        elif request.args.get("approved") == "1":
+            notice = "Package approved and committed as a canonical assessment."
+        elif request.args.get("rejected") == "1":
+            notice = "Package rejected. No canonical assessment was created."
+        return render_template(
+            "assessment_import_review.html",
+            active_page="assessments",
+            batch=batch,
+            error_message="",
+            notice_message=notice,
+        )
+    except Exception as error:
+        return str(error), _assessment_package_error_status(error)
+
+
+@web_blueprint.post("/assessments/import/<batch_id>/metadata")
+def assessment_import_metadata(batch_id):
+    service = _assessment_package_service()
+    try:
+        service.update_metadata(
+            batch_id,
+            {
+                "title": request.form.get("title", ""),
+                "assessment_type": request.form.get("assessment_type", ""),
+                "mode": request.form.get("mode", ""),
+                "duration_minutes": request.form.get("duration_minutes", ""),
+                "total_marks": request.form.get("total_marks", ""),
+                "instructions_text": request.form.get("instructions_text", ""),
+            },
+        )
+        return redirect(
+            url_for("web.assessment_import_review", batch_id=batch_id, saved="1"),
+            code=303,
+        )
+    except Exception as error:
+        try:
+            batch = service.review(batch_id)
+            return (
+                render_template(
+                    "assessment_import_review.html",
+                    active_page="assessments",
+                    batch=batch,
+                    error_message=str(error),
+                    notice_message="",
+                ),
+                _assessment_package_error_status(error),
+            )
+        except Exception:
+            return str(error), _assessment_package_error_status(error)
+
+
+@web_blueprint.get("/assessments/import/<batch_id>/questions/<question_id>/edit")
+def assessment_import_question_edit(batch_id, question_id):
+    try:
+        editor = _assessment_package_service().question_editor(question_id)
+        if str(editor["batch"]["id"]) != str(batch_id):
+            raise AssessmentPackageNotFoundError("Question does not belong to this import.")
+        return render_template(
+            "assessment_import_question_edit.html",
+            active_page="assessments",
+            editor=editor,
+            error_message="",
+        )
+    except Exception as error:
+        return str(error), _assessment_package_error_status(error)
+
+
+@web_blueprint.post("/assessments/import/<batch_id>/questions/<question_id>/edit")
+def assessment_import_question_update(batch_id, question_id):
+    service = _assessment_package_service()
+    payload = {
+        "question_number": request.form.get("question_number", ""),
+        "section_label": request.form.get("section_label", ""),
+        "question_type": request.form.get("question_type", ""),
+        "question_text": request.form.get("question_text", ""),
+        "marks": request.form.get("marks", ""),
+        "negative_marks": request.form.get("negative_marks", ""),
+        "scoring_policy": request.form.get("scoring_policy", ""),
+        "difficulty": request.form.get("difficulty", ""),
+        "estimated_minutes": request.form.get("estimated_minutes", ""),
+        "selected_topic_id": request.form.get("selected_topic_id", ""),
+        "chapter_label": request.form.get("chapter_label", ""),
+        "raw_topic_label": request.form.get("raw_topic_label", ""),
+        "subtopic_label": request.form.get("subtopic_label", ""),
+        "concepts": request.form.get("concepts", ""),
+        "expected_method": request.form.get("expected_method", ""),
+        "solution_text": request.form.get("solution_text", ""),
+        "rubric_text": request.form.get("rubric_text", ""),
+        "source_kind": request.form.get("source_kind", ""),
+        "source_label": request.form.get("source_label", ""),
+        "source_page": request.form.get("source_page", ""),
+        "source_locator": request.form.get("source_locator", ""),
+        "accepted_answers": request.form.get("accepted_answers", ""),
+        "correct_option_ids": request.form.getlist("correct_option_ids"),
+        "option_texts": request.form.getlist("option_text"),
+        "review_complete": request.form.get("review_complete") == "1",
+    }
+    try:
+        editor = service.question_editor(question_id)
+        if str(editor["batch"]["id"]) != str(batch_id):
+            raise AssessmentPackageNotFoundError("Question does not belong to this import.")
+        service.update_question(question_id, payload)
+        return redirect(
+            url_for("web.assessment_import_review", batch_id=batch_id, saved="1"),
+            code=303,
+        )
+    except Exception as error:
+        try:
+            editor = service.question_editor(question_id)
+            return (
+                render_template(
+                    "assessment_import_question_edit.html",
+                    active_page="assessments",
+                    editor=editor,
+                    error_message=str(error),
+                ),
+                _assessment_package_error_status(error),
+            )
+        except Exception:
+            return str(error), _assessment_package_error_status(error)
+
+
+@web_blueprint.post("/assessments/import/<batch_id>/questions/<question_id>/reorder")
+def assessment_import_question_reorder(batch_id, question_id):
+    try:
+        editor = _assessment_package_service().question_editor(question_id)
+        if str(editor["batch"]["id"]) != str(batch_id):
+            raise AssessmentPackageNotFoundError("Question does not belong to this import.")
+        _assessment_package_service().reorder(
+            question_id, request.form.get("direction", "")
+        )
+        return redirect(
+            url_for("web.assessment_import_review", batch_id=batch_id, saved="1"),
+            code=303,
+        )
+    except Exception as error:
+        return str(error), _assessment_package_error_status(error)
+
+
+@web_blueprint.get("/assessments/import/<batch_id>/questions/<question_id>/split")
+def assessment_import_question_split(batch_id, question_id):
+    try:
+        editor = _assessment_package_service().question_editor(question_id)
+        if str(editor["batch"]["id"]) != str(batch_id):
+            raise AssessmentPackageNotFoundError("Question does not belong to this import.")
+        return render_template(
+            "assessment_import_split.html",
+            active_page="assessments",
+            editor=editor,
+            error_message="",
+        )
+    except Exception as error:
+        return str(error), _assessment_package_error_status(error)
+
+
+@web_blueprint.post("/assessments/import/<batch_id>/questions/<question_id>/split")
+def assessment_import_question_split_create(batch_id, question_id):
+    service = _assessment_package_service()
+    try:
+        editor = service.question_editor(question_id)
+        if str(editor["batch"]["id"]) != str(batch_id):
+            raise AssessmentPackageNotFoundError("Question does not belong to this import.")
+        service.split(question_id, request.form.get("marker", ""))
+        return redirect(
+            url_for("web.assessment_import_review", batch_id=batch_id, saved="1"),
+            code=303,
+        )
+    except Exception as error:
+        try:
+            editor = service.question_editor(question_id)
+            return (
+                render_template(
+                    "assessment_import_split.html",
+                    active_page="assessments",
+                    editor=editor,
+                    error_message=str(error),
+                ),
+                _assessment_package_error_status(error),
+            )
+        except Exception:
+            return str(error), _assessment_package_error_status(error)
+
+
+@web_blueprint.post("/assessments/import/<batch_id>/questions/<question_id>/merge-next")
+def assessment_import_question_merge(batch_id, question_id):
+    try:
+        editor = _assessment_package_service().question_editor(question_id)
+        if str(editor["batch"]["id"]) != str(batch_id):
+            raise AssessmentPackageNotFoundError("Question does not belong to this import.")
+        _assessment_package_service().merge_next(question_id)
+        return redirect(
+            url_for("web.assessment_import_review", batch_id=batch_id, saved="1"),
+            code=303,
+        )
+    except Exception as error:
+        return str(error), _assessment_package_error_status(error)
+
+
+@web_blueprint.post("/assessments/import/<batch_id>/questions/<question_id>/remove")
+def assessment_import_question_remove(batch_id, question_id):
+    try:
+        editor = _assessment_package_service().question_editor(question_id)
+        if str(editor["batch"]["id"]) != str(batch_id):
+            raise AssessmentPackageNotFoundError("Question does not belong to this import.")
+        _assessment_package_service().remove(question_id)
+        return redirect(
+            url_for("web.assessment_import_review", batch_id=batch_id, saved="1"),
+            code=303,
+        )
+    except Exception as error:
+        return str(error), _assessment_package_error_status(error)
+
+
+@web_blueprint.post("/assessments/import/<batch_id>/approve")
+def assessment_import_approve(batch_id):
+    service = _assessment_package_service()
+    try:
+        service.approve(batch_id)
+        return redirect(
+            url_for("web.assessment_import_review", batch_id=batch_id, approved="1"),
+            code=303,
+        )
+    except Exception as error:
+        try:
+            batch = service.review(batch_id)
+            return (
+                render_template(
+                    "assessment_import_review.html",
+                    active_page="assessments",
+                    batch=batch,
+                    error_message=str(error),
+                    notice_message="",
+                ),
+                _assessment_package_error_status(error),
+            )
+        except Exception:
+            return str(error), _assessment_package_error_status(error)
+
+
+@web_blueprint.post("/assessments/import/<batch_id>/reject")
+def assessment_import_reject(batch_id):
+    try:
+        _assessment_package_service().reject(batch_id)
+        return redirect(
+            url_for("web.assessment_import_review", batch_id=batch_id, rejected="1"),
+            code=303,
+        )
+    except Exception as error:
+        return str(error), _assessment_package_error_status(error)
 
 
 @web_blueprint.get("/planning")
