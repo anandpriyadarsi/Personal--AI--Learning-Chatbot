@@ -42,7 +42,7 @@ CREATE TABLE assessment_recovery_recommendations (
     suggested_minutes INTEGER
         CHECK (suggested_minutes IS NULL OR suggested_minutes BETWEEN 0 AND 1440),
     status TEXT NOT NULL DEFAULT 'pending'
-        CHECK (status IN ('pending', 'applied', 'rejected', 'superseded')),
+        CHECK (status IN ('pending', 'accepted', 'applied', 'rejected', 'superseded')),
     planner_task_id TEXT
         REFERENCES planner_tasks(id) ON DELETE RESTRICT,
     applied_payload_json TEXT NOT NULL DEFAULT '{}',
@@ -50,6 +50,7 @@ CREATE TABLE assessment_recovery_recommendations (
     revision INTEGER NOT NULL DEFAULT 1 CHECK (revision > 0),
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
+    accepted_at TEXT,
     applied_at TEXT,
     rejected_at TEXT,
     superseded_at TEXT
@@ -74,6 +75,7 @@ CREATE TABLE assessment_recovery_recommendation_events (
             event_type IN (
                 'generated',
                 'superseded',
+                'accepted',
                 'applied_to_planner',
                 'rejected'
             )
