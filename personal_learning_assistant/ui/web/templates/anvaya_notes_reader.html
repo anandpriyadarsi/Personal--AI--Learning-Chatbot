@@ -1,6 +1,11 @@
 {% extends "base.html" %}
 
 {% block title %}{{ note.title if note else 'Note' }} · ANVAYA{% endblock %}
+{% block body_class %}notes-focus-page{% endblock %}
+
+{% block page_scripts %}
+<script defer src="{{ url_for('static', filename='js/anvaya_notes_reader.js') }}"></script>
+{% endblock %}
 
 {% block content %}
 <nav class="notes-reader-back"><a href="{{ url_for('web.notes') }}">← Back to My Notes</a></nav>
