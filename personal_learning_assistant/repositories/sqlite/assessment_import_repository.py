@@ -429,11 +429,15 @@ class SQLiteAssessmentImportRepository:
     def _rewrite_order(connection, batch_id: str, ordered_ids: Sequence[str]) -> None:
         if not ordered_ids:
             return
-        connection.execute(
-            "UPDATE assessment_import_questions SET ordinal=ordinal+10000 "
-            "WHERE batch_id=?",
-            (str(batch_id),),
-        )
+        # Move rows one-by-one to disjoint temporary ordinals. A single
+        # UPDATE ordinal=ordinal+N can violate SQLite's UNIQUE(batch, ordinal)
+        # constraint transiently depending on row update order.
+        for position, question_id in enumerate(ordered_ids, start=1):
+            connection.execute(
+                "UPDATE assessment_import_questions SET ordinal=? "
+                "WHERE id=? AND batch_id=?",
+                (1000000 + position, str(question_id), str(batch_id)),
+            )
         for ordinal, question_id in enumerate(ordered_ids, start=1):
             connection.execute(
                 "UPDATE assessment_import_questions SET ordinal=? "
