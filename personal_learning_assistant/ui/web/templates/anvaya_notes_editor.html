@@ -152,8 +152,6 @@
     <a class="button secondary-button" href="{% if editor.id %}{{ url_for('web.anvaya_note_reader', note_id=editor.id) }}{% else %}{{ url_for('web.notes') }}{% endif %}">Cancel</a>
   </div>
 </form>
-{% endblock %}
-
 <script>
 (() => {
   const textarea = document.getElementById("anvaya-note-body");
@@ -319,3 +317,4 @@
   window.addEventListener("beforeunload", revokePreviews);
 })();
 </script>
+{% endblock %}
