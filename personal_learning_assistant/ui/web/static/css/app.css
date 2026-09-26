@@ -4377,3 +4377,84 @@ body.sidebar-collapsed.notes-focus-page .content {
   .exam-actions { flex-direction: column; }
   .exam-actions .button { width: 100%; }
 }
+
+
+/* Assessment Studio Phase D — evaluation and rubric review */
+.evaluation-list {
+  display: grid;
+  gap: .9rem;
+}
+.evaluation-card {
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: .85rem;
+  background: var(--surface-muted);
+}
+.evaluation-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.evaluation-card-header h3 {
+  margin: .2rem 0 0;
+}
+.evaluation-question-text {
+  margin: .9rem 0;
+  padding: .9rem;
+  border: 1px solid var(--border);
+  border-radius: .7rem;
+  background: var(--surface);
+  white-space: pre-wrap;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.evaluation-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .8rem;
+}
+.evaluation-grid > section {
+  min-width: 0;
+  padding: .8rem;
+  border: 1px solid var(--border);
+  border-radius: .65rem;
+  background: var(--surface);
+}
+.evaluation-grid h3,
+.evaluation-grid h4 {
+  margin-top: 0;
+}
+.evaluation-details {
+  margin-top: .8rem;
+  padding: .75rem;
+  border: 1px solid var(--border);
+  border-radius: .65rem;
+  background: var(--surface);
+}
+.evaluation-details > summary {
+  cursor: pointer;
+  font-weight: 800;
+}
+.evaluation-mistakes {
+  margin-top: .9rem;
+  padding-top: .9rem;
+  border-top: 1px solid var(--border);
+}
+.compact-notice {
+  margin-top: .8rem;
+  padding: .65rem .75rem;
+}
+.inline-form {
+  display: inline-flex;
+  margin: 0;
+}
+
+@media (max-width: 760px) {
+  .evaluation-card-header {
+    flex-direction: column;
+  }
+  .evaluation-grid {
+    grid-template-columns: 1fr;
+  }
+}
