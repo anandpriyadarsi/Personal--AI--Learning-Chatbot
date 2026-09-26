@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}{{ report.course.code }} Assessment Intelligence · ANVAYA{% endblock %}
+{% block content %}
+<section class="hero dashboard-hero">
+  <div>
+    <p class="eyebrow">Assessment Intelligence · {{ report.course.code }}</p>
+    <h2>{{ report.course.name }}</h2>
+    <p class="lede">Cross-test confirmed evidence for score, timing, topics, difficulty, question type and repeated mistakes.</p>
+  </div>
+  <div class="form-actions">
+    <a class="button button-secondary" href="{{ url_for('web.assessment_weak_topics') }}">Recovery evidence</a>
+    <a class="button button-secondary" href="{{ url_for('web.assessment_intelligence') }}">All reports</a>
+  </div>
+</section>
+
+{% if report.has_evidence %}
+<section class="metric-grid">
+  <article class="metric-card"><span class="metric-label">Confirmed sessions</span><strong>{{ report.confirmed_session_count }}</strong><span>cross-test sample</span></article>
+  <article class="metric-card"><span class="metric-label">Signed score</span><strong>{{ report.overall.signed_score }}</strong><span>out of {{ report.overall.max_marks }}</span></article>
+  <article class="metric-card"><span class="metric-label">Weighted marks</span><strong>{{ report.overall.weighted_performance_percent if report.overall.weighted_performance_percent is not none else '—' }}{% if report.overall.weighted_performance_percent is not none %}%{% endif %}</strong><span>confidence-weighted</span></article>
+  <article class="metric-card"><span class="metric-label">Full-answer accuracy</span><strong>{{ report.overall.full_accuracy_percent if report.overall.full_accuracy_percent is not none else '—' }}{% if report.overall.full_accuracy_percent is not none %}%{% endif %}</strong><span>correct ÷ attempted</span></article>
+  <article class="metric-card"><span class="metric-label">Focus time</span><strong>{{ report.overall.focus_minutes }}</strong><span>minutes captured</span></article>
+  <article class="metric-card"><span class="metric-label">Time / available mark</span><strong>{{ report.overall.time_per_available_mark_seconds if report.overall.time_per_available_mark_seconds is not none else '—' }}</strong><span>seconds</span></article>
+</section>
+
+<section class="dashboard-panel next-panel">
+  <div class="panel-heading"><div><p class="eyebrow">Trend</p><h3>Session-by-session marks performance</h3></div><span class="count-badge">{{ report.trend|length }}</span></div>
+  <div class="intelligence-bars">
+  {% for item in report.trend %}
+    <a class="intelligence-bar-row" href="{{ url_for('web.assessment_session_analysis', session_id=item.session_id) }}">
+      <span class="intelligence-bar-label"><strong>{{ item.title }}</strong><small>{{ item.occurred_label }} · {{ item.assessment_type|replace('_',' ')|title }} · {{ item.question_count }} questions</small></span>
+      <span class="intelligence-bar-track"><i style="--intelligence-value: {{ item.bar_percent }}"></i></span>
+      <strong>{{ item.performance_percent if item.performance_percent is not none else '—' }}{% if item.performance_percent is not none %}%{% endif %}</strong>
+    </a>
+  {% endfor %}
+  </div>
+</section>
+
+<section class="dashboard-panel next-panel">
+  <div class="panel-heading"><div><p class="eyebrow">Topic evidence</p><h3>Confirmed topic performance</h3></div><span class="count-badge">{{ report.topics|length }}</span></div>
+  <div class="intelligence-bars">
+  {% for item in report.topics %}
+    <div class="intelligence-bar-row">
+      <span class="intelligence-bar-label"><strong>{{ item.label }}</strong><small>{{ item.question_count }} questions · {{ item.session_count }} sessions · {{ item.mistake_count }} mistakes · {{ item.time_per_available_mark_seconds if item.time_per_available_mark_seconds is not none else '—' }} sec/mark</small></span>
+      <span class="intelligence-bar-track"><i class="intelligence-band-{{ item.band }}" style="--intelligence-value: {{ item.bar_percent }}"></i></span>
+      <strong>{{ item.weighted_performance_percent if item.weighted_performance_percent is not none else '—' }}{% if item.weighted_performance_percent is not none %}%{% endif %}</strong>
+    </div>
+  {% endfor %}
+  </div>
+</section>
+
+<section class="dashboard-panel next-panel">
+  <div class="panel-heading"><div><p class="eyebrow">Chapter × topic</p><h3>Performance heatmap</h3></div></div>
+  <div class="intelligence-heatmap" role="list" aria-label="Chapter and topic performance heatmap">
+    {% for item in report.heatmap %}
+    <article class="heat-cell intelligence-band-{{ item.band }}" role="listitem" aria-label="{{ item.chapter }}, {{ item.label }}, {{ item.weighted_performance_percent if item.weighted_performance_percent is not none else 'no' }} percent, {{ item.question_count }} questions">
+      <span>{{ item.chapter }}</span><strong>{{ item.label }}</strong><b>{{ item.weighted_performance_percent if item.weighted_performance_percent is not none else '—' }}{% if item.weighted_performance_percent is not none %}%{% endif %}</b><small>{{ item.question_count }} q · {{ item.focus_minutes }} min</small>
+    </article>
+    {% endfor %}
+  </div>
+  <details class="intelligence-table-panel"><summary>Heatmap data table</summary><div class="table-wrap"><table><thead><tr><th>Chapter</th><th>Topic</th><th>Questions</th><th>Weighted %</th><th>Accuracy %</th><th>Focus min</th></tr></thead><tbody>{% for item in report.heatmap %}<tr><td>{{ item.chapter }}</td><td>{{ item.label }}</td><td>{{ item.question_count }}</td><td>{{ item.weighted_performance_percent if item.weighted_performance_percent is not none else '—' }}</td><td>{{ item.full_accuracy_percent if item.full_accuracy_percent is not none else '—' }}</td><td>{{ item.focus_minutes }}</td></tr>{% endfor %}</tbody></table></div></details>
+</section>
+
+<section class="dashboard-grid next-panel">
+  <section class="dashboard-panel">
+    <div class="panel-heading"><div><p class="eyebrow">Difficulty</p><h3>Difficulty vs performance</h3></div></div>
+    <div class="intelligence-bars">{% for item in report.difficulties %}<div class="intelligence-bar-row"><span class="intelligence-bar-label"><strong>{{ item.label }}</strong><small>{{ item.question_count }} q · {{ item.focus_minutes }} min</small></span><span class="intelligence-bar-track"><i style="--intelligence-value: {{ item.bar_percent }}"></i></span><strong>{{ item.weighted_performance_percent if item.weighted_performance_percent is not none else '—' }}{% if item.weighted_performance_percent is not none %}%{% endif %}</strong></div>{% endfor %}</div>
+  </section>
+  <section class="dashboard-panel">
+    <div class="panel-heading"><div><p class="eyebrow">Question type</p><h3>Performance by format</h3></div></div>
+    <div class="intelligence-bars">{% for item in report.question_types %}<div class="intelligence-bar-row"><span class="intelligence-bar-label"><strong>{{ item.label }}</strong><small>{{ item.question_count }} q · {{ item.time_per_available_mark_seconds if item.time_per_available_mark_seconds is not none else '—' }} sec/mark</small></span><span class="intelligence-bar-track"><i style="--intelligence-value: {{ item.bar_percent }}"></i></span><strong>{{ item.weighted_performance_percent if item.weighted_performance_percent is not none else '—' }}{% if item.weighted_performance_percent is not none %}%{% endif %}</strong></div>{% endfor %}</div>
+  </section>
+</section>
+
+<section class="dashboard-grid next-panel">
+  <section class="dashboard-panel">
+    <div class="panel-heading"><div><p class="eyebrow">Repeated errors</p><h3>Mistake patterns</h3></div></div>
+    {% if report.mistake_patterns %}<div class="intelligence-bars">{% for item in report.mistake_patterns %}<div class="intelligence-bar-row"><span class="intelligence-bar-label"><strong>{{ item.label }}</strong><small>{{ item.count }} event{% if item.count != 1 %}s{% endif %} · {{ item.session_count }} sessions</small></span><span class="intelligence-bar-track"><i style="--intelligence-value: {{ item.bar_percent }}"></i></span><strong>{{ item.count }}</strong></div>{% endfor %}</div>{% else %}<p class="empty-state">No confirmed mistake classifications.</p>{% endif %}
+  </section>
+  <section class="dashboard-panel">
+    <div class="panel-heading"><div><p class="eyebrow">Timing</p><h3>Topic time-per-mark</h3></div></div>
+    <p class="lede">Course median: {{ report.median_time_per_mark_seconds if report.median_time_per_mark_seconds is not none else '—' }} seconds per available mark.</p>
+    <ul class="dashboard-list">{% for item in report.recovery_topics[:8] %}<li><div class="list-main"><strong>{{ item.label }}</strong><span>{{ item.time_per_available_mark_seconds if item.time_per_available_mark_seconds is not none else '—' }} sec/mark{% if item.slower_than_course_median %} · slower than course median{% endif %}</span></div></li>{% endfor %}</ul>
+  </section>
+</section>
+
+<section class="dashboard-panel next-panel">
+  <div class="panel-heading"><div><p class="eyebrow">Recovery order</p><h3>Observed evidence to review</h3></div></div>
+  <ol class="intelligence-recovery-list">{% for item in report.recovery_topics %}<li><div><strong>{{ item.label }}</strong><span>{{ item.weighted_performance_percent if item.weighted_performance_percent is not none else '—' }}{% if item.weighted_performance_percent is not none %}%{% endif %} · {{ item.question_count }} questions · {{ item.mistake_count }} mistakes</span><small>{{ item.recovery_signals|join(' · ') }}</small></div></li>{% endfor %}</ol>
+</section>
+
+<section class="dashboard-panel next-panel">
+  <div class="panel-heading"><div><p class="eyebrow">Historical paper intelligence</p><h3>Observed reproduced-paper coverage</h3></div><span class="count-badge">{{ report.historical.session_count }}</span></div>
+  <p class="lede">{{ report.historical.note }}</p>
+  {% if report.historical.topics %}<div class="intelligence-bars">{% for item in report.historical.topics %}<div class="intelligence-bar-row"><span class="intelligence-bar-label"><strong>{{ item.label }}</strong><small>{{ item.count }} questions</small></span><span class="intelligence-bar-track"><i style="--intelligence-value: {{ item.bar_percent }}"></i></span><strong>{{ item.share_percent }}%</strong></div>{% endfor %}</div>{% endif %}
+</section>
+
+<details class="dashboard-panel next-panel intelligence-table-panel">
+  <summary>Topic evidence table</summary>
+  <div class="table-wrap"><table><thead><tr><th>Topic</th><th>Questions</th><th>Sessions</th><th>Signed score</th><th>Weighted %</th><th>Accuracy %</th><th>Mistakes</th><th>Sec/mark</th></tr></thead><tbody>{% for item in report.topics %}<tr><td>{{ item.label }}</td><td>{{ item.question_count }}</td><td>{{ item.session_count }}</td><td>{{ item.signed_score }}/{{ item.max_marks }}</td><td>{{ item.weighted_performance_percent if item.weighted_performance_percent is not none else '—' }}</td><td>{{ item.full_accuracy_percent if item.full_accuracy_percent is not none else '—' }}</td><td>{{ item.mistake_count }}</td><td>{{ item.time_per_available_mark_seconds if item.time_per_available_mark_seconds is not none else '—' }}</td></tr>{% endfor %}</tbody></table></div>
+</details>
+{% else %}
+<section class="notice-panel"><h3>No confirmed evidence for this course</h3><p>Finish at least one Phase D evaluation before cross-test intelligence is available.</p></section>
+{% endif %}
+
+<section class="notice-panel next-panel"><h3>Evidence, not mastery</h3><p>These charts summarize confirmed assessment evidence. They do not mark topics mastered/weak in the academic store and do not change the planner.</p></section>
+{% endblock %}
