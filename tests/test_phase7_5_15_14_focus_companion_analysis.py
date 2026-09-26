@@ -8,22 +8,18 @@ from personal_learning_assistant.repositories.json.anvaya_notes_repository impor
 from personal_learning_assistant.services.anvaya_notes_service import AnvayaNotesService
 
 
-NOWS = iter(
-    (
-        "2026-09-26T10:00:00Z",
-        "2026-09-26T10:01:00Z",
-        "2026-09-26T10:02:00Z",
-        "2026-09-26T10:03:00Z",
-    )
-)
-
-
 def _service(tmp_path):
     repo = AnvayaNotesRepository(
         notes_path=tmp_path / "notes.json",
         assets_root=tmp_path / "assets",
     )
-    return AnvayaNotesService(repo, now=lambda: next(NOWS)), repo
+    counter = {"value": 0}
+
+    def now():
+        counter["value"] += 1
+        return "2026-09-26T10:{:02d}:00Z".format(counter["value"])
+
+    return AnvayaNotesService(repo, now=now), repo
 
 
 def test_notes_companion_add_and_archive_are_note_local(tmp_path):
