@@ -376,7 +376,9 @@ def test_native_reader_route_does_not_use_obsidian_path_parameter():
     assert service.calls == [("reader", "n1")]
     assert "Full note" in html
     assert "LU Factorization" in html
-    assert "Obsidian" not in html
+    assert "Open Obsidian workspace" not in html
+    assert "/notes/note?path=" not in html
+    assert "/obsidian/note?path=" not in html
 
 
 def test_native_asset_route_is_id_scoped():
