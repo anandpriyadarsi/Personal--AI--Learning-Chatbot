@@ -643,6 +643,65 @@ def home():
     )
 
 
+@web_blueprint.get("/analysis")
+def analysis():
+    """Render the dedicated, read-only academic + Notes analysis hub."""
+    academic = _home_dashboard()
+    try:
+        notes = _anvaya_notes_service().analysis()
+    except AnvayaNotesUnavailableError:
+        notes = {
+            "available": False,
+            "summary": {
+                "total": 0,
+                "typed": 0,
+                "handwritten": 0,
+                "saved_notes": 0,
+                "doubts": 0,
+                "media": 0,
+                "inline_media": 0,
+            },
+            "type_percent": {"typed": 0, "handwritten": 0},
+            "courses": [],
+        }
+
+    risks = list(academic.get("risks", []))
+    priorities = list(academic.get("priorities", []))
+    risk_max = max([float(item.get("score") or 0) for item in risks] or [1.0])
+    priority_max = max([float(item.get("score") or 0) for item in priorities] or [1.0])
+
+    study_totals = {}
+    for item in academic.get("study_blocks", []):
+        code = str(item.get("course_code") or "COURSE")
+        study_totals[code] = study_totals.get(code, 0) + int(item.get("minutes") or 0)
+    study_max = max(list(study_totals.values()) or [1])
+
+    view = {
+        "academic": academic,
+        "notes": notes,
+        "risk_rows": [
+            {**item, "percent": round((float(item.get("score") or 0) / risk_max) * 100, 1)}
+            for item in risks
+        ],
+        "priority_rows": [
+            {**item, "percent": round((float(item.get("score") or 0) / priority_max) * 100, 1)}
+            for item in priorities
+        ],
+        "study_rows": [
+            {
+                "course_code": code,
+                "minutes": minutes,
+                "percent": round((minutes / study_max) * 100, 1),
+            }
+            for code, minutes in sorted(
+                study_totals.items(),
+                key=lambda pair: (-pair[1], pair[0]),
+            )
+        ],
+    }
+    return render_template("analysis.html", active_page="analysis", analysis=view)
+
+
 @web_blueprint.get("/courses")
 def courses():
     """Render the read-only Courses & Topics catalogue."""
