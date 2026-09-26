@@ -54,6 +54,14 @@ from personal_learning_assistant.services.assessment_runner_service import (
     AssessmentRunnerValidationError,
     build_assessment_runner_service,
 )
+from personal_learning_assistant.services.assessment_evaluation_service import (
+    MISTAKE_CATEGORIES,
+    AssessmentEvaluationConflictError,
+    AssessmentEvaluationNotFoundError,
+    AssessmentEvaluationUnavailableError,
+    AssessmentEvaluationValidationError,
+    build_assessment_evaluation_service,
+)
 from personal_learning_assistant.services.calendar_grades_dashboard_service import (
     load_calendar_grades_dashboard,
     unavailable_calendar_grades_dashboard,
@@ -213,6 +221,21 @@ def _assessment_package_service():
 def _assessment_runner_service():
     factory = current_app.config.get("ASSESSMENT_RUNNER_SERVICE_FACTORY")
     return factory() if factory is not None else build_assessment_runner_service()
+
+
+def _assessment_evaluation_service():
+    factory = current_app.config.get("ASSESSMENT_EVALUATION_SERVICE_FACTORY")
+    return factory() if factory is not None else build_assessment_evaluation_service()
+
+
+def _assessment_evaluation_error_status(error):
+    if isinstance(error, AssessmentEvaluationValidationError):
+        return 400
+    if isinstance(error, AssessmentEvaluationNotFoundError):
+        return 404
+    if isinstance(error, AssessmentEvaluationConflictError):
+        return 409
+    return 503
 
 
 def _assessment_runner_error_status(error):
@@ -1551,6 +1574,143 @@ def assessment_session_summary(session_id):
         )
     except Exception as error:
         return str(error), _assessment_runner_error_status(error)
+
+
+@web_blueprint.post("/assessments/sessions/<session_id>/evaluate")
+def assessment_session_evaluate(session_id):
+    try:
+        _assessment_evaluation_service().create(session_id)
+        return redirect(
+            url_for("web.assessment_evaluation_results", session_id=session_id, created="1"),
+            code=303,
+        )
+    except Exception as error:
+        return str(error), _assessment_evaluation_error_status(error)
+
+
+@web_blueprint.get("/assessments/sessions/<session_id>/evaluation")
+def assessment_evaluation_results(session_id):
+    try:
+        result = _assessment_evaluation_service().results(session_id)
+        notice = ""
+        if request.args.get("created") == "1":
+            notice = "Evaluation created. Deterministic questions were scored; subjective/custom questions remain under review."
+        elif request.args.get("saved") == "1":
+            notice = "Evaluation saved."
+        elif request.args.get("confirmed") == "1":
+            notice = "Provisional evaluation confirmed."
+        elif request.args.get("mistake") == "1":
+            notice = "Mistake classification recorded."
+        elif request.args.get("mistake_confirmed") == "1":
+            notice = "Provisional mistake classification confirmed."
+        return render_template(
+            "assessment_evaluation_results.html",
+            active_page="assessments",
+            result=result,
+            mistake_categories=tuple(sorted(MISTAKE_CATEGORIES)),
+            notice_message=notice,
+            error_message="",
+        )
+    except Exception as error:
+        return str(error), _assessment_evaluation_error_status(error)
+
+
+@web_blueprint.get("/assessments/evaluations/<evaluation_id>/review")
+def assessment_evaluation_review(evaluation_id):
+    try:
+        item = _assessment_evaluation_service().response_editor(evaluation_id)
+        return render_template(
+            "assessment_evaluation_review.html",
+            active_page="assessments",
+            item=item,
+            error_message="",
+        )
+    except Exception as error:
+        return str(error), _assessment_evaluation_error_status(error)
+
+
+@web_blueprint.post("/assessments/evaluations/<evaluation_id>/review")
+def assessment_evaluation_review_save(evaluation_id):
+    service = _assessment_evaluation_service()
+    payload = {
+        "evaluator_type": request.form.get("evaluator_type", ""),
+        "evaluator_model": request.form.get("evaluator_model", ""),
+        "awarded_marks": request.form.get("awarded_marks", ""),
+        "confidence": request.form.get("confidence", ""),
+        "feedback_text": request.form.get("feedback_text", ""),
+        "confirm_final": request.form.get("confirm_final") == "1",
+    }
+    try:
+        service.save_manual_evaluation(evaluation_id, payload)
+        item = service.response_editor(evaluation_id)
+        return redirect(
+            url_for("web.assessment_evaluation_results", session_id=item["session_id"], saved="1"),
+            code=303,
+        )
+    except Exception as error:
+        try:
+            item = service.response_editor(evaluation_id)
+            return (
+                render_template(
+                    "assessment_evaluation_review.html",
+                    active_page="assessments",
+                    item=item,
+                    error_message=str(error),
+                ),
+                _assessment_evaluation_error_status(error),
+            )
+        except Exception:
+            return str(error), _assessment_evaluation_error_status(error)
+
+
+@web_blueprint.post("/assessments/evaluations/<evaluation_id>/confirm")
+def assessment_evaluation_confirm(evaluation_id):
+    service = _assessment_evaluation_service()
+    try:
+        item = service.confirm_provisional(evaluation_id)
+        return redirect(
+            url_for("web.assessment_evaluation_results", session_id=item["session_id"], confirmed="1"),
+            code=303,
+        )
+    except Exception as error:
+        return str(error), _assessment_evaluation_error_status(error)
+
+
+@web_blueprint.post("/assessments/evaluations/<evaluation_id>/mistakes")
+def assessment_evaluation_mistake_add(evaluation_id):
+    service = _assessment_evaluation_service()
+    try:
+        item = service.classify_mistake(
+            evaluation_id,
+            {
+                "category": request.form.get("category", ""),
+                "note": request.form.get("note", ""),
+                "source_type": request.form.get("source_type", "user"),
+            },
+        )
+        return redirect(
+            url_for("web.assessment_evaluation_results", session_id=item["session_id"], mistake="1"),
+            code=303,
+        )
+    except Exception as error:
+        return str(error), _assessment_evaluation_error_status(error)
+
+
+@web_blueprint.post("/assessments/evaluation-mistakes/<mistake_id>/confirm")
+def assessment_evaluation_mistake_confirm(mistake_id):
+    service = _assessment_evaluation_service()
+    try:
+        item = service.confirm_mistake(mistake_id)
+        return redirect(
+            url_for(
+                "web.assessment_evaluation_results",
+                session_id=item["session_id"],
+                mistake_confirmed="1",
+            ),
+            code=303,
+        )
+    except Exception as error:
+        return str(error), _assessment_evaluation_error_status(error)
 
 
 @web_blueprint.get("/planning")
