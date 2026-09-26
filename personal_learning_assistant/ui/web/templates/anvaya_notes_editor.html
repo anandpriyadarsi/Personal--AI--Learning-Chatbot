@@ -66,11 +66,86 @@
       <small>Use the quick buttons for headings, equations, tables, flowcharts and diagrams. You can still type Markdown directly.</small>
     </label>
     {% endif %}
-    <label class="form-field form-field-full">
-      <span>{% if editor.note_kind == 'handwritten' %}Add more pages{% else %}Add images / PDF{% endif %} <small>(optional)</small></span>
-      <input type="file" name="files" multiple accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg">
-      <small>Files are stored with this ANVAYA note, not in the external vault.</small>
-    </label>
+    <section class="form-field form-field-full anvaya-note-media-manager" aria-labelledby="anvaya-media-title">
+      <div class="anvaya-note-media-heading">
+        <div>
+          <span id="anvaya-media-title">{% if editor.note_kind == 'handwritten' %}Add more pages{% else %}Images, PDF or ZIP{% endif %} <small>(optional)</small></span>
+          <small>
+            {% if editor.note_kind == 'handwritten' %}
+              Select multiple pages or one ZIP containing PDF/JPG/PNG files.
+            {% else %}
+              Select multiple images, PDFs, or a ZIP. Images can be inserted exactly where your cursor is in the note.
+            {% endif %}
+          </small>
+        </div>
+      </div>
+      <input id="anvaya-note-files" type="file" name="files" multiple
+        accept=".pdf,.png,.jpg,.jpeg,.zip,application/pdf,image/png,image/jpeg,application/zip">
+      <small>Original files are preserved. Rotation, crop and size only change how an inline image is displayed.</small>
+
+      {% if editor.note_kind != 'handwritten' %}
+      <div id="anvaya-selected-media" class="anvaya-media-tray" aria-live="polite"></div>
+
+      {% if editor.assets %}
+      <div class="anvaya-existing-media">
+        <p class="eyebrow">Existing note files</p>
+        <div class="anvaya-media-tray">
+          {% for asset in editor.assets %}
+            {% if asset.is_image %}
+            <article class="anvaya-media-item" data-existing-asset="{{ asset.id }}">
+              <div class="anvaya-media-thumb">
+                <img src="{{ asset.url }}" alt="" loading="lazy">
+              </div>
+              <div class="anvaya-media-item-main">
+                <strong>{{ asset.filename }}</strong>
+                <div class="anvaya-media-controls">
+                  <label>Size
+                    <select data-media-width>
+                      <option value="25">25%</option>
+                      <option value="40">40%</option>
+                      <option value="55">55%</option>
+                      <option value="70" selected>70%</option>
+                      <option value="85">85%</option>
+                      <option value="100">100%</option>
+                    </select>
+                  </label>
+                  <label>Rotate
+                    <select data-media-rotate>
+                      <option value="0">0°</option>
+                      <option value="90">90°</option>
+                      <option value="180">180°</option>
+                      <option value="270">270°</option>
+                    </select>
+                  </label>
+                  <label>Crop
+                    <select data-media-crop>
+                      <option value="original">Original</option>
+                      <option value="1:1">Square 1:1</option>
+                      <option value="4:3">4:3</option>
+                      <option value="3:4">3:4</option>
+                      <option value="16:9">16:9</option>
+                    </select>
+                  </label>
+                  <label class="anvaya-media-caption">Caption
+                    <input data-media-caption maxlength="160" value="{{ asset.filename }}">
+                  </label>
+                </div>
+                <button class="button secondary-button anvaya-media-insert" type="button"
+                  data-insert-existing="{{ asset.id }}">Insert at cursor</button>
+              </div>
+            </article>
+            {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      <p class="anvaya-media-help">
+        Inline image blocks stay inside the note text, so they reopen in the same position.
+        You can change their <code>width</code>, <code>rotate</code>, <code>crop</code>, or <code>caption</code> settings later.
+      </p>
+      {% endif %}
+    </section>
   </div>
   <div class="form-actions">
     <button class="button" type="submit">{% if editor.id %}Save changes{% else %}Create note{% endif %}</button>
@@ -82,9 +157,9 @@
 <script>
 (() => {
   const textarea = document.getElementById("anvaya-note-body");
-  if (!textarea) return;
 
   const replaceSelection = (before, after = "") => {
+    if (!textarea) return;
     const start = textarea.selectionStart ?? textarea.value.length;
     const end = textarea.selectionEnd ?? start;
     const selected = textarea.value.slice(start, end);
@@ -102,5 +177,136 @@
       replaceSelection(token, token);
     });
   });
+
+  const escapeCaption = (value) =>
+    String(value || "")
+      .replace(/[|\]\\r\\n]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 160);
+
+  const mediaDirective = (kind, id, container) => {
+    const width = container.querySelector("[data-media-width]")?.value || "70";
+    const rotate = container.querySelector("[data-media-rotate]")?.value || "0";
+    const crop = container.querySelector("[data-media-crop]")?.value || "original";
+    const caption = escapeCaption(container.querySelector("[data-media-caption]")?.value || "");
+    return `[[anvaya-${kind}:${id}|width=${width}|rotate=${rotate}|crop=${crop}|caption=${caption}]]\n`;
+  };
+
+  document.querySelectorAll("[data-insert-existing]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const item = button.closest(".anvaya-media-item");
+      replaceSelection("\n" + mediaDirective("image", button.dataset.insertExisting, item) + "\n");
+    });
+  });
+
+  const fileInput = document.getElementById("anvaya-note-files");
+  const selectedTray = document.getElementById("anvaya-selected-media");
+  let previewUrls = [];
+
+  const revokePreviews = () => {
+    previewUrls.forEach((url) => URL.revokeObjectURL(url));
+    previewUrls = [];
+  };
+
+  const controlMarkup = (caption) => `
+    <div class="anvaya-media-controls">
+      <label>Size
+        <select data-media-width>
+          <option value="25">25%</option>
+          <option value="40">40%</option>
+          <option value="55">55%</option>
+          <option value="70" selected>70%</option>
+          <option value="85">85%</option>
+          <option value="100">100%</option>
+        </select>
+      </label>
+      <label>Rotate
+        <select data-media-rotate>
+          <option value="0">0°</option>
+          <option value="90">90°</option>
+          <option value="180">180°</option>
+          <option value="270">270°</option>
+        </select>
+      </label>
+      <label>Crop
+        <select data-media-crop>
+          <option value="original">Original</option>
+          <option value="1:1">Square 1:1</option>
+          <option value="4:3">4:3</option>
+          <option value="3:4">3:4</option>
+          <option value="16:9">16:9</option>
+        </select>
+      </label>
+      <label class="anvaya-media-caption">Caption
+        <input data-media-caption maxlength="160" value="${caption.replace(/"/g, "&quot;")}">
+      </label>
+    </div>`;
+
+  const renderSelectedFiles = () => {
+    if (!selectedTray || !fileInput) return;
+    revokePreviews();
+    selectedTray.innerHTML = "";
+    Array.from(fileInput.files || []).forEach((file, index) => {
+      const name = file.name || `Upload ${index + 1}`;
+      const lower = name.toLowerCase();
+      const isImage = file.type.startsWith("image/") || /\.(png|jpe?g)$/.test(lower);
+      const isZip = lower.endsWith(".zip");
+      const isPdf = lower.endsWith(".pdf");
+      const item = document.createElement("article");
+      item.className = "anvaya-media-item";
+      item.dataset.newUploadIndex = String(index);
+
+      const thumb = document.createElement("div");
+      thumb.className = "anvaya-media-thumb";
+      if (isImage) {
+        const url = URL.createObjectURL(file);
+        previewUrls.push(url);
+        const img = document.createElement("img");
+        img.src = url;
+        img.alt = "";
+        thumb.appendChild(img);
+      } else {
+        const badge = document.createElement("span");
+        badge.className = "anvaya-media-file-badge";
+        badge.textContent = isZip ? "ZIP" : (isPdf ? "PDF" : "FILE");
+        thumb.appendChild(badge);
+      }
+
+      const main = document.createElement("div");
+      main.className = "anvaya-media-item-main";
+      const title = document.createElement("strong");
+      title.textContent = name;
+      main.appendChild(title);
+
+      if (isImage || isZip) {
+        const controls = document.createElement("div");
+        controls.innerHTML = controlMarkup(name.replace(/\.[^.]+$/, ""));
+        while (controls.firstChild) main.appendChild(controls.firstChild);
+
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "button secondary-button anvaya-media-insert";
+        button.textContent = isZip ? "Insert ZIP images here" : "Insert at cursor";
+        button.addEventListener("click", () => {
+          replaceSelection("\n" + mediaDirective("upload", String(index), item) + "\n");
+        });
+        main.appendChild(button);
+      } else {
+        const note = document.createElement("small");
+        note.textContent = "PDF will remain available as an attachment.";
+        main.appendChild(note);
+      }
+
+      item.appendChild(thumb);
+      item.appendChild(main);
+      selectedTray.appendChild(item);
+    });
+  };
+
+  if (fileInput && selectedTray) {
+    fileInput.addEventListener("change", renderSelectedFiles);
+  }
+  window.addEventListener("beforeunload", revokePreviews);
 })();
 </script>
