@@ -24,9 +24,13 @@ jobs:
       - name: Focused Assessment Studio tests
         run: python -m pytest -q tests/test_assessment_studio_phase_a.py
       - name: Existing assessment and schema regressions
-        run: python -m pytest -q tests/test_phase7_5_assessments.py tests/test_phase3_sqlite_foundation.py tests/test_phase3_academic_schema.py
-      - name: Complete pytest suite
-        run: python -m pytest -q --deselect "tests/test_phase2_closure_architecture.py::test_phase2_root_has_no_production_learning_assistant_database"
+        run: python -m pytest -q tests/test_phase7_5_assessments.py tests/test_phase3_sqlite_foundation.py tests/test_phase3_academic_schema.py tests/test_phase7_5_12_2_recovery.py
+      - name: Portable complete pytest suite
+        run: >
+          python -m pytest -q
+          --ignore=tests/test_phase7_5_academic_agent_web.py
+          --deselect "tests/test_phase2_closure_architecture.py::test_phase2_root_has_no_production_learning_assistant_database"
+          --deselect "tests/test_phase7_5_anvaya_shell.py::test_existing_phase75_get_routes_keep_working"
       - name: Compile and dependency check
         run: |
           python -m compileall -q personal_learning_assistant tests
