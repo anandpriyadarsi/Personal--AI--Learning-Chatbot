@@ -590,6 +590,7 @@ class AnvayaNotesService:
             "status": "active",
             "body": "",
             "assets": [],
+            "companion": {"saved_notes": [], "doubts": []},
         }
 
     def create_typed_note(self, payload, uploads=()):
@@ -659,7 +660,157 @@ class AnvayaNotesService:
             for asset in all_assets
             if str(asset.get("id") or "") not in used_inline_ids
         ]
+        view["companion"] = self._companion_view(row)
         return view
+
+    def _companion_view(self, row):
+        raw = row.get("companion") if isinstance(row.get("companion"), dict) else {}
+        result = {"saved_notes": [], "doubts": []}
+        for key in result:
+            for item in list(raw.get(key) or []):
+                if not isinstance(item, dict) or item.get("archived_at"):
+                    continue
+                result[key].append(
+                    {
+                        "id": str(item.get("id") or ""),
+                        "text": str(item.get("text") or ""),
+                        "created_at": str(item.get("created_at") or ""),
+                        "created_label": _label(item.get("created_at"), self.timezone_name),
+                    }
+                )
+        result["saved_count"] = len(result["saved_notes"])
+        result["doubt_count"] = len(result["doubts"])
+        return result
+
+    def add_companion_entry(self, note_id, *, kind, text, expected_updated_at):
+        key = {"saved_note": "saved_notes", "doubt": "doubts"}.get(
+            str(kind or "").strip().casefold()
+        )
+        entry_text = _text(text, limit=2000)
+        if key is None or not entry_text:
+            raise AnvayaNotesValidationError("Choose Saved note or Doubt and enter text.")
+        try:
+            current = self.repository.get_note(note_id)
+        except AnvayaNotesNotFoundError:
+            raise
+        except AnvayaNotesRepositoryError as error:
+            raise AnvayaNotesUnavailableError("Study tools are temporarily unavailable.") from error
+
+        companion = current.get("companion") if isinstance(current.get("companion"), dict) else {}
+        companion = {
+            "saved_notes": [dict(item) for item in list(companion.get("saved_notes") or []) if isinstance(item, dict)],
+            "doubts": [dict(item) for item in list(companion.get("doubts") or []) if isinstance(item, dict)],
+        }
+        now = str(self.now())
+        companion[key].append(
+            {"id": uuid4().hex, "text": entry_text, "created_at": now, "archived_at": ""}
+        )
+        try:
+            updated = self.repository.update_note(
+                note_id,
+                expected_updated_at=str(expected_updated_at or ""),
+                changes={"companion": companion, "updated_at": now},
+            )
+        except (AnvayaNotesNotFoundError, AnvayaNotesConflictError):
+            raise
+        except AnvayaNotesRepositoryError as error:
+            raise AnvayaNotesUnavailableError("Study tools could not be saved.") from error
+        return {"id": updated["id"]}
+
+    def archive_companion_entry(self, note_id, *, entry_id, expected_updated_at):
+        target = str(entry_id or "").strip()
+        if not target:
+            raise AnvayaNotesValidationError("Choose a Study Tools entry.")
+        try:
+            current = self.repository.get_note(note_id)
+        except AnvayaNotesNotFoundError:
+            raise
+        except AnvayaNotesRepositoryError as error:
+            raise AnvayaNotesUnavailableError("Study tools are temporarily unavailable.") from error
+
+        raw = current.get("companion") if isinstance(current.get("companion"), dict) else {}
+        companion = {
+            "saved_notes": [dict(item) for item in list(raw.get("saved_notes") or []) if isinstance(item, dict)],
+            "doubts": [dict(item) for item in list(raw.get("doubts") or []) if isinstance(item, dict)],
+        }
+        now = str(self.now())
+        found = False
+        for key in ("saved_notes", "doubts"):
+            for item in companion[key]:
+                if str(item.get("id") or "") == target and not item.get("archived_at"):
+                    item["archived_at"] = now
+                    found = True
+                    break
+        if not found:
+            raise AnvayaNotesNotFoundError("Study Tools entry was not found.")
+        try:
+            updated = self.repository.update_note(
+                note_id,
+                expected_updated_at=str(expected_updated_at or ""),
+                changes={"companion": companion, "updated_at": now},
+            )
+        except (AnvayaNotesNotFoundError, AnvayaNotesConflictError):
+            raise
+        except AnvayaNotesRepositoryError as error:
+            raise AnvayaNotesUnavailableError("Study tools could not be updated.") from error
+        return {"id": updated["id"]}
+
+    def analysis(self):
+        try:
+            rows = [
+                row
+                for row in self.repository.list_notes()
+                if str(row.get("status") or "active") == "active"
+            ]
+        except AnvayaNotesRepositoryError as error:
+            raise AnvayaNotesUnavailableError("Notes analysis is temporarily unavailable.") from error
+
+        total = len(rows)
+        typed = sum(1 for row in rows if row.get("note_kind") == "typed")
+        handwritten = sum(1 for row in rows if row.get("note_kind") == "handwritten")
+        course_counts = {}
+        saved_notes = 0
+        doubts = 0
+        media = 0
+        inline_media = 0
+        for row in rows:
+            course = str(row.get("course") or "Unassigned").strip() or "Unassigned"
+            course_counts[course] = course_counts.get(course, 0) + 1
+            assets = list(row.get("assets") or [])
+            media += len(assets)
+            inline_media += len(_inline_asset_ids(row.get("body") or "", assets))
+            companion = self._companion_view(row)
+            saved_notes += companion["saved_count"]
+            doubts += companion["doubt_count"]
+
+        courses = [
+            {
+                "course": course,
+                "count": count,
+                "percent": round((count / total) * 100, 1) if total else 0,
+            }
+            for course, count in sorted(
+                course_counts.items(),
+                key=lambda item: (-item[1], item[0].casefold()),
+            )
+        ]
+        return {
+            "available": True,
+            "summary": {
+                "total": total,
+                "typed": typed,
+                "handwritten": handwritten,
+                "saved_notes": saved_notes,
+                "doubts": doubts,
+                "media": media,
+                "inline_media": inline_media,
+            },
+            "type_percent": {
+                "typed": round((typed / total) * 100, 1) if total else 0,
+                "handwritten": round((handwritten / total) * 100, 1) if total else 0,
+            },
+            "courses": courses,
+        }
 
     def edit_view(self, note_id):
         try:
