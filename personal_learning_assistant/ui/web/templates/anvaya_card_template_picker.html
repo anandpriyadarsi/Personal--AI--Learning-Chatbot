@@ -31,18 +31,18 @@
 
   <div class="anvaya-card-family-panel{% if active_family == 'iris' %} is-active{% endif %}" data-card-family-panel="iris">
     <div class="anvaya-card-template-grid">
-      {% for value, name, use in (
-        ('iris-indigo','Indigo Matrix','Math / Linear Algebra'),
-        ('iris-emerald','Emerald Lab','Engineering Chemistry'),
-        ('iris-cyan','Cyan Data','Data Science / AI'),
-        ('iris-amber','Amber Heritage','Indian Knowledge System'),
-        ('iris-coral','Coral Sketch','Design Thinking'),
-        ('iris-violet','Violet Code','CSE / General')
+      {% for value, name, use, code in (
+        ('iris-indigo','Indigo Matrix','Math / Linear Algebra','MA103N'),
+        ('iris-emerald','Emerald Lab','Engineering Chemistry','CY100N'),
+        ('iris-cyan','Cyan Data','Data Science / AI','UC100N'),
+        ('iris-amber','Amber Heritage','Indian Knowledge System','UC103N'),
+        ('iris-coral','Coral Sketch','Design Thinking','DE100N'),
+        ('iris-violet','Violet Code','CSE / General','')
       ) %}
       <label class="anvaya-card-template-option">
         <input type="radio" name="card_style" value="{{ value }}" {% if selected_card_style == value %}checked{% endif %}>
         <span class="anvaya-card-template-preview anvaya-note-card--iris anvaya-note-template--{{ value }}">
-          <span class="anvaya-template-course">MA103N</span>
+          {% if code %}<span class="anvaya-template-course">{{ code }}</span>{% endif %}
           <strong>{{ name }}</strong>
           <span class="anvaya-template-line"></span>
           <small>{{ use }}</small>
@@ -57,12 +57,12 @@
   <div class="anvaya-card-family-panel{% if active_family == 'preview' %} is-active{% endif %}" data-card-family-panel="preview">
     <div class="anvaya-card-template-grid">
       {% for value, name, use in (
-        ('preview-left','Left Preview','Image on the left'),
-        ('preview-top','Top Preview','Wide image on top'),
-        ('preview-split','Balanced Split','Half image, half notes'),
-        ('preview-film','Film Strip','Wide visual strip'),
-        ('preview-polaroid','Polaroid','Framed notebook look'),
-        ('preview-banner','Banner','Visual banner header')
+        ('preview-left','Lecture Split','Clean image + lecture summary'),
+        ('preview-top','Notebook Hero','Large visual header + notes'),
+        ('preview-split','Diagram Focus','Balanced diagram and key points'),
+        ('preview-film','Study Strip','Compact visual strip + metadata'),
+        ('preview-polaroid','Paper Snapshot','Warm paper-style framed image'),
+        ('preview-banner','Glass Banner','Soft glass header + compact note body')
       ) %}
       <label class="anvaya-card-template-option">
         <input type="radio" name="card_style" value="{{ value }}" {% if selected_card_style == value %}checked{% endif %}>
