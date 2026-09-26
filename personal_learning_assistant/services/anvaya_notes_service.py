@@ -133,6 +133,15 @@ def _card_family(style):
     return value.split("-", 1)[0]
 
 
+def _stored_style(value, *, fallback="iris"):
+    raw = _text(value, limit=40).casefold()
+    if not raw:
+        return str(fallback or "iris")
+    if raw in LEGACY_CARD_STYLE_MAP or raw in CARD_TEMPLATES:
+        return raw
+    return "iris-indigo"
+
+
 def _safe_upload_name(filename, suffix):
     safe_name = Path(str(filename or "")).name
     safe_name = re.sub(r"[^A-Za-z0-9._() \-]+", "_", safe_name).strip(" .")[:220]
@@ -548,13 +557,10 @@ class AnvayaNotesService:
             "course": _text(payload.get("course"), limit=100),
             "key_points": _points(payload.get("key_points")),
             "note_kind": note_kind,
-            # Preserve the legacy programmatic default for older callers/tests.
-            # The current web picker always submits an exact template id.
-            "card_style": (
-                _style(payload.get("card_style"))
-                if str(payload.get("card_style") or "").strip()
-                else "iris"
-            ),
+            # Store legacy ids unchanged for backward compatibility; rendering
+            # maps them to their new default template. New web forms submit an
+            # exact 15.12 template id which is stored unchanged per note.
+            "card_style": _stored_style(payload.get("card_style"), fallback="iris"),
             "created_at": now,
             "updated_at": now,
             "status": "active",
@@ -666,7 +672,10 @@ class AnvayaNotesService:
             "title": title,
             "course": _text(payload.get("course"), limit=100),
             "key_points": _points(payload.get("key_points")),
-            "card_style": _style(payload.get("card_style")),
+            "card_style": _stored_style(
+                payload.get("card_style"),
+                fallback=current.get("card_style") or "iris",
+            ),
             "updated_at": str(self.now()),
         }
         clean_uploads = _validated_uploads(uploads)
