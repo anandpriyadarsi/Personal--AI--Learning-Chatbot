@@ -1,6 +1,7 @@
+{% set note_companion = note.companion|default({'saved_notes': [], 'doubts': [], 'saved_count': 0, 'doubt_count': 0}, true) %}
 <button id="notes-study-tools-launcher" class="notes-study-tools-launcher" type="button" aria-controls="notes-study-tools-drawer" aria-expanded="false">
   <span aria-hidden="true">✦</span><span>Study tools</span>
-  {% set tool_count = note.companion.saved_count + note.companion.doubt_count %}
+  {% set tool_count = note_companion.saved_count + note_companion.doubt_count %}
   {% if tool_count %}<strong>{{ tool_count }}</strong>{% endif %}
 </button>
 
@@ -11,12 +12,12 @@
   </header>
 
   <div class="notes-study-tools-tabs">
-    <button class="is-active" type="button" data-study-tab="saved">Saved notes <span>{{ note.companion.saved_count }}</span></button>
-    <button type="button" data-study-tab="doubts">Doubts <span>{{ note.companion.doubt_count }}</span></button>
+    <button class="is-active" type="button" data-study-tab="saved">Saved notes <span>{{ note_companion.saved_count }}</span></button>
+    <button type="button" data-study-tab="doubts">Doubts <span>{{ note_companion.doubt_count }}</span></button>
   </div>
 
   <section class="notes-study-tools-panel is-active" data-study-panel="saved">
-    {% for entry in note.companion.saved_notes %}
+    {% for entry in note_companion.saved_notes %}
     <article class="notes-study-entry">
       <p>{{ entry.text }}</p><small>{{ entry.created_label }}</small>
       <form method="post" action="{{ url_for('web.anvaya_note_companion_archive', note_id=note.id, entry_id=entry.id) }}">
@@ -32,7 +33,7 @@
   </section>
 
   <section class="notes-study-tools-panel" data-study-panel="doubts" hidden>
-    {% for entry in note.companion.doubts %}
+    {% for entry in note_companion.doubts %}
     <article class="notes-study-entry">
       <p>{{ entry.text }}</p><small>{{ entry.created_label }}</small>
       <form method="post" action="{{ url_for('web.anvaya_note_companion_archive', note_id=note.id, entry_id=entry.id) }}">
