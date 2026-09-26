@@ -17,9 +17,9 @@ Branch: `phase7.5.15.14/focus-companion-analysis`
 | Focused phase and surrounding Notes, Obsidian, Home, web and shell regressions | 229 passed |
 | Full pytest suite with the repository's known Phase 2 test deselected | 1,468 passed; 1 skipped; 1 deselected |
 | Compile and dependencies | `compileall` passed; `pip check`: no broken requirements |
-| JavaScript syntax and simulated interactions | Node syntax checks passed; desktop preference, mobile overlay, Escape, drawer focus and drag passed in a local DOM simulation |
+| JavaScript syntax and simulated interactions | Node syntax checks passed; desktop preference, mobile overlay, Escape, drawer focus, drag and redirect tab restoration passed in a local DOM simulation |
 | Protected data | Hashes of the isolated database fixture, Tutor code and SQLite migrations unchanged; SQLite integrity `ok`, zero foreign-key errors, WAL empty; no configured vault in the isolated checkout |
-| Repository hygiene | Working and staged diffs pass `git diff --check`; branch-wide check must be repeated after the final commit |
+| Repository hygiene | Working, staged and branch-wide diffs pass `git diff --check`; the phase scope contains only the 21 gate-allowed files |
 
 The isolated checkout had no production SQLite database. A temporary, ignored synthetic database with one course and one knowledge chunk enabled full legacy route tests; the skipped prior-session Tutor test requires a real prior session. No personal Notes store or vault was modified. The PowerShell gate itself could not be executed because `pwsh` is not installed in this Linux environment. Its embedded vault snapshot was executed successfully as a temporary Python file.
 
