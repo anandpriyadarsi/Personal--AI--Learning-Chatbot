@@ -35,7 +35,7 @@
 {% if note.assets %}
 <section class="dashboard-panel anvaya-native-assets">
   <div class="section-heading-row">
-    <div><p class="eyebrow">{% if note.note_kind == 'handwritten' %}Original pages{% else %}Attachments{% endif %}</p><h3>{{ note.assets|length }} file{% if note.assets|length != 1 %}s{% endif %}</h3></div>
+    <div><p class="eyebrow">{% if note.note_kind == 'handwritten' %}Original pages{% else %}Files not placed in the note{% endif %}</p><h3>{{ note.assets|length }} file{% if note.assets|length != 1 %}s{% endif %}</h3></div>
   </div>
   <div class="anvaya-native-asset-list">
     {% for asset in note.assets %}
