@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Split Question · Import Review · ANVAYA{% endblock %}
+{% block content %}
+<section class="hero dashboard-hero">
+  <div><p class="eyebrow">Import Review · Segmentation</p><h2>Split staged question</h2><p class="lede">Use this only when Alex/package segmentation combined two subjective questions. Both resulting questions will require review and new marks/solutions.</p></div>
+  <a class="button button-secondary" href="{{ url_for('web.assessment_import_review', batch_id=editor.batch.id) }}">Back to review</a>
+</section>
+{% if error_message %}<section class="notice-panel" role="alert"><h3>Question was not split</h3><p>{{ error_message }}</p></section>{% endif %}
+<section class="dashboard-panel">
+  <p class="eyebrow">Current text</p><pre class="reader-prose">{{ editor.question.question_text }}</pre>
+</section>
+<section class="action-panel">
+  <form method="post" action="{{ url_for('web.assessment_import_question_split_create', batch_id=editor.batch.id, question_id=editor.question.id) }}">
+    <label class="form-field form-field-full"><span>Exact text where the second question begins</span><textarea name="marker" rows="3" required></textarea></label>
+    <div class="form-actions"><button class="button" type="submit">Split question</button></div>
+  </form>
+</section>
+{% endblock %}
