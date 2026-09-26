@@ -192,37 +192,61 @@
   const handleTimeout = async () => {
     if (timeoutHandled) return;
     timeoutHandled = true;
-    if (form) {
-      form.querySelectorAll("input, textarea, button").forEach((control) => {
-        control.disabled = true;
-      });
-    }
-    setSaveState("Time expired — submitting…", true);
+    setSaveState("Checking server time…", true);
     try {
-      await postJson(submitUrl, { reason: "timeout" });
+      const result = await postJson(
+        heartbeatUrl,
+        {
+          session_question_id: questionId,
+          focus_seconds_delta: collectFocus()
+        }
+      );
+      if (result.status === "active") {
+        remainingSeconds = Math.max(0, Number(result.remaining_seconds || 0));
+        syncStartedAt = performance.now();
+        timeoutHandled = false;
+        setSaveState("Saved to ANVAYA");
+        renderTimer();
+        return;
+      }
     } catch (_error) {
-      // The summary GET will synchronize server-side expiry even if this request fails.
+      timeoutHandled = false;
+      setSaveState("Server check pending — timer will retry");
+      return;
     }
     window.location.assign(summaryUrl);
   };
 
   if (submitForm) {
-    submitForm.addEventListener("submit", (event) => {
+    submitForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
       if (!window.confirm("Submit the test now? You cannot continue this timed session after submission.")) {
-        event.preventDefault();
+        return;
       }
+      setSaveState("Saving and submitting…", true);
+      if (autosaveTimer) window.clearTimeout(autosaveTimer);
+      if (autosaveInFlight) await autosaveInFlight;
+      await autosave({ silent: true });
+      await heartbeat();
+      try {
+        await postJson(submitUrl, { reason: "user" });
+      } catch (_error) {
+        setSaveState("Submission failed — try again");
+        return;
+      }
+      window.location.assign(summaryUrl);
     });
   }
 
   window.addEventListener("beforeunload", () => {
     if (timeoutHandled) return;
-    collectFocus();
-    if (heartbeatUrl && unsentFocusSeconds > 0) {
+    const focusDelta = collectFocus();
+    if (heartbeatUrl && focusDelta > 0) {
       postJson(
         heartbeatUrl,
         {
           session_question_id: questionId,
-          focus_seconds_delta: Math.max(0, Math.min(60, unsentFocusSeconds))
+          focus_seconds_delta: focusDelta
         },
         true
       ).catch(() => {});
