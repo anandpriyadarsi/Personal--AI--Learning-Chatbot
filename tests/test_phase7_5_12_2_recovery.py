@@ -17,10 +17,10 @@ from personal_learning_assistant.repositories.sqlite.migration_runner import (
 
 def _migrated(tmp_path):
     path = tmp_path / "learning_assistant.db"
-    # Current migration source includes Assessment Studio Phase A migration 0012.
+    # Current migration source includes Assessment Studio Phase A migration 0013.
     # Phase 7.5.12.2-specific 0007 tests below still exercise a deliberately
     # bounded 0001..0007 migration set.
-    assert apply_migrations(path)[-1] == 12
+    assert apply_migrations(path)[-1] == 13
     return path
 
 

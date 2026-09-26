@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% block title %}Adaptive Academic Loop · ANVAYA{% endblock %}
+{% block content %}
+<section class="hero dashboard-hero">
+  <div>
+    <p class="eyebrow">Assessment Studio · Phase F</p>
+    <h2>Adaptive Academic Loop</h2>
+    <p class="lede">Turn confirmed assessment evidence into reviewable recovery actions. ANVAYA proposes; you decide what enters the planner.</p>
+  </div>
+  <div class="form-actions">
+    <a class="button button-secondary" href="{{ url_for('web.assessment_weak_topics') }}">Recovery evidence</a>
+    <a class="button button-secondary" href="{{ url_for('web.planning_tasks') }}">Planner tasks</a>
+  </div>
+</section>
+
+{% if notice_message %}<section class="notice-panel"><h3>Adaptive Loop updated</h3><p>{{ notice_message }}</p></section>{% endif %}
+{% if error_message %}<section class="notice-panel" role="alert"><h3>Action not completed</h3><p>{{ error_message }}</p></section>{% endif %}
+
+<section class="metric-grid">
+  <article class="metric-card"><span class="metric-label">Pending review</span><strong>{{ workspace.summary.pending }}</strong><span>not in planner</span></article>
+  <article class="metric-card"><span class="metric-label">Accepted / retryable</span><strong>{{ workspace.summary.accepted }}</strong><span>planner application pending</span></article>
+  <article class="metric-card"><span class="metric-label">Applied</span><strong>{{ workspace.summary.applied }}</strong><span>planner tasks created</span></article>
+  <article class="metric-card"><span class="metric-label">Rejected</span><strong>{{ workspace.summary.rejected }}</strong><span>kept as decision history</span></article>
+</section>
+
+<section class="notice-panel next-panel">
+  <h3>Control stays with you</h3>
+  <p>Generating recommendations only saves proposals. Applying one creates a normal planner backlog task through the existing Operational Task service. It does not change mastery, topic status, calendar slots or daily agendas.</p>
+</section>
+
+<section class="dashboard-panel next-panel">
+  <div class="panel-heading">
+    <div><p class="eyebrow">Live Phase E evidence</p><h3>Preview recommendations before saving</h3></div>
+    <span class="count-badge">{{ workspace.candidates|length }}</span>
+  </div>
+  <p class="lede">{{ workspace.source_note }}</p>
+  {% if workspace.candidates %}
+  <form method="post" action="{{ url_for('web.assessment_adaptive_generate') }}">
+    <div class="adaptive-preview-grid">
+    {% for item in workspace.candidates %}
+      <article class="adaptive-card">
+        <label class="adaptive-select">
+          <input type="checkbox" name="evidence_fingerprint" value="{{ item.evidence_fingerprint }}">
+          <span>Select</span>
+        </label>
+        <p class="eyebrow">#{{ item.evidence.recovery_order }} · {{ item.course_code }}</p>
+        <h3>{{ item.topic_label }}</h3>
+        <div class="tag-row">
+          <span class="tag">{{ item.action_label }}</span>
+          <span class="tag">{{ item.suggested_priority }}</span>
+          <span class="tag">{{ item.suggested_minutes }} min</span>
+        </div>
+        <p>{{ item.evidence.weighted_performance_percent if item.evidence.weighted_performance_percent is not none else '—' }}{% if item.evidence.weighted_performance_percent is not none %}%{% endif %} weighted marks · {{ item.evidence.question_count }} questions · {{ item.evidence.mistake_count }} confirmed mistakes</p>
+        {% if item.evidence.recovery_signals %}<p class="intelligence-muted"><strong>Evidence:</strong> {{ item.evidence.recovery_signals|join(' · ') }}</p>{% endif %}
+        <ol class="adaptive-step-list">{% for step in item.action_plan %}<li><strong>{{ step.kind|replace('_',' ')|title }}:</strong> {{ step.instruction }}</li>{% endfor %}</ol>
+        <details class="evaluation-details"><summary>Alex / ChatGPT recovery prompt</summary><p class="reader-prose">{{ item.alex_prompt }}</p></details>
+      </article>
+    {% endfor %}
+    </div>
+    <div class="form-actions"><button class="button" type="submit">Generate selected recommendations</button></div>
+  </form>
+  {% else %}
+    <p class="empty-state">No confirmed topic evidence is currently available for recommendation generation.</p>
+  {% endif %}
+</section>
+
+{% if workspace.accepted %}
+<section class="dashboard-panel next-panel">
+  <div class="panel-heading"><div><p class="eyebrow">Safe resume</p><h3>Accepted, planner application pending</h3></div><span class="count-badge">{{ workspace.accepted|length }}</span></div>
+  <p class="lede">These were already accepted. Retrying Apply is idempotent and will reuse the same recovery task external ID.</p>
+  <div class="adaptive-saved-grid">
+  {% for item in workspace.accepted %}
+    <article class="adaptive-card adaptive-card-warning">
+      <p class="eyebrow">{{ item.course_code }} · {{ item.topic_label }}</p>
+      <h3>{{ item.suggested_title }}</h3>
+      <p>{{ item.action_label }} · {{ item.applied_payload.get('priority', item.suggested_priority) }} · {{ item.applied_payload.get('estimated_minutes', item.suggested_minutes) }} min</p>
+      <form method="post" action="{{ url_for('web.assessment_adaptive_apply', recommendation_id=item.id) }}">
+        <input type="hidden" name="revision" value="{{ item.revision }}">
+        <button class="button" type="submit">Retry planner application</button>
+      </form>
+    </article>
+  {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<section class="dashboard-panel next-panel">
+  <div class="panel-heading"><div><p class="eyebrow">Human approval queue</p><h3>Pending recommendations</h3></div><span class="count-badge">{{ workspace.pending|length }}</span></div>
+  {% if workspace.pending %}
+  <div class="adaptive-saved-grid">
+  {% for item in workspace.pending %}
+    <article class="adaptive-card">
+      <p class="eyebrow">{{ item.course_code }} · {{ item.topic_label }}</p>
+      <h3>{{ item.action_label }}</h3>
+      <p>{{ item.evidence.get('weighted_performance_percent', '—') }}{% if item.evidence.get('weighted_performance_percent') is not none %}%{% endif %} weighted marks · {{ item.evidence.get('question_count', 0) }} questions · {{ item.evidence.get('mistake_count', 0) }} mistakes</p>
+      <ol class="adaptive-step-list">{% for step in item.action_plan %}<li>{{ step.instruction }}</li>{% endfor %}</ol>
+
+      <form method="post" action="{{ url_for('web.assessment_adaptive_apply', recommendation_id=item.id) }}">
+        <input type="hidden" name="revision" value="{{ item.revision }}">
+        <div class="form-grid">
+          <label class="form-field form-field-full"><span>Planner task title</span><input name="title" maxlength="300" value="{{ item.suggested_title }}" required></label>
+          <label class="form-field"><span>Priority</span><select name="priority"><option value="P0" {% if item.suggested_priority == 'P0' %}selected{% endif %}>P0</option><option value="P1" {% if item.suggested_priority == 'P1' %}selected{% endif %}>P1</option><option value="P2" {% if item.suggested_priority == 'P2' %}selected{% endif %}>P2</option></select></label>
+          <label class="form-field"><span>Estimated minutes</span><input type="number" min="0" max="1440" name="estimated_minutes" value="{{ item.suggested_minutes }}"></label>
+          <label class="form-field"><span>Due date (optional)</span><input type="date" name="due_on"></label>
+          <label class="form-field form-field-full"><span>Task description</span><textarea name="description" rows="5">{{ item.suggested_description }}</textarea></label>
+        </div>
+        <div class="form-actions"><button class="button" type="submit">Apply to planner backlog</button></div>
+      </form>
+
+      <form class="adaptive-reject-form" method="post" action="{{ url_for('web.assessment_adaptive_reject', recommendation_id=item.id) }}">
+        <input type="hidden" name="revision" value="{{ item.revision }}">
+        <label class="form-field"><span>Reject note (optional)</span><input name="reason" maxlength="1000" placeholder="Why this is not useful now"></label>
+        <button class="button button-secondary compact-button" type="submit">Reject recommendation</button>
+      </form>
+
+      <details class="evaluation-details"><summary>Alex / ChatGPT recovery prompt</summary><p class="reader-prose">{{ item.alex_prompt }}</p></details>
+    </article>
+  {% endfor %}
+  </div>
+  {% else %}<p class="empty-state">No saved recommendations are waiting for approval.</p>{% endif %}
+</section>
+
+{% if workspace.applied %}
+<section class="dashboard-panel next-panel">
+  <div class="panel-heading"><div><p class="eyebrow">Planner handoff</p><h3>Applied recommendations</h3></div><span class="count-badge">{{ workspace.applied|length }}</span></div>
+  <div class="adaptive-history-list">
+  {% for item in workspace.applied %}
+    <article><div><strong>{{ item.course_code }} · {{ item.topic_label }}</strong><span>{{ item.applied_payload.get('title', item.suggested_title) }} · {{ item.planner_task_status|replace('_',' ')|title }}</span></div><span class="tag">Applied</span></article>
+  {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+{% if workspace.rejected %}
+<details class="dashboard-panel next-panel intelligence-table-panel">
+  <summary>Rejected recommendation history ({{ workspace.rejected|length }})</summary>
+  <div class="adaptive-history-list">{% for item in workspace.rejected %}<article><div><strong>{{ item.course_code }} · {{ item.topic_label }}</strong><span>{{ item.rejection_reason or 'No rejection note.' }}</span></div><span class="tag">Rejected</span></article>{% endfor %}</div>
+</details>
+{% endif %}
+
+<section class="notice-panel next-panel">
+  <h3>What Phase F does not do</h3>
+  <p>It does not mark a topic weak/mastered, auto-schedule a calendar slot, create a daily agenda item, or silently generate a new test. A retest is an explicit recommended action that you can create with Alex/ChatGPT and import through the existing Assessment Package workflow.</p>
+</section>
+{% endblock %}

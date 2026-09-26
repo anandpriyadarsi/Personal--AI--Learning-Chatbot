@@ -3,7 +3,7 @@
 {% block content %}
 <section class="hero dashboard-hero">
   <div><p class="eyebrow">Assessment Intelligence · Recovery Evidence</p><h2>Topics to inspect first</h2><p class="lede">A transparent order based only on confirmed assessment performance, repeated misses and confirmed mistake classifications.</p></div>
-  <a class="button button-secondary" href="{{ url_for('web.assessment_intelligence') }}">Assessment reports</a>
+  <div class="form-actions"><a class="button" href="{{ url_for('web.assessment_adaptive_loop') }}">Open Adaptive Loop</a>  <a class="button button-secondary" href="{{ url_for('web.assessment_intelligence') }}">Assessment reports</a></div>
 </section>
 
 <section class="notice-panel"><h3>This is not a mastery score</h3><p>{{ report.note }} A small number of questions can produce limited evidence, so sample size is shown beside every topic.</p></section>

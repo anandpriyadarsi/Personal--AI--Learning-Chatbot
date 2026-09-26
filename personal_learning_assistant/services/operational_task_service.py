@@ -14,6 +14,7 @@ from personal_learning_assistant.repositories.sqlite.planner_task_repository imp
 
 MAX_TITLE = 300
 MAX_DESCRIPTION = 4000
+MAX_EXTERNAL_ID = 240
 _ALLOWED = {
     "backlog": {"planned", "scheduled", "skipped", "archived", "completed"},
     "planned": {"backlog", "scheduled", "in_progress", "skipped", "archived", "completed"},
@@ -122,6 +123,7 @@ class OperationalTaskService:
         course_id=None,
         topic_id=None,
         assessment_id=None,
+        external_id=None,
     ):
         title = str(title or "").strip()
         if not title or len(title) > MAX_TITLE:
@@ -129,11 +131,19 @@ class OperationalTaskService:
         description = str(description or "").strip()
         if len(description) > MAX_DESCRIPTION:
             raise OperationalTaskValidationError("Task description is too long.")
+        external_id = str(external_id or "").strip() or None
+        if external_id is not None:
+            if len(external_id) > MAX_EXTERNAL_ID or not external_id.startswith(
+                "assessment-recovery:"
+            ):
+                raise OperationalTaskValidationError(
+                    "Task external ID is not an accepted internal recovery reference."
+                )
         now = self._now()
         row = {
             "id": str(self._id_factory()),
             "source_import_id": None,
-            "external_id": None,
+            "external_id": external_id,
             "title": title,
             "description": description,
             "priority": _priority(priority),
@@ -153,6 +163,49 @@ class OperationalTaskService:
             return self.repository.create_task(row)
         except PlannerTaskRepositoryError as error:
             raise OperationalTaskUnavailableError("The task could not be saved.") from error
+
+    def create_assessment_recovery_task(
+        self,
+        recommendation_id,
+        *,
+        title,
+        description="",
+        priority="P1",
+        estimated_minutes=None,
+        due_on=None,
+        course_id=None,
+        topic_id=None,
+        assessment_id=None,
+    ):
+        external_id = "assessment-recovery:{}".format(str(recommendation_id))
+        try:
+            return self.repository.get_task_by_external_id(external_id)
+        except PlannerTaskRepositoryNotFoundError:
+            pass
+        except PlannerTaskRepositoryError as error:
+            raise OperationalTaskUnavailableError(
+                "Recovery task lookup is temporarily unavailable."
+            ) from error
+
+        try:
+            return self.create_task(
+                title=title,
+                description=description,
+                priority=priority,
+                estimated_minutes=estimated_minutes,
+                due_on=due_on,
+                course_id=course_id,
+                topic_id=topic_id,
+                assessment_id=assessment_id,
+                external_id=external_id,
+            )
+        except OperationalTaskUnavailableError as error:
+            # If a concurrent/retried Apply already created the unique task,
+            # return it instead of duplicating planner work.
+            try:
+                return self.repository.get_task_by_external_id(external_id)
+            except PlannerTaskRepositoryError:
+                raise error
 
     def transition(self, task_id, status, *, actual_minutes=None):
         status = str(status or "").strip()

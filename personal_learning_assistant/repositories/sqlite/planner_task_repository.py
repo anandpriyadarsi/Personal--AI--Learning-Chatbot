@@ -98,6 +98,20 @@ class SQLitePlannerTaskRepository:
         finally:
             c.close()
 
+    def get_task_by_external_id(self, external_id):
+        c = self._connect(writable=False)
+        try:
+            row = c.execute(
+                "SELECT * FROM planner_tasks WHERE external_id=? "
+                "ORDER BY created_at, id LIMIT 1",
+                (str(external_id),),
+            ).fetchone()
+            if row is None:
+                raise PlannerTaskRepositoryNotFoundError("Planner task was not found.")
+            return dict(row)
+        finally:
+            c.close()
+
     def create_task(self, row):
         c = self._connect(writable=True)
         try:

@@ -67,6 +67,13 @@ from personal_learning_assistant.services.assessment_intelligence_service import
     AssessmentIntelligenceUnavailableError,
     build_assessment_intelligence_service,
 )
+from personal_learning_assistant.services.adaptive_academic_loop_service import (
+    AdaptiveAcademicLoopConflictError,
+    AdaptiveAcademicLoopNotFoundError,
+    AdaptiveAcademicLoopUnavailableError,
+    AdaptiveAcademicLoopValidationError,
+    build_adaptive_academic_loop_service,
+)
 from personal_learning_assistant.services.calendar_grades_dashboard_service import (
     load_calendar_grades_dashboard,
     unavailable_calendar_grades_dashboard,
@@ -236,6 +243,21 @@ def _assessment_evaluation_service():
 def _assessment_intelligence_service():
     factory = current_app.config.get("ASSESSMENT_INTELLIGENCE_SERVICE_FACTORY")
     return factory() if factory is not None else build_assessment_intelligence_service()
+
+
+def _adaptive_academic_loop_service():
+    factory = current_app.config.get("ADAPTIVE_ACADEMIC_LOOP_SERVICE_FACTORY")
+    return factory() if factory is not None else build_adaptive_academic_loop_service()
+
+
+def _adaptive_academic_loop_error_status(error):
+    if isinstance(error, AdaptiveAcademicLoopValidationError):
+        return 400
+    if isinstance(error, AdaptiveAcademicLoopNotFoundError):
+        return 404
+    if isinstance(error, AdaptiveAcademicLoopConflictError):
+        return 409
+    return 503
 
 
 def _assessment_intelligence_error_status(error):
@@ -1802,6 +1824,126 @@ def assessment_weak_topics():
         )
     except Exception as error:
         return str(error), _assessment_intelligence_error_status(error)
+
+
+@web_blueprint.get("/assessments/adaptive")
+def assessment_adaptive_loop():
+    try:
+        workspace = _adaptive_academic_loop_service().workspace()
+        notice = ""
+        if request.args.get("generated") == "1":
+            notice = "Selected recovery recommendations were saved for review."
+        elif request.args.get("applied") == "1":
+            notice = "Recommendation applied to the planner backlog."
+        elif request.args.get("rejected") == "1":
+            notice = "Recommendation rejected. No planner task was created."
+        return render_template(
+            "assessment_adaptive_loop.html",
+            active_page="assessments",
+            workspace=workspace,
+            notice_message=notice,
+            error_message="",
+        )
+    except Exception as error:
+        return str(error), _adaptive_academic_loop_error_status(error)
+
+
+@web_blueprint.post("/assessments/adaptive/generate")
+def assessment_adaptive_generate():
+    service = _adaptive_academic_loop_service()
+    try:
+        service.generate(request.form.getlist("evidence_fingerprint"))
+        return redirect(url_for("web.assessment_adaptive_loop", generated="1"), code=303)
+    except (
+        AdaptiveAcademicLoopValidationError,
+        AdaptiveAcademicLoopNotFoundError,
+        AdaptiveAcademicLoopConflictError,
+        AdaptiveAcademicLoopUnavailableError,
+    ) as error:
+        try:
+            workspace = service.workspace()
+        except Exception:
+            return str(error), _adaptive_academic_loop_error_status(error)
+        return (
+            render_template(
+                "assessment_adaptive_loop.html",
+                active_page="assessments",
+                workspace=workspace,
+                notice_message="",
+                error_message=str(error),
+            ),
+            _adaptive_academic_loop_error_status(error),
+        )
+
+
+@web_blueprint.post("/assessments/adaptive/<recommendation_id>/apply")
+def assessment_adaptive_apply(recommendation_id):
+    service = _adaptive_academic_loop_service()
+    try:
+        service.apply(
+            recommendation_id,
+            {
+                "revision": request.form.get("revision", ""),
+                "title": request.form.get("title", ""),
+                "description": request.form.get("description", ""),
+                "priority": request.form.get("priority", ""),
+                "estimated_minutes": request.form.get("estimated_minutes", ""),
+                "due_on": request.form.get("due_on", ""),
+            },
+        )
+        return redirect(url_for("web.assessment_adaptive_loop", applied="1"), code=303)
+    except (
+        AdaptiveAcademicLoopValidationError,
+        AdaptiveAcademicLoopNotFoundError,
+        AdaptiveAcademicLoopConflictError,
+        AdaptiveAcademicLoopUnavailableError,
+    ) as error:
+        try:
+            workspace = service.workspace()
+        except Exception:
+            return str(error), _adaptive_academic_loop_error_status(error)
+        return (
+            render_template(
+                "assessment_adaptive_loop.html",
+                active_page="assessments",
+                workspace=workspace,
+                notice_message="",
+                error_message=str(error),
+            ),
+            _adaptive_academic_loop_error_status(error),
+        )
+
+
+@web_blueprint.post("/assessments/adaptive/<recommendation_id>/reject")
+def assessment_adaptive_reject(recommendation_id):
+    service = _adaptive_academic_loop_service()
+    try:
+        service.reject(
+            recommendation_id,
+            revision=request.form.get("revision", ""),
+            reason=request.form.get("reason", ""),
+        )
+        return redirect(url_for("web.assessment_adaptive_loop", rejected="1"), code=303)
+    except (
+        AdaptiveAcademicLoopValidationError,
+        AdaptiveAcademicLoopNotFoundError,
+        AdaptiveAcademicLoopConflictError,
+        AdaptiveAcademicLoopUnavailableError,
+    ) as error:
+        try:
+            workspace = service.workspace()
+        except Exception:
+            return str(error), _adaptive_academic_loop_error_status(error)
+        return (
+            render_template(
+                "assessment_adaptive_loop.html",
+                active_page="assessments",
+                workspace=workspace,
+                notice_message="",
+                error_message=str(error),
+            ),
+            _adaptive_academic_loop_error_status(error),
+        )
 
 
 @web_blueprint.get("/planning")
