@@ -34,17 +34,8 @@
       <span>Course <small>(optional)</small></span>
       <input name="course" value="{{ editor.course }}" maxlength="100" autocomplete="off" placeholder="e.g. MA103N">
     </label>
-    <fieldset class="anvaya-card-style-field">
-      <legend>Card style</legend>
-      <div class="anvaya-card-style-options">
-        {% for value, label in (('iris','IRIS Academic'),('preview','Preview Card'),('square','Minimal Square')) %}
-        <label class="anvaya-card-style-option">
-          <input type="radio" name="card_style" value="{{ value }}" {% if editor.card_style == value or (not editor.card_style and value == 'iris') %}checked{% endif %}>
-          <span class="anvaya-card-style-mini anvaya-note-card--{{ value }}"><strong>{{ label }}</strong></span>
-        </label>
-        {% endfor %}
-      </div>
-    </fieldset>
+    {% set selected_card_style = editor.card_style %}
+    {% include "anvaya_card_template_picker.html" %}
     <label class="form-field form-field-full">
       <span>Key points <small>(optional · up to 5)</small></span>
       <textarea name="key_points" rows="5" maxlength="1800" placeholder="One key point per line">{{ editor.key_points_text }}</textarea>
