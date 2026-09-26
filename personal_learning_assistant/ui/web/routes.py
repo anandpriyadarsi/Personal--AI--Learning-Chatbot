@@ -782,8 +782,7 @@ def courses():
 @web_blueprint.get("/assessments")
 def assessments():
     """Render Assessment Studio without mutating academic state."""
-    return render_template(
-        "assessments.html",
+    return render_template("assessments.html",
         active_page="assessments",
         catalogue=_assessment_catalogue(),
         studio=_safe_assessment_studio(),
