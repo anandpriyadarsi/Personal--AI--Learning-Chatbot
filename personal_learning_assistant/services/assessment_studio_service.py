@@ -456,7 +456,7 @@ class AssessmentStudioService:
             policy = str(
                 policies[index] if index < len(policies) else "standard"
             ).strip() or "standard"
-            if not any((count, mark, negative)):
+            if not count and not mark:
                 continue
             if kind not in dict(QUESTION_TYPES):
                 raise AssessmentStudioValidationError(
