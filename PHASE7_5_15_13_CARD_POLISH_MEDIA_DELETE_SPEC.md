@@ -1,7 +1,7 @@
 # Phase 7.5.15.13 — Card Polish + Media Deletion
 
-Status: APPROVED FEATURE SPEC  
-Branch: `phase7.5.15.13/card-polish-media-delete`  
+Status: APPROVED FEATURE SPEC
+Branch: `phase7.5.15.13/card-polish-media-delete`
 Base: `phase7.5.15.12/card-template-gallery`
 
 ## Purpose
