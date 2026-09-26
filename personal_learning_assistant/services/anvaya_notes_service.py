@@ -548,7 +548,13 @@ class AnvayaNotesService:
             "course": _text(payload.get("course"), limit=100),
             "key_points": _points(payload.get("key_points")),
             "note_kind": note_kind,
-            "card_style": _style(payload.get("card_style")),
+            # Preserve the legacy programmatic default for older callers/tests.
+            # The current web picker always submits an exact template id.
+            "card_style": (
+                _style(payload.get("card_style"))
+                if str(payload.get("card_style") or "").strip()
+                else "iris"
+            ),
             "created_at": now,
             "updated_at": now,
             "status": "active",
