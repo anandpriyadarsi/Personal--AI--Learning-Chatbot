@@ -1,7 +1,7 @@
 # Phase 7.5.15.12 — Notes Card Template Gallery
 
-Status: APPROVED FEATURE SPEC  
-Branch: `phase7.5.15.12/card-template-gallery`  
+Status: APPROVED FEATURE SPEC
+Branch: `phase7.5.15.12/card-template-gallery`
 Base: `phase7.5.15.11/inline-note-media`
 
 ## Purpose
