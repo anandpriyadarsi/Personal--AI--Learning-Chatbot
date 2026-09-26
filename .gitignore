@@ -73,3 +73,9 @@ phase1_pip_freeze.txt
 .phase4_cutover.lock
 .phase4_cutover_work/
 PROMOTION_REQUIRES_ATTENTION.json
+# Independent ANVAYA personal Notes (local/private)
+data/anvaya_notes.json
+data/anvaya_notes_assets/
+
+# Disposable local live-validation workspaces
+.live_validation/

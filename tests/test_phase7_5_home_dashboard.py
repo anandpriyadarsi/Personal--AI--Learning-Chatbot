@@ -130,10 +130,12 @@ def test_home_renders_academic_summary_from_injected_read_provider():
         "Deadline alerts",
         "Quiz 1",
         "Study blocks",
-        "Top study priorities",
-        "Academic risk",
+        "Check your analysis",
+        "Open Analysis Hub",
     ):
         assert expected in text
+    assert "Top study priorities" not in text
+    assert "Academic risk" not in text
 
 
 def test_home_provider_failure_degrades_without_leaking_exception_content():
@@ -172,8 +174,9 @@ def test_home_with_empty_read_model_renders_meaningful_empty_states():
     assert "No urgent action detected" in text
     assert "No assessment is due within the urgent window" in text
     assert "No deadline-based study block is required today" in text
-    assert "No unresolved study priority was found" in text
-    assert "No major academic risk signal is active" in text
+    assert "Check your analysis" in text
+    assert "No unresolved study priority was found" not in text
+    assert "No major academic risk signal is active" not in text
 
 
 def test_home_remains_get_only_in_phase752():

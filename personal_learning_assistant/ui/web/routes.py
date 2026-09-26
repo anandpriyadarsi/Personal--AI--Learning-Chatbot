@@ -12,6 +12,16 @@ from flask import (
     url_for,
 )
 
+from personal_learning_assistant.repositories.json.anvaya_notes_repository import (
+    AnvayaNotesConflictError,
+    AnvayaNotesNotFoundError,
+)
+from personal_learning_assistant.services.anvaya_notes_service import (
+    AnvayaNotesUnavailableError,
+    AnvayaNotesValidationError,
+    build_anvaya_notes_service,
+)
+
 from personal_learning_assistant.services.academic_agent_web_service import (
     AcademicAgentWebNotFoundError,
     AcademicAgentWebUnavailableError,
@@ -258,6 +268,11 @@ def _academic_agent_service():
     return factory()
 
 
+def _anvaya_notes_service():
+    factory = current_app.config.get("ANVAYA_NOTES_SERVICE_FACTORY")
+    return factory() if factory is not None else build_anvaya_notes_service()
+
+
 def _notes_resources_service():
     factory = (
         current_app.config.get("NOTES_RESOURCES_WEB_SERVICE_FACTORY")
@@ -299,6 +314,11 @@ def _notes_studio_reader_service():
 def _notes_studio_template_service():
     factory = current_app.config.get("NOTES_STUDIO_TEMPLATE_SERVICE_FACTORY")
     return factory() if factory is not None else build_notes_studio_template_service()
+
+
+def _compat_factory_configured(name):
+    """Old Phase 7.5.15 Notes/Obsidian bridges run only when explicitly injected."""
+    return current_app.config.get(name) is not None
 
 
 def _legacy_notes_get_override_configured():
@@ -444,12 +464,14 @@ def _tracking_payload(required):
     return payload
 
 
-def _companion_redirect(relative_path, result):
+def _companion_redirect(relative_path, result, tab):
     return redirect(
         url_for(
             "web.obsidian_note",
             path=relative_path,
             companion_saved=result,
+            study_tools="1",
+            study_tab=tab,
         ),
         code=303,
     )
@@ -621,6 +643,68 @@ def home():
         dashboard=_home_dashboard(),
         operational_today=_safe_operational_home(),
     )
+
+
+@web_blueprint.get("/analysis")
+def analysis():
+    """Render the dedicated, read-only academic + Notes analysis hub."""
+    academic = _home_dashboard()
+    try:
+        notes = _anvaya_notes_service().analysis()
+    except AnvayaNotesUnavailableError:
+        notes = {
+            "available": False,
+            "summary": {
+                "total": 0,
+                "typed": 0,
+                "handwritten": 0,
+                "saved_notes": 0,
+                "doubts": 0,
+                "media": 0,
+                "inline_media": 0,
+            },
+            "type_percent": {"typed": 0, "handwritten": 0},
+            "courses": [],
+        }
+
+    risks = list(academic.get("risks", []))
+    priorities = list(academic.get("priorities", []))
+    risk_max = max([float(item.get("score") or 0) for item in risks] or [1.0])
+    priority_max = max([float(item.get("score") or 0) for item in priorities] or [1.0])
+
+    study_totals = {}
+    if "study_minutes_by_course" in academic:
+        study_totals = dict(academic["study_minutes_by_course"])
+    else:
+        for item in academic.get("study_blocks", []):
+            code = str(item.get("course_code") or "COURSE")
+            study_totals[code] = study_totals.get(code, 0) + int(item.get("minutes") or 0)
+    study_max = max(list(study_totals.values()) or [1])
+
+    view = {
+        "academic": academic,
+        "notes": notes,
+        "risk_rows": [
+            {**item, "percent": round((float(item.get("score") or 0) / risk_max) * 100, 1)}
+            for item in risks
+        ],
+        "priority_rows": [
+            {**item, "percent": round((float(item.get("score") or 0) / priority_max) * 100, 1)}
+            for item in priorities
+        ],
+        "study_rows": [
+            {
+                "course_code": code,
+                "minutes": minutes,
+                "percent": round((minutes / study_max) * 100, 1),
+            }
+            for code, minutes in sorted(
+                study_totals.items(),
+                key=lambda pair: (-pair[1], pair[0]),
+            )
+        ],
+    }
+    return render_template("analysis.html", active_page="analysis", analysis=view)
 
 
 @web_blueprint.get("/courses")
@@ -1016,7 +1100,7 @@ def calendar_assessment_schedule(assessment_id):
 
 @web_blueprint.get("/notes")
 def notes():
-    """Render the visual, read-only Notes Studio library."""
+    """Render ANVAYA personal Notes, independent from the Obsidian workspace."""
     if _legacy_notes_get_override_configured():
         query = {
             "search": request.args.get("q", "", type=str),
@@ -1032,35 +1116,333 @@ def notes():
             error_message="",
         )
 
+    # Preserve Phase 7.5.15 injected-library tests/hosts without making the
+    # old Obsidian-backed reader the production default.
+    if current_app.config.get("NOTES_STUDIO_LIBRARY_SERVICE_FACTORY") is not None:
+        query = {
+            "search": request.args.get("q", "", type=str),
+            "course": request.args.get("course", "", type=str),
+            "note_type": request.args.get("type", "", type=str),
+            "tag": request.args.get("tag", "", type=str),
+            "view": request.args.get("view", "active", type=str),
+            "pinned": request.args.get("pinned", "", type=str),
+        }
+        try:
+            workspace = _notes_studio_library_service().workspace(**query)
+        except Exception as error:
+            current_app.logger.warning(
+                "Compatibility Notes Studio library unavailable (%s).",
+                type(error).__name__,
+            )
+            workspace = unavailable_notes_studio_library()
+            workspace["query"] = dict(query)
+        return render_template(
+            "notes_library.html",
+            active_page="notes",
+            dashboard=workspace,
+            error_message="",
+        )
+
     query = {
         "search": request.args.get("q", "", type=str),
         "course": request.args.get("course", "", type=str),
-        "note_type": request.args.get("type", "", type=str),
-        "tag": request.args.get("tag", "", type=str),
-        "view": request.args.get("view", "active", type=str),
-        "pinned": request.args.get("pinned", "", type=str),
+        "kind": request.args.get("kind", "", type=str),
     }
     try:
-        workspace = _notes_studio_library_service().workspace(**query)
+        workspace = _anvaya_notes_service().library(**query)
+        error_message = ""
     except Exception as error:
         current_app.logger.warning(
-            "Notes Studio library unavailable (%s).",
+            "ANVAYA personal Notes unavailable (%s).",
             type(error).__name__,
         )
-        workspace = unavailable_notes_studio_library()
-        workspace["query"] = dict(query)
+        workspace = {
+            "available": False,
+            "cards": [],
+            "summary": {"total": 0, "typed": 0, "handwritten": 0},
+            "query": dict(query),
+            "filter_options": {"courses": [], "kinds": []},
+        }
+        error_message = "Your personal Notes library is temporarily unavailable."
 
     return render_template(
-        "notes_library.html",
+        "anvaya_notes_library.html",
         active_page="notes",
         dashboard=workspace,
+        error_message=error_message,
+    )
+
+
+def _native_note_form_payload():
+    return {
+        "title": request.form.get("title", ""),
+        "course": request.form.get("course", ""),
+        "key_points": request.form.get("key_points", ""),
+        "card_style": request.form.get("card_style", "iris"),
+        "body": request.form.get("body", ""),
+        "remove_asset_ids": request.form.getlist("remove_asset_ids"),
+    }
+
+
+def _native_note_uploads():
+    uploads = []
+    for item in request.files.getlist("files"):
+        if item is None or not item.filename:
+            continue
+        uploads.append((str(item.filename), item.read(50 * 1024 * 1024 + 1)))
+    return tuple(uploads)
+
+
+def _native_note_editor_view(payload=None, *, note_id=""):
+    payload = dict(payload or {})
+    return {
+        "id": str(note_id or ""),
+        "title": str(payload.get("title") or ""),
+        "course": str(payload.get("course") or ""),
+        "card_style": str(payload.get("card_style") or "iris"),
+        "key_points_text": str(payload.get("key_points") or ""),
+        "body": str(payload.get("body") or ""),
+        "updated_at": str(payload.get("expected_updated_at") or ""),
+        "assets": [],
+    }
+
+
+@web_blueprint.get("/notes/create")
+def anvaya_notes_create():
+    return render_template(
+        "anvaya_notes_create.html",
+        active_page="notes",
+    )
+
+
+@web_blueprint.get("/notes/create/typed")
+def anvaya_notes_typed():
+    return render_template(
+        "anvaya_notes_editor.html",
+        active_page="notes",
+        editor=_native_note_editor_view(),
         error_message="",
     )
 
 
+@web_blueprint.post("/notes/create/typed")
+def anvaya_notes_typed_create():
+    service = _anvaya_notes_service()
+    payload = _native_note_form_payload()
+    try:
+        result = service.create_typed_note(payload, _native_note_uploads())
+        return redirect(
+            url_for("web.anvaya_note_reader", note_id=result["id"]),
+            code=303,
+        )
+    except AnvayaNotesValidationError:
+        return (
+            render_template(
+                "anvaya_notes_editor.html",
+                active_page="notes",
+                editor=_native_note_editor_view(payload),
+                error_message="Check the note name, media settings, ZIP contents, and attached files.",
+            ),
+            400,
+        )
+    except AnvayaNotesUnavailableError:
+        return (
+            render_template(
+                "anvaya_notes_editor.html",
+                active_page="notes",
+                editor=_native_note_editor_view(payload),
+                error_message="The note could not be saved. Existing Notes were not changed.",
+            ),
+            503,
+        )
+
+
+@web_blueprint.get("/notes/create/upload")
+def anvaya_notes_upload():
+    return render_template(
+        "anvaya_notes_upload.html",
+        active_page="notes",
+        form={"title": "", "course": "", "key_points": "", "card_style": "iris"},
+        error_message="",
+    )
+
+
+@web_blueprint.post("/notes/create/upload")
+def anvaya_notes_upload_create():
+    service = _anvaya_notes_service()
+    payload = _native_note_form_payload()
+    try:
+        result = service.create_handwritten_note(payload, _native_note_uploads())
+        return redirect(
+            url_for("web.anvaya_note_reader", note_id=result["id"]),
+            code=303,
+        )
+    except AnvayaNotesValidationError:
+        return (
+            render_template(
+                "anvaya_notes_upload.html",
+                active_page="notes",
+                form=payload,
+                error_message="Choose a note name and valid PDF/JPG/PNG pages or a safe ZIP batch.",
+            ),
+            400,
+        )
+    except AnvayaNotesUnavailableError:
+        return (
+            render_template(
+                "anvaya_notes_upload.html",
+                active_page="notes",
+                form=payload,
+                error_message="The handwritten note could not be saved.",
+            ),
+            503,
+        )
+
+
+@web_blueprint.get("/notes/view/<note_id>")
+def anvaya_note_reader(note_id):
+    try:
+        note = _anvaya_notes_service().reader(note_id)
+        return render_template(
+            "anvaya_notes_reader.html",
+            active_page="notes",
+            note=note,
+            error_message="",
+        )
+    except AnvayaNotesNotFoundError:
+        return (
+            render_template(
+                "anvaya_notes_reader.html",
+                active_page="notes",
+                note=None,
+                error_message="That personal note was not found.",
+            ),
+            404,
+        )
+    except AnvayaNotesUnavailableError:
+        return (
+            render_template(
+                "anvaya_notes_reader.html",
+                active_page="notes",
+                note=None,
+                error_message="That personal note could not be read safely.",
+            ),
+            503,
+        )
+
+
+@web_blueprint.post("/notes/view/<note_id>/companion")
+def anvaya_note_companion_add(note_id):
+    try:
+        kind = request.form.get("kind", "")
+        _anvaya_notes_service().add_companion_entry(
+            note_id,
+            kind=kind,
+            text=request.form.get("entry_text", ""),
+            expected_updated_at=request.form.get("expected_updated_at", ""),
+        )
+        return redirect(
+            url_for("web.anvaya_note_reader", note_id=note_id, study_tools="1",
+                    study_tab="doubts" if kind == "doubt" else "saved"),
+            code=303,
+        )
+    except AnvayaNotesConflictError:
+        return "This note changed since you opened it. Refresh before saving Study Tools.", 409
+    except AnvayaNotesNotFoundError:
+        return "That note or Study Tools entry was not found.", 404
+    except AnvayaNotesValidationError:
+        return "Enter a valid Saved note or Doubt.", 400
+    except AnvayaNotesUnavailableError:
+        return "Study Tools could not be saved.", 503
+
+
+@web_blueprint.post("/notes/view/<note_id>/companion/<entry_id>/archive")
+def anvaya_note_companion_archive(note_id, entry_id):
+    try:
+        _anvaya_notes_service().archive_companion_entry(
+            note_id,
+            entry_id=entry_id,
+            expected_updated_at=request.form.get("expected_updated_at", ""),
+        )
+        return redirect(
+            url_for("web.anvaya_note_reader", note_id=note_id, study_tools="1",
+                    study_tab="doubts" if request.form.get("study_tab") == "doubts" else "saved"),
+            code=303,
+        )
+    except AnvayaNotesConflictError:
+        return "This note changed since you opened it. Refresh before archiving.", 409
+    except AnvayaNotesNotFoundError:
+        return "That note or Study Tools entry was not found.", 404
+    except AnvayaNotesValidationError:
+        return "Choose a valid Study Tools entry.", 400
+    except AnvayaNotesUnavailableError:
+        return "Study Tools could not be updated.", 503
+
+
+@web_blueprint.get("/notes/edit/<note_id>")
+def anvaya_note_edit(note_id):
+    try:
+        editor = _anvaya_notes_service().edit_view(note_id)
+        return render_template(
+            "anvaya_notes_editor.html",
+            active_page="notes",
+            editor=editor,
+            error_message="",
+        )
+    except AnvayaNotesNotFoundError:
+        return "That personal note was not found.", 404
+    except AnvayaNotesUnavailableError:
+        return "That personal note is temporarily unavailable.", 503
+
+
+@web_blueprint.post("/notes/edit/<note_id>")
+def anvaya_note_edit_save(note_id):
+    service = _anvaya_notes_service()
+    payload = _native_note_form_payload()
+    payload["expected_updated_at"] = request.form.get("expected_updated_at", "")
+    try:
+        result = service.update_note(note_id, payload, _native_note_uploads())
+        return redirect(
+            url_for("web.anvaya_note_reader", note_id=result["id"]),
+            code=303,
+        )
+    except AnvayaNotesConflictError:
+        return "This note changed since you opened it. Refresh before saving.", 409
+    except AnvayaNotesNotFoundError:
+        return "That personal note was not found.", 404
+    except AnvayaNotesValidationError:
+        return "Check the note fields, media settings, ZIP contents, and attached files.", 400
+    except AnvayaNotesUnavailableError:
+        return "The personal note could not be saved.", 503
+
+
+@web_blueprint.get("/notes/file/<note_id>/<asset_id>")
+def anvaya_note_file(note_id, asset_id):
+    try:
+        item = _anvaya_notes_service().read_asset(note_id, asset_id)
+        response = current_app.response_class(
+            item["bytes"],
+            status=200,
+            mimetype=str(item["mimetype"]),
+        )
+        response.headers["Content-Disposition"] = 'inline; filename="{}"'.format(
+            str(item["filename"]).replace('"', "")
+        )
+        response.headers["Cache-Control"] = "private, max-age=300"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["Content-Security-Policy"] = "default-src 'none'; img-src 'self'; style-src 'none'"
+        return response
+    except AnvayaNotesNotFoundError:
+        return "Note file not found.", 404
+    except AnvayaNotesUnavailableError:
+        return "Note file temporarily unavailable.", 503
+
+
 @web_blueprint.get("/notes/reconciliation")
 def notes_reconciliation():
-    """Show the non-destructive legacy/rich Notes Studio reconciliation preview."""
+    """Compatibility-only preview from the retired Obsidian-backed Notes bridge."""
+    if not _compat_factory_configured("NOTES_STUDIO_RECONCILIATION_SERVICE_FACTORY"):
+        return redirect(url_for("web.notes"), code=303)
     try:
         report = _notes_studio_reconciliation_service().report()
         return render_template(
@@ -1087,7 +1469,9 @@ def notes_reconciliation():
 
 @web_blueprint.post("/notes/lifecycle")
 def notes_lifecycle():
-    """Apply one bounded lifecycle or study action to a managed note."""
+    """Compatibility-only lifecycle command from the retired vault-backed Notes UI."""
+    if not _compat_factory_configured("NOTES_STUDIO_LIFECYCLE_SERVICE_FACTORY"):
+        return "This retired Notes lifecycle endpoint is unavailable.", 410
     try:
         result = _notes_studio_lifecycle_service().apply_action(
             note_id=request.form.get("note_id", ""),
@@ -1119,7 +1503,9 @@ def notes_lifecycle():
 
 @web_blueprint.get("/notes/trash")
 def notes_trash():
-    """Show recoverable managed notes without exposing note bodies."""
+    """Compatibility-only Trash view from the retired vault-backed Notes UI."""
+    if not _compat_factory_configured("NOTES_STUDIO_LIFECYCLE_SERVICE_FACTORY"):
+        return redirect(url_for("web.notes"), code=303)
     try:
         workspace = _notes_studio_lifecycle_service().trash_workspace()
         return render_template(
@@ -1142,7 +1528,9 @@ def notes_trash():
 
 @web_blueprint.post("/notes/restore")
 def notes_restore():
-    """Restore a trashed managed note to an explicit vault-relative destination."""
+    """Compatibility-only restore command from the retired vault-backed Notes UI."""
+    if not _compat_factory_configured("NOTES_STUDIO_LIFECYCLE_SERVICE_FACTORY"):
+        return "This retired Notes restore endpoint is unavailable.", 410
     try:
         result = _notes_studio_lifecycle_service().restore_note(
             note_id=request.form.get("note_id", ""),
@@ -1200,7 +1588,9 @@ def _render_notes_editor_error(view, message, status):
 
 @web_blueprint.get("/notes/new")
 def notes_new():
-    """Open a safe Notes Studio create form, optionally from a template."""
+    """Compatibility alias; production Notes creation uses the independent store."""
+    if not _compat_factory_configured("NOTES_STUDIO_EDITOR_SERVICE_FACTORY"):
+        return redirect(url_for("web.anvaya_notes_create"), code=303)
     try:
         editor = _notes_studio_editor_service().new_note_view(
             request.args.get("template", "", type=str)
@@ -1231,7 +1621,9 @@ def notes_new():
 
 @web_blueprint.post("/notes/new")
 def notes_new_create():
-    """Create a managed Markdown note through the Phase 5.4 command protocol."""
+    """Compatibility-only old vault-backed note creation."""
+    if not _compat_factory_configured("NOTES_STUDIO_EDITOR_SERVICE_FACTORY"):
+        return "The old vault-backed Notes creation endpoint is retired.", 410
     service = _notes_studio_editor_service()
     try:
         result = service.create_note(request.form)
@@ -1255,7 +1647,10 @@ def notes_new_create():
 
 @web_blueprint.get("/notes/edit")
 def notes_edit():
-    """Open an expected-hash editor for one managed Notes Studio note."""
+    """Compatibility-only old vault-backed note editor."""
+    if not _compat_factory_configured("NOTES_STUDIO_EDITOR_SERVICE_FACTORY"):
+        path = request.args.get("path", "", type=str)
+        return redirect(url_for("web.obsidian_note", path=path), code=303)
     try:
         editor = _notes_studio_editor_service().edit_view(
             request.args.get("path", "", type=str),
@@ -1283,7 +1678,9 @@ def notes_edit():
 
 @web_blueprint.post("/notes/edit")
 def notes_edit_save():
-    """Update one managed note with exact expected-hash conflict protection."""
+    """Compatibility-only old vault-backed note update."""
+    if not _compat_factory_configured("NOTES_STUDIO_EDITOR_SERVICE_FACTORY"):
+        return "The old vault-backed Notes editor is retired.", 410
     service = _notes_studio_editor_service()
     try:
         result = service.update_note(request.form)
@@ -1319,7 +1716,9 @@ def notes_edit_save():
 
 @web_blueprint.post("/notes/attachments")
 def notes_attachment_upload():
-    """Upload one safe raster attachment through the Notes Studio write protocol."""
+    """Compatibility-only old vault-backed attachment upload."""
+    if not _compat_factory_configured("NOTES_STUDIO_EDITOR_SERVICE_FACTORY"):
+        return "The old vault-backed Notes attachment endpoint is retired.", 410
     service = _notes_studio_editor_service()
     file_item = request.files.get("file")
     filename = "" if file_item is None else str(file_item.filename or "")
@@ -1351,7 +1750,9 @@ def notes_attachment_upload():
 
 @web_blueprint.get("/notes/asset")
 def notes_asset():
-    """Serve one approved read-only image from the configured Notes Studio vault."""
+    """Compatibility-only old vault-backed Notes asset."""
+    if not _compat_factory_configured("NOTES_STUDIO_ASSET_SERVICE_FACTORY"):
+        return "The old vault-backed Notes asset endpoint is retired.", 410
     try:
         payload = _notes_studio_asset_service().read_asset(
             request.args.get("path", "", type=str)
@@ -1402,7 +1803,9 @@ def notes_asset():
 
 @web_blueprint.get("/notes/templates")
 def notes_templates():
-    """Render the five read-only academic Notes Studio templates."""
+    """Compatibility alias; production templates are visual card styles."""
+    if not _compat_factory_configured("NOTES_STUDIO_TEMPLATE_SERVICE_FACTORY"):
+        return redirect(url_for("web.anvaya_notes_create"), code=303)
     try:
         templates = _notes_studio_template_service().list_templates()
         return render_template(
@@ -1429,7 +1832,9 @@ def notes_templates():
 
 @web_blueprint.get("/notes/templates/<template_id>")
 def notes_template_preview(template_id):
-    """Preview one deterministic Markdown scaffold without creating a note."""
+    """Compatibility-only preview for retired Markdown scaffolds."""
+    if not _compat_factory_configured("NOTES_STUDIO_TEMPLATE_SERVICE_FACTORY"):
+        return redirect(url_for("web.anvaya_notes_create"), code=303)
     try:
         template = _notes_studio_template_service().template_view(template_id)
         return render_template(
@@ -1470,7 +1875,15 @@ def notes_template_preview(template_id):
 
 @web_blueprint.get("/notes/note")
 def notes_reader():
-    """Render one full canonical Markdown note through the safe Notes Studio reader."""
+    """Compatibility alias; vault Markdown belongs to the Obsidian product."""
+    if not _compat_factory_configured("NOTES_STUDIO_READER_SERVICE_FACTORY"):
+        return redirect(
+            url_for(
+                "web.obsidian_note",
+                path=request.args.get("path", "", type=str),
+            ),
+            code=303,
+        )
     try:
         note = _notes_studio_reader_service().reader_view(
             request.args.get("path", "", type=str)
@@ -1813,7 +2226,8 @@ def _add_companion_entry(entry_type, saved_label):
             entry_type=entry_type,
             entry_text=request.form.get("entry_text", ""),
         )
-        return _companion_redirect(relative_path, saved_label)
+        return _companion_redirect(relative_path, saved_label,
+                                   "doubts" if entry_type == "doubt" else "saved")
     except (
         ObsidianStudyValidationError,
         ObsidianStudyNotFoundError,
@@ -1847,7 +2261,8 @@ def obsidian_companion_archive(entry_id):
             source_hash=request.form.get("source_hash", ""),
             entry_id=entry_id,
         )
-        return _companion_redirect(relative_path, "archived")
+        return _companion_redirect(relative_path, "archived",
+                                   "doubts" if request.form.get("study_tab") == "doubts" else "saved")
     except (
         ObsidianStudyValidationError,
         ObsidianStudyNotFoundError,

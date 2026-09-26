@@ -4,6 +4,7 @@
 
 {% block page_scripts %}
 <script defer src="{{ url_for('static', filename='js/obsidian_reader.js') }}"></script>
+<script defer src="{{ url_for('static', filename='js/anvaya_notes_reader.js') }}"></script>
 {% endblock %}
 
 {% block content %}
@@ -72,18 +73,38 @@
     {% endif %}
   </article>
 
-  <aside class="dashboard-panel obsidian-companion" aria-labelledby="obsidian-companion-title">
-    <div class="panel-heading">
+  {% set key_point_count = note.companion.key_points|default([], true)|length %}
+  {% set doubt_count = note.companion.doubts|default([], true)|length %}
+  <button id="notes-study-tools-launcher" class="notes-study-tools-launcher" type="button"
+          data-position-key="anvaya.obsidian.studyTools.position"
+          aria-controls="notes-study-tools-drawer" aria-expanded="false">
+    <span aria-hidden="true">✦</span><span>Study Tools</span>
+    {% if key_point_count + doubt_count %}<strong>{{ key_point_count + doubt_count }}</strong>{% endif %}
+  </button>
+
+  <aside id="notes-study-tools-drawer" class="dashboard-panel notes-study-tools-drawer obsidian-companion"
+         aria-labelledby="obsidian-companion-title" aria-hidden="false">
+    <div class="notes-study-tools-header">
       <div>
         <p class="eyebrow">Study tools</p>
         <h3 id="obsidian-companion-title">ANVAYA Companion</h3>
       </div>
+      <button id="notes-study-tools-close" class="notes-study-tools-close" type="button" aria-label="Close Study Tools">×</button>
     </div>
 
     {% if not note.companion.available %}
     <p class="notice-panel compact-notice">{{ note.companion.message }}</p>
     {% else %}
-    <section class="obsidian-history" aria-labelledby="obsidian-history-title">
+    <div class="notes-study-tools-tabs obsidian-study-tools-tabs" role="tablist" aria-label="Study Tools sections">
+      <button id="obsidian-tab-saved" class="is-active" type="button" role="tab" aria-selected="true"
+              aria-controls="obsidian-panel-saved" data-study-tab="saved">Key points <span>{{ key_point_count }}</span></button>
+      <button id="obsidian-tab-doubts" type="button" role="tab" aria-selected="false"
+              aria-controls="obsidian-panel-doubts" data-study-tab="doubts">Doubts <span>{{ doubt_count }}</span></button>
+      <button id="obsidian-tab-reading" type="button" role="tab" aria-selected="false"
+              aria-controls="obsidian-panel-reading" data-study-tab="reading">Reading</button>
+    </div>
+    <section id="obsidian-panel-reading" class="notes-study-tools-panel obsidian-history" role="tabpanel"
+             aria-labelledby="obsidian-tab-reading" data-study-panel="reading">
       <h4 id="obsidian-history-title">Reading history</h4>
       <dl class="obsidian-history-grid">
         <div><dt>Last read</dt><dd>{{ note.history.last_read_at or 'Not yet' }}</dd></div>
@@ -104,7 +125,8 @@
       {% endif %}
     </section>
 
-    <section class="obsidian-companion-section" aria-labelledby="obsidian-key-points-title">
+    <section id="obsidian-panel-saved" class="notes-study-tools-panel is-active obsidian-companion-section"
+             role="tabpanel" aria-labelledby="obsidian-tab-saved" data-study-panel="saved">
       <h4 id="obsidian-key-points-title">Key points</h4>
       {% if note.companion.key_points %}
       <ul class="obsidian-companion-list">
@@ -114,6 +136,7 @@
           <form method="post" action="{{ url_for('web.obsidian_companion_archive', entry_id=entry.id) }}">
             <input type="hidden" name="path" value="{{ note.relative_path }}">
             <input type="hidden" name="source_hash" value="{{ note.source_hash }}">
+            <input type="hidden" name="study_tab" value="saved">
             <button class="button secondary-button compact-button" type="submit">Archive</button>
           </form>
         </li>
@@ -133,7 +156,8 @@
       </form>
     </section>
 
-    <section class="obsidian-companion-section" aria-labelledby="obsidian-doubts-title">
+    <section id="obsidian-panel-doubts" class="notes-study-tools-panel obsidian-companion-section"
+             role="tabpanel" aria-labelledby="obsidian-tab-doubts" data-study-panel="doubts">
       <h4 id="obsidian-doubts-title">Doubts</h4>
       {% if note.companion.doubts %}
       <ul class="obsidian-companion-list">
@@ -143,6 +167,7 @@
           <form method="post" action="{{ url_for('web.obsidian_companion_archive', entry_id=entry.id) }}">
             <input type="hidden" name="path" value="{{ note.relative_path }}">
             <input type="hidden" name="source_hash" value="{{ note.source_hash }}">
+            <input type="hidden" name="study_tab" value="doubts">
             <button class="button secondary-button compact-button" type="submit">Archive</button>
           </form>
         </li>
@@ -174,6 +199,13 @@
 </details>
 
 <noscript>
+  <style>
+    .obsidian-reader-layout .notes-study-tools-launcher,
+    .obsidian-reader-layout .notes-study-tools-close,
+    .obsidian-reader-layout .notes-study-tools-tabs { display: none; }
+    .obsidian-reader-layout .notes-study-tools-drawer { position: static; width: 100%; max-height: none; margin-top: 1rem; transform: none; opacity: 1; visibility: visible; pointer-events: auto; }
+    .obsidian-reader-layout .notes-study-tools-panel { display: block; }
+  </style>
   <p class="notice-panel compact-notice">Reading-time tracking requires JavaScript. The note and Companion forms remain usable without it.</p>
 </noscript>
 

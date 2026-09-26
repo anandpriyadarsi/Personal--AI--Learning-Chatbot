@@ -1,0 +1,142 @@
+{% set selected_card_style = selected_card_style|default('iris-indigo') %}
+{% if selected_card_style in ('iris','') %}{% set selected_card_style = 'iris-indigo' %}{% endif %}
+{% if selected_card_style == 'preview' %}{% set selected_card_style = 'preview-left' %}{% endif %}
+{% if selected_card_style == 'square' %}{% set selected_card_style = 'square-clean' %}{% endif %}
+{% if selected_card_style.startswith('preview-') %}
+  {% set active_family = 'preview' %}
+{% elif selected_card_style.startswith('square-') %}
+  {% set active_family = 'square' %}
+{% else %}
+  {% set active_family = 'iris' %}
+{% endif %}
+
+<fieldset class="anvaya-card-template-picker" data-card-template-picker>
+  <legend>Card design</legend>
+  <p class="anvaya-card-picker-help">Choose a family, then select one of its six templates. This choice belongs only to this note.</p>
+
+  <div class="anvaya-card-family-tabs" role="tablist" aria-label="Card families">
+    <button type="button" class="anvaya-card-family-tab{% if active_family == 'iris' %} is-active{% endif %}"
+      data-card-family-tab="iris" aria-selected="{{ 'true' if active_family == 'iris' else 'false' }}">
+      <span>IRIS Card</span><small>6 academic subject themes</small>
+    </button>
+    <button type="button" class="anvaya-card-family-tab{% if active_family == 'preview' %} is-active{% endif %}"
+      data-card-family-tab="preview" aria-selected="{{ 'true' if active_family == 'preview' else 'false' }}">
+      <span>Preview Card</span><small>6 image-first layouts</small>
+    </button>
+    <button type="button" class="anvaya-card-family-tab{% if active_family == 'square' %} is-active{% endif %}"
+      data-card-family-tab="square" aria-selected="{{ 'true' if active_family == 'square' else 'false' }}">
+      <span>Minimal Square</span><small>6 compact layouts</small>
+    </button>
+  </div>
+
+  <div class="anvaya-card-family-panel{% if active_family == 'iris' %} is-active{% endif %}" data-card-family-panel="iris">
+    <div class="anvaya-card-template-grid">
+      {% for value, name, use, code in (
+        ('iris-indigo','Indigo Matrix','Math / Linear Algebra','MA103N'),
+        ('iris-emerald','Emerald Lab','Engineering Chemistry','CY100N'),
+        ('iris-cyan','Cyan Data','Data Science / AI','UC100N'),
+        ('iris-amber','Amber Heritage','Indian Knowledge System','UC103N'),
+        ('iris-coral','Coral Sketch','Design Thinking','DE100N'),
+        ('iris-violet','Violet Code','CSE / General','')
+      ) %}
+      <label class="anvaya-card-template-option">
+        <input type="radio" name="card_style" value="{{ value }}" {% if selected_card_style == value %}checked{% endif %}>
+        <span class="anvaya-card-template-preview anvaya-note-card--iris anvaya-note-template--{{ value }}">
+          {% if code %}<span class="anvaya-template-course">{{ code }}</span>{% endif %}
+          <strong>{{ name }}</strong>
+          <span class="anvaya-template-line"></span>
+          <small>{{ use }}</small>
+          <span class="anvaya-template-time">25 Sep · 3:28 PM</span>
+        </span>
+        <span class="anvaya-card-template-name">{{ name }}<small>{{ use }}</small></span>
+      </label>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="anvaya-card-family-panel{% if active_family == 'preview' %} is-active{% endif %}" data-card-family-panel="preview">
+    <div class="anvaya-card-template-grid">
+      {% for value, name, use in (
+        ('preview-left','Lecture Split','Left Preview · clean image + lecture summary'),
+        ('preview-top','Notebook Hero','Top Preview · large visual header + notes'),
+        ('preview-split','Diagram Focus','Balanced Split · diagram and key points'),
+        ('preview-film','Study Strip','Film Strip · compact visual strip + metadata'),
+        ('preview-polaroid','Paper Snapshot','Polaroid · warm paper-style framed image'),
+        ('preview-banner','Glass Banner','Banner · soft glass header + compact note body')
+      ) %}
+      <label class="anvaya-card-template-option">
+        <input type="radio" name="card_style" value="{{ value }}" {% if selected_card_style == value %}checked{% endif %}>
+        <span class="anvaya-card-template-preview anvaya-note-card--preview anvaya-note-template--{{ value }}">
+          <span class="anvaya-template-image">IMG</span>
+          <strong>{{ name }}</strong>
+          <small>{{ use }}</small>
+          <span class="anvaya-template-time">25 Sep · 3:28 PM</span>
+        </span>
+        <span class="anvaya-card-template-name">{{ name }}<small>{{ use }}</small></span>
+      </label>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="anvaya-card-family-panel{% if active_family == 'square' %} is-active{% endif %}" data-card-family-panel="square">
+    <div class="anvaya-card-template-grid">
+      {% for value, name, use in (
+        ('square-clean','Clean','Quiet and simple'),
+        ('square-outline','Outline','Strong academic border'),
+        ('square-centered','Centered','Centered topic focus'),
+        ('square-corner','Corner Accent','Small colour marker'),
+        ('square-grid','Grid','Technical notebook feel'),
+        ('square-soft','Soft Tile','Gentle gradient tile')
+      ) %}
+      <label class="anvaya-card-template-option">
+        <input type="radio" name="card_style" value="{{ value }}" {% if selected_card_style == value %}checked{% endif %}>
+        <span class="anvaya-card-template-preview anvaya-note-card--square anvaya-note-template--{{ value }}">
+          <span class="anvaya-template-course">NOTE</span>
+          <strong>{{ name }}</strong>
+          <small>{{ use }}</small>
+          <span class="anvaya-template-time">25 Sep · 3:28 PM</span>
+        </span>
+        <span class="anvaya-card-template-name">{{ name }}<small>{{ use }}</small></span>
+      </label>
+      {% endfor %}
+    </div>
+  </div>
+</fieldset>
+
+<script>
+(() => {
+  document.querySelectorAll("[data-card-template-picker]").forEach((picker) => {
+    const tabs = Array.from(picker.querySelectorAll("[data-card-family-tab]"));
+    const panels = Array.from(picker.querySelectorAll("[data-card-family-panel]"));
+
+    const showFamily = (family) => {
+      tabs.forEach((tab) => {
+        const active = tab.dataset.cardFamilyTab === family;
+        tab.classList.toggle("is-active", active);
+        tab.setAttribute("aria-selected", active ? "true" : "false");
+      });
+      panels.forEach((panel) => {
+        panel.classList.toggle("is-active", panel.dataset.cardFamilyPanel === family);
+      });
+    };
+
+    tabs.forEach((tab) => {
+      tab.addEventListener("click", () => showFamily(tab.dataset.cardFamilyTab));
+    });
+
+    picker.querySelectorAll('input[name="card_style"]').forEach((input) => {
+      input.addEventListener("change", () => {
+        picker.querySelectorAll(".anvaya-card-template-option").forEach((option) => {
+          option.classList.toggle(
+            "is-selected",
+            option.contains(input) && input.checked
+          );
+        });
+      });
+      if (input.checked) {
+        input.closest(".anvaya-card-template-option")?.classList.add("is-selected");
+      }
+    });
+  });
+})();
+</script>

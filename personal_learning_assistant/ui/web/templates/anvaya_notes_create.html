@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}Create Note · ANVAYA{% endblock %}
+
+{% block content %}
+<nav class="notes-reader-back"><a href="{{ url_for('web.notes') }}">← Back to My Notes</a></nav>
+
+<section class="anvaya-notes-hero">
+  <div>
+    <p class="eyebrow">New personal note</p>
+    <h2>Create note</h2>
+    <p class="lede">Choose how you want to add this note. The date and time are saved automatically.</p>
+  </div>
+</section>
+
+<div class="anvaya-note-kind-grid">
+  <a class="anvaya-note-kind-card" href="{{ url_for('web.anvaya_notes_upload') }}">
+    <span class="anvaya-note-kind-icon" aria-hidden="true">▧</span>
+    <h3>Upload handwritten note</h3>
+    <p>Add PDF, JPG, JPEG or PNG pages from your notebook.</p>
+    <span>Choose files →</span>
+  </a>
+  <a class="anvaya-note-kind-card" href="{{ url_for('web.anvaya_notes_typed') }}">
+    <span class="anvaya-note-kind-icon" aria-hidden="true">▤</span>
+    <h3>Create typed note</h3>
+    <p>Write structured notes with equations, tables, callouts, diagrams and flowcharts.</p>
+    <span>Start writing →</span>
+  </a>
+</div>
+
+<section class="dashboard-panel anvaya-card-style-picker-info">
+  <p class="eyebrow">Card appearance</p>
+  <h3>18 designs available after you choose note type</h3>
+  <p class="anvaya-card-picker-help">
+    The note form has three clickable families — IRIS Card (the IRIS Academic family), Preview Card and Minimal Square.
+    Opening a family reveals six visual templates. You select the exact template for that note before saving.
+  </p>
+</section>
+{% endblock %}

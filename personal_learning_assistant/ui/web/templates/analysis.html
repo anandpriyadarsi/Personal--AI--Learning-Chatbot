@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+
+{% block title %}Analysis · ANVAYA{% endblock %}
+{% block body_class %}analysis-page{% endblock %}
+
+{% block content %}
+<section class="analysis-hero" aria-labelledby="analysis-title">
+  <div>
+    <p class="eyebrow">Your academic picture</p>
+    <h2 id="analysis-title">Analysis Hub</h2>
+    <p class="lede">Detailed analysis stays here instead of crowding your Home page. Everything below is derived from your existing academic evidence and personal Notes.</p>
+  </div>
+  {% if analysis.academic.date %}<span class="date-chip">{{ analysis.academic.date }}</span>{% endif %}
+</section>
+
+{% if not analysis.academic.available %}
+<section class="notice-panel" role="status">
+  <h3>Academic analysis is temporarily unavailable</h3>
+  <p>{{ analysis.academic.message }}</p>
+</section>
+{% endif %}
+
+{% if not analysis.notes.available %}
+<section class="notice-panel" role="status">
+  <h3>Notes analysis is temporarily unavailable</h3>
+  <p>Your personal Notes could not be read. Existing Notes were not changed.</p>
+</section>
+{% endif %}
+
+<section class="analysis-metric-grid" aria-label="Analysis summary">
+  <article class="analysis-kpi">
+    <span>Urgent deadlines</span>
+    <strong>{{ analysis.academic.summary.urgent_deadlines }}</strong>
+    <small>near-term academic pressure</small>
+  </article>
+  <article class="analysis-kpi">
+    <span>Study scheduled</span>
+    <strong>{{ analysis.academic.summary.scheduled_minutes }} min</strong>
+    <small>current planned study load</small>
+  </article>
+  <article class="analysis-kpi">
+    <span>Priority topics</span>
+    <strong>{{ analysis.academic.summary.priority_topics }}</strong>
+    <small>topics needing attention</small>
+  </article>
+  <article class="analysis-kpi">
+    <span>Risk watch</span>
+    <strong>{{ analysis.academic.summary.risk_courses }}</strong>
+    <small>courses with active risk evidence</small>
+  </article>
+  <article class="analysis-kpi">
+    <span>Personal Notes</span>
+    <strong>{% if analysis.notes.available %}{{ analysis.notes.summary.total }}{% else %}Notes data unavailable{% endif %}</strong>
+    <small>typed + handwritten</small>
+  </article>
+  <article class="analysis-kpi">
+    <span>Open doubts</span>
+    <strong>{% if analysis.notes.available %}{{ analysis.notes.summary.doubts }}{% else %}Notes data unavailable{% endif %}</strong>
+    <small>saved in Notes Study Tools</small>
+  </article>
+</section>
+
+<div class="analysis-dashboard-grid">
+  <section class="dashboard-panel analysis-panel analysis-note-types" aria-labelledby="analysis-note-types-title">
+    <div class="panel-heading">
+      <div>
+        <p class="eyebrow">Notes</p>
+        <h3 id="analysis-note-types-title">Typed vs handwritten</h3>
+      </div>
+    </div>
+    {% if analysis.notes.available %}
+    <div class="analysis-donut-wrap">
+      <div
+        class="analysis-donut"
+        style="--typed-share: {{ analysis.notes.type_percent.typed }}%;"
+        role="img"
+        aria-label="{{ analysis.notes.type_percent.typed }} percent typed notes and {{ analysis.notes.type_percent.handwritten }} percent handwritten notes"
+      >
+        <div class="analysis-donut-center">
+          <strong>{{ analysis.notes.summary.total }}</strong>
+          <span>notes</span>
+        </div>
+      </div>
+      <dl class="analysis-legend">
+        <div><dt><span class="analysis-legend-dot is-typed"></span>Typed</dt><dd>{{ analysis.notes.summary.typed }} · {{ analysis.notes.type_percent.typed }}%</dd></div>
+        <div><dt><span class="analysis-legend-dot is-handwritten"></span>Handwritten</dt><dd>{{ analysis.notes.summary.handwritten }} · {{ analysis.notes.type_percent.handwritten }}%</dd></div>
+      </dl>
+    </div>
+    {% else %}<p class="empty-state">Notes data unavailable.</p>{% endif %}
+  </section>
+
+  <section class="dashboard-panel analysis-panel" aria-labelledby="analysis-study-title">
+    <div class="panel-heading">
+      <div>
+        <p class="eyebrow">Study allocation</p>
+        <h3 id="analysis-study-title">Scheduled minutes by course</h3>
+      </div>
+    </div>
+    {% if analysis.study_rows %}
+    <div class="analysis-bars">
+      {% for row in analysis.study_rows %}
+      <div class="analysis-bar-row">
+        <div class="analysis-bar-label"><strong>{{ row.course_code }}</strong><span>{{ row.minutes }} min</span></div>
+        <div class="analysis-bar-track"><span style="width: {{ row.percent }}%"></span></div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="empty-state">No scheduled study blocks are available for the current brief.</p>
+    {% endif %}
+  </section>
+
+  <section class="dashboard-panel analysis-panel analysis-wide" aria-labelledby="analysis-priority-title">
+    <div class="panel-heading">
+      <div>
+        <p class="eyebrow">Focus</p>
+        <h3 id="analysis-priority-title">Priority topics</h3>
+      </div>
+      <span class="count-badge">{{ analysis.priority_rows|length }}</span>
+    </div>
+    {% if analysis.priority_rows %}
+    <div class="analysis-priority-grid">
+      {% for item in analysis.priority_rows %}
+      <article class="analysis-priority-item">
+        <div class="analysis-priority-head">
+          <strong>{{ item.course_code }} · {{ item.topic }}</strong>
+          <span class="score-badge">score {{ '%g'|format(item.score) }}</span>
+        </div>
+        <div class="analysis-bar-track is-priority"><span style="width: {{ item.percent }}%"></span></div>
+        {% if item.performance %}
+        <p class="microcopy">Performance evidence: {{ item.performance.accuracy }}% across {{ item.performance.attempts }} attempt(s).</p>
+        {% endif %}
+        {% if item.reasons %}<p>{{ item.reasons|join('; ') }}</p>{% endif %}
+      </article>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="empty-state">No unresolved priority topic is currently available.</p>
+    {% endif %}
+  </section>
+
+  <section class="dashboard-panel analysis-panel analysis-wide" aria-labelledby="analysis-risk-title">
+    <div class="panel-heading">
+      <div>
+        <p class="eyebrow">Watch list</p>
+        <h3 id="analysis-risk-title">Academic risk signals</h3>
+      </div>
+      <span class="count-badge">{{ analysis.risk_rows|length }}</span>
+    </div>
+    {% if analysis.risk_rows %}
+    <div class="analysis-risk-list">
+      {% for item in analysis.risk_rows %}
+      <article class="analysis-risk-item">
+        <div class="analysis-priority-head">
+          <strong>{{ item.course_code }} · {{ item.course_name }}</strong>
+          <span class="score-badge">risk {{ '%g'|format(item.score) }}</span>
+        </div>
+        <div class="analysis-bar-track is-risk"><span style="width: {{ item.percent }}%"></span></div>
+        <div class="tag-row">
+          {% for topic in item.weak_topics %}<span class="tag">weak: {{ topic }}</span>{% endfor %}
+          {% for topic in item.evidence_topics %}<span class="tag">evidence: {{ topic }}</span>{% endfor %}
+          {% if item.urgent_count %}<span class="tag">{{ item.urgent_count }} urgent assessment(s)</span>{% endif %}
+        </div>
+      </article>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="empty-state">No major academic risk signal is active.</p>
+    {% endif %}
+  </section>
+
+  <section class="dashboard-panel analysis-panel" aria-labelledby="analysis-courses-title">
+    <div class="panel-heading">
+      <div>
+        <p class="eyebrow">Notes distribution</p>
+        <h3 id="analysis-courses-title">Notes by course</h3>
+      </div>
+    </div>
+    {% if not analysis.notes.available %}
+    <p class="empty-state">Notes data unavailable.</p>
+    {% elif analysis.notes.courses %}
+    <div class="analysis-bars">
+      {% for row in analysis.notes.courses %}
+      <div class="analysis-bar-row">
+        <div class="analysis-bar-label"><strong>{{ row.course }}</strong><span>{{ row.count }} note{% if row.count != 1 %}s{% endif %}</span></div>
+        <div class="analysis-bar-track is-notes"><span style="width: {{ row.percent }}%"></span></div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="empty-state">Create personal Notes to see subject distribution.</p>
+    {% endif %}
+  </section>
+
+  <section class="dashboard-panel analysis-panel" aria-labelledby="analysis-companion-title">
+    <div class="panel-heading">
+      <div>
+        <p class="eyebrow">Study Tools</p>
+        <h3 id="analysis-companion-title">Saved thinking</h3>
+      </div>
+    </div>
+    {% if analysis.notes.available %}
+    <div class="analysis-mini-grid">
+      <div><strong>{{ analysis.notes.summary.saved_notes }}</strong><span>saved notes</span></div>
+      <div><strong>{{ analysis.notes.summary.doubts }}</strong><span>open doubts</span></div>
+      <div><strong>{{ analysis.notes.summary.media }}</strong><span>note files</span></div>
+      <div><strong>{{ analysis.notes.summary.inline_media }}</strong><span>inline images</span></div>
+    </div>
+    {% else %}<p class="empty-state">Notes data unavailable.</p>{% endif %}
+    <p class="microcopy">These counts come only from independent ANVAYA Notes. Obsidian Companion data stays separate.</p>
+  </section>
+
+  <section class="dashboard-panel analysis-panel analysis-wide" aria-labelledby="analysis-deadlines-title">
+    <div class="panel-heading">
+      <div>
+        <p class="eyebrow">Near term</p>
+        <h3 id="analysis-deadlines-title">Deadline evidence</h3>
+      </div>
+      <span class="count-badge">{{ analysis.academic.deadlines|length }}</span>
+    </div>
+    {% if analysis.academic.deadlines %}
+    <div class="analysis-deadline-grid">
+      {% for item in analysis.academic.deadlines %}
+      <article>
+        <strong>{{ item.course_code }} · {{ item.title }}</strong>
+        <span>{{ item.due_label }}</span>
+        {% if item.weightage_percent is not none %}<small>{{ '%g'|format(item.weightage_percent) }}% weight</small>{% endif %}
+      </article>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="empty-state">No urgent deadline evidence is available.</p>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

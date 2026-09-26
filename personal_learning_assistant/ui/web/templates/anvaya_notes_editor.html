@@ -1,0 +1,431 @@
+{% extends "base.html" %}
+
+{% block title %}{% if editor.id %}Edit{% else %}Typed Note{% endif %} · ANVAYA{% endblock %}
+
+{% block content %}
+<nav class="notes-reader-back">
+  {% if editor.id %}
+    <a href="{{ url_for('web.anvaya_note_reader', note_id=editor.id) }}">← Back to note</a>
+  {% else %}
+    <a href="{{ url_for('web.anvaya_notes_create') }}">← Back to Create Note</a>
+  {% endif %}
+</nav>
+
+<section class="anvaya-notes-hero">
+  <div>
+    <p class="eyebrow">{% if editor.id %}Edit personal note{% else %}Typed personal note{% endif %}</p>
+    <h2>{% if editor.id %}Edit {{ editor.title }}{% else %}Create typed note{% endif %}</h2>
+    <p class="lede">Topic and key points shape the card. Creation date and time are recorded automatically.</p>
+  </div>
+</section>
+
+{% if error_message %}<section class="notice-panel error-panel" role="alert"><strong>{{ error_message }}</strong></section>{% endif %}
+
+<form class="dashboard-panel anvaya-native-note-form" method="post" enctype="multipart/form-data"
+  action="{% if editor.id %}{{ url_for('web.anvaya_note_edit_save', note_id=editor.id) }}{% else %}{{ url_for('web.anvaya_notes_typed_create') }}{% endif %}">
+  {% if editor.id %}<input type="hidden" name="expected_updated_at" value="{{ editor.updated_at }}">{% endif %}
+
+  <div class="anvaya-native-note-fields">
+    <label class="form-field form-field-full">
+      <span>Topic / Note name</span>
+      <input name="title" value="{{ editor.title }}" maxlength="200" required autocomplete="off" placeholder="e.g. LU Factorization">
+    </label>
+    <label class="form-field">
+      <span>Course <small>(optional)</small></span>
+      <input name="course" value="{{ editor.course }}" maxlength="100" autocomplete="off" placeholder="e.g. MA103N">
+    </label>
+    {% set selected_card_style = editor.card_style %}
+    {% include "anvaya_card_template_picker.html" %}
+    <label class="form-field form-field-full">
+      <span>Key points <small>(optional · up to 5)</small></span>
+      <textarea name="key_points" rows="5" maxlength="1800" placeholder="One key point per line">{{ editor.key_points_text }}</textarea>
+    </label>
+    {% if editor.note_kind != 'handwritten' %}
+    <label class="form-field form-field-full anvaya-native-body-field">
+      <span>Full note</span>
+      <div class="anvaya-note-editor-toolbar" aria-label="Quick formatting">
+        <button type="button" data-note-insert="## Heading\n">Heading</button>
+        <button type="button" data-note-wrap="**">Bold</button>
+        <button type="button" data-note-insert="- Item\n- Item\n">List</button>
+        <button type="button" data-note-insert="| Column 1 | Column 2 |\n| --- | --- |\n| Value | Value |\n">Table</button>
+        <button type="button" data-note-insert="> [!IMPORTANT] Key idea\n> Write the important point here.\n">Callout</button>
+        <button type="button" data-note-insert="$\nA = LU\n$\n">Equation</button>
+        <button type="button" data-note-insert="~~~flowchart\nStart -> Step -> Result\n~~~\n">Flowchart</button>
+        <button type="button" data-note-insert="~~~diagram\nConcept -> Idea A\nConcept -> Idea B\n~~~\n">Diagram</button>
+      </div>
+      <textarea id="anvaya-note-body" name="body" rows="26" spellcheck="true" placeholder="Write your note here...">{{ editor.body }}</textarea>
+      <small>Use the quick buttons for headings, equations, tables, flowcharts and diagrams. You can still type Markdown directly.</small>
+    </label>
+    {% endif %}
+    <section class="form-field form-field-full anvaya-note-media-manager" aria-labelledby="anvaya-media-title">
+      <div class="anvaya-note-media-heading">
+        <div>
+          <span id="anvaya-media-title">{% if editor.note_kind == 'handwritten' %}Add more pages{% else %}Images, PDF or ZIP{% endif %} <small>(optional)</small></span>
+          <small>
+            {% if editor.note_kind == 'handwritten' %}
+              Select multiple pages or one ZIP containing PDF/JPG/PNG files.
+            {% else %}
+              Select multiple images, PDFs, or a ZIP. Images can be inserted exactly where your cursor is in the note.
+            {% endif %}
+          </small>
+        </div>
+      </div>
+      <input id="anvaya-note-files" type="file" name="files" multiple
+        accept=".pdf,.png,.jpg,.jpeg,.zip,application/pdf,image/png,image/jpeg,application/zip">
+      <small>Original files are preserved. Rotation, crop and size only change how an inline image is displayed.</small>
+
+      {% if editor.note_kind != 'handwritten' %}
+      <div id="anvaya-selected-media" class="anvaya-media-tray" aria-live="polite"></div>
+      {% endif %}
+
+      {% if editor.assets %}
+      <div class="anvaya-existing-media">
+        <p class="eyebrow">Existing note files</p>
+        <p class="anvaya-media-help">Delete removes the saved file when you click <strong>Save changes</strong>. If an image is inline, its inline block is removed too.</p>
+        <div class="anvaya-media-tray">
+          {% for asset in editor.assets %}
+          <article class="anvaya-media-item" data-existing-asset="{{ asset.id }}">
+            <div class="anvaya-media-thumb">
+              {% if asset.is_image %}
+                <img src="{{ asset.url }}" alt="" loading="lazy">
+              {% else %}
+                <span class="anvaya-media-file-badge">PDF</span>
+              {% endif %}
+            </div>
+            <div class="anvaya-media-item-main">
+              <div class="anvaya-media-file-title">
+                <strong>{{ asset.filename }}</strong>
+                {% if asset.is_inline %}<span class="anvaya-media-inline-badge">Placed inline</span>{% endif %}
+              </div>
+
+              {% if asset.is_image %}
+              <div class="anvaya-media-controls">
+                <label>Size
+                  <select data-media-width>
+                    <option value="25">25%</option>
+                    <option value="40">40%</option>
+                    <option value="55">55%</option>
+                    <option value="70" selected>70%</option>
+                    <option value="85">85%</option>
+                    <option value="100">100%</option>
+                  </select>
+                </label>
+                <label>Rotate
+                  <select data-media-rotate>
+                    <option value="0">0°</option>
+                    <option value="90">90°</option>
+                    <option value="180">180°</option>
+                    <option value="270">270°</option>
+                  </select>
+                </label>
+                <label>Crop
+                  <select data-media-crop>
+                    <option value="original">Original</option>
+                    <option value="1:1">Square 1:1</option>
+                    <option value="4:3">4:3</option>
+                    <option value="3:4">3:4</option>
+                    <option value="16:9">16:9</option>
+                  </select>
+                </label>
+                <label class="anvaya-media-caption">Caption
+                  <input data-media-caption maxlength="160" value="{{ asset.filename }}">
+                </label>
+              </div>
+              {% endif %}
+
+              <div class="anvaya-media-actions">
+                {% if asset.is_image %}
+                <button class="button secondary-button anvaya-media-insert" type="button"
+                  data-insert-existing="{{ asset.id }}">Insert at cursor</button>
+                {% endif %}
+                <button class="button secondary-button anvaya-media-delete" type="button"
+                  data-remove-existing="{{ asset.id }}">Delete file</button>
+              </div>
+            </div>
+          </article>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      <div id="anvaya-remove-asset-inputs" hidden>
+        <input type="hidden" name="remove_asset_ids" value="" disabled data-remove-placeholder>
+      </div>
+
+      {% if editor.note_kind != 'handwritten' %}
+      <p class="anvaya-media-help">
+        Inline image blocks stay inside the note text, so they reopen in the same position.
+        You can change their <code>width</code>, <code>rotate</code>, <code>crop</code>, or <code>caption</code> settings later.
+      </p>
+      {% endif %}
+    </section>
+  </div>
+  <div class="form-actions">
+    <button class="button" type="submit">{% if editor.id %}Save changes{% else %}Create note{% endif %}</button>
+    <a class="button secondary-button" href="{% if editor.id %}{{ url_for('web.anvaya_note_reader', note_id=editor.id) }}{% else %}{{ url_for('web.notes') }}{% endif %}">Cancel</a>
+  </div>
+</form>
+<script>
+(() => {
+  const textarea = document.getElementById("anvaya-note-body");
+  const fileInput = document.getElementById("anvaya-note-files");
+  const selectedTray = document.getElementById("anvaya-selected-media");
+
+  const replaceSelection = (before, after = "") => {
+    if (!textarea) return;
+    const start = textarea.selectionStart ?? textarea.value.length;
+    const end = textarea.selectionEnd ?? start;
+    const selected = textarea.value.slice(start, end);
+    textarea.setRangeText(before + selected + after, start, end, "end");
+    textarea.focus();
+  };
+
+  document.querySelectorAll("[data-note-insert]").forEach((button) => {
+    button.addEventListener("click", () => replaceSelection(button.dataset.noteInsert || ""));
+  });
+
+  document.querySelectorAll("[data-note-wrap]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const token = button.dataset.noteWrap || "";
+      replaceSelection(token, token);
+    });
+  });
+
+  const escapeCaption = (value) =>
+    String(value || "")
+      .replace(/[|\]]/g, " ")
+      .replace(/[\r\n]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 160);
+
+  const escapeHtml = (value) =>
+    String(value || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+
+  const mediaDirective = (kind, id, container) => {
+    const width = container.querySelector("[data-media-width]")?.value || "70";
+    const rotate = container.querySelector("[data-media-rotate]")?.value || "0";
+    const crop = container.querySelector("[data-media-crop]")?.value || "original";
+    const caption = escapeCaption(container.querySelector("[data-media-caption]")?.value || "");
+    return `[[anvaya-${kind}:${id}|width=${width}|rotate=${rotate}|crop=${crop}|caption=${caption}]]\n`;
+  };
+
+  document.querySelectorAll("[data-insert-existing]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const item = button.closest(".anvaya-media-item");
+      replaceSelection("\n" + mediaDirective("image", button.dataset.insertExisting, item) + "\n");
+    });
+  });
+
+  const removeImageDirectives = (assetId) => {
+    if (!textarea) return;
+    const pattern = new RegExp(
+      "\\n?\\[\\[anvaya-image:" + String(assetId) +
+      "(?:\\|[^\\]\\r\\n]*)?\\]\\]\\n?",
+      "g"
+    );
+    textarea.value = textarea.value
+      .replace(pattern, "\n")
+      .replace(/\n{3,}/g, "\n\n");
+  };
+
+  document.querySelectorAll("[data-remove-existing]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const assetId = button.dataset.removeExisting || "";
+      if (!assetId) return;
+
+      const item = button.closest(".anvaya-media-item");
+      const hiddenHost = document.getElementById("anvaya-remove-asset-inputs");
+      if (hiddenHost && !hiddenHost.querySelector('[data-remove-id="' + assetId + '"]')) {
+        const input = document.createElement("input");
+        input.type = "hidden";
+        input.name = "remove_asset_ids";
+        input.value = assetId;
+        input.dataset.removeId = assetId;
+        hiddenHost.appendChild(input);
+      }
+
+      removeImageDirectives(assetId);
+      item?.classList.add("is-pending-delete");
+      item?.querySelectorAll("button, select, input").forEach((control) => {
+        if (control !== button) control.disabled = true;
+      });
+      button.disabled = true;
+      button.textContent = "Will delete on save";
+    });
+  });
+
+  let previewUrls = [];
+  const revokePreviews = () => {
+    previewUrls.forEach((url) => URL.revokeObjectURL(url));
+    previewUrls = [];
+  };
+
+  const controlMarkup = (caption) =>
+    '<div class="anvaya-media-controls">' +
+      '<label>Size<select data-media-width>' +
+        '<option value="25">25%</option>' +
+        '<option value="40">40%</option>' +
+        '<option value="55">55%</option>' +
+        '<option value="70" selected>70%</option>' +
+        '<option value="85">85%</option>' +
+        '<option value="100">100%</option>' +
+      '</select></label>' +
+      '<label>Rotate<select data-media-rotate>' +
+        '<option value="0">0°</option>' +
+        '<option value="90">90°</option>' +
+        '<option value="180">180°</option>' +
+        '<option value="270">270°</option>' +
+      '</select></label>' +
+      '<label>Crop<select data-media-crop>' +
+        '<option value="original">Original</option>' +
+        '<option value="1:1">Square 1:1</option>' +
+        '<option value="4:3">4:3</option>' +
+        '<option value="3:4">3:4</option>' +
+        '<option value="16:9">16:9</option>' +
+      '</select></label>' +
+      '<label class="anvaya-media-caption">Caption' +
+        '<input data-media-caption maxlength="160" value="' + escapeHtml(caption) + '">' +
+      '</label>' +
+    '</div>';
+
+  const removeUploadDirectives = (removedIndex) => {
+    if (!textarea) return;
+    const pattern = new RegExp(
+      "\\n?\\[\\[anvaya-upload:" + removedIndex +
+      "(?:\\|[^\\]\\r\\n]*)?\\]\\]\\n?",
+      "g"
+    );
+    textarea.value = textarea.value
+      .replace(pattern, "\n")
+      .replace(/\n{3,}/g, "\n\n");
+  };
+
+  const renumberUploadDirectives = (removedIndex) => {
+    if (!textarea) return;
+    textarea.value = textarea.value.replace(
+      /\[\[anvaya-upload:(\d+)(\|[^\]\r\n]*)?\]\]/g,
+      (match, rawIndex, options = "") => {
+        const index = Number(rawIndex);
+        if (index <= removedIndex) return match;
+        return "[[anvaya-upload:" + (index - 1) + (options || "") + "]]";
+      }
+    );
+  };
+
+  const removeNewUpload = (removedIndex) => {
+    if (!fileInput) return;
+    const files = Array.from(fileInput.files || []);
+    if (removedIndex < 0 || removedIndex >= files.length) return;
+
+    removeUploadDirectives(removedIndex);
+    renumberUploadDirectives(removedIndex);
+
+    if (typeof DataTransfer === "undefined") {
+      fileInput.value = "";
+      if (textarea) {
+        textarea.value = textarea.value.replace(
+          /\n?\[\[anvaya-upload:\d+(?:\|[^\]\r\n]*)?\]\]\n?/g,
+          "\n"
+        );
+      }
+      renderSelectedFiles();
+      return;
+    }
+
+    const transfer = new DataTransfer();
+    files.forEach((file, index) => {
+      if (index !== removedIndex) transfer.items.add(file);
+    });
+    fileInput.files = transfer.files;
+    renderSelectedFiles();
+  };
+
+  const renderSelectedFiles = () => {
+    if (!selectedTray || !fileInput) return;
+    revokePreviews();
+    selectedTray.innerHTML = "";
+
+    Array.from(fileInput.files || []).forEach((file, index) => {
+      const name = file.name || ("Upload " + (index + 1));
+      const lower = name.toLowerCase();
+      const isImage = file.type.startsWith("image/") || /\.(png|jpe?g)$/.test(lower);
+      const isZip = lower.endsWith(".zip");
+      const isPdf = lower.endsWith(".pdf");
+
+      const item = document.createElement("article");
+      item.className = "anvaya-media-item";
+      item.dataset.newUploadIndex = String(index);
+
+      const thumb = document.createElement("div");
+      thumb.className = "anvaya-media-thumb";
+
+      if (isImage) {
+        const url = URL.createObjectURL(file);
+        previewUrls.push(url);
+        const img = document.createElement("img");
+        img.src = url;
+        img.alt = "";
+        thumb.appendChild(img);
+      } else {
+        const badge = document.createElement("span");
+        badge.className = "anvaya-media-file-badge";
+        badge.textContent = isZip ? "ZIP" : (isPdf ? "PDF" : "FILE");
+        thumb.appendChild(badge);
+      }
+
+      const main = document.createElement("div");
+      main.className = "anvaya-media-item-main";
+
+      const title = document.createElement("strong");
+      title.textContent = name;
+      main.appendChild(title);
+
+      if (isImage || isZip) {
+        const controls = document.createElement("div");
+        controls.innerHTML = controlMarkup(name.replace(/\.[^.]+$/, ""));
+        while (controls.firstChild) main.appendChild(controls.firstChild);
+
+        const insertButton = document.createElement("button");
+        insertButton.type = "button";
+        insertButton.className = "button secondary-button anvaya-media-insert";
+        insertButton.textContent = isZip ? "Insert ZIP images here" : "Insert at cursor";
+        insertButton.addEventListener("click", () => {
+          replaceSelection(
+            "\n" + mediaDirective("upload", String(index), item) + "\n"
+          );
+        });
+        main.appendChild(insertButton);
+      } else {
+        const note = document.createElement("small");
+        note.textContent = "PDF will remain available as an attachment.";
+        main.appendChild(note);
+      }
+
+      const removeButton = document.createElement("button");
+      removeButton.type = "button";
+      removeButton.className = "button secondary-button anvaya-media-delete";
+      removeButton.textContent = "Remove selected file";
+      removeButton.setAttribute("data-remove-new-upload", String(index));
+      removeButton.addEventListener("click", () => removeNewUpload(index));
+      main.appendChild(removeButton);
+
+      item.appendChild(thumb);
+      item.appendChild(main);
+      selectedTray.appendChild(item);
+    });
+  };
+
+  if (fileInput && selectedTray) {
+    fileInput.addEventListener("change", renderSelectedFiles);
+  }
+
+  window.addEventListener("beforeunload", revokePreviews);
+})();
+</script>
+{% endblock %}

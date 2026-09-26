@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}Upload Handwritten Note · ANVAYA{% endblock %}
+
+{% block content %}
+<nav class="notes-reader-back"><a href="{{ url_for('web.anvaya_notes_create') }}">← Back to Create Note</a></nav>
+
+<section class="anvaya-notes-hero">
+  <div>
+    <p class="eyebrow">Handwritten personal note</p>
+    <h2>Upload handwritten note</h2>
+    <p class="lede">Upload your notebook pages. ANVAYA keeps the originals and records the date and time automatically.</p>
+  </div>
+</section>
+
+{% if error_message %}<section class="notice-panel error-panel" role="alert"><strong>{{ error_message }}</strong></section>{% endif %}
+
+<form class="dashboard-panel anvaya-native-note-form" method="post" enctype="multipart/form-data" action="{{ url_for('web.anvaya_notes_upload_create') }}">
+  <div class="anvaya-native-note-fields">
+    <label class="form-field form-field-full">
+      <span>Topic / Note name</span>
+      <input name="title" value="{{ form.title }}" maxlength="200" required autocomplete="off" placeholder="e.g. Atomic Absorption Spectroscopy">
+    </label>
+    <label class="form-field">
+      <span>Course <small>(optional)</small></span>
+      <input name="course" value="{{ form.course }}" maxlength="100" autocomplete="off" placeholder="e.g. CY100N">
+    </label>
+    {% set selected_card_style = form.card_style %}
+    {% include "anvaya_card_template_picker.html" %}
+    <label class="form-field form-field-full">
+      <span>Key points <small>(optional · up to 5)</small></span>
+      <textarea name="key_points" rows="5" maxlength="1800" placeholder="One key point per line">{{ form.key_points }}</textarea>
+    </label>
+    <label class="form-field form-field-full anvaya-upload-drop">
+      <span>Handwritten pages</span>
+      <input type="file" name="files" multiple required
+        accept=".pdf,.png,.jpg,.jpeg,.zip,application/pdf,image/png,image/jpeg,application/zip">
+      <strong>PDF, JPG, JPEG, PNG or ZIP</strong>
+      <small>Select several images/pages together, or upload one ZIP containing your note pages.</small>
+    </label>
+  </div>
+  <div class="form-actions">
+    <button class="button" type="submit">Create note</button>
+    <a class="button secondary-button" href="{{ url_for('web.notes') }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}
