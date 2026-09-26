@@ -46,6 +46,7 @@ $Allowed=@(
   "personal_learning_assistant/ui/web/templates/assessment_template_detail.html",
   "personal_learning_assistant/ui/web/templates/assessment_template_form.html",
   "tests/test_assessment_studio_phase_a.py",
+  "tests/test_phase7_5_12_2_recovery.py",
   "phase7_5_assessment_studio_a_gate.ps1"
 )
 $changed=@(
