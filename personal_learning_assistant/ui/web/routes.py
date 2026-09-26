@@ -1116,6 +1116,7 @@ def _native_note_form_payload():
         "key_points": request.form.get("key_points", ""),
         "card_style": request.form.get("card_style", "iris"),
         "body": request.form.get("body", ""),
+        "remove_asset_ids": request.form.getlist("remove_asset_ids"),
     }
 
 
