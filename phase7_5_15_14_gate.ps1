@@ -5,6 +5,9 @@ $Baseline = "31dfd3e8a60c3e7db7d65ca589dd21f6f14c162b"
 $Range = "$Baseline..HEAD"
 
 function Stop-Gate { param([string]$Message)
+  if($script:VaultScriptPath -and (Test-Path -LiteralPath $script:VaultScriptPath)){
+    Remove-Item -LiteralPath $script:VaultScriptPath -Force -ErrorAction SilentlyContinue
+  }
   Write-Host ""
   Write-Host "================================================================"
   Write-Host " PHASE 7.5.15.14 FOCUS + COMPANION + ANALYSIS: BLOCKED"
@@ -60,6 +63,8 @@ $Allowed=@(
   "PHASE7_5_15_14_FOCUS_COMPANION_ANALYSIS_SPEC.md",
   "PHASE7_5_15_14_IMPLEMENTATION_REPORT.md",
   "personal_learning_assistant/services/anvaya_notes_service.py",
+  "personal_learning_assistant/services/home_dashboard_service.py",
+  "personal_learning_assistant/repositories/json/anvaya_notes_repository.py",
   "personal_learning_assistant/ui/web/routes.py",
   "personal_learning_assistant/ui/web/static/css/app.css",
   "personal_learning_assistant/ui/web/static/js/app.js",
@@ -67,9 +72,14 @@ $Allowed=@(
   "personal_learning_assistant/ui/web/templates/base.html",
   "personal_learning_assistant/ui/web/templates/home.html",
   "personal_learning_assistant/ui/web/templates/analysis.html",
+  "personal_learning_assistant/ui/web/templates/anvaya_notes_editor.html",
   "personal_learning_assistant/ui/web/templates/anvaya_notes_reader.html",
   "personal_learning_assistant/ui/web/templates/_anvaya_notes_study_tools.html",
+  "personal_learning_assistant/ui/web/templates/obsidian_note.html",
   "tests/test_phase7_5_15_14_focus_companion_analysis.py",
+  "tests/test_phase7_5_anvaya_shell.py",
+  "tests/test_phase7_5_home_dashboard.py",
+  "tests/test_phase7_5_obsidian_reader_routes.py",
   "phase7_5_15_14_gate.ps1"
 )
 $changed=@(
@@ -86,6 +96,25 @@ $DataBefore=Hash-Tree ".\data"
 $RetrievalBefore=Hash-Tree ".\.phase5_retrieval"
 $TutorBefore=Hash-Tree ".\personal_learning_assistant\tutor"
 $MigrationsBefore=Hash-Tree ".\personal_learning_assistant\repositories\sqlite\migrations"
+$VaultHashScript=@'
+from pathlib import Path
+import hashlib, json, sys
+sys.path.insert(0, str(Path.cwd()))
+import obsidian_integration
+config = obsidian_integration.load_config()
+vault_path = (config or {}).get("vault_path", "") if isinstance(config, dict) else ""
+root = Path(vault_path) if vault_path else None
+files = {}
+if root and root.is_dir():
+    for path in sorted(root.rglob("*")):
+        if path.is_file() and not path.is_symlink():
+            files[str(path.resolve())] = hashlib.sha256(path.read_bytes()).hexdigest()
+print(json.dumps(files, sort_keys=True, separators=(",", ":")))
+'@
+$VaultScriptPath=Join-Path ([IO.Path]::GetTempPath()) ("p751514_"+[guid]::NewGuid().ToString("N")+".py")
+Set-Content -LiteralPath $VaultScriptPath -Value $VaultHashScript -Encoding UTF8
+$VaultBefore=(& $Py $VaultScriptPath).Trim()
+if($LASTEXITCODE -ne 0){Stop-Gate "Could not snapshot configured Obsidian vault."}
 
 Run-Step "[1/10] Focused Phase 7.5.15.14 tests" {
   & $Py -m pytest -q tests/test_phase7_5_15_14_focus_companion_analysis.py
@@ -99,11 +128,11 @@ Run-Step "[3/10] Notes separation + inline media regressions" {
 Run-Step "[4/10] Card gallery regressions" {
   & $Py -m pytest -q tests/test_phase7_5_15_12_card_template_gallery.py
 }
-Run-Step "[5/10] Obsidian Companion regressions" {
-  & $Py -m pytest -q tests/test_phase7_5_obsidian_reader_routes.py tests/test_phase7_5_obsidian_study_companion.py tests/test_phase7_5_obsidian_study_repository.py
+Run-Step "[5/10] Obsidian workspace, reader and Companion regressions" {
+  & $Py -m pytest -q tests/test_phase7_5_obsidian_workspace.py tests/test_phase7_5_obsidian_reader_routes.py tests/test_phase7_5_obsidian_study_companion.py tests/test_phase7_5_obsidian_study_repository.py
 }
 Run-Step "[6/10] Current Home and web regressions" {
-  & $Py -m pytest -q tests/test_phase7_5_home.py tests/test_phase7_5_web.py
+  & $Py -m pytest -q tests/test_phase7_5_home_dashboard.py tests/test_phase7_5_web_foundation.py
 }
 Run-Step "[7/10] Complete project pytest suite" {
   & $Py -m pytest -q --deselect "tests/test_phase2_closure_architecture.py::test_phase2_root_has_no_production_learning_assistant_database"
@@ -120,6 +149,11 @@ Assert-Same $DataBefore (Hash-Tree ".\data") "Production data"
 Assert-Same $RetrievalBefore (Hash-Tree ".\.phase5_retrieval") "Retrieval state"
 Assert-Same $TutorBefore (Hash-Tree ".\personal_learning_assistant\tutor") "Tutor code"
 Assert-Same $MigrationsBefore (Hash-Tree ".\personal_learning_assistant\repositories\sqlite\migrations") "SQLite migrations"
+$VaultAfter=(& $Py $VaultScriptPath).Trim()
+$VaultAfterExit=$LASTEXITCODE
+Remove-Item -LiteralPath $VaultScriptPath -Force -ErrorAction SilentlyContinue
+if($VaultAfterExit -ne 0){Stop-Gate "Could not recheck configured Obsidian vault."}
+if($VaultBefore -ne $VaultAfter){Stop-Gate "Configured Obsidian vault changed during validation."}
 
 $LiveWal=".\data\learning_assistant.db-wal"
 if((Test-Path $LiveWal) -and (Get-Item $LiveWal).Length -ne 0){
@@ -130,6 +164,10 @@ Write-Host ""
 Write-Host "[10/10] Repository hygiene"
 git diff --check $Range
 if($LASTEXITCODE -ne 0){Stop-Gate "git diff --check failed."}
+git diff --check
+if($LASTEXITCODE -ne 0){Stop-Gate "Working tree diff --check failed."}
+git diff --cached --check
+if($LASTEXITCODE -ne 0){Stop-Gate "Staged diff --check failed."}
 
 Write-Host ""
 Write-Host "================================================================"
@@ -137,5 +175,6 @@ Write-Host " PHASE 7.5.15.14 FOCUS + COMPANION + ANALYSIS: PASS"
 Write-Host "================================================================"
 Write-Host "Desktop navigation can collapse for full-width reading."
 Write-Host "Notes Study Tools is a compact draggable drawer with Saved notes and Doubts."
+Write-Host "Obsidian Companion overlays the reader without changing its storage."
 Write-Host "Detailed academic and Notes analysis is hidden from Home and available in a visual Analysis Hub."
 Write-Host "Obsidian, Tutor, production data, retrieval state and SQLite migrations remain protected."

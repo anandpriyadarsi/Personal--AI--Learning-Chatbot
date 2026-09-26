@@ -7,7 +7,9 @@
   const setOpen = (open) => {
     drawer.classList.toggle("is-open", open);
     drawer.setAttribute("aria-hidden", open ? "false" : "true");
+    drawer.inert = !open;
     launcher.setAttribute("aria-expanded", open ? "true" : "false");
+    if (!open && drawer.contains(document.activeElement)) launcher.focus();
   };
 
   launcher.addEventListener("click", () => {
@@ -19,29 +21,31 @@
   });
   close.addEventListener("click", () => setOpen(false));
 
-  document.querySelectorAll("[data-study-tab]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const name = button.dataset.studyTab;
-      document.querySelectorAll("[data-study-tab]").forEach((tab) => {
-        const active = tab === button;
-        tab.classList.toggle("is-active", active);
-        tab.setAttribute("aria-selected", active ? "true" : "false");
-      });
-      document.querySelectorAll("[data-study-panel]").forEach((panel) => {
-        const active = panel.dataset.studyPanel === name;
-        panel.classList.toggle("is-active", active);
-        panel.hidden = !active;
-      });
+  const tabs = drawer.querySelectorAll("[data-study-tab]");
+  const panels = drawer.querySelectorAll("[data-study-panel]");
+  const selectTab = (button) => {
+    tabs.forEach((tab) => {
+      const active = tab === button;
+      tab.classList.toggle("is-active", active);
+      tab.setAttribute("aria-selected", active ? "true" : "false");
     });
+    panels.forEach((panel) => {
+      const active = panel.dataset.studyPanel === button.dataset.studyTab;
+      panel.classList.toggle("is-active", active);
+      panel.hidden = !active;
+    });
+  };
+  tabs.forEach((button) => {
+    button.addEventListener("click", () => selectTab(button));
   });
 
-  const key = "anvaya.notes.studyTools.position";
+  const key = launcher.dataset.positionKey || "anvaya.notes.studyTools.position";
   const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
   const place = (left, top) => {
     const width = launcher.offsetWidth || 120;
     const height = launcher.offsetHeight || 42;
-    launcher.style.left = clamp(left, 8, window.innerWidth - width - 8) + "px";
-    launcher.style.top = clamp(top, 72, window.innerHeight - height - 8) + "px";
+    launcher.style.left = clamp(left, 8, Math.max(8, window.innerWidth - width - 8)) + "px";
+    launcher.style.top = clamp(top, 8, Math.max(8, window.innerHeight - height - 8)) + "px";
     launcher.style.right = "auto";
     launcher.style.bottom = "auto";
   };
@@ -73,9 +77,19 @@
     }
     drag = null;
   });
+  launcher.addEventListener("pointercancel", () => { drag = null; });
+  window.addEventListener("resize", () => {
+    if (launcher.style.left) {
+      const rect = launcher.getBoundingClientRect();
+      place(rect.left, rect.top);
+    }
+  });
 
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && drawer.classList.contains("is-open")) setOpen(false);
   });
-  if (new URLSearchParams(window.location.search).get("study_tools") === "1") setOpen(true);
+  const params = new URLSearchParams(window.location.search);
+  const selectedTab = Array.from(tabs).find((tab) => tab.dataset.studyTab === params.get("study_tab"));
+  if (selectedTab) selectTab(selectedTab);
+  setOpen(params.get("study_tools") === "1");
 })();

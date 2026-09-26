@@ -57,6 +57,12 @@ def build_home_dashboard_from_brief(brief: Any) -> dict[str, Any]:
         )
 
     study_blocks = []
+    study_minutes_by_course = {}
+    for block in blocks:
+        code = _course_code(brief, dict(block.get("assessment") or {}))
+        study_minutes_by_course[code] = (
+            study_minutes_by_course.get(code, 0) + int(block.get("minutes") or 0)
+        )
     for block in blocks[:6]:
         item = dict(block.get("assessment") or {})
         minutes = int(block.get("minutes") or 0)
@@ -132,12 +138,13 @@ def build_home_dashboard_from_brief(brief: Any) -> dict[str, Any]:
         "date": brief._today().isoformat(),
         "summary": {
             "urgent_deadlines": len(urgent),
-            "scheduled_minutes": sum(item["minutes"] for item in study_blocks),
+            "scheduled_minutes": sum(study_minutes_by_course.values()),
             "priority_topics": len(priorities),
             "risk_courses": len(meaningful_risks),
         },
         "deadlines": deadlines,
         "study_blocks": study_blocks,
+        "study_minutes_by_course": study_minutes_by_course,
         "priorities": priorities,
         "risks": meaningful_risks,
         "best_next_action": best_next_action,
@@ -166,6 +173,7 @@ def unavailable_home_dashboard() -> dict[str, Any]:
         },
         "deadlines": [],
         "study_blocks": [],
+        "study_minutes_by_course": {},
         "priorities": [],
         "risks": [],
         "best_next_action": None,

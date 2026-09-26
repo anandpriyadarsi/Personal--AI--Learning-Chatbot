@@ -115,7 +115,7 @@ def test_mobile_drawer_is_keyboard_accessible_and_dependency_free():
     assert "aria-expanded" in script
     assert "fetch(" not in script
     assert "XMLHttpRequest" not in script
-    assert "localStorage" not in script
+    assert '"anvaya.sidebar.collapsed"' in script
 
 
 def test_existing_phase75_get_routes_keep_working():

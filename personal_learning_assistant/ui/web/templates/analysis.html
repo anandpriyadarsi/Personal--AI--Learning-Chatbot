@@ -20,6 +20,13 @@
 </section>
 {% endif %}
 
+{% if not analysis.notes.available %}
+<section class="notice-panel" role="status">
+  <h3>Notes analysis is temporarily unavailable</h3>
+  <p>Your personal Notes could not be read. Existing Notes were not changed.</p>
+</section>
+{% endif %}
+
 <section class="analysis-metric-grid" aria-label="Analysis summary">
   <article class="analysis-kpi">
     <span>Urgent deadlines</span>
@@ -43,12 +50,12 @@
   </article>
   <article class="analysis-kpi">
     <span>Personal Notes</span>
-    <strong>{{ analysis.notes.summary.total }}</strong>
+    <strong>{% if analysis.notes.available %}{{ analysis.notes.summary.total }}{% else %}Notes data unavailable{% endif %}</strong>
     <small>typed + handwritten</small>
   </article>
   <article class="analysis-kpi">
     <span>Open doubts</span>
-    <strong>{{ analysis.notes.summary.doubts }}</strong>
+    <strong>{% if analysis.notes.available %}{{ analysis.notes.summary.doubts }}{% else %}Notes data unavailable{% endif %}</strong>
     <small>saved in Notes Study Tools</small>
   </article>
 </section>
@@ -61,6 +68,7 @@
         <h3 id="analysis-note-types-title">Typed vs handwritten</h3>
       </div>
     </div>
+    {% if analysis.notes.available %}
     <div class="analysis-donut-wrap">
       <div
         class="analysis-donut"
@@ -78,6 +86,7 @@
         <div><dt><span class="analysis-legend-dot is-handwritten"></span>Handwritten</dt><dd>{{ analysis.notes.summary.handwritten }} · {{ analysis.notes.type_percent.handwritten }}%</dd></div>
       </dl>
     </div>
+    {% else %}<p class="empty-state">Notes data unavailable.</p>{% endif %}
   </section>
 
   <section class="dashboard-panel analysis-panel" aria-labelledby="analysis-study-title">
@@ -167,7 +176,9 @@
         <h3 id="analysis-courses-title">Notes by course</h3>
       </div>
     </div>
-    {% if analysis.notes.courses %}
+    {% if not analysis.notes.available %}
+    <p class="empty-state">Notes data unavailable.</p>
+    {% elif analysis.notes.courses %}
     <div class="analysis-bars">
       {% for row in analysis.notes.courses %}
       <div class="analysis-bar-row">
@@ -188,12 +199,14 @@
         <h3 id="analysis-companion-title">Saved thinking</h3>
       </div>
     </div>
+    {% if analysis.notes.available %}
     <div class="analysis-mini-grid">
       <div><strong>{{ analysis.notes.summary.saved_notes }}</strong><span>saved notes</span></div>
       <div><strong>{{ analysis.notes.summary.doubts }}</strong><span>open doubts</span></div>
       <div><strong>{{ analysis.notes.summary.media }}</strong><span>note files</span></div>
       <div><strong>{{ analysis.notes.summary.inline_media }}</strong><span>inline images</span></div>
     </div>
+    {% else %}<p class="empty-state">Notes data unavailable.</p>{% endif %}
     <p class="microcopy">These counts come only from independent ANVAYA Notes. Obsidian Companion data stays separate.</p>
   </section>
 

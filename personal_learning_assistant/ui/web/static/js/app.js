@@ -21,6 +21,7 @@
 
   const setMobileOpen = (open) => {
     document.body.classList.toggle("nav-open", open);
+    sidebar.inert = !open;
     backdrop.hidden = !open;
     toggle.setAttribute("aria-expanded", open ? "true" : "false");
     toggle.setAttribute("aria-label", open ? "Close navigation" : "Open navigation");
@@ -28,6 +29,7 @@
 
   const setDesktopCollapsed = (collapsed, persist = true) => {
     document.body.classList.toggle("sidebar-collapsed", collapsed);
+    sidebar.inert = collapsed;
     toggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
     toggle.setAttribute("aria-label", collapsed ? "Show navigation" : "Hide navigation");
     backdrop.hidden = true;
@@ -63,6 +65,7 @@
 
   document.addEventListener("keydown", (event) => {
     if (event.key !== "Escape") return;
+    if (document.querySelector(".notes-study-tools-drawer.is-open")) return;
     if (desktop()) {
       if (document.body.classList.contains("sidebar-collapsed")) {
         setDesktopCollapsed(false);
@@ -94,5 +97,6 @@
     }
   });
 
-  restoreDesktopPreference();
+  if (desktop()) restoreDesktopPreference();
+  else setMobileOpen(false);
 })();

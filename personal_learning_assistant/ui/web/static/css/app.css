@@ -515,10 +515,7 @@ details[open] > .details-action::after { content: " −"; }
 /* Phase 7.5.12.1 rendered Obsidian Reader + study Companion. */
 .obsidian-reader-header { align-items: center; }
 .obsidian-reader-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(18rem, 22rem);
-  gap: 1rem;
-  align-items: start;
+  display: block;
 }
 .obsidian-reading-view {
   min-width: 0;
@@ -588,13 +585,9 @@ details[open] > .details-action::after { content: " −"; }
 }
 .obsidian-reading-view th { background: var(--surface-muted); }
 .obsidian-companion {
-  position: sticky;
-  top: 1rem;
   min-width: 0;
-  max-height: calc(100vh - 2rem);
-  overflow: auto;
-  padding: 1rem;
 }
+.obsidian-companion .notes-study-tools-tabs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .obsidian-companion h4 { margin: 0 0 .6rem; }
 .obsidian-history,
 .obsidian-companion-section {
@@ -651,8 +644,7 @@ details[open] > .details-action::after { content: " −"; }
 .obsidian-source .obsidian-preview { margin: 0 1rem 1rem; }
 
 @media (max-width: 900px) {
-  .obsidian-reader-layout { grid-template-columns: minmax(0, 1fr); }
-  .obsidian-companion { position: static; max-height: none; }
+  .obsidian-reader-layout { width: 100%; }
 }
 
 @media (max-width: 560px) {
@@ -3872,6 +3864,7 @@ body.sidebar-collapsed.notes-focus-page .content {
   bottom: 1.15rem;
   z-index: 72;
   display: inline-flex;
+  max-width: calc(100vw - 1rem);
   min-height: 2.7rem;
   align-items: center;
   gap: .4rem;
@@ -3910,13 +3903,15 @@ body.sidebar-collapsed.notes-focus-page .content {
   box-shadow: 0 18px 48px rgba(0,0,0,.38);
   transform: translateX(calc(100% + 1.5rem));
   opacity: 0;
+  visibility: hidden;
   pointer-events: none;
-  transition: transform 170ms ease, opacity 130ms ease;
+  transition: transform 170ms ease, opacity 130ms ease, visibility 170ms ease;
   backdrop-filter: blur(14px);
 }
 .notes-study-tools-drawer.is-open {
   transform: translateX(0);
   opacity: 1;
+  visibility: visible;
   pointer-events: auto;
 }
 .notes-study-tools-header {
@@ -4236,4 +4231,3 @@ body.sidebar-collapsed.notes-focus-page .content {
   .analysis-deadline-grid { grid-template-columns: 1fr; }
   .analysis-donut { margin-inline: auto; }
 }
-

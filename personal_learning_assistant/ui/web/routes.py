@@ -464,12 +464,14 @@ def _tracking_payload(required):
     return payload
 
 
-def _companion_redirect(relative_path, result):
+def _companion_redirect(relative_path, result, tab):
     return redirect(
         url_for(
             "web.obsidian_note",
             path=relative_path,
             companion_saved=result,
+            study_tools="1",
+            study_tab=tab,
         ),
         code=303,
     )
@@ -671,9 +673,12 @@ def analysis():
     priority_max = max([float(item.get("score") or 0) for item in priorities] or [1.0])
 
     study_totals = {}
-    for item in academic.get("study_blocks", []):
-        code = str(item.get("course_code") or "COURSE")
-        study_totals[code] = study_totals.get(code, 0) + int(item.get("minutes") or 0)
+    if "study_minutes_by_course" in academic:
+        study_totals = dict(academic["study_minutes_by_course"])
+    else:
+        for item in academic.get("study_blocks", []):
+            code = str(item.get("course_code") or "COURSE")
+            study_totals[code] = study_totals.get(code, 0) + int(item.get("minutes") or 0)
     study_max = max(list(study_totals.values()) or [1])
 
     view = {
@@ -1329,14 +1334,16 @@ def anvaya_note_reader(note_id):
 @web_blueprint.post("/notes/view/<note_id>/companion")
 def anvaya_note_companion_add(note_id):
     try:
+        kind = request.form.get("kind", "")
         _anvaya_notes_service().add_companion_entry(
             note_id,
-            kind=request.form.get("kind", ""),
+            kind=kind,
             text=request.form.get("entry_text", ""),
             expected_updated_at=request.form.get("expected_updated_at", ""),
         )
         return redirect(
-            url_for("web.anvaya_note_reader", note_id=note_id, study_tools="1"),
+            url_for("web.anvaya_note_reader", note_id=note_id, study_tools="1",
+                    study_tab="doubts" if kind == "doubt" else "saved"),
             code=303,
         )
     except AnvayaNotesConflictError:
@@ -1358,7 +1365,8 @@ def anvaya_note_companion_archive(note_id, entry_id):
             expected_updated_at=request.form.get("expected_updated_at", ""),
         )
         return redirect(
-            url_for("web.anvaya_note_reader", note_id=note_id, study_tools="1"),
+            url_for("web.anvaya_note_reader", note_id=note_id, study_tools="1",
+                    study_tab="doubts" if request.form.get("study_tab") == "doubts" else "saved"),
             code=303,
         )
     except AnvayaNotesConflictError:
@@ -2218,7 +2226,8 @@ def _add_companion_entry(entry_type, saved_label):
             entry_type=entry_type,
             entry_text=request.form.get("entry_text", ""),
         )
-        return _companion_redirect(relative_path, saved_label)
+        return _companion_redirect(relative_path, saved_label,
+                                   "doubts" if entry_type == "doubt" else "saved")
     except (
         ObsidianStudyValidationError,
         ObsidianStudyNotFoundError,
@@ -2252,7 +2261,8 @@ def obsidian_companion_archive(entry_id):
             source_hash=request.form.get("source_hash", ""),
             entry_id=entry_id,
         )
-        return _companion_redirect(relative_path, "archived")
+        return _companion_redirect(relative_path, "archived",
+                                   "doubts" if request.form.get("study_tab") == "doubts" else "saved")
     except (
         ObsidianStudyValidationError,
         ObsidianStudyNotFoundError,

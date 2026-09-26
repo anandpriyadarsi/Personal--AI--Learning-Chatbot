@@ -11,13 +11,47 @@ import json
 import os
 import shutil
 from copy import deepcopy
+from datetime import datetime, timedelta, timezone
+from functools import wraps
 from pathlib import Path
+from threading import Lock, RLock
 from typing import Iterable
 from uuid import uuid4
 
 
 DEFAULT_NOTES_PATH = Path("data/anvaya_notes.json")
 DEFAULT_ASSETS_ROOT = Path("data/anvaya_notes_assets")
+_LOCKS_GUARD = Lock()
+_STORE_LOCKS = {}
+
+
+def _serialized_write(method):
+    """Keep a JSON store's compare-and-replace atomic across app threads."""
+    @wraps(method)
+    def write(self, *args, **kwargs):
+        path = str(self.notes_path.resolve(strict=False))
+        with _LOCKS_GUARD:
+            lock = _STORE_LOCKS.setdefault(path, RLock())
+        with lock:
+            return method(self, *args, **kwargs)
+    return write
+
+
+def _newer_version(proposed, previous):
+    """Prevent same-clock edits from reusing a prior optimistic version."""
+    def parse(value):
+        try:
+            result = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+            return result.replace(tzinfo=timezone.utc) if result.tzinfo is None else result
+        except ValueError:
+            return None
+
+    before, after = parse(previous), parse(proposed)
+    if after is not None and (before is None or after > before):
+        return str(proposed)
+    if before is not None:
+        return (before + timedelta(microseconds=1)).isoformat(timespec="microseconds").replace("+00:00", "Z")
+    return datetime.now(timezone.utc).isoformat(timespec="microseconds").replace("+00:00", "Z")
 
 
 class AnvayaNotesRepositoryError(RuntimeError):
@@ -135,6 +169,7 @@ class AnvayaNotesRepository:
                     pass
             raise
 
+    @_serialized_write
     def create_note(self, record, uploads=()):
         rows = self.list_notes()
         note = deepcopy(dict(record))
@@ -157,6 +192,7 @@ class AnvayaNotesRepository:
                     pass
             raise
 
+    @_serialized_write
     def update_note(
         self,
         note_id,
@@ -216,6 +252,7 @@ class AnvayaNotesRepository:
 
             updated = deepcopy(current)
             updated.update(deepcopy(dict(changes)))
+            updated["updated_at"] = _newer_version(updated.get("updated_at"), current.get("updated_at"))
             updated["id"] = note_id
             updated["created_at"] = current.get("created_at", "")
             updated["assets"] = [

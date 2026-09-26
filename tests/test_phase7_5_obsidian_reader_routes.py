@@ -196,6 +196,27 @@ def test_reader_get_renders_markdown_by_default_and_escaped_collapsed_source():
     assert "Reading-time tracking requires JavaScript" in html
 
 
+def test_reader_study_companion_overlays_note_with_separate_controls():
+    service = FakeStudyService()
+    response = _client(service).get("/obsidian/note?path=Math%2FLU.md")
+    html = response.get_data(as_text=True)
+
+    assert response.status_code == 200
+    assert service.calls == [("reader", "Math/LU.md")]
+    assert 'id="notes-study-tools-launcher"' in html
+    assert 'aria-controls="notes-study-tools-drawer"' in html
+    assert 'id="notes-study-tools-drawer"' in html
+    assert 'data-position-key="anvaya.obsidian.studyTools.position"' in html
+    assert 'data-study-tab="saved"' in html
+    assert 'data-study-tab="doubts"' in html
+    assert 'data-study-tab="reading"' in html
+    assert 'data-study-panel="doubts" hidden' not in html
+    assert 'data-study-panel="reading" hidden' not in html
+    assert '.obsidian-reader-layout .notes-study-tools-panel { display: block; }' in html
+    assert 'name="source_hash"' in html
+    assert 'js/anvaya_notes_reader.js' in html
+
+
 def test_reader_get_still_renders_when_companion_database_is_unavailable():
     service = FakeStudyService()
     service.view = _reader_view(
@@ -441,9 +462,25 @@ def test_companion_forms_use_post_303_and_preserve_note_path():
     assert "companion_saved=key_point" in key_point.headers["Location"]
     assert "companion_saved=doubt" in doubt.headers["Location"]
     assert "companion_saved=archived" in archived.headers["Location"]
+    assert "study_tools=1&study_tab=saved" in key_point.headers["Location"]
+    assert "study_tools=1&study_tab=doubts" in doubt.headers["Location"]
     assert [item[0] for item in service.calls] == ["add", "add", "archive"]
     assert service.calls[0][1]["entry_type"] == "key_point"
     assert service.calls[1][1]["entry_type"] == "doubt"
+
+
+def test_companion_archive_redirect_keeps_originating_tab():
+    client = _client(FakeStudyService())
+    for tab in ("saved", "doubts"):
+        response = client.post(
+            "/obsidian/note/companion/55555555-5555-4555-8555-555555555555/archive",
+            data={"path": "Math/LU.md", "source_hash": SOURCE_HASH, "study_tab": tab},
+        )
+        assert response.status_code == 303
+        assert "study_tools=1&study_tab=" + tab in response.location
+    html = client.get("/obsidian/note?path=Math%2FLU.md").get_data(as_text=True)
+    assert 'name="study_tab" value="saved"' in html
+    assert 'name="study_tab" value="doubts"' in html
 
 
 def test_companion_form_error_is_safe_and_does_not_redirect_raw_text():
@@ -620,13 +657,13 @@ def test_reader_template_and_route_dependency_contracts():
         assert forbidden not in routes
 
 
-def test_reader_css_has_desktop_grid_and_narrow_stacked_layout():
+def test_reader_css_has_full_width_article_and_overlay_drawer():
     css = (ROOT / "personal_learning_assistant/ui/web/static/css/app.css").read_text(
         encoding="utf-8"
     )
 
-    assert ".obsidian-reader-layout" in css
-    assert "grid-template-columns" in css
+    assert ".obsidian-reader-layout {\n  display: block;" in css
+    assert ".notes-study-tools-drawer {\n  position: fixed;" in css
     assert "@media (max-width: 900px)" in css
     assert ".obsidian-reading-view" in css
     assert ".obsidian-companion" in css

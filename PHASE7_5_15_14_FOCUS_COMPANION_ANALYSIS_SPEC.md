@@ -1,7 +1,9 @@
 # Phase 7.5.15.14 — Focus Mode + Notes Companion + Analysis Hub
 
-Status: APPROVED FEATURE SPEC  
-Branch: `phase7.5.15.14/focus-companion-analysis`  
+Status: APPROVED FEATURE SPEC
+
+Branch: `phase7.5.15.14/focus-companion-analysis`
+
 Base: `phase7.5.15.13/card-polish-media-delete`
 
 ## Purpose
