@@ -6,7 +6,7 @@
 {% else %}
 <section class="hero dashboard-hero">
   <div><p class="eyebrow">Assessment Studio · {{ workspace.course.code }}</p><h2>{{ workspace.course.name }}</h2><p class="lede">Choose a reusable starting pattern. Opening a card only pre-fills a form; it never creates an assessment or attempt.</p></div>
-  <a class="button button-secondary" href="{{ url_for('web.assessment_templates', course_id=workspace.course.id) }}">Templates</a>
+  <div class="form-actions"><a class="button button-secondary" href="{{ url_for('web.assessment_intelligence_course', course_id=workspace.course.id) }}">Course report</a><a class="button button-secondary" href="{{ url_for('web.assessment_templates', course_id=workspace.course.id) }}">Templates</a></div>
 </section>
 <section class="dashboard-panel">
   <div class="panel-heading"><div><p class="eyebrow">Quick start</p><h3>New template</h3></div></div>
@@ -16,6 +16,6 @@
   <div class="panel-heading"><div><p class="eyebrow">Saved</p><h3>Course templates</h3></div><span class="count-badge">{{ workspace.templates|length }}</span></div>
   {% if workspace.templates %}<ul class="dashboard-list">{% for item in workspace.templates %}<li><div class="list-main"><strong>{{ item.name }}</strong><span>{{ item.assessment_type_label }} · {{ item.mode_label }} · {{ item.duration_minutes }} min{% if item.total_marks %} · {{ item.total_marks }} marks{% endif %}</span>{% if not item.active %}<div class="tag-row"><span class="tag">Inactive</span></div>{% endif %}</div><a class="button button-secondary compact-button" href="{{ url_for('web.assessment_template_detail', template_id=item.id) }}">Open</a></li>{% endfor %}</ul>{% else %}<p class="empty-state">No templates for this course yet.</p>{% endif %}
 </section>
-<section class="notice-panel"><h3>Later phases</h3><p>Alex/ChatGPT package import, JEE-style timed test execution, evaluation and visual analytics remain intentionally outside Phase A.</p></section>
+<section class="notice-panel"><h3>Assessment Studio workflow</h3><p>Use Alex package import, timed CBT execution, evaluation and Assessment Intelligence together. Analytics remain read-only and do not change mastery or planning.</p></section>
 {% endif %}
 {% endblock %}

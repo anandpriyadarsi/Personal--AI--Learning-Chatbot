@@ -8,6 +8,7 @@
     <p class="lede">{{ result.course_code_snapshot }} · {{ result.mode|title }} · {{ result.evaluation_status|replace('_',' ')|title }}</p>
   </div>
   <div class="form-actions">
+    <a class="button button-secondary" href="{{ url_for('web.assessment_session_analysis', session_id=result.session_id) }}">Open Intelligence</a>
     <a class="button button-secondary" href="{{ url_for('web.assessment_session_summary', session_id=result.session_id) }}">Session summary</a>
     <a class="button button-secondary" href="{{ url_for('web.assessment_tests') }}">Tests</a>
   </div>
