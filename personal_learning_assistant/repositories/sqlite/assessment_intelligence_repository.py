@@ -194,6 +194,7 @@ class SQLiteAssessmentIntelligenceRepository:
             "FROM assessment_test_sessions s "
             "JOIN assessments a ON a.id=s.assessment_id "
             "JOIN courses c ON c.id=a.course_id "
+            "LEFT JOIN assessment_import_batches ib ON ib.assessment_id=a.id "
             "JOIN assessment_session_evaluations se "
             "ON se.session_id=s.id AND se.status='confirmed' "
             "JOIN assessment_test_session_questions q ON q.session_id=s.id "
