@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Assessment Templates · ANVAYA{% endblock %}
+{% block content %}
+<section class="hero dashboard-hero">
+  <div><p class="eyebrow">Assessment Studio</p><h2>Templates</h2><p class="lede">Reusable course-aware test configurations. They do not create questions, attempts or planner evidence.</p></div>
+  <a class="button" href="{{ url_for('web.assessment_template_new', course_id=view.selected_course_id) }}">Create template</a>
+</section>
+{% if error_message %}<section class="notice-panel" role="alert"><h3>Templates unavailable</h3><p>{{ error_message }}</p></section>{% else %}
+<section class="dashboard-panel">
+  <div class="panel-heading"><div><p class="eyebrow">Saved configuration</p><h3>Assessment templates</h3></div><span class="count-badge">{{ view.templates|length }}</span></div>
+  {% if view.templates %}<ul class="dashboard-list">
+  {% for item in view.templates %}
+    <li><div class="list-main"><strong>{{ item.course_code }} · {{ item.name }}</strong><span>{{ item.assessment_type_label }} · {{ item.mode_label }} · {{ item.duration_minutes }} min{% if item.total_marks %} · {{ item.total_marks }} marks{% endif %}</span><div class="tag-row"><span class="tag">{{ item.question_count }} questions</span><span class="tag">{{ item.topic_count }} topics</span><span class="tag">Revision {{ item.revision }}</span>{% if not item.active %}<span class="tag">Inactive</span>{% endif %}</div></div><a class="button button-secondary compact-button" href="{{ url_for('web.assessment_template_detail', template_id=item.id) }}">Open</a></li>
+  {% endfor %}</ul>{% else %}<p class="empty-state">No assessment templates yet. Create one from a course or from the button above.</p>{% endif %}
+</section>
+{% endif %}
+{% endblock %}
