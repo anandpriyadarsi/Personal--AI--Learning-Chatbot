@@ -210,6 +210,14 @@
     previewUrls = [];
   };
 
+  const escapeHtml = (value) =>
+    String(value || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+
   const controlMarkup = (caption) => `
     <div class="anvaya-media-controls">
       <label>Size
@@ -240,7 +248,7 @@
         </select>
       </label>
       <label class="anvaya-media-caption">Caption
-        <input data-media-caption maxlength="160" value="${caption.replace(/"/g, "&quot;")}">
+        <input data-media-caption maxlength="160" value="${escapeHtml(caption)}">
       </label>
     </div>`;
 
