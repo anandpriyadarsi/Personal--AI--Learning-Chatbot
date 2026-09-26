@@ -36,6 +36,7 @@ if($LASTEXITCODE -ne 0){Stop-Gate "Approved baseline is not an ancestor of HEAD.
 
 $Allowed=@(
   "ASSESSMENT_STUDIO_PHASE_A.md",
+  "ASSESSMENT_STUDIO_PHASE_A_IMPLEMENTATION_REPORT.md",
   "personal_learning_assistant/repositories/sqlite/migrations/0009_assessment_studio_foundation.sql",
   "personal_learning_assistant/repositories/sqlite/assessment_studio_repository.py",
   "personal_learning_assistant/services/assessment_studio_service.py",
