@@ -18,7 +18,10 @@
 {% else %}
 <section class="notice-panel">
   <h3>{% if summary.session.status == 'expired' %}Time expired — session closed{% else %}Test submitted{% endif %}</h3>
-  <p>Your responses and timing evidence are safely stored. Scoring, solutions, mistake classification and topic-level performance analysis are intentionally deferred to Assessment Studio Phase D/E.</p>
+  <p>Your responses and timing evidence are safely stored. Assessment Studio can now evaluate deterministic questions and open subjective/custom questions for rubric review.</p>
+  <form method="post" action="{{ url_for('web.assessment_session_evaluate', session_id=summary.session.id) }}">
+    <button class="button" type="submit">Evaluate / Open Results</button>
+  </form>
 </section>
 {% endif %}
 
