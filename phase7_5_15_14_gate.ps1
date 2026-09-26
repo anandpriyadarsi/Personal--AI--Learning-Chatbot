@@ -24,7 +24,11 @@ function Hash-Tree { param([string]$Root)
   $out=@{}
   if(Test-Path $Root){
     Get-ChildItem $Root -File -Recurse -Force |
-      Where-Object {$_.Extension -notin @(".pyc",".pyo") -and $_.FullName -notmatch '[\\/]__pycache__[\\/]'} |
+      Where-Object {
+        $_.Extension -notin @(".pyc",".pyo") -and
+        $_.FullName -notmatch '[\\/]__pycache__[\\/]' -and
+        $_.Name -notin @("learning_assistant.db-wal","learning_assistant.db-shm")
+      } |
       Sort-Object FullName |
       ForEach-Object {$out[$_.FullName]=(Get-FileHash $_.FullName -Algorithm SHA256).Hash}
   }
@@ -116,6 +120,11 @@ Assert-Same $DataBefore (Hash-Tree ".\data") "Production data"
 Assert-Same $RetrievalBefore (Hash-Tree ".\.phase5_retrieval") "Retrieval state"
 Assert-Same $TutorBefore (Hash-Tree ".\personal_learning_assistant\tutor") "Tutor code"
 Assert-Same $MigrationsBefore (Hash-Tree ".\personal_learning_assistant\repositories\sqlite\migrations") "SQLite migrations"
+
+$LiveWal=".\data\learning_assistant.db-wal"
+if((Test-Path $LiveWal) -and (Get-Item $LiveWal).Length -ne 0){
+  Stop-Gate "Production SQLite WAL contains uncheckpointed bytes after validation."
+}
 
 Write-Host ""
 Write-Host "[10/10] Repository hygiene"
