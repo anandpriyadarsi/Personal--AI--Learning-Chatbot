@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Import Assessment Package · ANVAYA{% endblock %}
+{% block content %}
+<section class="hero dashboard-hero">
+  <div>
+    <p class="eyebrow">Assessment Studio · Phase B</p>
+    <h2>Import Alex assessment package</h2>
+    <p class="lede">Upload a versioned <code>*.anvaya-assessment.json</code> created by Alex/ChatGPT. ANVAYA validates and stages it for review before any canonical assessment is created.</p>
+  </div>
+  <a class="button button-secondary" href="{{ url_for('web.assessments') }}">Assessment Studio</a>
+</section>
+
+{% if error_message %}
+<section class="notice-panel" role="alert"><h3>Package was not staged</h3><p>{{ error_message }}</p></section>
+{% endif %}
+
+<section class="action-panel">
+  <p class="eyebrow">Package upload</p>
+  <h3>Validate and stage</h3>
+  <form method="post" enctype="multipart/form-data" action="{{ url_for('web.assessment_import_create') }}">
+    <div class="form-grid">
+      <label class="form-field form-field-full">
+        <span>ANVAYA Assessment Package</span>
+        <input type="file" name="package" accept=".json,.anvaya-assessment.json,application/json" required>
+      </label>
+    </div>
+    <div class="form-actions"><button class="button" type="submit">Validate &amp; open review</button></div>
+  </form>
+  <p class="lede">Maximum package size: 5 MB. JSON with duplicate keys, unsupported fields or invalid answer keys is rejected before staging.</p>
+</section>
+
+<section class="dashboard-panel next-panel">
+  <div class="panel-heading">
+    <div><p class="eyebrow">Import history</p><h3>Recent packages</h3></div>
+    <span class="count-badge">{{ workspace.batches|length }}</span>
+  </div>
+  {% if workspace.batches %}
+  <ul class="dashboard-list">
+    {% for item in workspace.batches %}
+    <li>
+      <div class="list-main">
+        <strong>{{ item.course_code }} · {{ item.title }}</strong>
+        <span>{{ item.question_count }} questions · {{ item.status_label }} · package rev {{ item.package_revision }}</span>
+        <div class="tag-row"><span class="tag">{{ item.assessment_type }}</span><span class="tag">{{ item.mode }}</span><span class="tag">{{ item.package_id }}</span></div>
+      </div>
+      <a class="button button-secondary compact-button" href="{{ url_for('web.assessment_import_review', batch_id=item.id) }}">Review</a>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="empty-state">No assessment packages have been staged yet.</p>
+  {% endif %}
+</section>
+
+<section class="notice-panel">
+  <h3>Alex authoring contract</h3>
+  <p>Package schema: <code>{{ workspace.schema }}</code> version {{ workspace.version }}. The repository also contains the JSON Schema, example package and reusable authoring prompt.</p>
+</section>
+{% endblock %}

@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}Import Review · {{ batch.title }} · ANVAYA{% endblock %}
+{% block content %}
+<section class="hero dashboard-hero">
+  <div>
+    <p class="eyebrow">Assessment Studio · Import Review</p>
+    <h2>{{ batch.title }}</h2>
+    <p class="lede">{{ batch.course_code }} · {{ batch.assessment_type }} · {{ batch.mode }} · package {{ batch.package_id }} rev {{ batch.package_revision }}</p>
+  </div>
+  <div class="form-actions">
+    <a class="button button-secondary" href="{{ url_for('web.assessment_import') }}">All imports</a>
+    <a class="button button-secondary" href="{{ url_for('web.assessments') }}">Assessment Studio</a>
+  </div>
+</section>
+
+{% if notice_message %}<section class="notice-panel"><h3>Import status</h3><p>{{ notice_message }}</p></section>{% endif %}
+{% if error_message %}<section class="notice-panel" role="alert"><h3>Review action failed</h3><p>{{ error_message }}</p></section>{% endif %}
+
+<section class="metric-grid" aria-label="Import summary">
+  <article class="metric-card"><span class="metric-label">Questions</span><strong>{{ batch.questions|length }}</strong><span>staged</span></article>
+  <article class="metric-card"><span class="metric-label">Configured marks</span><strong>{{ batch.total_marks }}</strong><span>assessment total</span></article>
+  <article class="metric-card"><span class="metric-label">Question marks</span><strong>{{ batch.calculated_marks }}</strong><span>current sum</span></article>
+  <article class="metric-card"><span class="metric-label">Status</span><strong>{{ batch.status|title }}</strong><span>import lifecycle</span></article>
+</section>
+
+{% if batch.validation_notes %}
+<section class="notice-panel">
+  <h3>Package validation notes</h3>
+  <ul>{% for item in batch.validation_notes %}<li>{{ item }}</li>{% endfor %}</ul>
+</section>
+{% endif %}
+
+{% if batch.blockers %}
+<section class="notice-panel" role="status">
+  <h3>Approval blockers</h3>
+  <ul>{% for blocker in batch.blockers %}<li>{{ blocker }}</li>{% endfor %}</ul>
+</section>
+{% endif %}
+
+{% if batch.status == 'review' %}
+<section class="dashboard-panel next-panel">
+  <div class="panel-heading"><div><p class="eyebrow">Assessment metadata</p><h3>Review test setup</h3></div></div>
+  <form method="post" action="{{ url_for('web.assessment_import_metadata', batch_id=batch.id) }}">
+    <div class="form-grid">
+      <label class="form-field form-field-full"><span>Title</span><input name="title" value="{{ batch.title }}" required></label>
+      <label class="form-field"><span>Type</span>
+        <select name="assessment_type">
+          {% for value in ['quiz','midsem','endsem','topic_test','previous_paper','custom'] %}<option value="{{ value }}"{% if batch.assessment_type == value %} selected{% endif %}>{{ value|replace('_',' ')|title }}</option>{% endfor %}
+        </select>
+      </label>
+      <label class="form-field"><span>Mode</span><select name="mode"><option value="exam"{% if batch.mode == 'exam' %} selected{% endif %}>Exam</option><option value="practice"{% if batch.mode == 'practice' %} selected{% endif %}>Practice</option></select></label>
+      <label class="form-field"><span>Duration (minutes)</span><input type="number" min="1" max="1440" name="duration_minutes" value="{{ batch.duration_minutes }}" required></label>
+      <label class="form-field"><span>Total marks</span><input type="number" min="0.001" step="0.001" name="total_marks" value="{{ batch.total_marks }}" required></label>
+      <label class="form-field form-field-full"><span>Instructions</span><textarea name="instructions_text" rows="4">{{ batch.instructions_text }}</textarea></label>
+    </div>
+    <div class="form-actions"><button class="button button-secondary" type="submit">Save metadata</button></div>
+  </form>
+</section>
+{% endif %}
+
+<section class="dashboard-panel next-panel">
+  <div class="panel-heading">
+    <div><p class="eyebrow">Question review</p><h3>Staged questions</h3></div>
+    <span class="count-badge">{{ batch.questions|length }}</span>
+  </div>
+  {% if batch.questions %}
+  <ul class="dashboard-list">
+    {% for q in batch.questions %}
+    <li>
+      <div class="list-main">
+        <strong>Q{{ q.question_number or q.ordinal }} · {{ q.question_type|replace('_',' ')|title }} · {{ q.marks or 'marks needed' }} marks</strong>
+        <span>{{ q.question_text|truncate(220) }}</span>
+        <div class="tag-row">
+          <span class="tag">#{{ q.ordinal }}</span>
+          {% if q.section_label %}<span class="tag">{{ q.section_label }}</span>{% endif %}
+          <span class="tag">{{ q.selected_topic_name or 'Topic not confirmed' }}</span>
+          {% if q.raw_topic_label %}<span class="tag">Package: {{ q.raw_topic_label }}</span>{% endif %}
+          {% if q.review_required %}<span class="tag">Review required</span>{% else %}<span class="tag">Reviewed</span>{% endif %}
+          {% if q.source_page %}<span class="tag">Page {{ q.source_page }}</span>{% endif %}
+        </div>
+      </div>
+      {% if batch.status == 'review' %}
+      <div class="form-actions">
+        <a class="button button-secondary compact-button" href="{{ url_for('web.assessment_import_question_edit', batch_id=batch.id, question_id=q.id) }}">Edit</a>
+        <form method="post" action="{{ url_for('web.assessment_import_question_reorder', batch_id=batch.id, question_id=q.id) }}"><input type="hidden" name="direction" value="up"><button class="button button-secondary compact-button" type="submit">↑</button></form>
+        <form method="post" action="{{ url_for('web.assessment_import_question_reorder', batch_id=batch.id, question_id=q.id) }}"><input type="hidden" name="direction" value="down"><button class="button button-secondary compact-button" type="submit">↓</button></form>
+        {% if q.question_type in ['short_subjective', 'long_subjective'] %}<a class="button button-secondary compact-button" href="{{ url_for('web.assessment_import_question_split', batch_id=batch.id, question_id=q.id) }}">Split</a>{% endif %}
+        {% if q.question_type in ['short_subjective', 'long_subjective'] and not loop.last %}<form method="post" action="{{ url_for('web.assessment_import_question_merge', batch_id=batch.id, question_id=q.id) }}"><button class="button button-secondary compact-button" type="submit">Merge next</button></form>{% endif %}
+        <form method="post" action="{{ url_for('web.assessment_import_question_remove', batch_id=batch.id, question_id=q.id) }}"><button class="button button-secondary compact-button" type="submit">Remove</button></form>
+      </div>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}<p class="empty-state">No questions remain in this review batch.</p>{% endif %}
+</section>
+
+{% if batch.status == 'review' %}
+<section class="action-panel">
+  <p class="eyebrow">Explicit approval</p>
+  <h3>Create the canonical assessment only when review is complete</h3>
+  <p>Approval writes the assessment, questions, confirmed topic mappings, options, source provenance, solution/rubric metadata and runtime configuration in one transaction. It does not change mastery or the planner.</p>
+  <div class="form-actions">
+    <form method="post" action="{{ url_for('web.assessment_import_approve', batch_id=batch.id) }}"><button class="button" type="submit"{% if not batch.can_approve %} disabled{% endif %}>Approve import</button></form>
+    <form method="post" action="{{ url_for('web.assessment_import_reject', batch_id=batch.id) }}"><button class="button button-secondary" type="submit">Reject package</button></form>
+  </div>
+</section>
+{% elif batch.status == 'approved' %}
+<section class="notice-panel"><h3>Approved</h3><p>This review batch created canonical assessment <code>{{ batch.assessment_id }}</code>. The staged package remains as provenance/audit evidence.</p></section>
+{% else %}
+<section class="notice-panel"><h3>Rejected</h3><p>No canonical assessment was created from this package.</p></section>
+{% endif %}
+{% endblock %}

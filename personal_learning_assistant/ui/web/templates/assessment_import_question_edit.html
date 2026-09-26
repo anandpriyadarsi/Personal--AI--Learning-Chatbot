@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Edit Question · Import Review · ANVAYA{% endblock %}
+{% block content %}
+<section class="hero dashboard-hero">
+  <div><p class="eyebrow">Import Review · Question {{ editor.question.question_number or editor.question.ordinal }}</p><h2>Edit staged question</h2><p class="lede">Confirm the question, scoring, source and canonical course topic before approval.</p></div>
+  <a class="button button-secondary" href="{{ url_for('web.assessment_import_review', batch_id=editor.batch.id) }}">Back to review</a>
+</section>
+{% if error_message %}<section class="notice-panel" role="alert"><h3>Question was not saved</h3><p>{{ error_message }}</p></section>{% endif %}
+<form method="post" action="{{ url_for('web.assessment_import_question_update', batch_id=editor.batch.id, question_id=editor.question.id) }}">
+<section class="dashboard-panel">
+  <div class="form-grid">
+    <label class="form-field"><span>Question number</span><input name="question_number" value="{{ editor.question.question_number }}"></label>
+    <label class="form-field"><span>Section</span><input name="section_label" value="{{ editor.question.section_label }}"></label>
+    <label class="form-field"><span>Question type</span><select name="question_type">{% for value in editor.question_types %}<option value="{{ value }}"{% if editor.question.question_type == value %} selected{% endif %}>{{ value|replace('_',' ')|title }}</option>{% endfor %}</select></label>
+    <label class="form-field"><span>Difficulty</span><select name="difficulty">{% for value in editor.difficulties %}<option value="{{ value }}"{% if editor.question.difficulty == value %} selected{% endif %}>{{ value|replace('_',' ')|title }}</option>{% endfor %}</select></label>
+    <label class="form-field"><span>Marks</span><input type="number" min="0.001" step="0.001" name="marks" value="{{ editor.question.marks }}" required></label>
+    <label class="form-field"><span>Negative marks</span><input type="number" min="0" step="0.001" name="negative_marks" value="{{ editor.question.negative_marks }}"></label>
+    <label class="form-field form-field-full"><span>Scoring policy</span><select name="scoring_policy">{% for value in editor.scoring_policies %}<option value="{{ value }}"{% if editor.question.scoring_policy == value %} selected{% endif %}>{{ value|replace('_',' ')|title }}</option>{% endfor %}</select></label>
+    <label class="form-field form-field-full"><span>Question text</span><textarea name="question_text" rows="8" required>{{ editor.question.question_text }}</textarea></label>
+  </div>
+</section>
+
+{% if editor.question.options %}
+<section class="dashboard-panel next-panel">
+  <p class="eyebrow">Objective choices</p><h3>Options and answer key</h3>
+  {% for option in editor.question.options %}
+  <div class="form-grid">
+    <label class="form-field form-field-full"><span>Option {{ option.option_id }}</span><input name="option_text" value="{{ option.option_text }}" required></label>
+    <label class="form-field"><span>Correct</span><input type="checkbox" name="correct_option_ids" value="{{ option.option_id }}"{% if option.is_correct %} checked{% endif %}></label>
+  </div>
+  {% endfor %}
+</section>
+{% else %}
+<section class="dashboard-panel next-panel">
+  <label class="form-field form-field-full"><span>Accepted answers (one per line, for numerical/fill/true-false)</span><textarea name="accepted_answers" rows="4">{{ editor.question.answer.get('accepted_answers', [])|join('\n') }}</textarea></label>
+</section>
+{% endif %}
+
+<section class="dashboard-panel next-panel">
+  <p class="eyebrow">Academic mapping</p><h3>Topic-level evidence</h3>
+  <div class="form-grid">
+    <label class="form-field form-field-full"><span>Canonical ANVAYA topic</span><select name="selected_topic_id" required><option value="">Choose topic</option>{% for topic in editor.topics %}<option value="{{ topic.id }}"{% if editor.question.selected_topic_id == topic.id %} selected{% endif %}>{{ topic.name }}</option>{% endfor %}</select></label>
+    <label class="form-field"><span>Chapter label</span><input name="chapter_label" value="{{ editor.question.chapter_label }}"></label>
+    <label class="form-field"><span>Package topic label</span><input name="raw_topic_label" value="{{ editor.question.raw_topic_label }}"></label>
+    <label class="form-field"><span>Subtopic label</span><input name="subtopic_label" value="{{ editor.question.subtopic_label }}"></label>
+    <label class="form-field"><span>Estimated minutes</span><input type="number" min="0.01" step="0.01" name="estimated_minutes" value="{{ editor.question.estimated_minutes }}"></label>
+    <label class="form-field form-field-full"><span>Concepts (comma or new-line separated)</span><textarea name="concepts" rows="3">{{ editor.question.concepts|join(', ') }}</textarea></label>
+    <label class="form-field form-field-full"><span>Expected solving method</span><textarea name="expected_method" rows="3">{{ editor.question.expected_method }}</textarea></label>
+  </div>
+</section>
+
+<section class="dashboard-panel next-panel">
+  <p class="eyebrow">Solution and provenance</p><h3>Guide material from Alex</h3>
+  <div class="form-grid">
+    <label class="form-field form-field-full"><span>Solution</span><textarea name="solution_text" rows="7" required>{{ editor.question.solution_text }}</textarea></label>
+    <label class="form-field form-field-full"><span>Subjective rubric</span><textarea name="rubric_text" rows="5">{{ editor.question.rubric_text }}</textarea></label>
+    <label class="form-field"><span>Source kind</span><input name="source_kind" value="{{ editor.question.source_kind }}"></label>
+    <label class="form-field"><span>Source label</span><input name="source_label" value="{{ editor.question.source_label }}"></label>
+    <label class="form-field"><span>Source page</span><input type="number" min="1" name="source_page" value="{{ editor.question.source_page or '' }}"></label>
+    <label class="form-field"><span>Source locator</span><input name="source_locator" value="{{ editor.question.source_locator }}"></label>
+    <label class="form-field form-field-full"><span><input type="checkbox" name="review_complete" value="1"{% if not editor.question.review_required %} checked{% endif %}> I have reviewed this question and it is ready for import</span></label>
+  </div>
+</section>
+<div class="form-actions next-panel"><button class="button" type="submit">Save question review</button><a class="button button-secondary" href="{{ url_for('web.assessment_import_review', batch_id=editor.batch.id) }}">Cancel</a></div>
+</form>
+{% endblock %}

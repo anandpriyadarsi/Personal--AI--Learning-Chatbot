@@ -1,0 +1,154 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anvaya.local/schemas/anvaya-assessment-package-v1.schema.json",
+  "title": "ANVAYA Assessment Package v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "version", "package_id", "package_revision", "created_at", "authoring", "assessment", "questions"],
+  "properties": {
+    "schema": {"const": "anvaya.assessment-package"},
+    "version": {"const": 1},
+    "package_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$", "maxLength": 128},
+    "package_revision": {"type": "integer", "minimum": 1},
+    "created_at": {"type": "string", "format": "date-time"},
+    "authoring": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["engine", "purpose"],
+      "properties": {
+        "engine": {"type": "string", "minLength": 1, "maxLength": 120},
+        "model": {"type": "string", "maxLength": 120},
+        "purpose": {
+          "enum": ["reproduced_paper", "adapted_paper", "generated_practice", "weak_topic_retest", "manual"]
+        }
+      }
+    },
+    "assessment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["course", "title", "type", "mode", "duration_minutes", "total_marks", "instructions"],
+      "properties": {
+        "course": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["code"],
+          "properties": {
+            "code": {"type": "string", "minLength": 1, "maxLength": 40},
+            "name": {"type": "string", "maxLength": 200}
+          }
+        },
+        "title": {"type": "string", "minLength": 1, "maxLength": 240},
+        "type": {"enum": ["quiz", "midsem", "endsem", "topic_test", "previous_paper", "custom"]},
+        "mode": {"enum": ["exam", "practice"]},
+        "duration_minutes": {"type": "integer", "minimum": 1, "maximum": 1440},
+        "total_marks": {"type": "number", "exclusiveMinimum": 0},
+        "instructions": {
+          "type": "array",
+          "maxItems": 40,
+          "items": {"type": "string", "minLength": 1, "maxLength": 500}
+        },
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "label"],
+          "properties": {
+            "kind": {"type": "string", "minLength": 1, "maxLength": 80},
+            "label": {"type": "string", "minLength": 1, "maxLength": 300}
+          }
+        }
+      }
+    },
+    "questions": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 200,
+      "items": {"$ref": "#/$defs/question"}
+    }
+  },
+  "$defs": {
+    "option": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "text"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1, "maxLength": 20},
+        "text": {"type": "string", "minLength": 1, "maxLength": 10000}
+      }
+    },
+    "answer": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "correct_option_ids": {
+          "type": "array",
+          "maxItems": 10,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1, "maxLength": 20}
+        },
+        "accepted_answers": {
+          "type": "array",
+          "maxItems": 30,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1, "maxLength": 500}
+        }
+      }
+    },
+    "academic_map": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["topic", "concepts", "difficulty", "expected_method", "estimated_minutes", "topic_mapping_confidence"],
+      "properties": {
+        "chapter": {"type": "string", "maxLength": 300},
+        "topic": {"type": "string", "minLength": 1, "maxLength": 300},
+        "subtopic": {"type": "string", "maxLength": 300},
+        "concepts": {
+          "type": "array",
+          "maxItems": 30,
+          "items": {"type": "string", "minLength": 1, "maxLength": 500}
+        },
+        "difficulty": {"enum": ["easy", "medium", "hard", "very_hard"]},
+        "expected_method": {"type": "string", "minLength": 1, "maxLength": 3000},
+        "estimated_minutes": {"type": "number", "exclusiveMinimum": 0, "maximum": 600},
+        "topic_mapping_confidence": {"type": "number", "minimum": 0, "maximum": 1}
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "label"],
+      "properties": {
+        "kind": {"type": "string", "minLength": 1, "maxLength": 80},
+        "label": {"type": "string", "minLength": 1, "maxLength": 500},
+        "page": {"type": ["integer", "null"], "minimum": 1},
+        "locator": {"type": "string", "maxLength": 300}
+      }
+    },
+    "question": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "number", "type", "text", "marks", "negative_marks", "scoring_policy", "answer", "solution", "academic_map", "source", "authoring_confidence", "review_required"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "number": {"type": ["string", "integer"]},
+        "section": {"type": "string", "maxLength": 100},
+        "type": {"enum": ["mcq", "msq", "numerical", "fill_blank", "true_false", "short_subjective", "long_subjective"]},
+        "text": {"type": "string", "minLength": 1, "maxLength": 50000},
+        "marks": {"type": "number", "exclusiveMinimum": 0},
+        "negative_marks": {"type": "number", "minimum": 0},
+        "scoring_policy": {"enum": ["standard", "all_or_nothing", "partial", "custom"]},
+        "options": {
+          "type": "array",
+          "maxItems": 10,
+          "items": {"$ref": "#/$defs/option"}
+        },
+        "answer": {"$ref": "#/$defs/answer"},
+        "solution": {"type": "string", "minLength": 1, "maxLength": 50000},
+        "rubric": {"type": "string", "maxLength": 30000},
+        "academic_map": {"$ref": "#/$defs/academic_map"},
+        "source": {"$ref": "#/$defs/source"},
+        "authoring_confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "review_required": {"type": "boolean"}
+      }
+    }
+  }
+}
