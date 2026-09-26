@@ -150,7 +150,7 @@ class SQLiteAssessmentIntelligenceRepository:
 
     def list_session_question_evidence(self, session_id: str):
         rows = self.connection.execute(
-            "SELECT q.id AS session_question_id, q.question_id, q.ordinal, "
+            "SELECT q.session_id, q.id AS session_question_id, q.question_id, q.ordinal, "
             "q.question_number, q.section_label, q.question_type, "
             "q.max_marks_milli, q.negative_marks_milli, q.scoring_policy, "
             "q.topic_id, t.name AS topic_name, q.chapter_label, "
