@@ -1124,7 +1124,7 @@ def _native_note_uploads():
     for item in request.files.getlist("files"):
         if item is None or not item.filename:
             continue
-        uploads.append((str(item.filename), item.read(25 * 1024 * 1024 + 1)))
+        uploads.append((str(item.filename), item.read(50 * 1024 * 1024 + 1)))
     return tuple(uploads)
 
 
@@ -1176,7 +1176,7 @@ def anvaya_notes_typed_create():
                 "anvaya_notes_editor.html",
                 active_page="notes",
                 editor=_native_note_editor_view(payload),
-                error_message="Check the note name, key points, and attached files.",
+                error_message="Check the note name, media settings, ZIP contents, and attached files.",
             ),
             400,
         )
@@ -1218,7 +1218,7 @@ def anvaya_notes_upload_create():
                 "anvaya_notes_upload.html",
                 active_page="notes",
                 form=payload,
-                error_message="Choose a note name and valid PDF/JPG/PNG pages.",
+                error_message="Choose a note name and valid PDF/JPG/PNG pages or a safe ZIP batch.",
             ),
             400,
         )
@@ -1298,7 +1298,7 @@ def anvaya_note_edit_save(note_id):
     except AnvayaNotesNotFoundError:
         return "That personal note was not found.", 404
     except AnvayaNotesValidationError:
-        return "Check the note fields and attached files.", 400
+        return "Check the note fields, media settings, ZIP contents, and attached files.", 400
     except AnvayaNotesUnavailableError:
         return "The personal note could not be saved.", 503
 
