@@ -1,7 +1,7 @@
 # Phase 7.5.15.11 — Inline Note Media + ZIP Import
 
-Status: APPROVED CORRECTIVE FEATURE SPEC  
-Branch: `phase7.5.15.11/inline-note-media`  
+Status: APPROVED CORRECTIVE FEATURE SPEC
+Branch: `phase7.5.15.11/inline-note-media`
 Base: `phase7.5.15.10/notes-obsidian-separation`
 
 ## Purpose
