@@ -235,7 +235,8 @@ def test_editor_exposes_inline_media_controls_and_zip_upload():
         "data-media-width",
         "data-media-rotate",
         "data-media-crop",
-        "anvaya-upload:",
+        'mediaDirective("upload"',
+        "anvaya-${kind}",
         ".zip",
     ):
         assert token in editor
