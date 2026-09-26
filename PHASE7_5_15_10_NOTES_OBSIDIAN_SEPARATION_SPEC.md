@@ -1,6 +1,6 @@
 # Phase 7.5.15.10 — Notes / Obsidian Separation + Card Redesign
 
-Status: CORRECTIVE DESIGN SPEC  
+Status: CORRECTIVE DESIGN SPEC
 Branch: `phase7.5.15.10/notes-obsidian-separation`
 
 ## Why this phase exists
