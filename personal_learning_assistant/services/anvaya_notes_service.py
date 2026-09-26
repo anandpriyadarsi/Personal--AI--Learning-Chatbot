@@ -5,10 +5,12 @@ personal typed/handwritten notes and app-managed uploads only.
 """
 from __future__ import annotations
 
+import io
 import re
+import zipfile
 from datetime import datetime, timedelta, timezone
 from importlib import import_module
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from uuid import uuid4
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -23,7 +25,10 @@ from personal_learning_assistant.repositories.json.anvaya_notes_repository impor
 
 
 MAX_ASSET_BYTES = 25 * 1024 * 1024
+MAX_ARCHIVE_BYTES = 50 * 1024 * 1024
+MAX_EXPANDED_BYTES = 100 * 1024 * 1024
 MAX_UPLOADS = 20
+MAX_EXPANDED_FILES = 60
 CARD_STYLES = {"iris", "preview", "square"}
 NOTE_KINDS = {"typed", "handwritten"}
 _ALLOWED = {
@@ -32,6 +37,15 @@ _ALLOWED = {
     ".jpg": ("image/jpeg", lambda b: b.startswith(b"\xff\xd8\xff")),
     ".jpeg": ("image/jpeg", lambda b: b.startswith(b"\xff\xd8\xff")),
 }
+_MEDIA_WIDTHS = (25, 40, 55, 70, 85, 100)
+_MEDIA_ROTATIONS = (0, 90, 180, 270)
+_MEDIA_CROPS = {"original", "1:1", "4:3", "3:4", "16:9"}
+_UPLOAD_DIRECTIVE = re.compile(
+    r"(?m)^\[\[anvaya-upload:(?P<index>\d+)(?P<options>(?:\|[^\]\r\n]*)?)\]\]\s*$"
+)
+_IMAGE_DIRECTIVE = re.compile(
+    r"(?m)^\[\[anvaya-image:(?P<asset>[A-Za-z0-9_-]+)(?P<options>(?:\|[^\]\r\n]*)?)\]\]\s*$"
+)
 
 
 class AnvayaNotesError(RuntimeError):
@@ -78,30 +92,281 @@ def _style(value):
     return style if style in CARD_STYLES else "iris"
 
 
+def _safe_upload_name(filename, suffix):
+    safe_name = Path(str(filename or "")).name
+    safe_name = re.sub(r"[^A-Za-z0-9._() \-]+", "_", safe_name).strip(" .")[:220]
+    return safe_name or ("note" + suffix)
+
+
+def _validated_single_upload(filename, raw, *, source_index):
+    suffix = Path(str(filename or "")).suffix.casefold()
+    rule = _ALLOWED.get(suffix)
+    if rule is None or not rule[1](raw):
+        raise AnvayaNotesValidationError(
+            "Only valid PDF, PNG, JPG, or JPEG files are allowed."
+        )
+    return {
+        "id": uuid4().hex,
+        "filename": _safe_upload_name(filename, suffix),
+        "bytes": raw,
+        "suffix": suffix,
+        "mimetype": rule[0],
+        "source_index": int(source_index),
+    }
+
+
+def _zip_entry_is_metadata(name):
+    parts = [part for part in str(name or "").replace("\\", "/").split("/") if part]
+    if not parts:
+        return True
+    return parts[0] == "__MACOSX" or parts[-1] in {".DS_Store", "Thumbs.db"}
+
+
+def _expand_zip(filename, raw, *, source_index):
+    if len(raw) > MAX_ARCHIVE_BYTES:
+        raise AnvayaNotesValidationError("ZIP files must be 50 MB or smaller.")
+    try:
+        archive = zipfile.ZipFile(io.BytesIO(raw))
+    except zipfile.BadZipFile as error:
+        raise AnvayaNotesValidationError("The ZIP file is invalid.") from error
+
+    clean = []
+    expanded_bytes = 0
+    try:
+        for info in archive.infolist():
+            if info.is_dir() or _zip_entry_is_metadata(info.filename):
+                continue
+            name = str(info.filename or "").replace("\\", "/")
+            path = PurePosixPath(name)
+            if (
+                not name
+                or name.startswith("/")
+                or any(part == ".." for part in path.parts)
+                or (path.parts and ":" in path.parts[0])
+            ):
+                raise AnvayaNotesValidationError("ZIP contains an unsafe file path.")
+            suffix = path.suffix.casefold()
+            if suffix == ".zip":
+                raise AnvayaNotesValidationError("Nested ZIP files are not allowed.")
+            if suffix not in _ALLOWED:
+                raise AnvayaNotesValidationError(
+                    "ZIP may contain only PDF, PNG, JPG, or JPEG files."
+                )
+            if info.flag_bits & 0x1:
+                raise AnvayaNotesValidationError("Encrypted ZIP entries are not allowed.")
+            if info.file_size <= 0 or info.file_size > MAX_ASSET_BYTES:
+                raise AnvayaNotesValidationError(
+                    "Each extracted ZIP file must be between 1 byte and 25 MB."
+                )
+            if info.compress_size > 0 and info.file_size > info.compress_size * 200:
+                raise AnvayaNotesValidationError("ZIP expansion ratio is unsafe.")
+            expanded_bytes += info.file_size
+            if expanded_bytes > MAX_EXPANDED_BYTES:
+                raise AnvayaNotesValidationError(
+                    "ZIP expands beyond the 100 MB note import limit."
+                )
+            if len(clean) >= MAX_EXPANDED_FILES:
+                raise AnvayaNotesValidationError(
+                    "ZIP contains too many files for one note."
+                )
+            payload = archive.read(info)
+            if len(payload) != info.file_size:
+                raise AnvayaNotesValidationError("ZIP entry size is inconsistent.")
+            clean.append(
+                _validated_single_upload(
+                    path.name,
+                    payload,
+                    source_index=source_index,
+                )
+            )
+    finally:
+        archive.close()
+
+    if not clean:
+        raise AnvayaNotesValidationError("ZIP contains no supported note files.")
+    return clean
+
+
 def _validated_uploads(uploads):
     clean = []
-    for filename, payload in tuple(uploads or ()):
-        if len(clean) >= MAX_UPLOADS:
-            raise AnvayaNotesValidationError("Too many files were selected.")
+    originals = tuple(uploads or ())
+    if len(originals) > MAX_UPLOADS:
+        raise AnvayaNotesValidationError("Too many files were selected.")
+    for source_index, (filename, payload) in enumerate(originals):
         raw = bytes(payload or "")
-        if not raw or len(raw) > MAX_ASSET_BYTES:
-            raise AnvayaNotesValidationError("Each file must be between 1 byte and 25 MB.")
         suffix = Path(str(filename or "")).suffix.casefold()
-        rule = _ALLOWED.get(suffix)
-        if rule is None or not rule[1](raw):
-            raise AnvayaNotesValidationError("Only valid PDF, PNG, JPG, or JPEG files are allowed.")
-        safe_name = Path(str(filename or "")).name
-        safe_name = re.sub(r"[^A-Za-z0-9._() \-]+", "_", safe_name).strip(" .")[:220]
-        safe_name = safe_name or ("note" + suffix)
+        if suffix == ".zip":
+            clean.extend(
+                _expand_zip(filename, raw, source_index=source_index)
+            )
+            continue
+        if not raw or len(raw) > MAX_ASSET_BYTES:
+            raise AnvayaNotesValidationError(
+                "Each file must be between 1 byte and 25 MB."
+            )
         clean.append(
-            {
-                "filename": safe_name,
-                "bytes": raw,
-                "suffix": suffix,
-                "mimetype": rule[0],
-            }
+            _validated_single_upload(
+                filename,
+                raw,
+                source_index=source_index,
+            )
         )
+        if len(clean) > MAX_EXPANDED_FILES:
+            raise AnvayaNotesValidationError("Too many note files were imported.")
     return tuple(clean)
+
+
+def _parse_media_options(raw_options):
+    values = {}
+    for token in str(raw_options or "").split("|"):
+        token = token.strip()
+        if not token or "=" not in token:
+            continue
+        key, value = token.split("=", 1)
+        values[key.strip().casefold()] = value.strip()
+
+    try:
+        requested_width = int(values.get("width", "70"))
+    except ValueError:
+        requested_width = 70
+    width = min(_MEDIA_WIDTHS, key=lambda item: abs(item - requested_width))
+
+    try:
+        requested_rotation = int(values.get("rotate", "0"))
+    except ValueError:
+        requested_rotation = 0
+    rotation = (
+        requested_rotation
+        if requested_rotation in _MEDIA_ROTATIONS
+        else 0
+    )
+
+    crop = values.get("crop", "original").casefold()
+    if crop not in _MEDIA_CROPS:
+        crop = "original"
+
+    caption = _text(values.get("caption", ""), limit=160)
+    caption = caption.replace("|", " ").replace("]", " ").strip()
+    return {
+        "width": width,
+        "rotate": rotation,
+        "crop": crop,
+        "caption": caption,
+    }
+
+
+def _media_directive(asset_id, options):
+    return (
+        "[[anvaya-image:{asset}|width={width}|rotate={rotate}|crop={crop}|caption={caption}]]"
+    ).format(
+        asset=str(asset_id),
+        width=options["width"],
+        rotate=options["rotate"],
+        crop=options["crop"],
+        caption=options["caption"],
+    )
+
+
+def _normalize_image_directives(body):
+    def replace(match):
+        return _media_directive(
+            match.group("asset"),
+            _parse_media_options(match.group("options")),
+        )
+    return _IMAGE_DIRECTIVE.sub(replace, str(body or ""))
+
+
+def _resolve_upload_directives(body, uploads):
+    by_source = {}
+    for item in tuple(uploads or ()):
+        by_source.setdefault(int(item.get("source_index", -1)), []).append(item)
+
+    def replace(match):
+        source_index = int(match.group("index"))
+        options = _parse_media_options(match.group("options"))
+        images = [
+            item
+            for item in by_source.get(source_index, ())
+            if str(item.get("mimetype") or "").startswith("image/")
+        ]
+        return "\n\n".join(
+            _media_directive(item["id"], options)
+            for item in images
+        )
+
+    resolved = _UPLOAD_DIRECTIVE.sub(replace, str(body or ""))
+    return _normalize_image_directives(resolved)
+
+
+def _media_crop_class(value):
+    return {
+        "original": "original",
+        "1:1": "1x1",
+        "4:3": "4x3",
+        "3:4": "3x4",
+        "16:9": "16x9",
+    }[value]
+
+
+def _render_typed_body(renderer, note_id, body, assets):
+    asset_map = {
+        str(item.get("id") or ""): item
+        for item in tuple(assets or ())
+    }
+    placeholders = []
+    used_ids = set()
+
+    def replace(match):
+        asset_id = str(match.group("asset") or "")
+        options = _parse_media_options(match.group("options"))
+        asset = asset_map.get(asset_id)
+        token = "ANVAYANATIVEMEDIA{}TOKEN".format(len(placeholders))
+        if asset is None or not str(asset.get("mimetype") or "").startswith("image/"):
+            html = Markup(
+                '<div class="anvaya-inline-media-unavailable" role="note">'
+                'Image unavailable</div>'
+            )
+        else:
+            used_ids.add(asset_id)
+            caption = options["caption"] or str(asset.get("filename") or "")
+            url = "/notes/file/{}/{}".format(note_id, asset_id)
+            html = Markup(
+                '<figure class="anvaya-inline-media anvaya-media-width-{} '
+                'anvaya-media-crop-{}">'
+                '<div class="anvaya-inline-media-frame">'
+                '<img class="anvaya-media-rotate-{}" src="{}" alt="{}" '
+                'loading="lazy" decoding="async" referrerpolicy="no-referrer">'
+                '</div>{}</figure>'
+            ).format(
+                options["width"],
+                escape(_media_crop_class(options["crop"])),
+                options["rotate"],
+                escape(url),
+                escape(caption),
+                (
+                    Markup("<figcaption>{}</figcaption>").format(escape(caption))
+                    if caption
+                    else Markup("")
+                ),
+            )
+        placeholders.append((token, str(html)))
+        return token
+
+    source = _IMAGE_DIRECTIVE.sub(replace, str(body or ""))
+    rendered = str(
+        renderer(
+            source,
+            wikilinks=(),
+            note_route="/notes/view",
+            note_path="",
+            asset_route="",
+        )
+    )
+    for token, html in placeholders:
+        rendered = rendered.replace("<p>{}</p>\n".format(token), html + "\n")
+        rendered = rendered.replace("<p>{}</p>".format(token), html)
+        rendered = rendered.replace(token, html)
+    return Markup(rendered), used_ids
 
 
 def _display_timezone(timezone_name):
@@ -242,8 +507,11 @@ class AnvayaNotesService:
 
     def create_typed_note(self, payload, uploads=()):
         record = self._base_record(payload, note_kind="typed")
-        record["body"] = _body(payload.get("body"))
         clean_uploads = _validated_uploads(uploads)
+        record["body"] = _resolve_upload_directives(
+            _body(payload.get("body")),
+            clean_uploads,
+        )
         try:
             stored = self.repository.create_note(record, clean_uploads)
         except AnvayaNotesRepositoryError as error:
@@ -274,26 +542,31 @@ class AnvayaNotesService:
         view["created_at"] = str(row.get("created_at") or "")
         view["created_label"] = _label(row.get("created_at"), self.timezone_name)
         view["updated_label"] = _label(row.get("updated_at"), self.timezone_name)
-        view["assets"] = [
+        all_assets = [
             {
                 **{key: value for key, value in asset.items() if key != "stored_name"},
                 "url": "/notes/file/{}/{}".format(row["id"], asset["id"]),
             }
             for asset in list(row.get("assets") or [])
         ]
+        used_inline_ids = set()
         if row.get("note_kind") == "typed":
             try:
-                view["rendered_html"] = self.renderer(
+                view["rendered_html"], used_inline_ids = _render_typed_body(
+                    self.renderer,
+                    row["id"],
                     str(row.get("body") or ""),
-                    wikilinks=(),
-                    note_route="/notes/view",
-                    note_path="",
-                    asset_route="",
+                    row.get("assets") or (),
                 )
             except Exception:
                 view["rendered_html"] = Markup("<pre>{}</pre>").format(
                     escape(str(row.get("body") or ""))
                 )
+        view["assets"] = [
+            asset
+            for asset in all_assets
+            if str(asset.get("id") or "") not in used_inline_ids
+        ]
         return view
 
     def edit_view(self, note_id):
@@ -312,7 +585,14 @@ class AnvayaNotesService:
             "key_points_text": "\n".join(str(x) for x in list(row.get("key_points") or [])),
             "body": str(row.get("body") or ""),
             "updated_at": str(row.get("updated_at") or ""),
-            "assets": list(row.get("assets") or []),
+            "assets": [
+                {
+                    **{key: value for key, value in asset.items() if key != "stored_name"},
+                    "url": "/notes/file/{}/{}".format(row["id"], asset["id"]),
+                    "is_image": str(asset.get("mimetype") or "").startswith("image/"),
+                }
+                for asset in list(row.get("assets") or [])
+            ],
         }
 
     def update_note(self, note_id, payload, uploads=()):
@@ -332,9 +612,12 @@ class AnvayaNotesService:
             "card_style": _style(payload.get("card_style")),
             "updated_at": str(self.now()),
         }
-        if current.get("note_kind") == "typed":
-            changes["body"] = _body(payload.get("body"))
         clean_uploads = _validated_uploads(uploads)
+        if current.get("note_kind") == "typed":
+            changes["body"] = _resolve_upload_directives(
+                _body(payload.get("body")),
+                clean_uploads,
+            )
         try:
             updated = self.repository.update_note(
                 note_id,
