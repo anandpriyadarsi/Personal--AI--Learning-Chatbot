@@ -169,7 +169,12 @@ def _expand_zip(filename, raw, *, source_index):
                 raise AnvayaNotesValidationError(
                     "ZIP contains too many files for one note."
                 )
-            payload = archive.read(info)
+            try:
+                payload = archive.read(info)
+            except (RuntimeError, OSError, EOFError, zipfile.BadZipFile) as error:
+                raise AnvayaNotesValidationError(
+                    "A ZIP entry could not be read safely."
+                ) from error
             if len(payload) != info.file_size:
                 raise AnvayaNotesValidationError("ZIP entry size is inconsistent.")
             clean.append(
@@ -199,6 +204,10 @@ def _validated_uploads(uploads):
             clean.extend(
                 _expand_zip(filename, raw, source_index=source_index)
             )
+            if len(clean) > MAX_EXPANDED_FILES:
+                raise AnvayaNotesValidationError(
+                    "Too many note files were imported."
+                )
             continue
         if not raw or len(raw) > MAX_ASSET_BYTES:
             raise AnvayaNotesValidationError(
