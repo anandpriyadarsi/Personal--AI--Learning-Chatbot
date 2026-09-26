@@ -180,7 +180,8 @@
 
   const escapeCaption = (value) =>
     String(value || "")
-      .replace(/[|\]\\r\\n]+/g, " ")
+      .replace(/[|\]]/g, " ")
+      .replace(/[\r\n]+/g, " ")
       .replace(/\s+/g, " ")
       .trim()
       .slice(0, 160);
