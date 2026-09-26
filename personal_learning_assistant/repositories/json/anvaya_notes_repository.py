@@ -157,7 +157,15 @@ class AnvayaNotesRepository:
                     pass
             raise
 
-    def update_note(self, note_id, *, expected_updated_at, changes, uploads=()):
+    def update_note(
+        self,
+        note_id,
+        *,
+        expected_updated_at,
+        changes,
+        uploads=(),
+        remove_asset_ids=(),
+    ):
         note_id = _safe_id(note_id)
         rows = self.list_notes()
         index = next(
@@ -166,26 +174,81 @@ class AnvayaNotesRepository:
         )
         if index is None:
             raise AnvayaNotesNotFoundError("Note was not found.")
+
         current = deepcopy(rows[index])
         if str(current.get("updated_at") or "") != str(expected_updated_at or ""):
             raise AnvayaNotesConflictError("Note changed since it was opened.")
 
-        new_assets = self._write_assets(note_id, uploads)
-        updated = deepcopy(current)
-        updated.update(deepcopy(dict(changes)))
-        updated["id"] = note_id
-        updated["created_at"] = current.get("created_at", "")
-        updated["assets"] = list(current.get("assets") or []) + new_assets
-        rows[index] = updated
+        remove_ids = {_safe_id(value) for value in tuple(remove_asset_ids or ())}
+        current_assets = list(current.get("assets") or [])
+        known_ids = {str(asset.get("id") or "") for asset in current_assets}
+        unknown = sorted(remove_ids - known_ids)
+        if unknown:
+            raise AnvayaNotesNotFoundError("One or more note files were not found.")
+
+        note_dir = self.assets_root / note_id
+        staged_removals = []
+        new_assets = []
         try:
+            new_assets = self._write_assets(note_id, uploads)
+
+            for asset in current_assets:
+                asset_id = str(asset.get("id") or "")
+                if asset_id not in remove_ids:
+                    continue
+                stored_name = Path(str(asset.get("stored_name") or "")).name
+                source = note_dir / stored_name
+                if source.exists():
+                    if note_dir.is_symlink() or source.is_symlink():
+                        raise AnvayaNotesRepositoryError(
+                            "Notes asset directory is unsafe."
+                        )
+                    temporary = note_dir / (
+                        stored_name + ".delete-" + uuid4().hex
+                    )
+                    try:
+                        os.replace(source, temporary)
+                    except OSError as error:
+                        raise AnvayaNotesRepositoryError(
+                            "Note file could not be staged for deletion."
+                        ) from error
+                    staged_removals.append((temporary, source))
+
+            updated = deepcopy(current)
+            updated.update(deepcopy(dict(changes)))
+            updated["id"] = note_id
+            updated["created_at"] = current.get("created_at", "")
+            updated["assets"] = [
+                asset
+                for asset in current_assets
+                if str(asset.get("id") or "") not in remove_ids
+            ] + new_assets
+            rows[index] = updated
+
             self._save(rows)
         except Exception:
             for asset in new_assets:
                 try:
-                    (self.assets_root / note_id / asset["stored_name"]).unlink()
+                    (note_dir / asset["stored_name"]).unlink()
+                except OSError:
+                    pass
+            for temporary, source in reversed(staged_removals):
+                try:
+                    if temporary.exists():
+                        os.replace(temporary, source)
                 except OSError:
                     pass
             raise
+
+        for temporary, _source in staged_removals:
+            try:
+                temporary.unlink()
+            except OSError:
+                # Metadata is already committed and no longer references this
+                # staged file. Leaving a hidden orphan is safer than restoring
+                # a deleted asset into active storage without metadata.
+                pass
+
         return deepcopy(updated)
 
     def read_asset(self, note_id, asset_id):
