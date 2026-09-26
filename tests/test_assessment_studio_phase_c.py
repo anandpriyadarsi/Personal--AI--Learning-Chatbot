@@ -160,7 +160,7 @@ def _database(tmp_path):
                 "concepts_json, authoring_confidence, solution_text, rubric_text, "
                 "answer_json, source_kind, created_at, updated_at) "
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 120, 'Systems', 'LU', "
-                "'["factorization"]', 0.99, ?, ?, ?, 'original', ?, ?)",
+                "?, 0.99, ?, ?, ?, 'original', ?, ?)",
                 (
                     qid,
                     "pkg-" + qid,
@@ -171,6 +171,7 @@ def _database(tmp_path):
                     scoring,
                     difficulty,
                     "Use the intended linear algebra method.",
+                    '["factorization"]',
                     solution,
                     rubric,
                     answer_json,
