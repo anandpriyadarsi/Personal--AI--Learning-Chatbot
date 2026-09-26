@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Take Test · Assessment Studio · ANVAYA{% endblock %}
+{% block content %}
+<section class="hero dashboard-hero">
+  <div>
+    <p class="eyebrow">Assessment Studio · Test Runner</p>
+    <h2>Take a test</h2>
+    <p class="lede">Start or resume approved ANVAYA assessments in a timed computer-based-test interface. Evaluation and scoring remain Phase D.</p>
+  </div>
+  <a class="button button-secondary" href="{{ url_for('web.assessments') }}">Assessment Studio</a>
+</section>
+
+{% if error_message %}<section class="notice-panel" role="alert"><h3>Runner unavailable</h3><p>{{ error_message }}</p></section>{% endif %}
+
+<section class="dashboard-panel next-panel">
+  <div class="panel-heading"><div><p class="eyebrow">Runnable assessments</p><h3>Exam &amp; practice sessions</h3></div><span class="count-badge">{{ workspace.assessments|length }}</span></div>
+  {% if workspace.assessments %}
+  <ul class="dashboard-list">
+    {% for item in workspace.assessments %}
+    <li>
+      <div class="list-main">
+        <strong>{{ item.course_code }} · {{ item.title }}</strong>
+        <span>{{ item.assessment_type|replace('_',' ')|title }} · {{ item.mode|title }} · {{ item.duration_label }} · {{ item.question_count }} questions{% if item.max_marks %} · {{ item.max_marks }} marks{% endif %}</span>
+        <div class="tag-row"><span class="tag">{{ item.origin|replace('_',' ')|title }}</span><span class="tag">{{ item.completed_session_count }} completed session{% if item.completed_session_count != 1 %}s{% endif %}</span></div>
+      </div>
+      {% if item.can_resume %}
+        <a class="button compact-button" href="{{ url_for('web.assessment_session', session_id=item.active_session_id) }}">Resume test</a>
+      {% else %}
+        <a class="button button-secondary compact-button" href="{{ url_for('web.assessment_test_preflight', assessment_id=item.id) }}">Open instructions</a>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}<p class="empty-state">No approved assessments currently have a Phase C runtime specification.</p>{% endif %}
+</section>
+
+<section class="dashboard-panel next-panel">
+  <div class="panel-heading"><div><p class="eyebrow">Session history</p><h3>Previous test sessions</h3></div><span class="count-badge">{{ workspace.sessions|length }}</span></div>
+  {% if workspace.sessions %}
+  <ul class="dashboard-list">
+    {% for item in workspace.sessions %}
+    <li>
+      <div class="list-main">
+        <strong>{{ item.course_code_snapshot }} · {{ item.title_snapshot }}</strong>
+        <span>{{ item.status|replace('_',' ')|title }} · {{ item.question_count }} questions · {{ item.duration_minutes }} min · {{ item.focus_minutes }} focused min</span>
+        <div class="tag-row"><span class="tag">{{ item.mode|title }}</span>{% if item.submission_reason %}<span class="tag">{{ item.submission_reason|title }} submission</span>{% endif %}</div>
+      </div>
+      {% if item.status == 'active' %}
+        <a class="button compact-button" href="{{ url_for('web.assessment_session', session_id=item.id) }}">Resume</a>
+      {% else %}
+        <a class="button button-secondary compact-button" href="{{ url_for('web.assessment_session_summary', session_id=item.id) }}">Session summary</a>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}<p class="empty-state">No timed sessions yet.</p>{% endif %}
+</section>
+{% endblock %}
