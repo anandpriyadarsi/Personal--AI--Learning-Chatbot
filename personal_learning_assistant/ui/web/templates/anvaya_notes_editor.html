@@ -76,6 +76,7 @@
 
       {% if editor.note_kind != 'handwritten' %}
       <div id="anvaya-selected-media" class="anvaya-media-tray" aria-live="polite"></div>
+      {% endif %}
 
       {% if editor.assets %}
       <div class="anvaya-existing-media">
@@ -151,6 +152,7 @@
         <input type="hidden" name="remove_asset_ids" value="" disabled data-remove-placeholder>
       </div>
 
+      {% if editor.note_kind != 'handwritten' %}
       <p class="anvaya-media-help">
         Inline image blocks stay inside the note text, so they reopen in the same position.
         You can change their <code>width</code>, <code>rotate</code>, <code>crop</code>, or <code>caption</code> settings later.
