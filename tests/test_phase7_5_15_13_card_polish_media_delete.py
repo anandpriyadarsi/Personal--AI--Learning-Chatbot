@@ -139,6 +139,34 @@ def test_repository_can_remove_one_existing_asset_without_touching_another(tmp_p
     assert second_path.exists()
 
 
+def test_repository_restores_staged_file_if_metadata_save_fails(tmp_path, monkeypatch):
+    service, repository = _service(tmp_path)
+    created = service.create_typed_note(
+        {"title": "Rollback", "body": "Body"},
+        [("keep.png", PNG)],
+    )
+    before = repository.get_note(created["id"])
+    asset = before["assets"][0]
+    path = repository.assets_root / created["id"] / asset["stored_name"]
+    assert path.exists()
+
+    def fail_save(_rows):
+        raise OSError("simulated metadata failure")
+
+    monkeypatch.setattr(repository, "_save", fail_save)
+
+    with pytest.raises(OSError):
+        repository.update_note(
+            created["id"],
+            expected_updated_at=before["updated_at"],
+            changes={"updated_at": NEXT},
+            remove_asset_ids=(asset["id"],),
+        )
+
+    assert path.exists()
+    assert path.read_bytes() == PNG
+
+
 def test_service_deleting_inline_image_removes_directive_and_keeps_noninline_pdf(tmp_path):
     service, repository = _service(tmp_path)
     created = service.create_typed_note(
