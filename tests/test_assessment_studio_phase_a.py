@@ -13,7 +13,7 @@ def _database(tmp_path):
     from personal_learning_assistant.repositories.sqlite.migration_runner import apply_migrations
 
     path = tmp_path / "learning_assistant.db"
-    assert apply_migrations(path) == tuple(range(1, 13))
+    assert apply_migrations(path) == tuple(range(1, 14))
     connection = sqlite3.connect(path)
     try:
         connection.execute(
