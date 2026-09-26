@@ -212,11 +212,7 @@
     const rotate = container.querySelector("[data-media-rotate]")?.value || "0";
     const crop = container.querySelector("[data-media-crop]")?.value || "original";
     const caption = escapeCaption(container.querySelector("[data-media-caption]")?.value || "");
-    return "[[anvaya-" + kind + ":" + id +
-      "|width=" + width +
-      "|rotate=" + rotate +
-      "|crop=" + crop +
-      "|caption=" + caption + "]]\n";
+    return `[[anvaya-${kind}:${id}|width=${width}|rotate=${rotate}|crop=${crop}|caption=${caption}]]\n`;
   };
 
   document.querySelectorAll("[data-insert-existing]").forEach((button) => {
