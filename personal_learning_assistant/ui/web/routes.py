@@ -1326,6 +1326,51 @@ def anvaya_note_reader(note_id):
         )
 
 
+@web_blueprint.post("/notes/view/<note_id>/companion")
+def anvaya_note_companion_add(note_id):
+    try:
+        _anvaya_notes_service().add_companion_entry(
+            note_id,
+            kind=request.form.get("kind", ""),
+            text=request.form.get("entry_text", ""),
+            expected_updated_at=request.form.get("expected_updated_at", ""),
+        )
+        return redirect(
+            url_for("web.anvaya_note_reader", note_id=note_id, study_tools="1"),
+            code=303,
+        )
+    except AnvayaNotesConflictError:
+        return "This note changed since you opened it. Refresh before saving Study Tools.", 409
+    except AnvayaNotesNotFoundError:
+        return "That note or Study Tools entry was not found.", 404
+    except AnvayaNotesValidationError:
+        return "Enter a valid Saved note or Doubt.", 400
+    except AnvayaNotesUnavailableError:
+        return "Study Tools could not be saved.", 503
+
+
+@web_blueprint.post("/notes/view/<note_id>/companion/<entry_id>/archive")
+def anvaya_note_companion_archive(note_id, entry_id):
+    try:
+        _anvaya_notes_service().archive_companion_entry(
+            note_id,
+            entry_id=entry_id,
+            expected_updated_at=request.form.get("expected_updated_at", ""),
+        )
+        return redirect(
+            url_for("web.anvaya_note_reader", note_id=note_id, study_tools="1"),
+            code=303,
+        )
+    except AnvayaNotesConflictError:
+        return "This note changed since you opened it. Refresh before archiving.", 409
+    except AnvayaNotesNotFoundError:
+        return "That note or Study Tools entry was not found.", 404
+    except AnvayaNotesValidationError:
+        return "Choose a valid Study Tools entry.", 400
+    except AnvayaNotesUnavailableError:
+        return "Study Tools could not be updated.", 503
+
+
 @web_blueprint.get("/notes/edit/<note_id>")
 def anvaya_note_edit(note_id):
     try:
