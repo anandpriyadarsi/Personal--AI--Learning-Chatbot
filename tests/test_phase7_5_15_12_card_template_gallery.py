@@ -80,9 +80,12 @@ def test_picker_has_three_families_and_six_templates_in_each():
 
     assert picker.count('data-card-family-tab=') == 3
     assert picker.count('data-card-family-panel=') == 3
-    assert picker.count('name="card_style"') == 3
-    # Each radio is emitted six times by its family loop at runtime; source
-    # contains exactly six template tuples per family.
+    # The template source contains one radio declaration per family loop.
+    # A fourth name="card_style" occurrence exists intentionally in the
+    # JavaScript querySelector used to mark the selected runtime radio.
+    assert picker.count('<input type="radio" name="card_style"') == 3
+    # Each radio declaration is emitted six times by its family loop at
+    # runtime; the source contains exactly six template tuples per family.
     assert picker.count("iris-") >= 6
     assert picker.count("preview-") >= 6
     assert picker.count("square-") >= 6
