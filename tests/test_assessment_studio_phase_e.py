@@ -143,7 +143,7 @@ def _database(tmp_path):
                 "subtopic_label, concepts_json, difficulty, expected_method, "
                 "options_json, answer_key_json, solution_text, rubric_text, created_at) "
                 "VALUES (?, ?, ?, ?, ?, 'A', ?, ?, ?, 500, 'standard', ?, ?, ?, "
-                "'["linear algebra"]', ?, 'Use intended method', '[]', '{}', '', '', ?)",
+                "?, ?, 'Use intended method', '[]', '{}', '', '', ?)",
                 (
                     sqid,
                     sid,
@@ -156,6 +156,7 @@ def _database(tmp_path):
                     topic_id,
                     chapter,
                     subtopic,
+                    '["linear algebra"]',
                     difficulty,
                     NOW,
                 ),
