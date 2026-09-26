@@ -21,7 +21,7 @@
     {% else %}
       <span class="quick-action is-disabled" aria-disabled="true">Templates unavailable</span>
     {% endif %}
-    <span class="quick-action is-disabled" aria-disabled="true">Import Alex package <small>Phase B</small></span>
+    <a class="quick-action" href="{{ url_for('web.assessment_import') }}">Import Alex package</a>
     <span class="quick-action is-disabled" aria-disabled="true">Take test <small>Phase C</small></span>
     <span class="quick-action is-disabled" aria-disabled="true">Reports <small>Phase E</small></span>
   </div>
