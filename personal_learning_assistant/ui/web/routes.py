@@ -62,6 +62,11 @@ from personal_learning_assistant.services.assessment_evaluation_service import (
     AssessmentEvaluationValidationError,
     build_assessment_evaluation_service,
 )
+from personal_learning_assistant.services.assessment_intelligence_service import (
+    AssessmentIntelligenceNotFoundError,
+    AssessmentIntelligenceUnavailableError,
+    build_assessment_intelligence_service,
+)
 from personal_learning_assistant.services.calendar_grades_dashboard_service import (
     load_calendar_grades_dashboard,
     unavailable_calendar_grades_dashboard,
@@ -226,6 +231,17 @@ def _assessment_runner_service():
 def _assessment_evaluation_service():
     factory = current_app.config.get("ASSESSMENT_EVALUATION_SERVICE_FACTORY")
     return factory() if factory is not None else build_assessment_evaluation_service()
+
+
+def _assessment_intelligence_service():
+    factory = current_app.config.get("ASSESSMENT_INTELLIGENCE_SERVICE_FACTORY")
+    return factory() if factory is not None else build_assessment_intelligence_service()
+
+
+def _assessment_intelligence_error_status(error):
+    if isinstance(error, AssessmentIntelligenceNotFoundError):
+        return 404
+    return 503
 
 
 def _assessment_evaluation_error_status(error):
@@ -1711,6 +1727,81 @@ def assessment_evaluation_mistake_confirm(mistake_id):
         )
     except Exception as error:
         return str(error), _assessment_evaluation_error_status(error)
+
+
+@web_blueprint.get("/assessments/reports")
+def assessment_intelligence():
+    try:
+        report = _assessment_intelligence_service().overview()
+        return render_template(
+            "assessment_intelligence.html",
+            active_page="assessments",
+            report=report,
+            error_message="",
+        )
+    except Exception as error:
+        return (
+            render_template(
+                "assessment_intelligence.html",
+                active_page="assessments",
+                report={
+                    "available": False,
+                    "has_evidence": False,
+                    "confirmed_session_count": 0,
+                    "course_count": 0,
+                    "courses": (),
+                    "recent_trend": (),
+                    "recovery_topics": (),
+                    "mistake_patterns": (),
+                    "historical": {
+                        "session_count": 0,
+                        "topics": (),
+                        "note": "",
+                    },
+                },
+                error_message=str(error),
+            ),
+            _assessment_intelligence_error_status(error),
+        )
+
+
+@web_blueprint.get("/assessments/reports/courses/<course_id>")
+def assessment_intelligence_course(course_id):
+    try:
+        report = _assessment_intelligence_service().course_report(course_id)
+        return render_template(
+            "assessment_intelligence_course.html",
+            active_page="assessments",
+            report=report,
+        )
+    except Exception as error:
+        return str(error), _assessment_intelligence_error_status(error)
+
+
+@web_blueprint.get("/assessments/sessions/<session_id>/analysis")
+def assessment_session_analysis(session_id):
+    try:
+        report = _assessment_intelligence_service().session_analysis(session_id)
+        return render_template(
+            "assessment_intelligence_session.html",
+            active_page="assessments",
+            report=report,
+        )
+    except Exception as error:
+        return str(error), _assessment_intelligence_error_status(error)
+
+
+@web_blueprint.get("/assessments/weak-topics")
+def assessment_weak_topics():
+    try:
+        report = _assessment_intelligence_service().weak_topics()
+        return render_template(
+            "assessment_weak_topics.html",
+            active_page="assessments",
+            report=report,
+        )
+    except Exception as error:
+        return str(error), _assessment_intelligence_error_status(error)
 
 
 @web_blueprint.get("/planning")
