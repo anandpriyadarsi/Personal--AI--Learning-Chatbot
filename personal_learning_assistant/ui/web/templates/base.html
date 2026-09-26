@@ -12,7 +12,7 @@
   <script defer src="{{ url_for('static', filename='js/app.js') }}"></script>
   {% block page_scripts %}{% endblock %}
 </head>
-<body>
+<body class="{% block body_class %}{% endblock %}">
   <a class="skip-link" href="#main-content">Skip to content</a>
 
   <div class="app-shell">
@@ -43,6 +43,7 @@
           <a class="nav-item{% if active_page == 'courses' %} is-active{% endif %}" href="{{ url_for('web.courses') }}"{% if active_page == 'courses' %} aria-current="page"{% endif %}>Courses</a>
           <a class="nav-item{% if active_page == 'assessments' %} is-active{% endif %}" href="{{ url_for('web.assessments') }}"{% if active_page == 'assessments' %} aria-current="page"{% endif %}>Assessments</a>
           <a class="nav-item{% if active_page == 'calendar' %} is-active{% endif %}" href="{{ url_for('web.calendar') }}"{% if active_page == 'calendar' %} aria-current="page"{% endif %}>Calendar</a>
+          <a class="nav-item{% if active_page == 'analysis' %} is-active{% endif %}" href="{{ url_for('web.analysis') }}"{% if active_page == 'analysis' %} aria-current="page"{% endif %}>Analysis</a>
         </div>
 
         <details class="nav-more"{% if active_page in ('knowledge', 'planning', 'obsidian') %} open{% endif %}>
@@ -64,7 +65,7 @@
     <div class="app-main">
       <header class="topbar">
         <div class="topbar-title">
-          <button id="nav-toggle" class="nav-toggle" type="button" aria-controls="app-sidebar" aria-expanded="false" aria-label="Open navigation">
+          <button id="nav-toggle" class="nav-toggle" type="button" aria-controls="app-sidebar" aria-expanded="true" aria-label="Hide navigation">
             <span class="nav-toggle-lines" aria-hidden="true"></span>
           </button>
           <div class="mobile-brand" aria-label="ANVAYA">
