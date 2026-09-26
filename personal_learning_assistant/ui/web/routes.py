@@ -1370,6 +1370,7 @@ def assessment_test_preflight(assessment_id):
             "assessment_test_preflight.html",
             active_page="assessments",
             test=test,
+            error_message="",
         )
     except Exception as error:
         return str(error), _assessment_runner_error_status(error)
@@ -1394,6 +1395,7 @@ def assessment_test_start(assessment_id):
                     "assessment_test_preflight.html",
                     active_page="assessments",
                     test=test,
+                    error_message=str(error),
                 ),
                 _assessment_runner_error_status(error),
             )
