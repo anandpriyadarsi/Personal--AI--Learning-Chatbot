@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}{{ item.name }} · Assessment Studio{% endblock %}
+{% block content %}
+<section class="hero dashboard-hero">
+  <div><p class="eyebrow">Assessment Studio · {{ item.course_code }}</p><h2>{{ item.name }}</h2><p class="lede">{{ item.assessment_type_label }} · {{ item.mode_label }} · revision {{ item.revision }}</p></div>
+  <div class="form-actions"><a class="button" href="{{ url_for('web.assessment_template_edit', template_id=item.id) }}">Edit</a><a class="button button-secondary" href="{{ url_for('web.assessment_course', course_id=item.course_id) }}">Course studio</a></div>
+</section>
+<section class="metric-grid">
+  <article class="metric-card"><span class="metric-label">Duration</span><strong>{{ item.duration_minutes }}</strong><span>minutes</span></article>
+  <article class="metric-card"><span class="metric-label">Marks</span><strong>{{ item.total_marks or '—' }}</strong><span>configured total</span></article>
+  <article class="metric-card"><span class="metric-label">Topics</span><strong>{{ item.topics|length }}</strong><span>selected scope</span></article>
+  <article class="metric-card"><span class="metric-label">Status</span><strong>{% if item.active %}Active{% else %}Inactive{% endif %}</strong><span>template lifecycle</span></article>
+</section>
+<section class="dashboard-grid">
+  <section class="dashboard-panel"><p class="eyebrow">Instructions</p><h3>Test configuration</h3><p>{{ item.description or 'No description.' }}</p><p>{{ item.instructions or 'No special instructions.' }}</p><div class="tag-row">{% for topic in item.topics %}<span class="tag">{{ topic.name }}</span>{% endfor %}</div></section>
+  <section class="dashboard-panel"><p class="eyebrow">Question pattern</p><h3>Sections / types</h3>{% if item.patterns %}<ul class="dashboard-list">{% for pattern in item.patterns %}<li><div class="list-main"><strong>{{ pattern.question_type_label }}</strong><span>{{ pattern.question_count }} × {{ pattern.marks_each }} marks · −{{ pattern.negative_marks }} · {{ pattern.scoring_policy_label }}</span></div></li>{% endfor %}</ul>{% else %}<p class="empty-state">No patterns recorded.</p>{% endif %}</section>
+</section>
+<section class="action-panel">
+  <p class="eyebrow">Lifecycle</p><h3>{% if item.active %}Template is active{% else %}Template is inactive{% endif %}</h3><p>Deactivation keeps history and configuration; nothing is hard-deleted.</p>
+  <form method="post" action="{% if item.active %}{{ url_for('web.assessment_template_deactivate', template_id=item.id) }}{% else %}{{ url_for('web.assessment_template_reactivate', template_id=item.id) }}{% endif %}">
+    <input type="hidden" name="revision" value="{{ item.revision }}"><button class="button button-secondary" type="submit">{% if item.active %}Deactivate template{% else %}Reactivate template{% endif %}</button>
+  </form>
+</section>
+<section class="notice-panel"><h3>Test execution comes later</h3><p>This template does not yet start a timed test. Phase C will add clickable MCQ/MSQ controls, question palette, timer, autosave and submission.</p></section>
+{% endblock %}
