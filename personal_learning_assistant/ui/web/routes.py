@@ -32,6 +32,13 @@ from personal_learning_assistant.services.assessment_dashboard_service import (
     load_assessment_catalogue,
     unavailable_assessment_catalogue,
 )
+from personal_learning_assistant.services.assessment_studio_service import (
+    AssessmentStudioConflictError,
+    AssessmentStudioNotFoundError,
+    AssessmentStudioUnavailableError,
+    AssessmentStudioValidationError,
+    build_assessment_studio_service,
+)
 from personal_learning_assistant.services.calendar_grades_dashboard_service import (
     load_calendar_grades_dashboard,
     unavailable_calendar_grades_dashboard,
@@ -176,6 +183,65 @@ def _assessment_catalogue():
             type(error).__name__,
         )
         return unavailable_assessment_catalogue()
+
+
+def _assessment_studio_service():
+    factory = current_app.config.get("ASSESSMENT_STUDIO_SERVICE_FACTORY")
+    return factory() if factory is not None else build_assessment_studio_service()
+
+
+def _unavailable_assessment_studio():
+    return {
+        "available": False,
+        "message": (
+            "Assessment templates are unavailable until the canonical SQLite "
+            "database has migration 0009. Existing assessment data was not changed."
+        ),
+        "courses": (),
+        "templates": (),
+        "active_template_count": 0,
+        "presets": (),
+    }
+
+
+def _safe_assessment_studio():
+    try:
+        return _assessment_studio_service().overview()
+    except Exception as error:
+        current_app.logger.warning(
+            "Assessment Studio unavailable (%s).", type(error).__name__
+        )
+        return _unavailable_assessment_studio()
+
+
+def _assessment_template_payload():
+    return {
+        "course_id": request.form.get("course_id", ""),
+        "name": request.form.get("name", ""),
+        "assessment_type": request.form.get("assessment_type", ""),
+        "mode": request.form.get("mode", ""),
+        "description": request.form.get("description", ""),
+        "instructions": request.form.get("instructions", ""),
+        "duration_minutes": request.form.get("duration_minutes", ""),
+        "total_marks": request.form.get("total_marks", ""),
+        "revision": request.form.get("revision", ""),
+        "topic_ids": request.form.getlist("topic_ids"),
+        "pattern_types": request.form.getlist("pattern_type"),
+        "pattern_counts": request.form.getlist("pattern_count"),
+        "pattern_marks": request.form.getlist("pattern_marks"),
+        "pattern_negative_marks": request.form.getlist("pattern_negative_marks"),
+        "pattern_scoring_policies": request.form.getlist("pattern_scoring_policy"),
+    }
+
+
+def _assessment_studio_error_status(error):
+    if isinstance(error, AssessmentStudioValidationError):
+        return 400
+    if isinstance(error, AssessmentStudioNotFoundError):
+        return 404
+    if isinstance(error, AssessmentStudioConflictError):
+        return 409
+    return 503
 
 
 def _planning_dashboard():
@@ -715,8 +781,190 @@ def courses():
 
 @web_blueprint.get("/assessments")
 def assessments():
-    """Render the read-only assessment timeline."""
-    return render_template("assessments.html", active_page="assessments", catalogue=_assessment_catalogue())
+    """Render Assessment Studio without mutating academic state."""
+    return render_template("assessments.html",
+        active_page="assessments",
+        catalogue=_assessment_catalogue(),
+        studio=_safe_assessment_studio(),
+    )
+
+
+@web_blueprint.get("/assessments/courses/<course_id>")
+def assessment_course(course_id):
+    try:
+        workspace = _assessment_studio_service().course_workspace(course_id)
+        return render_template(
+            "assessment_course.html",
+            active_page="assessments",
+            workspace=workspace,
+            error_message="",
+        )
+    except Exception as error:
+        return (
+            render_template(
+                "assessment_course.html",
+                active_page="assessments",
+                workspace=None,
+                error_message=str(error),
+            ),
+            _assessment_studio_error_status(error),
+        )
+
+
+@web_blueprint.get("/assessments/templates")
+def assessment_templates():
+    try:
+        view = _assessment_studio_service().list_templates(
+            course_id=request.args.get("course_id", "", type=str).strip() or None
+        )
+        return render_template(
+            "assessment_templates.html",
+            active_page="assessments",
+            view=view,
+            error_message="",
+        )
+    except Exception as error:
+        return (
+            render_template(
+                "assessment_templates.html",
+                active_page="assessments",
+                view={"templates": (), "courses": (), "selected_course_id": ""},
+                error_message=str(error),
+            ),
+            _assessment_studio_error_status(error),
+        )
+
+
+@web_blueprint.get("/assessments/templates/new")
+def assessment_template_new():
+    try:
+        context = _assessment_studio_service().form_context(
+            course_id=request.args.get("course_id", "", type=str).strip(),
+            preset=request.args.get("preset", "", type=str).strip(),
+        )
+        return render_template(
+            "assessment_template_form.html",
+            active_page="assessments",
+            context=context,
+            error_message="",
+        )
+    except Exception as error:
+        return str(error), _assessment_studio_error_status(error)
+
+
+@web_blueprint.post("/assessments/templates")
+def assessment_template_create():
+    service = _assessment_studio_service()
+    payload = _assessment_template_payload()
+    try:
+        item = service.create_template(payload)
+        return redirect(
+            url_for("web.assessment_template_detail", template_id=item["id"]),
+            code=303,
+        )
+    except (AssessmentStudioValidationError, AssessmentStudioConflictError) as error:
+        try:
+            context = service.form_context(draft=payload)
+        except Exception:
+            return str(error), _assessment_studio_error_status(error)
+        return (
+            render_template(
+                "assessment_template_form.html",
+                active_page="assessments",
+                context=context,
+                error_message=str(error),
+            ),
+            _assessment_studio_error_status(error),
+        )
+    except AssessmentStudioUnavailableError as error:
+        return str(error), 503
+
+
+@web_blueprint.get("/assessments/templates/<template_id>")
+def assessment_template_detail(template_id):
+    try:
+        item = _assessment_studio_service().template_detail(template_id)
+        return render_template(
+            "assessment_template_detail.html",
+            active_page="assessments",
+            item=item,
+        )
+    except Exception as error:
+        return str(error), _assessment_studio_error_status(error)
+
+
+@web_blueprint.get("/assessments/templates/<template_id>/edit")
+def assessment_template_edit(template_id):
+    try:
+        context = _assessment_studio_service().form_context(template_id=template_id)
+        return render_template(
+            "assessment_template_form.html",
+            active_page="assessments",
+            context=context,
+            error_message="",
+        )
+    except Exception as error:
+        return str(error), _assessment_studio_error_status(error)
+
+
+@web_blueprint.post("/assessments/templates/<template_id>")
+def assessment_template_update(template_id):
+    service = _assessment_studio_service()
+    payload = _assessment_template_payload()
+    try:
+        item = service.update_template(template_id, payload)
+        return redirect(
+            url_for("web.assessment_template_detail", template_id=item["id"]),
+            code=303,
+        )
+    except (AssessmentStudioValidationError, AssessmentStudioConflictError) as error:
+        try:
+            context = service.form_context(template_id=template_id, draft=payload)
+        except Exception:
+            return str(error), _assessment_studio_error_status(error)
+        return (
+            render_template(
+                "assessment_template_form.html",
+                active_page="assessments",
+                context=context,
+                error_message=str(error),
+            ),
+            _assessment_studio_error_status(error),
+        )
+    except Exception as error:
+        return str(error), _assessment_studio_error_status(error)
+
+
+@web_blueprint.post("/assessments/templates/<template_id>/deactivate")
+def assessment_template_deactivate(template_id):
+    try:
+        item = _assessment_studio_service().set_active(
+            template_id,
+            revision=request.form.get("revision", ""),
+            active=False,
+        )
+        return redirect(
+            url_for("web.assessment_template_detail", template_id=item["id"]),
+            code=303,
+        )
+    except Exception as error:
+        return str(error), _assessment_studio_error_status(error)
+
+
+@web_blueprint.post("/assessments/templates/<template_id>/reactivate")
+def assessment_template_reactivate(template_id):
+    try:
+        item = _assessment_studio_service().set_active(
+            template_id,
+            revision=request.form.get("revision", ""),
+            active=True,
+        )
+        return redirect(
+            url_for("web.assessment_template_detail", template_id=item["id"]),
+            code=303,
+        )
+    except Exception as error:
+        return str(error), _assessment_studio_error_status(error)
 
 
 @web_blueprint.get("/planning")

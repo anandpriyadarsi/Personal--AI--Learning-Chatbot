@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}{% if context.form.id %}Edit{% else %}Create{% endif %} Assessment Template · ANVAYA{% endblock %}
+{% block content %}
+<section class="hero dashboard-hero"><div><p class="eyebrow">Assessment Studio</p><h2>{% if context.form.id %}Edit template{% else %}Create template{% endif %}</h2><p class="lede">Configure the pattern only. Questions and attempts are not created in Phase A.</p></div></section>
+{% if error_message %}<section class="notice-panel" role="alert"><h3>Check this template</h3><p>{{ error_message }}</p></section>{% endif %}
+<form method="post" action="{% if context.form.id %}{{ url_for('web.assessment_template_update', template_id=context.form.id) }}{% else %}{{ url_for('web.assessment_template_create') }}{% endif %}">
+  {% if context.form.id %}<input type="hidden" name="revision" value="{{ context.form.revision }}">{% endif %}
+  <section class="dashboard-panel">
+    <div class="form-grid">
+      <label class="form-field"><span>Course</span><select name="course_id" required><option value="">Choose course</option>{% for course in context.courses %}<option value="{{ course.id }}"{% if course.id == context.form.course_id %} selected{% endif %}>{{ course.code }} · {{ course.name }}</option>{% endfor %}</select></label>
+      <label class="form-field"><span>Template name</span><input name="name" value="{{ context.form.name }}" maxlength="160" required></label>
+      <label class="form-field"><span>Assessment type</span><select name="assessment_type">{% for value,label in context.assessment_types %}<option value="{{ value }}"{% if value == context.form.assessment_type %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+      <label class="form-field"><span>Mode</span><select name="mode">{% for value,label in context.modes %}<option value="{{ value }}"{% if value == context.form.mode %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+      <label class="form-field"><span>Duration (minutes)</span><input type="number" min="1" max="1440" name="duration_minutes" value="{{ context.form.duration_minutes }}" required></label>
+      <label class="form-field"><span>Total marks (optional)</span><input type="number" min="0" step="0.001" name="total_marks" value="{{ context.form.total_marks }}"></label>
+      <label class="form-field form-field-full"><span>Description</span><textarea name="description" rows="2">{{ context.form.description }}</textarea></label>
+      <label class="form-field form-field-full"><span>Instructions</span><textarea name="instructions" rows="3">{{ context.form.instructions }}</textarea></label>
+      <label class="form-field form-field-full"><span>Topics (Ctrl/Cmd-click for multiple)</span><select name="topic_ids" multiple size="7">{% for topic in context.topics %}{% set course = context.courses|selectattr('id','equalto',topic.course_id)|first %}<option value="{{ topic.id }}"{% if topic.id in context.form.topic_ids %} selected{% endif %}>{{ course.code if course else topic.course_id }} · {{ topic.name }}</option>{% endfor %}</select></label>
+    </div>
+  </section>
+  <section class="dashboard-panel next-panel">
+    <div class="panel-heading"><div><p class="eyebrow">Question pattern</p><h3>Scoring rows</h3></div></div>
+    <p class="lede">Leave unused rows blank. MSQ can later use all-or-nothing, partial or custom scoring without hard-coding one JEE rule.</p>
+    {% for row in context.form.patterns %}
+    <div class="form-grid">
+      <label class="form-field"><span>Question type</span><select name="pattern_type">{% for value,label in context.question_types %}<option value="{{ value }}"{% if value == row.question_type %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+      <label class="form-field"><span>Count</span><input type="number" min="1" name="pattern_count" value="{{ row.question_count }}"></label>
+      <label class="form-field"><span>Marks each</span><input type="number" min="0" step="0.001" name="pattern_marks" value="{{ row.marks_each }}"></label>
+      <label class="form-field"><span>Negative marks</span><input type="number" min="0" step="0.001" name="pattern_negative_marks" value="{{ row.negative_marks }}"></label>
+      <label class="form-field form-field-full"><span>Scoring policy</span><select name="pattern_scoring_policy">{% for value,label in context.scoring_policies %}<option value="{{ value }}"{% if value == row.scoring_policy %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+    </div>
+    {% endfor %}
+  </section>
+  <div class="form-actions next-panel"><button class="button" type="submit">Save template</button><a class="button button-secondary" href="{{ url_for('web.assessment_templates') }}">Cancel</a></div>
+</form>
+{% endblock %}

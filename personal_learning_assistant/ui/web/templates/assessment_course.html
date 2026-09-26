@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Assessment Studio · ANVAYA{% endblock %}
+{% block content %}
+{% if error_message %}
+<section class="notice-panel" role="alert"><h2>Course workspace unavailable</h2><p>{{ error_message }}</p></section>
+{% else %}
+<section class="hero dashboard-hero">
+  <div><p class="eyebrow">Assessment Studio · {{ workspace.course.code }}</p><h2>{{ workspace.course.name }}</h2><p class="lede">Choose a reusable starting pattern. Opening a card only pre-fills a form; it never creates an assessment or attempt.</p></div>
+  <a class="button button-secondary" href="{{ url_for('web.assessment_templates', course_id=workspace.course.id) }}">Templates</a>
+</section>
+<section class="dashboard-panel">
+  <div class="panel-heading"><div><p class="eyebrow">Quick start</p><h3>New template</h3></div></div>
+  <div class="quick-actions">{% for preset in workspace.presets %}<a class="quick-action" href="{{ url_for('web.assessment_template_new', course_id=workspace.course.id, preset=preset.id) }}">{{ preset.name }}</a>{% endfor %}</div>
+</section>
+<section class="dashboard-panel next-panel">
+  <div class="panel-heading"><div><p class="eyebrow">Saved</p><h3>Course templates</h3></div><span class="count-badge">{{ workspace.templates|length }}</span></div>
+  {% if workspace.templates %}<ul class="dashboard-list">{% for item in workspace.templates %}<li><div class="list-main"><strong>{{ item.name }}</strong><span>{{ item.assessment_type_label }} · {{ item.mode_label }} · {{ item.duration_minutes }} min{% if item.total_marks %} · {{ item.total_marks }} marks{% endif %}</span>{% if not item.active %}<div class="tag-row"><span class="tag">Inactive</span></div>{% endif %}</div><a class="button button-secondary compact-button" href="{{ url_for('web.assessment_template_detail', template_id=item.id) }}">Open</a></li>{% endfor %}</ul>{% else %}<p class="empty-state">No templates for this course yet.</p>{% endif %}
+</section>
+<section class="notice-panel"><h3>Later phases</h3><p>Alex/ChatGPT package import, JEE-style timed test execution, evaluation and visual analytics remain intentionally outside Phase A.</p></section>
+{% endif %}
+{% endblock %}
