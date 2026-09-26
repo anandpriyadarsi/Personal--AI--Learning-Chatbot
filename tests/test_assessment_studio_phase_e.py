@@ -11,7 +11,7 @@ def _database(tmp_path):
     from personal_learning_assistant.repositories.sqlite.migration_runner import apply_migrations
 
     path = tmp_path / "learning_assistant.db"
-    assert apply_migrations(path) == tuple(range(1, 13))
+    assert apply_migrations(path) == tuple(range(1, 14))
     connection = sqlite3.connect(path)
     try:
         connection.execute(
@@ -256,7 +256,7 @@ def test_phase_e_uses_no_new_migration_and_existing_schema_remains_0012(tmp_path
                 "SELECT version FROM schema_migrations ORDER BY version"
             )
         )
-        assert versions == tuple(range(1, 13))
+        assert versions == tuple(range(1, 14))
         assert connection.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
         assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
     finally:
