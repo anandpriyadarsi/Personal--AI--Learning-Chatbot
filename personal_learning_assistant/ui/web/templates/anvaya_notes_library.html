@@ -60,8 +60,8 @@
 <section class="anvaya-notes-grid" aria-label="Your notes">
   {% for note in dashboard.cards %}
   <a class="anvaya-note-card-link" href="{{ url_for('web.anvaya_note_reader', note_id=note.id) }}" aria-label="Open {{ note.title }}">
-    <article class="anvaya-note-card anvaya-note-card--{{ note.card_style }}">
-      {% if note.card_style == 'preview' %}
+    <article class="anvaya-note-card anvaya-note-card--{{ note.card_family }} anvaya-note-template--{{ note.card_style }}">
+      {% if note.card_family == 'preview' %}
       <div class="anvaya-note-card-preview">
         {% if note.thumbnail_url %}
           <img src="{{ note.thumbnail_url }}" alt="" loading="lazy">
