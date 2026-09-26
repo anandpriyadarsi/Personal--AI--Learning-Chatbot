@@ -47,6 +47,13 @@ from personal_learning_assistant.services.assessment_package_service import (
     AssessmentPackageValidationError,
     build_assessment_package_service,
 )
+from personal_learning_assistant.services.assessment_runner_service import (
+    AssessmentRunnerConflictError,
+    AssessmentRunnerNotFoundError,
+    AssessmentRunnerUnavailableError,
+    AssessmentRunnerValidationError,
+    build_assessment_runner_service,
+)
 from personal_learning_assistant.services.calendar_grades_dashboard_service import (
     load_calendar_grades_dashboard,
     unavailable_calendar_grades_dashboard,
@@ -201,6 +208,21 @@ def _assessment_studio_service():
 def _assessment_package_service():
     factory = current_app.config.get("ASSESSMENT_PACKAGE_SERVICE_FACTORY")
     return factory() if factory is not None else build_assessment_package_service()
+
+
+def _assessment_runner_service():
+    factory = current_app.config.get("ASSESSMENT_RUNNER_SERVICE_FACTORY")
+    return factory() if factory is not None else build_assessment_runner_service()
+
+
+def _assessment_runner_error_status(error):
+    if isinstance(error, AssessmentRunnerValidationError):
+        return 400
+    if isinstance(error, AssessmentRunnerNotFoundError):
+        return 404
+    if isinstance(error, AssessmentRunnerConflictError):
+        return 409
+    return 503
 
 
 def _assessment_package_error_status(error):
@@ -1315,6 +1337,218 @@ def assessment_import_reject(batch_id):
         )
     except Exception as error:
         return str(error), _assessment_package_error_status(error)
+
+
+@web_blueprint.get("/assessments/tests")
+def assessment_tests():
+    """List runnable approved assessments and persisted timed sessions."""
+    try:
+        workspace = _assessment_runner_service().library()
+        return render_template(
+            "assessment_test_library.html",
+            active_page="assessments",
+            workspace=workspace,
+            error_message="",
+        )
+    except Exception as error:
+        return (
+            render_template(
+                "assessment_test_library.html",
+                active_page="assessments",
+                workspace={"available": False, "assessments": (), "sessions": ()},
+                error_message=str(error),
+            ),
+            _assessment_runner_error_status(error),
+        )
+
+
+@web_blueprint.get("/assessments/tests/<assessment_id>")
+def assessment_test_preflight(assessment_id):
+    try:
+        test = _assessment_runner_service().preflight(assessment_id)
+        return render_template(
+            "assessment_test_preflight.html",
+            active_page="assessments",
+            test=test,
+        )
+    except Exception as error:
+        return str(error), _assessment_runner_error_status(error)
+
+
+@web_blueprint.post("/assessments/tests/<assessment_id>/start")
+def assessment_test_start(assessment_id):
+    try:
+        result = _assessment_runner_service().start(
+            assessment_id,
+            confirmed=request.form.get("confirmed") == "1",
+        )
+        return redirect(
+            url_for("web.assessment_session", session_id=result["session_id"]),
+            code=303,
+        )
+    except Exception as error:
+        try:
+            test = _assessment_runner_service().preflight(assessment_id)
+            return (
+                render_template(
+                    "assessment_test_preflight.html",
+                    active_page="assessments",
+                    test=test,
+                ),
+                _assessment_runner_error_status(error),
+            )
+        except Exception:
+            return str(error), _assessment_runner_error_status(error)
+
+
+@web_blueprint.get("/assessments/sessions/<session_id>")
+def assessment_session(session_id):
+    try:
+        ordinal = request.args.get("q", default=None, type=int)
+        view = _assessment_runner_service().runner_view(
+            session_id,
+            ordinal=ordinal,
+        )
+        if view.get("terminal"):
+            return redirect(
+                url_for("web.assessment_session_summary", session_id=session_id),
+                code=303,
+            )
+        return render_template(
+            "assessment_test_runner.html",
+            active_page="assessments",
+            view=view,
+        )
+    except Exception as error:
+        return str(error), _assessment_runner_error_status(error)
+
+
+@web_blueprint.post("/assessments/sessions/<session_id>/questions/<session_question_id>/autosave")
+def assessment_session_autosave(session_id, session_question_id):
+    service = _assessment_runner_service()
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify(ok=False, error="invalid_request"), 400
+    response = payload.get("response")
+    if not isinstance(response, dict):
+        return jsonify(ok=False, error="invalid_response"), 400
+    try:
+        result = service.save_response(
+            session_id,
+            session_question_id,
+            response,
+            mark_for_review=None,
+            focus_seconds_delta=payload.get("focus_seconds_delta", 0),
+            event_type="response_autosaved",
+        )
+        return jsonify(ok=True, **result)
+    except Exception as error:
+        return (
+            jsonify(ok=False, error=str(error)),
+            _assessment_runner_error_status(error),
+        )
+
+
+@web_blueprint.post("/assessments/sessions/<session_id>/heartbeat")
+def assessment_session_heartbeat(session_id):
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        payload = {}
+    try:
+        result = _assessment_runner_service().heartbeat(
+            session_id,
+            session_question_id=payload.get("session_question_id"),
+            focus_seconds_delta=payload.get("focus_seconds_delta", 0),
+        )
+        return jsonify(ok=True, **result)
+    except Exception as error:
+        return (
+            jsonify(ok=False, error=str(error)),
+            _assessment_runner_error_status(error),
+        )
+
+
+@web_blueprint.post("/assessments/sessions/<session_id>/questions/<session_question_id>/action")
+def assessment_session_question_action(session_id, session_question_id):
+    service = _assessment_runner_service()
+    action = str(request.form.get("action") or "").strip()
+    response = {
+        "selected_option_ids": request.form.getlist("option_ids"),
+        "value": request.form.get("answer_value", ""),
+        "text": request.form.get("answer_text", ""),
+    }
+    current_ordinal = request.form.get("current_ordinal", type=int) or 1
+    next_ordinal = request.form.get("next_ordinal", type=int) or current_ordinal
+    focus = request.form.get("focus_seconds_delta", 0)
+
+    try:
+        if action == "clear":
+            service.clear_response(
+                session_id,
+                session_question_id,
+                focus_seconds_delta=focus,
+            )
+            target = current_ordinal
+        elif action == "mark_next":
+            service.save_response(
+                session_id,
+                session_question_id,
+                response,
+                mark_for_review=True,
+                focus_seconds_delta=focus,
+                event_type="marked_for_review",
+            )
+            target = next_ordinal
+        elif action == "save_next":
+            service.save_response(
+                session_id,
+                session_question_id,
+                response,
+                mark_for_review=False,
+                focus_seconds_delta=focus,
+                event_type="response_saved",
+            )
+            target = next_ordinal
+        else:
+            raise AssessmentRunnerValidationError("Unknown test action.")
+        return redirect(
+            url_for("web.assessment_session", session_id=session_id, q=target),
+            code=303,
+        )
+    except Exception as error:
+        return str(error), _assessment_runner_error_status(error)
+
+
+@web_blueprint.post("/assessments/sessions/<session_id>/submit")
+def assessment_session_submit(session_id):
+    try:
+        result = _assessment_runner_service().submit(session_id)
+        if request.is_json or "application/json" in request.headers.get("Accept", ""):
+            return jsonify(ok=True, **result)
+        return redirect(
+            url_for("web.assessment_session_summary", session_id=session_id),
+            code=303,
+        )
+    except Exception as error:
+        if request.is_json or "application/json" in request.headers.get("Accept", ""):
+            return (
+                jsonify(ok=False, error=str(error)),
+                _assessment_runner_error_status(error),
+            )
+        return str(error), _assessment_runner_error_status(error)
+
+
+@web_blueprint.get("/assessments/sessions/<session_id>/summary")
+def assessment_session_summary(session_id):
+    try:
+        summary = _assessment_runner_service().summary(session_id)
+        return render_template(
+            "assessment_test_summary.html",
+            active_page="assessments",
+            summary=summary,
+        )
+    except Exception as error:
+        return str(error), _assessment_runner_error_status(error)
 
 
 @web_blueprint.get("/planning")
