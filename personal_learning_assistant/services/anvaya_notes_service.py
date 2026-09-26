@@ -367,6 +367,30 @@ def _media_crop_class(value):
     }[value]
 
 
+def _remove_image_directives(body, asset_ids):
+    remove_ids = {str(value or "").strip() for value in tuple(asset_ids or ()) if str(value or "").strip()}
+
+    def replace(match):
+        return "" if match.group("asset") in remove_ids else match.group(0)
+
+    cleaned = _IMAGE_DIRECTIVE.sub(replace, str(body or ""))
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+    return cleaned.strip()
+
+
+def _inline_asset_ids(body, assets):
+    owned = {
+        str(item.get("id") or "")
+        for item in tuple(assets or ())
+        if str(item.get("mimetype") or "").startswith("image/")
+    }
+    return {
+        match.group("asset")
+        for match in _IMAGE_DIRECTIVE.finditer(str(body or ""))
+        if match.group("asset") in owned
+    }
+
+
 def _render_typed_body(renderer, note_id, body, assets):
     asset_map = {
         str(item.get("id") or ""): item
@@ -614,13 +638,18 @@ class AnvayaNotesService:
         ]
         used_inline_ids = set()
         if row.get("note_kind") == "typed":
+            used_inline_ids = _inline_asset_ids(
+                row.get("body") or "",
+                row.get("assets") or (),
+            )
             try:
-                view["rendered_html"], used_inline_ids = _render_typed_body(
+                view["rendered_html"], rendered_inline_ids = _render_typed_body(
                     self.renderer,
                     row["id"],
                     str(row.get("body") or ""),
                     row.get("assets") or (),
                 )
+                used_inline_ids.update(rendered_inline_ids)
             except Exception:
                 view["rendered_html"] = Markup("<pre>{}</pre>").format(
                     escape(str(row.get("body") or ""))
@@ -653,6 +682,12 @@ class AnvayaNotesService:
                     **{key: value for key, value in asset.items() if key != "stored_name"},
                     "url": "/notes/file/{}/{}".format(row["id"], asset["id"]),
                     "is_image": str(asset.get("mimetype") or "").startswith("image/"),
+                    "is_inline": (
+                        str(asset.get("id") or "") in _inline_asset_ids(
+                            row.get("body") or "",
+                            row.get("assets") or (),
+                        )
+                    ),
                 }
                 for asset in list(row.get("assets") or [])
             ],
@@ -679,10 +714,19 @@ class AnvayaNotesService:
             "updated_at": str(self.now()),
         }
         clean_uploads = _validated_uploads(uploads)
+        remove_asset_ids = [
+            str(value or "").strip()
+            for value in list(payload.get("remove_asset_ids") or [])
+            if str(value or "").strip()
+        ]
         if current.get("note_kind") == "typed":
-            changes["body"] = _resolve_upload_directives(
+            resolved_body = _resolve_upload_directives(
                 _body(payload.get("body")),
                 clean_uploads,
+            )
+            changes["body"] = _remove_image_directives(
+                resolved_body,
+                remove_asset_ids,
             )
         try:
             updated = self.repository.update_note(
@@ -690,6 +734,7 @@ class AnvayaNotesService:
                 expected_updated_at=str(payload.get("expected_updated_at") or ""),
                 changes=changes,
                 uploads=clean_uploads,
+                remove_asset_ids=remove_asset_ids,
             )
         except (AnvayaNotesNotFoundError, AnvayaNotesConflictError):
             raise
