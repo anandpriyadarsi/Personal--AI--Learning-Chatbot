@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Test Session Summary · ANVAYA{% endblock %}
+{% block content %}
+<section class="hero dashboard-hero">
+  <div><p class="eyebrow">Assessment Studio · Session</p><h2>{{ summary.session.title_snapshot }}</h2><p class="lede">{{ summary.session.course_code_snapshot }} · {{ summary.session.mode|title }} · {{ summary.session.status|replace('_',' ')|title }}</p></div>
+  <a class="button button-secondary" href="{{ url_for('web.assessment_tests') }}">Back to tests</a>
+</section>
+
+<section class="metric-grid">
+  <article class="metric-card"><span class="metric-label">Answered</span><strong>{{ summary.answered_count }}</strong><span>responses recorded</span></article>
+  <article class="metric-card"><span class="metric-label">Unanswered</span><strong>{{ summary.unanswered_count }}</strong><span>including not visited</span></article>
+  <article class="metric-card"><span class="metric-label">Marked</span><strong>{{ summary.marked_count }}</strong><span>review states</span></article>
+  <article class="metric-card"><span class="metric-label">Focus time</span><strong>{{ (summary.focus_seconds / 60)|round(1) }}</strong><span>minutes captured</span></article>
+</section>
+
+{% if summary.session.status == 'active' %}
+<section class="action-panel"><p class="eyebrow">Session active</p><h3>Your timed attempt is still running</h3><a class="button" href="{{ url_for('web.assessment_session', session_id=summary.session.id) }}">Resume test</a></section>
+{% else %}
+<section class="notice-panel">
+  <h3>{% if summary.session.status == 'expired' %}Time expired — session closed{% else %}Test submitted{% endif %}</h3>
+  <p>Your responses and timing evidence are safely stored. Scoring, solutions, mistake classification and topic-level performance analysis are intentionally deferred to Assessment Studio Phase D/E.</p>
+</section>
+{% endif %}
+
+<section class="dashboard-panel next-panel">
+  <div class="panel-heading"><div><p class="eyebrow">Response states</p><h3>Question summary</h3></div><span class="count-badge">{{ summary.questions|length }}</span></div>
+  <ul class="dashboard-list">
+    {% for q in summary.questions %}
+    <li><div class="list-main"><strong>Q{{ q.question_number or q.ordinal }} · {{ q.question_type|replace('_',' ')|title }}</strong><span>{{ q.state_label }} · {{ q.marks }} marks · {{ q.focus_seconds }} focused seconds</span></div></li>
+    {% endfor %}
+  </ul>
+</section>
+{% endblock %}

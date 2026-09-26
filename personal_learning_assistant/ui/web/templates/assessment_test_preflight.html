@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Test Instructions · {{ test.title }} · ANVAYA{% endblock %}
+{% block content %}
+<section class="hero dashboard-hero">
+  <div><p class="eyebrow">Assessment Studio · Test Instructions</p><h2>{{ test.title }}</h2><p class="lede">{{ test.course_code }} · {{ test.assessment_type|replace('_',' ')|title }} · {{ test.mode|title }}</p></div>
+  <a class="button button-secondary" href="{{ url_for('web.assessment_tests') }}">Back to tests</a>
+</section>
+
+{% if error_message %}<section class="notice-panel" role="alert"><h3>Test was not started</h3><p>{{ error_message }}</p></section>{% endif %}
+
+<section class="metric-grid">
+  <article class="metric-card"><span class="metric-label">Duration</span><strong>{{ test.duration_minutes }}</strong><span>minutes</span></article>
+  <article class="metric-card"><span class="metric-label">Questions</span><strong>{{ test.question_count }}</strong><span>runnable questions</span></article>
+  <article class="metric-card"><span class="metric-label">Marks</span><strong>{{ test.max_marks or '—' }}</strong><span>configured total</span></article>
+  <article class="metric-card"><span class="metric-label">Mode</span><strong>{{ test.mode|title }}</strong><span>session snapshot</span></article>
+</section>
+
+<section class="dashboard-panel next-panel">
+  <p class="eyebrow">Instructions</p><h3>Before you start</h3>
+  {% if test.instructions %}<ol>{% for item in test.instructions %}<li>{{ item }}</li>{% endfor %}</ol>{% else %}<p>No additional package instructions were supplied.</p>{% endif %}
+  <ul>
+    <li>The countdown starts only when you press Start test.</li>
+    <li>Responses are persisted during the session and can be resumed after interruption while time remains.</li>
+    <li>MCQ uses single-select controls; MSQ uses multi-select controls.</li>
+    <li>Use Save &amp; Next or Mark for Review &amp; Next. The palette shows current question state.</li>
+    <li>When time expires, the server closes the session as a timeout submission.</li>
+    <li>Solutions, rubrics and answer keys are not shown during the attempt.</li>
+  </ul>
+</section>
+
+{% if test.can_resume %}
+<section class="action-panel">
+  <p class="eyebrow">Active session</p><h3>You already have a running attempt</h3><p>Resume the same timed session instead of creating a duplicate.</p>
+  <a class="button" href="{{ url_for('web.assessment_session', session_id=test.active_session_id) }}">Resume active test</a>
+</section>
+{% else %}
+<section class="action-panel">
+  <p class="eyebrow">Start test</p><h3>Ready?</h3>
+  <form method="post" action="{{ url_for('web.assessment_test_start', assessment_id=test.id) }}">
+    <label class="form-field form-field-full"><span><input type="checkbox" name="confirmed" value="1" required> I have read the instructions and want to start the timed session now.</span></label>
+    <div class="form-actions"><button class="button" type="submit">Start test</button></div>
+  </form>
+</section>
+{% endif %}
+{% endblock %}
