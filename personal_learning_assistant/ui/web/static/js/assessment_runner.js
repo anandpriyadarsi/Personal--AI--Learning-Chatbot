@@ -181,7 +181,7 @@
         window.location.assign(summaryUrl);
         return;
       }
-      remainingSeconds = Math.max(0, Number(result.remaining_seconds || 0));
+      remainingSeconds = Math.max(1, Number(result.remaining_seconds || 0));
       syncStartedAt = performance.now();
       renderTimer();
     } catch (_error) {
@@ -202,7 +202,7 @@
         }
       );
       if (result.status === "active") {
-        remainingSeconds = Math.max(0, Number(result.remaining_seconds || 0));
+        remainingSeconds = Math.max(1, Number(result.remaining_seconds || 0));
         syncStartedAt = performance.now();
         timeoutHandled = false;
         setSaveState("Saved to ANVAYA");
