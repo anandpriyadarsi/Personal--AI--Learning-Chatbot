@@ -405,7 +405,12 @@ def _validate_package(package):
                 "Question ID is duplicated: {}.".format(question_id)
             )
         seen_ids.add(question_id)
-        number = _nonempty(str(question["number"]), context + ".number", maximum=60)
+        raw_number = question["number"]
+        if raw_number is None or isinstance(raw_number, bool):
+            raise AssessmentPackageValidationError(
+                "{}.number must be a string or integer.".format(context)
+            )
+        number = _nonempty(str(raw_number), context + ".number", maximum=60)
         section = _optional_text(question.get("section"), context + ".section", maximum=100)
         question_type = _nonempty(question["type"], context + ".type", maximum=40)
         if question_type not in QUESTION_TYPES:
@@ -760,7 +765,7 @@ class AssessmentPackageService:
         raise error
 
     def stage_upload(self, filename: str, raw: bytes):
-        safe_filename = Path(str(filename or "")).name
+        safe_filename = str(filename or "").replace("\\", "/").split("/")[-1]
         lower = safe_filename.lower()
         if not (lower.endswith(".json") or lower.endswith(".anvaya-assessment.json")):
             raise AssessmentPackageValidationError(
@@ -1268,9 +1273,13 @@ class AssessmentPackageService:
     def split(self, question_id: str, marker: str):
         editor = self.question_editor(question_id)
         question = editor["question"]
+        if question.get("question_type") not in SUBJECTIVE_TYPES:
+            raise AssessmentPackageValidationError(
+                "Only subjective questions can be split safely."
+            )
         if question.get("options"):
             raise AssessmentPackageValidationError(
-                "Objective questions with options cannot be split safely."
+                "Subjective split cannot contain objective options."
             )
         marker = str(marker or "")
         if not marker.strip() or marker not in str(question["question_text"]):
@@ -1350,9 +1359,16 @@ class AssessmentPackageService:
                 "There is no next question to merge."
             )
         other = questions[index + 1]
+        if (
+            question.get("question_type") not in SUBJECTIVE_TYPES
+            or other.get("question_type") not in SUBJECTIVE_TYPES
+        ):
+            raise AssessmentPackageValidationError(
+                "Only adjacent subjective questions can be merged safely."
+            )
         if question.get("options") or other.get("options"):
             raise AssessmentPackageValidationError(
-                "Objective questions with options cannot be merged safely."
+                "Subjective merge cannot contain objective options."
             )
         concepts = []
         for source in (question.get("concepts") or (), other.get("concepts") or ()):
