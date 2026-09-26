@@ -106,7 +106,7 @@ class AnvayaNotesRepository:
         created_paths = []
         try:
             for item in uploads:
-                asset_id = uuid4().hex
+                asset_id = _safe_id(item.get("id") or uuid4().hex)
                 suffix = str(item["suffix"]).casefold()
                 stored_name = asset_id + suffix
                 target = target_dir / stored_name
