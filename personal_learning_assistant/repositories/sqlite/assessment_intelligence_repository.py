@@ -10,6 +10,7 @@ _REQUIRED_TABLES = {
     "topics",
     "assessments",
     "assessment_runtime_specs",
+    "assessment_import_batches",
     "assessment_test_sessions",
     "assessment_test_session_questions",
     "assessment_test_responses",
@@ -76,6 +77,7 @@ class SQLiteAssessmentIntelligenceRepository:
             "FROM courses c "
             "JOIN assessments a ON a.course_id=c.id AND a.deleted_at IS NULL "
             "JOIN assessment_test_sessions s ON s.assessment_id=a.id "
+            "LEFT JOIN assessment_import_batches ib ON ib.assessment_id=a.id "
             "JOIN assessment_session_evaluations se "
             "ON se.session_id=s.id AND se.status='confirmed' "
             "JOIN assessment_test_session_questions q ON q.session_id=s.id "
@@ -98,6 +100,7 @@ class SQLiteAssessmentIntelligenceRepository:
             "s.question_count, s.max_marks_milli, s.started_at, s.submitted_at, "
             "s.submission_reason, a.assessment_type, c.id AS course_id, "
             "r.origin, r.package_id, r.package_revision, "
+            "ib.authoring_purpose, "
             "se.id AS session_evaluation_id, se.status AS evaluation_status, "
             "se.confirmed_at AS evaluation_confirmed_at, "
             "COALESCE((SELECT SUM(tr.focus_seconds) "
@@ -109,6 +112,7 @@ class SQLiteAssessmentIntelligenceRepository:
             "JOIN assessments a ON a.id=s.assessment_id "
             "JOIN courses c ON c.id=a.course_id "
             "JOIN assessment_runtime_specs r ON r.assessment_id=a.id "
+            "LEFT JOIN assessment_import_batches ib ON ib.assessment_id=a.id "
             "JOIN assessment_session_evaluations se "
             "ON se.session_id=s.id AND se.status='confirmed' "
             "WHERE s.status IN ('submitted','expired') "
@@ -128,6 +132,7 @@ class SQLiteAssessmentIntelligenceRepository:
             "s.started_at, s.expires_at, s.submitted_at, s.submission_reason, "
             "a.assessment_type, c.id AS course_id, "
             "r.origin, r.package_id, r.package_revision, "
+            "ib.authoring_purpose, "
             "se.id AS session_evaluation_id, se.status AS evaluation_status, "
             "se.engine_version, se.created_at AS evaluation_created_at, "
             "se.updated_at AS evaluation_updated_at, "
@@ -136,6 +141,7 @@ class SQLiteAssessmentIntelligenceRepository:
             "JOIN assessments a ON a.id=s.assessment_id "
             "JOIN courses c ON c.id=a.course_id "
             "JOIN assessment_runtime_specs r ON r.assessment_id=a.id "
+            "LEFT JOIN assessment_import_batches ib ON ib.assessment_id=a.id "
             "LEFT JOIN assessment_session_evaluations se ON se.session_id=s.id "
             "WHERE s.id=? AND a.deleted_at IS NULL AND c.deleted_at IS NULL",
             (str(session_id),),
@@ -176,7 +182,8 @@ class SQLiteAssessmentIntelligenceRepository:
             "s.course_code_snapshot, s.mode, "
             "COALESCE(s.submitted_at, s.expires_at, s.started_at) AS occurred_at, "
             "a.assessment_type, c.id AS course_id, c.code AS course_code, "
-            "c.name AS course_name, q.id AS session_question_id, q.question_id, "
+            "c.name AS course_name, ib.authoring_purpose, "
+            "q.id AS session_question_id, q.question_id, "
             "q.ordinal, q.question_number, q.question_type, "
             "q.max_marks_milli, q.negative_marks_milli, q.scoring_policy, "
             "q.topic_id, t.name AS topic_name, q.chapter_label, q.subtopic_label, "
