@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Grade Response · ANVAYA{% endblock %}
+{% block content %}
+<section class="hero dashboard-hero">
+  <div>
+    <p class="eyebrow">Assessment Studio · Rubric Review</p>
+    <h2>Question {{ item.question_number or item.ordinal }}</h2>
+    <p class="lede">{{ item.question_type|replace('_',' ')|title }} · {{ item.max_marks }} marks · {{ item.status_label }}</p>
+  </div>
+  <a class="button button-secondary" href="{{ url_for('web.assessment_evaluation_results', session_id=item.session_id) }}">Back to evaluation</a>
+</section>
+
+{% if error_message %}<section class="notice-panel" role="alert"><h3>Grade was not saved</h3><p>{{ error_message }}</p></section>{% endif %}
+
+<section class="dashboard-panel">
+  <p class="eyebrow">Question</p>
+  <div class="evaluation-question-text">{{ item.question_text }}</div>
+  <div class="evaluation-grid">
+    <section>
+      <h3>Your response</h3>
+      {% if item.question_type in ['mcq','msq'] %}
+        <p>{{ item.response.get('selected_option_ids', [])|join(', ') or 'No answer.' }}</p>
+      {% elif item.question_type in ['numerical','fill_blank','true_false'] %}
+        <p>{{ item.response.get('value', '') or 'No answer.' }}</p>
+      {% else %}
+        <p class="reader-prose">{{ item.response.get('text', '') or 'No answer.' }}</p>
+      {% endif %}
+    </section>
+    <section>
+      <h3>Model solution</h3>
+      <p class="reader-prose">{{ item.solution_text or 'No solution snapshot.' }}</p>
+    </section>
+  </div>
+</section>
+
+<section class="dashboard-panel next-panel">
+  <p class="eyebrow">Rubric snapshot</p>
+  <h3>Grade against the rubric used when the test started</h3>
+  <p class="reader-prose">{{ item.rubric_text or 'No rubric was supplied. Use the solution and question requirements carefully.' }}</p>
+  <p class="lede">Rubric version: <code>{{ item.rubric_version[:16] }}</code></p>
+</section>
+
+{% if item.status == 'provisional' %}
+<section class="notice-panel">
+  <h3>Current provisional grade</h3>
+  <p>{{ item.awarded_marks }} / {{ item.max_marks }} · {{ item.evaluator_type|replace('_',' ')|title }}{% if item.evaluator_model %} · {{ item.evaluator_model }}{% endif %}</p>
+  {% if item.feedback_text %}<p>{{ item.feedback_text }}</p>{% endif %}
+  <form method="post" action="{{ url_for('web.assessment_evaluation_confirm', evaluation_id=item.evaluation_id) }}">
+    <button class="button" type="submit">Confirm this grade as final</button>
+  </form>
+</section>
+{% endif %}
+
+<section class="action-panel">
+  <p class="eyebrow">Record evaluation</p>
+  <h3>Subjective/custom score</h3>
+  <form method="post" action="{{ url_for('web.assessment_evaluation_review_save', evaluation_id=item.evaluation_id) }}">
+    <div class="form-grid">
+      <label class="form-field"><span>Evaluator</span>
+        <select name="evaluator_type" required>
+          <option value="user">Me / manual review</option>
+          <option value="teacher">Teacher / instructor</option>
+          <option value="alex_ai">Alex / ChatGPT</option>
+        </select>
+      </label>
+      <label class="form-field"><span>Evaluator model (for Alex, optional)</span><input name="evaluator_model" maxlength="120"></label>
+      <label class="form-field"><span>Awarded marks</span><input type="number" step="0.001" name="awarded_marks" required value="{% if item.awarded_marks_milli is not none %}{{ item.awarded_marks }}{% endif %}"></label>
+      <label class="form-field"><span>Confidence 0–1 (optional)</span><input type="number" min="0" max="1" step="0.01" name="confidence" value="{{ item.confidence if item.confidence is not none else '' }}"></label>
+      <label class="form-field form-field-full"><span>Feedback / reasoning</span><textarea name="feedback_text" rows="7">{{ item.feedback_text }}</textarea></label>
+      <label class="form-field form-field-full"><span><input type="checkbox" name="confirm_final" value="1"> Confirm this manual/teacher grade as final now</span></label>
+    </div>
+    <p class="lede">Alex/ChatGPT grades are always saved as provisional even if the confirmation box is checked. You must review and confirm them separately.</p>
+    <div class="form-actions"><button class="button" type="submit">Save evaluation</button></div>
+  </form>
+</section>
+{% endblock %}
