@@ -1,0 +1,108 @@
+{
+  "schema": "anvaya.assessment-package",
+  "version": 1,
+  "package_id": "ma103n.quiz.practice.001",
+  "package_revision": 1,
+  "created_at": "2026-09-27T00:00:00Z",
+  "authoring": {
+    "engine": "ChatGPT/Alex",
+    "model": "example",
+    "purpose": "generated_practice"
+  },
+  "assessment": {
+    "course": {
+      "code": "MA103N",
+      "name": "Linear Algebra"
+    },
+    "title": "Linear Algebra Practice Quiz",
+    "type": "quiz",
+    "mode": "exam",
+    "duration_minutes": 30,
+    "total_marks": 4,
+    "instructions": [
+      "Attempt independently.",
+      "Do not view solutions before submission."
+    ],
+    "source": {
+      "kind": "course_material",
+      "label": "Example package"
+    }
+  },
+  "questions": [
+    {
+      "id": "q1",
+      "number": "1",
+      "section": "A",
+      "type": "mcq",
+      "text": "Which statement best describes when a square matrix has an inverse?",
+      "marks": 1,
+      "negative_marks": 0.25,
+      "scoring_policy": "standard",
+      "options": [
+        {"id": "A", "text": "Its determinant is zero"},
+        {"id": "B", "text": "Its determinant is non-zero"},
+        {"id": "C", "text": "Its rank is always zero"},
+        {"id": "D", "text": "It must be diagonal"}
+      ],
+      "answer": {
+        "correct_option_ids": ["B"],
+        "accepted_answers": []
+      },
+      "solution": "A square matrix is invertible exactly when its determinant is non-zero.",
+      "rubric": "",
+      "academic_map": {
+        "chapter": "Matrices",
+        "topic": "Matrix Inverse",
+        "subtopic": "Invertibility conditions",
+        "concepts": ["determinant", "invertibility"],
+        "difficulty": "easy",
+        "expected_method": "Use the equivalence between non-zero determinant and invertibility.",
+        "estimated_minutes": 1,
+        "topic_mapping_confidence": 0.95
+      },
+      "source": {
+        "kind": "original",
+        "label": "Alex-generated practice",
+        "page": null,
+        "locator": "Q1"
+      },
+      "authoring_confidence": 0.98,
+      "review_required": false
+    },
+    {
+      "id": "q2",
+      "number": "2",
+      "section": "B",
+      "type": "long_subjective",
+      "text": "Explain how LU factorization can be used to solve Ax=b.",
+      "marks": 3,
+      "negative_marks": 0,
+      "scoring_policy": "standard",
+      "options": [],
+      "answer": {
+        "correct_option_ids": [],
+        "accepted_answers": []
+      },
+      "solution": "Factor A=LU, solve Ly=b by forward substitution, then solve Ux=y by backward substitution.",
+      "rubric": "1 mark for A=LU; 1 mark for forward substitution; 1 mark for backward substitution and the final solution.",
+      "academic_map": {
+        "chapter": "Systems of Linear Equations",
+        "topic": "LU Factorization",
+        "subtopic": "Solving linear systems",
+        "concepts": ["LU factorization", "forward substitution", "back substitution"],
+        "difficulty": "medium",
+        "expected_method": "Describe the two triangular solves after factorization.",
+        "estimated_minutes": 6,
+        "topic_mapping_confidence": 0.95
+      },
+      "source": {
+        "kind": "original",
+        "label": "Alex-generated practice",
+        "page": null,
+        "locator": "Q2"
+      },
+      "authoring_confidence": 0.98,
+      "review_required": false
+    }
+  ]
+}
