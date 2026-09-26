@@ -3865,3 +3865,181 @@ body.sidebar-collapsed.notes-focus-page .content {
   padding-inline: clamp(1rem, 2vw, 2rem);
 }
 
+/* Phase 7.5.15.14 — compact floating Notes Study Tools. */
+.notes-study-tools-launcher {
+  position: fixed;
+  right: 1.15rem;
+  bottom: 1.15rem;
+  z-index: 72;
+  display: inline-flex;
+  min-height: 2.7rem;
+  align-items: center;
+  gap: .4rem;
+  padding: .48rem .65rem;
+  border: 1px solid rgba(85,194,184,.35);
+  border-radius: 999px;
+  background: rgba(16,25,31,.96);
+  color: var(--text);
+  box-shadow: 0 10px 28px rgba(0,0,0,.3);
+  cursor: grab;
+  touch-action: none;
+}
+.notes-study-tools-launcher:active { cursor: grabbing; }
+.notes-study-tools-launcher strong {
+  display: inline-grid;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #071310;
+  font-size: .6rem;
+}
+.notes-study-tools-drawer {
+  position: fixed;
+  top: 4.1rem;
+  right: .8rem;
+  bottom: .8rem;
+  z-index: 71;
+  width: min(20rem, calc(100vw - 1.6rem));
+  overflow-y: auto;
+  padding: .85rem;
+  border: 1px solid var(--border);
+  border-radius: .9rem;
+  background: rgba(15,21,27,.98);
+  box-shadow: 0 18px 48px rgba(0,0,0,.38);
+  transform: translateX(calc(100% + 1.5rem));
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 170ms ease, opacity 130ms ease;
+  backdrop-filter: blur(14px);
+}
+.notes-study-tools-drawer.is-open {
+  transform: translateX(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+.notes-study-tools-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: .7rem;
+  padding-bottom: .65rem;
+  border-bottom: 1px solid var(--border);
+}
+.notes-study-tools-header h3 { margin: .18rem 0 0; }
+.notes-study-tools-close {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: .55rem;
+  background: var(--surface-muted);
+  color: var(--text);
+  cursor: pointer;
+}
+.notes-study-tools-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: .4rem;
+  margin: .7rem 0;
+}
+.notes-study-tools-tabs button {
+  min-height: 2.2rem;
+  border: 1px solid var(--border);
+  border-radius: .55rem;
+  background: var(--surface-muted);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: .68rem;
+  font-weight: 760;
+}
+.notes-study-tools-tabs button.is-active {
+  border-color: rgba(85,194,184,.42);
+  background: var(--accent-soft);
+  color: var(--text);
+}
+.notes-study-tools-tabs span {
+  margin-left: .25rem;
+  color: var(--accent);
+}
+.notes-study-tools-panel { display: none; }
+.notes-study-tools-panel.is-active { display: block; }
+.notes-study-entry {
+  margin-bottom: .5rem;
+  padding: .62rem;
+  border: 1px solid rgba(100,116,139,.2);
+  border-radius: .6rem;
+  background: rgba(255,255,255,.018);
+}
+.notes-study-entry p {
+  margin: 0 0 .4rem;
+  color: #d5dde5;
+  font-size: .72rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+.notes-study-entry small { color: var(--text-muted); font-size: .56rem; }
+.notes-study-entry form { margin-top: .3rem; }
+.notes-study-entry button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #f0a3a3;
+  cursor: pointer;
+  font-size: .58rem;
+}
+.notes-study-empty {
+  margin: .5rem 0;
+  color: var(--text-muted);
+  font-size: .68rem;
+}
+.notes-study-tools-form {
+  display: grid;
+  gap: .45rem;
+  margin-top: .65rem;
+  padding-top: .65rem;
+  border-top: 1px solid var(--border);
+}
+.notes-study-tools-form label {
+  display: grid;
+  gap: .28rem;
+}
+.notes-study-tools-form label span {
+  color: var(--text-muted);
+  font-size: .64rem;
+  font-weight: 760;
+}
+.notes-study-tools-form textarea {
+  min-height: 5.5rem;
+  padding: .58rem;
+  font-size: .68rem;
+}
+.notes-study-tools-form .button {
+  width: 100%;
+  margin: 0;
+}
+.notes-study-analysis-link {
+  display: block;
+  margin-top: .8rem;
+  padding-top: .65rem;
+  border-top: 1px solid var(--border);
+  color: var(--accent);
+  font-size: .68rem;
+  font-weight: 780;
+  text-decoration: none;
+}
+@media (max-width: 560px) {
+  .notes-study-tools-launcher {
+    right: .7rem;
+    bottom: .7rem;
+  }
+  .notes-study-tools-drawer {
+    top: 3.85rem;
+    right: .45rem;
+    bottom: .45rem;
+    width: calc(100vw - .9rem);
+  }
+}
+
