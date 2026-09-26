@@ -29,7 +29,42 @@ MAX_ARCHIVE_BYTES = 50 * 1024 * 1024
 MAX_EXPANDED_BYTES = 100 * 1024 * 1024
 MAX_UPLOADS = 20
 MAX_EXPANDED_FILES = 60
-CARD_STYLES = {"iris", "preview", "square"}
+CARD_TEMPLATE_FAMILIES = {
+    "iris": (
+        "iris-indigo",
+        "iris-emerald",
+        "iris-cyan",
+        "iris-amber",
+        "iris-coral",
+        "iris-violet",
+    ),
+    "preview": (
+        "preview-left",
+        "preview-top",
+        "preview-split",
+        "preview-film",
+        "preview-polaroid",
+        "preview-banner",
+    ),
+    "square": (
+        "square-clean",
+        "square-outline",
+        "square-centered",
+        "square-corner",
+        "square-grid",
+        "square-soft",
+    ),
+}
+CARD_TEMPLATES = {
+    template
+    for templates in CARD_TEMPLATE_FAMILIES.values()
+    for template in templates
+}
+LEGACY_CARD_STYLE_MAP = {
+    "iris": "iris-indigo",
+    "preview": "preview-left",
+    "square": "square-clean",
+}
 NOTE_KINDS = {"typed", "handwritten"}
 _ALLOWED = {
     ".pdf": ("application/pdf", lambda b: b.startswith(b"%PDF-")),
@@ -88,8 +123,14 @@ def _points(value):
 
 
 def _style(value):
-    style = _text(value, limit=30).casefold() or "iris"
-    return style if style in CARD_STYLES else "iris"
+    style = _text(value, limit=40).casefold() or "iris-indigo"
+    style = LEGACY_CARD_STYLE_MAP.get(style, style)
+    return style if style in CARD_TEMPLATES else "iris-indigo"
+
+
+def _card_family(style):
+    value = _style(style)
+    return value.split("-", 1)[0]
 
 
 def _safe_upload_name(filename, suffix):
@@ -433,6 +474,7 @@ class AnvayaNotesService:
             "course": str(row.get("course") or ""),
             "note_kind": str(row.get("note_kind") or "typed"),
             "card_style": _style(row.get("card_style")),
+            "card_family": _card_family(row.get("card_style")),
             "key_points": list(row.get("key_points") or [])[:3],
             "created_at": str(row.get("created_at") or ""),
             "created_label": _label(row.get("created_at"), self.timezone_name),
