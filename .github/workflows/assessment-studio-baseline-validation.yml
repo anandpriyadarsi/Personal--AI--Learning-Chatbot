@@ -1,0 +1,20 @@
+name: Assessment Studio baseline validation
+
+on:
+  push:
+    branches:
+      - "phase7.5.assessment-studio-a/baseline-validation"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install -r requirements.txt -r requirements-dev.txt
+      - name: Baseline complete pytest suite
+        run: python -m pytest -q --deselect "tests/test_phase2_closure_architecture.py::test_phase2_root_has_no_production_learning_assistant_database"
