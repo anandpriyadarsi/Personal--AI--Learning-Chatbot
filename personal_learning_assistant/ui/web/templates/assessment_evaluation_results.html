@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% block title %}Evaluation · {{ result.title_snapshot }} · ANVAYA{% endblock %}
+{% block content %}
+<section class="hero dashboard-hero">
+  <div>
+    <p class="eyebrow">Assessment Studio · Evaluation Engine</p>
+    <h2>{{ result.title_snapshot }}</h2>
+    <p class="lede">{{ result.course_code_snapshot }} · {{ result.mode|title }} · {{ result.evaluation_status|replace('_',' ')|title }}</p>
+  </div>
+  <div class="form-actions">
+    <a class="button button-secondary" href="{{ url_for('web.assessment_session_summary', session_id=result.session_id) }}">Session summary</a>
+    <a class="button button-secondary" href="{{ url_for('web.assessment_tests') }}">Tests</a>
+  </div>
+</section>
+
+{% if notice_message %}<section class="notice-panel"><h3>Evaluation updated</h3><p>{{ notice_message }}</p></section>{% endif %}
+{% if error_message %}<section class="notice-panel" role="alert"><h3>Evaluation action failed</h3><p>{{ error_message }}</p></section>{% endif %}
+
+<section class="metric-grid">
+  <article class="metric-card">
+    <span class="metric-label">{% if result.is_final %}Final score{% else %}Scored so far{% endif %}</span>
+    <strong>{% if result.is_final %}{{ result.final_score }}{% else %}{{ result.scored_so_far }}{% endif %}</strong>
+    <span>out of {{ result.max_marks }}</span>
+  </article>
+  <article class="metric-card">
+    <span class="metric-label">Confirmed score</span>
+    <strong>{{ result.confirmed_score }}</strong>
+    <span>{{ result.confirmed_count }} question evaluations</span>
+  </article>
+  <article class="metric-card">
+    <span class="metric-label">Awaiting review</span>
+    <strong>{{ result.awaiting_review_count }}</strong>
+    <span>subjective/custom questions</span>
+  </article>
+  <article class="metric-card">
+    <span class="metric-label">Provisional</span>
+    <strong>{{ result.provisional_count }}</strong>
+    <span>requires confirmation</span>
+  </article>
+</section>
+
+{% if result.provisional_count %}
+<section class="notice-panel">
+  <h3>Provisional grading is not final</h3>
+  <p>Any Alex/ChatGPT-assisted grade remains provisional until you explicitly confirm it. ANVAYA does not convert provisional grading into final academic evidence automatically.</p>
+</section>
+{% endif %}
+
+<section class="dashboard-panel next-panel">
+  <div class="panel-heading">
+    <div><p class="eyebrow">Question evaluation</p><h3>Responses, scoring &amp; feedback</h3></div>
+    <span class="count-badge">{{ result.questions|length }}</span>
+  </div>
+
+  <div class="evaluation-list">
+  {% for q in result.questions %}
+    <article class="evaluation-card">
+      <div class="evaluation-card-header">
+        <div>
+          <p class="eyebrow">{% if q.section_label %}{{ q.section_label }} · {% endif %}Question {{ q.question_number or q.ordinal }}</p>
+          <h3>{{ q.outcome_label }}</h3>
+        </div>
+        <div class="tag-row">
+          <span class="tag">{{ q.status_label }}</span>
+          <span class="tag">{{ q.awarded_marks }} / {{ q.max_marks }}</span>
+          <span class="tag">{{ q.question_type|replace('_',' ')|title }}</span>
+        </div>
+      </div>
+
+      <div class="evaluation-question-text">{{ q.question_text }}</div>
+
+      <div class="evaluation-grid">
+        <section>
+          <h4>Your response</h4>
+          {% if q.question_type in ['mcq','msq'] %}
+            {% set selected = q.response.get('selected_option_ids', []) %}
+            {% if selected %}<p>{{ selected|join(', ') }}</p>{% else %}<p class="empty-state">No option selected.</p>{% endif %}
+          {% elif q.question_type in ['numerical','fill_blank','true_false'] %}
+            <p>{{ q.response.get('value', '') or 'No answer.' }}</p>
+          {% else %}
+            <p class="reader-prose">{{ q.response.get('text', '') or 'No answer.' }}</p>
+          {% endif %}
+        </section>
+        <section>
+          <h4>Correct answer / guide</h4>
+          {% if q.question_type in ['mcq','msq'] %}
+            {% set keys = q.answer_key.get('correct_option_ids', []) %}
+            <p>{% if keys %}Correct option{% if keys|length != 1 %}s{% endif %}: {{ keys|join(', ') }}{% else %}No deterministic key available.{% endif %}</p>
+          {% elif q.question_type in ['numerical','fill_blank','true_false'] %}
+            {% set accepted = q.answer_key.get('accepted_answers', []) %}
+            <p>{% if accepted %}Accepted: {{ accepted|join(' · ') }}{% else %}No deterministic key available.{% endif %}</p>
+          {% else %}
+            <p>Use the model solution and rubric below.</p>
+          {% endif %}
+        </section>
+      </div>
+
+      {% if q.feedback_text %}<div class="notice-panel compact-notice"><strong>Feedback:</strong> {{ q.feedback_text }}</div>{% endif %}
+
+      <details class="evaluation-details">
+        <summary>Solution, rubric &amp; method</summary>
+        <div class="evaluation-grid">
+          <section><h4>Solution</h4><p class="reader-prose">{{ q.solution_text or 'No solution snapshot.' }}</p></section>
+          <section><h4>Rubric</h4><p class="reader-prose">{{ q.rubric_text or 'No rubric required.' }}</p></section>
+        </div>
+        {% if q.expected_method %}<p><strong>Expected method:</strong> {{ q.expected_method }}</p>{% endif %}
+      </details>
+
+      {% if q.status in ['awaiting_review','provisional'] %}
+      <div class="form-actions">
+        <a class="button" href="{{ url_for('web.assessment_evaluation_review', evaluation_id=q.evaluation_id) }}">
+          {% if q.status == 'provisional' %}Review provisional grade{% else %}Grade response{% endif %}
+        </a>
+        {% if q.status == 'provisional' %}
+        <form method="post" action="{{ url_for('web.assessment_evaluation_confirm', evaluation_id=q.evaluation_id) }}">
+          <button class="button button-secondary" type="submit">Confirm provisional grade</button>
+        </form>
+        {% endif %}
+      </div>
+      {% endif %}
+
+      {% if q.outcome != 'correct' %}
+      <div class="evaluation-mistakes">
+        <h4>Mistake classification</h4>
+        {% if q.mistakes %}
+          <div class="tag-row">
+          {% for mistake in q.mistakes %}
+            <span class="tag">{{ mistake.category|replace('_',' ')|title }} · {{ mistake.status|title }}</span>
+            {% if mistake.status == 'provisional' %}
+            <form class="inline-form" method="post" action="{{ url_for('web.assessment_evaluation_mistake_confirm', mistake_id=mistake.id) }}">
+              <button class="button button-secondary compact-button" type="submit">Confirm</button>
+            </form>
+            {% endif %}
+          {% endfor %}
+          </div>
+        {% endif %}
+        <form method="post" action="{{ url_for('web.assessment_evaluation_mistake_add', evaluation_id=q.evaluation_id) }}">
+          <div class="form-grid">
+            <label class="form-field"><span>Category</span>
+              <select name="category" required>
+                <option value="">Choose category</option>
+                {% for category in mistake_categories %}<option value="{{ category }}">{{ category|replace('_',' ')|title }}</option>{% endfor %}
+              </select>
+            </label>
+            <label class="form-field"><span>Source</span>
+              <select name="source_type">
+                <option value="user">My classification</option>
+                <option value="teacher">Teacher</option>
+                <option value="alex_ai">Alex / ChatGPT suggestion</option>
+              </select>
+            </label>
+            <label class="form-field form-field-full"><span>Note (optional)</span><input name="note" maxlength="5000"></label>
+          </div>
+          <div class="form-actions"><button class="button button-secondary compact-button" type="submit">Add classification</button></div>
+        </form>
+      </div>
+      {% endif %}
+    </article>
+  {% endfor %}
+  </div>
+</section>
+
+<section class="notice-panel">
+  <h3>Academic evidence boundary</h3>
+  <p>Confirmed question attempts and confirmed mistake classifications are recorded as assessment evidence. Phase D does not change topic mastery, progress status or your planner; those decisions remain later explicit phases.</p>
+</section>
+{% endblock %}
