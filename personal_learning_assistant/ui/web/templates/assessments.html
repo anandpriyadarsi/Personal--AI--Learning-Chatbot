@@ -5,7 +5,7 @@
   <div>
     <p class="eyebrow">Assessment Studio</p>
     <h2 id="assessments-title">Assessments</h2>
-    <p class="lede">Prepare reusable test patterns now; later phases will import Alex-authored assessment packages, run timed CBT tests, evaluate attempts and turn results into learning evidence.</p>
+    <p class="lede">Create and import assessments, take timed CBT tests, evaluate responses, and inspect confirmed assessment intelligence without silently changing your learning plan.</p>
   </div>
   {% if catalogue.date %}<p class="date-chip">{{ catalogue.date }}</p>{% endif %}
 </section>
@@ -23,7 +23,8 @@
     {% endif %}
     <a class="quick-action" href="{{ url_for('web.assessment_import') }}">Import Alex package</a>
     <a class="quick-action" href="{{ url_for('web.assessment_tests') }}">Take test</a>
-    <span class="quick-action is-disabled" aria-disabled="true">Reports <small>Phase E</small></span>
+    <a class="quick-action" href="{{ url_for('web.assessment_intelligence') }}">Reports</a>
+    <a class="quick-action" href="{{ url_for('web.assessment_weak_topics') }}">Weak Topics</a>
   </div>
 </section>
 
