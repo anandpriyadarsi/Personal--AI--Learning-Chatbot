@@ -6,6 +6,8 @@
   <a class="button button-secondary" href="{{ url_for('web.assessment_tests') }}">Back to tests</a>
 </section>
 
+{% if error_message %}<section class="notice-panel" role="alert"><h3>Test was not started</h3><p>{{ error_message }}</p></section>{% endif %}
+
 <section class="metric-grid">
   <article class="metric-card"><span class="metric-label">Duration</span><strong>{{ test.duration_minutes }}</strong><span>minutes</span></article>
   <article class="metric-card"><span class="metric-label">Questions</span><strong>{{ test.question_count }}</strong><span>runnable questions</span></article>
