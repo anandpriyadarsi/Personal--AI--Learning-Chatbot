@@ -84,8 +84,8 @@
         <a class="button button-secondary compact-button" href="{{ url_for('web.assessment_import_question_edit', batch_id=batch.id, question_id=q.id) }}">Edit</a>
         <form method="post" action="{{ url_for('web.assessment_import_question_reorder', batch_id=batch.id, question_id=q.id) }}"><input type="hidden" name="direction" value="up"><button class="button button-secondary compact-button" type="submit">↑</button></form>
         <form method="post" action="{{ url_for('web.assessment_import_question_reorder', batch_id=batch.id, question_id=q.id) }}"><input type="hidden" name="direction" value="down"><button class="button button-secondary compact-button" type="submit">↓</button></form>
-        {% if not q.options %}<a class="button button-secondary compact-button" href="{{ url_for('web.assessment_import_question_split', batch_id=batch.id, question_id=q.id) }}">Split</a>{% endif %}
-        {% if not q.options and not loop.last %}<form method="post" action="{{ url_for('web.assessment_import_question_merge', batch_id=batch.id, question_id=q.id) }}"><button class="button button-secondary compact-button" type="submit">Merge next</button></form>{% endif %}
+        {% if q.question_type in ['short_subjective', 'long_subjective'] %}<a class="button button-secondary compact-button" href="{{ url_for('web.assessment_import_question_split', batch_id=batch.id, question_id=q.id) }}">Split</a>{% endif %}
+        {% if q.question_type in ['short_subjective', 'long_subjective'] and not loop.last %}<form method="post" action="{{ url_for('web.assessment_import_question_merge', batch_id=batch.id, question_id=q.id) }}"><button class="button button-secondary compact-button" type="submit">Merge next</button></form>{% endif %}
         <form method="post" action="{{ url_for('web.assessment_import_question_remove', batch_id=batch.id, question_id=q.id) }}"><button class="button button-secondary compact-button" type="submit">Remove</button></form>
       </div>
       {% endif %}
