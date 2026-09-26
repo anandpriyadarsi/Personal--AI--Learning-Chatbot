@@ -3543,3 +3543,290 @@ details[open] > .details-action::after { content: " −"; }
   }
 }
 
+/* Phase 7.5.15.13 — Preview card polish + media deletion states. */
+.anvaya-media-file-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .45rem;
+}
+.anvaya-media-inline-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.35rem;
+  padding: .14rem .4rem;
+  border: 1px solid rgba(52, 211, 153, .28);
+  border-radius: 999px;
+  background: rgba(52, 211, 153, .07);
+  color: #6ee7b7;
+  font-size: .56rem;
+  font-weight: 800;
+}
+.anvaya-media-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .42rem;
+}
+.anvaya-media-delete {
+  border-color: rgba(248, 113, 113, .28);
+  color: #fca5a5;
+}
+.anvaya-media-delete:hover {
+  border-color: rgba(248, 113, 113, .52);
+  background: rgba(127, 29, 29, .13);
+  color: #fecaca;
+}
+.anvaya-media-item.is-pending-delete {
+  opacity: .58;
+  border-color: rgba(248, 113, 113, .35);
+  background: rgba(127, 29, 29, .08);
+}
+.anvaya-media-item.is-pending-delete::after {
+  content: "Pending deletion";
+  grid-column: 1 / -1;
+  color: #fca5a5;
+  font-size: .6rem;
+  font-weight: 800;
+}
+
+/* Shared Preview family: polished media-first language. */
+.anvaya-note-card--preview {
+  --preview-accent: #60a5fa;
+  --preview-surface: #18202c;
+  --preview-media: #213047;
+  border-color: color-mix(in srgb, var(--preview-accent) 24%, transparent);
+  background:
+    radial-gradient(circle at 90% 8%, color-mix(in srgb, var(--preview-accent) 12%, transparent), transparent 34%),
+    linear-gradient(145deg, var(--preview-surface), #151922);
+  box-shadow: 0 12px 28px rgba(0,0,0,.18);
+}
+.anvaya-note-card--preview .anvaya-note-card-preview {
+  position: relative;
+  overflow: hidden;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--preview-accent) 22%, transparent), rgba(255,255,255,.025)),
+    var(--preview-media);
+}
+.anvaya-note-card--preview .anvaya-note-card-preview::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--preview-accent) 14%, transparent);
+}
+.anvaya-note-card--preview .anvaya-note-course {
+  color: var(--preview-accent);
+}
+.anvaya-note-card--preview .anvaya-note-kind {
+  border-color: color-mix(in srgb, var(--preview-accent) 24%, transparent);
+  background: color-mix(in srgb, var(--preview-accent) 8%, transparent);
+  color: var(--preview-accent);
+}
+
+/* Lecture Split */
+.anvaya-note-template--preview-left {
+  --preview-left-accent: #60a5fa;
+  --preview-accent: var(--preview-left-accent);
+  --preview-surface: #17202d;
+  --preview-media: #243853;
+  grid-template-columns: minmax(8.2rem, 38%) 1fr;
+}
+.anvaya-note-template--preview-left .anvaya-note-card-preview {
+  margin: .65rem 0 .65rem .65rem;
+  min-height: calc(100% - 1.3rem);
+  border-radius: .72rem;
+}
+.anvaya-note-template--preview-left .anvaya-note-card-body {
+  padding-left: .9rem;
+}
+
+/* Notebook Hero */
+.anvaya-note-template--preview-top {
+  --preview-top-accent: #2dd4bf;
+  --preview-accent: var(--preview-top-accent);
+  --preview-surface: #152522;
+  --preview-media: #1f3c37;
+  display: flex;
+  flex-direction: column;
+}
+.anvaya-note-template--preview-top .anvaya-note-card-preview {
+  min-height: 7.1rem;
+  max-height: 7.8rem;
+  border-bottom: 1px solid rgba(45,212,191,.25);
+}
+.anvaya-note-template--preview-top .anvaya-note-card-preview::before {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 2.4rem;
+  background: linear-gradient(transparent, rgba(9,20,18,.72));
+  z-index: 1;
+}
+
+/* Diagram Focus */
+.anvaya-note-template--preview-split {
+  --preview-split-accent: #f472b6;
+  --preview-accent: var(--preview-split-accent);
+  --preview-surface: #261a26;
+  --preview-media: #3a2437;
+  grid-template-columns: minmax(8.4rem, 48%) 1fr;
+}
+.anvaya-note-template--preview-split .anvaya-note-card-preview {
+  clip-path: polygon(0 0, 92% 0, 100% 100%, 0 100%);
+}
+.anvaya-note-template--preview-split .anvaya-note-card-body {
+  padding-left: .72rem;
+}
+
+/* Study Strip */
+.anvaya-note-template--preview-film {
+  --preview-film-accent: #f59e0b;
+  --preview-accent: var(--preview-film-accent);
+  --preview-surface: #272116;
+  --preview-media: #352916;
+  display: flex;
+  flex-direction: column;
+}
+.anvaya-note-template--preview-film .anvaya-note-card-preview {
+  min-height: 5.35rem;
+  max-height: 5.35rem;
+  margin: .62rem .62rem 0;
+  border-radius: .52rem;
+  border-top: .23rem solid rgba(245,158,11,.55);
+  border-bottom: .23rem solid rgba(245,158,11,.55);
+}
+.anvaya-note-template--preview-film .anvaya-note-card-preview::before {
+  content: "";
+  position: absolute;
+  inset: .25rem 0;
+  background:
+    radial-gradient(circle, rgba(245,158,11,.38) 0 1.5px, transparent 2px) 0 0 / 18px 100%;
+  opacity: .65;
+}
+
+/* Paper Snapshot */
+.anvaya-note-template--preview-polaroid {
+  --preview-polaroid-accent: #e8d5b5;
+  --preview-accent: var(--preview-polaroid-accent);
+  --preview-surface: #28241f;
+  --preview-media: #d8d2c7;
+  grid-template-columns: minmax(8.2rem, 42%) 1fr;
+  padding: .55rem;
+  background:
+    linear-gradient(145deg, rgba(232,213,181,.08), transparent 42%),
+    #221f1b;
+}
+.anvaya-note-template--preview-polaroid .anvaya-note-card-preview {
+  margin: .35rem;
+  min-height: calc(100% - .7rem);
+  border: .32rem solid #e8e4dc;
+  border-bottom-width: 1.15rem;
+  border-radius: .18rem;
+  transform: rotate(-1.4deg);
+  box-shadow: 0 8px 18px rgba(0,0,0,.24);
+}
+.anvaya-note-template--preview-polaroid .anvaya-note-course,
+.anvaya-note-template--preview-polaroid .anvaya-note-kind {
+  color: #f4dfbd;
+}
+
+/* Glass Banner */
+.anvaya-note-template--preview-banner {
+  --preview-banner-accent: #a78bfa;
+  --preview-accent: var(--preview-banner-accent);
+  --preview-surface: #211c31;
+  --preview-media: #2d2850;
+  display: flex;
+  flex-direction: column;
+}
+.anvaya-note-template--preview-banner .anvaya-note-card-preview {
+  min-height: 6.15rem;
+  max-height: 6.15rem;
+  margin: .55rem .55rem -.8rem;
+  border-radius: .78rem;
+  background:
+    linear-gradient(135deg, rgba(167,139,250,.3), rgba(96,165,250,.12)),
+    #242443;
+  box-shadow: 0 10px 22px rgba(0,0,0,.22);
+}
+.anvaya-note-template--preview-banner .anvaya-note-card-body {
+  position: relative;
+  z-index: 2;
+  margin: 0 .8rem .65rem;
+  padding: 1.1rem .85rem .78rem;
+  border: 1px solid rgba(167,139,250,.18);
+  border-radius: .72rem;
+  background: rgba(22,21,34,.83);
+  backdrop-filter: blur(10px);
+}
+
+/* Picker previews mirror the actual six Preview themes. */
+.anvaya-card-template-preview.anvaya-note-template--preview-left {
+  --preview-left-accent: #60a5fa;
+  --card-accent: var(--preview-left-accent);
+  grid-template-columns: 42% 1fr;
+  background: linear-gradient(145deg, #17202d, #141922);
+}
+.anvaya-card-template-preview.anvaya-note-template--preview-left .anvaya-template-image {
+  border-radius: .55rem;
+  background: linear-gradient(135deg, #28415f, #1d2a3b);
+}
+.anvaya-card-template-preview.anvaya-note-template--preview-top {
+  --preview-top-accent: #2dd4bf;
+  --card-accent: var(--preview-top-accent);
+  background: linear-gradient(145deg, #17302b, #151e1d);
+}
+.anvaya-card-template-preview.anvaya-note-template--preview-top .anvaya-template-image {
+  min-height: 3.8rem;
+  background: linear-gradient(135deg, #24574e, #1d3733);
+}
+.anvaya-card-template-preview.anvaya-note-template--preview-split {
+  --preview-split-accent: #f472b6;
+  --card-accent: var(--preview-split-accent);
+  grid-template-columns: 46% 1fr;
+  background: linear-gradient(145deg, #301e2d, #201820);
+}
+.anvaya-card-template-preview.anvaya-note-template--preview-split .anvaya-template-image {
+  clip-path: polygon(0 0, 88% 0, 100% 100%, 0 100%);
+  background: linear-gradient(135deg, #613451, #342436);
+}
+.anvaya-card-template-preview.anvaya-note-template--preview-film {
+  --preview-film-accent: #f59e0b;
+  --card-accent: var(--preview-film-accent);
+  background: linear-gradient(145deg, #2d2619, #1d1a15);
+}
+.anvaya-card-template-preview.anvaya-note-template--preview-film .anvaya-template-image {
+  min-height: 3rem;
+  border-top: .2rem solid rgba(245,158,11,.55);
+  border-bottom: .2rem solid rgba(245,158,11,.55);
+  background: linear-gradient(135deg, #49391e, #2f281a);
+}
+.anvaya-card-template-preview.anvaya-note-template--preview-polaroid {
+  --preview-polaroid-accent: #e8d5b5;
+  --card-accent: var(--preview-polaroid-accent);
+  background: linear-gradient(145deg, #2b2721, #1f1c18);
+}
+.anvaya-card-template-preview.anvaya-note-template--preview-polaroid .anvaya-template-image {
+  background: #77766f;
+}
+.anvaya-card-template-preview.anvaya-note-template--preview-banner {
+  --preview-banner-accent: #a78bfa;
+  --card-accent: var(--preview-banner-accent);
+  background:
+    radial-gradient(circle at 85% 12%, rgba(167,139,250,.18), transparent 34%),
+    linear-gradient(145deg, #26203a, #191724);
+}
+.anvaya-card-template-preview.anvaya-note-template--preview-banner .anvaya-template-image {
+  min-height: 3.55rem;
+  border-radius: .62rem;
+  background: linear-gradient(135deg, rgba(167,139,250,.34), rgba(96,165,250,.15));
+}
+
+@media (max-width: 680px) {
+  .anvaya-note-template--preview-left,
+  .anvaya-note-template--preview-split,
+  .anvaya-note-template--preview-polaroid {
+    grid-template-columns: minmax(7rem, 38%) 1fr;
+  }
+}
+
