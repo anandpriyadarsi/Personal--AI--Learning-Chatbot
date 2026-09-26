@@ -1,1 +1,50 @@
-<div id="notes-study-tools-root"></div>
+<button id="notes-study-tools-launcher" class="notes-study-tools-launcher" type="button" aria-controls="notes-study-tools-drawer" aria-expanded="false">
+  <span aria-hidden="true">✦</span><span>Study tools</span>
+  {% set tool_count = note.companion.saved_count + note.companion.doubt_count %}
+  {% if tool_count %}<strong>{{ tool_count }}</strong>{% endif %}
+</button>
+
+<aside id="notes-study-tools-drawer" class="notes-study-tools-drawer" aria-hidden="true">
+  <header class="notes-study-tools-header">
+    <div><p class="eyebrow">Note companion</p><h3>Study Tools</h3></div>
+    <button id="notes-study-tools-close" class="notes-study-tools-close" type="button" aria-label="Close Study Tools">×</button>
+  </header>
+
+  <div class="notes-study-tools-tabs">
+    <button class="is-active" type="button" data-study-tab="saved">Saved notes <span>{{ note.companion.saved_count }}</span></button>
+    <button type="button" data-study-tab="doubts">Doubts <span>{{ note.companion.doubt_count }}</span></button>
+  </div>
+
+  <section class="notes-study-tools-panel is-active" data-study-panel="saved">
+    {% for entry in note.companion.saved_notes %}
+    <article class="notes-study-entry">
+      <p>{{ entry.text }}</p><small>{{ entry.created_label }}</small>
+      <form method="post" action="{{ url_for('web.anvaya_note_companion_archive', note_id=note.id, entry_id=entry.id) }}">
+        <input type="hidden" name="expected_updated_at" value="{{ note.updated_at }}"><button type="submit">Archive</button>
+      </form>
+    </article>
+    {% else %}<p class="notes-study-empty">No saved notes yet.</p>{% endfor %}
+    <form class="notes-study-tools-form" method="post" action="{{ url_for('web.anvaya_note_companion_add', note_id=note.id) }}">
+      <input type="hidden" name="kind" value="saved_note"><input type="hidden" name="expected_updated_at" value="{{ note.updated_at }}">
+      <label><span>Save a note</span><textarea name="entry_text" rows="4" maxlength="2000" required></textarea></label>
+      <button class="button compact-button" type="submit">Save note</button>
+    </form>
+  </section>
+
+  <section class="notes-study-tools-panel" data-study-panel="doubts" hidden>
+    {% for entry in note.companion.doubts %}
+    <article class="notes-study-entry">
+      <p>{{ entry.text }}</p><small>{{ entry.created_label }}</small>
+      <form method="post" action="{{ url_for('web.anvaya_note_companion_archive', note_id=note.id, entry_id=entry.id) }}">
+        <input type="hidden" name="expected_updated_at" value="{{ note.updated_at }}"><button type="submit">Archive</button>
+      </form>
+    </article>
+    {% else %}<p class="notes-study-empty">No saved doubts yet.</p>{% endfor %}
+    <form class="notes-study-tools-form" method="post" action="{{ url_for('web.anvaya_note_companion_add', note_id=note.id) }}">
+      <input type="hidden" name="kind" value="doubt"><input type="hidden" name="expected_updated_at" value="{{ note.updated_at }}">
+      <label><span>Add a doubt</span><textarea name="entry_text" rows="4" maxlength="2000" required></textarea></label>
+      <button class="button compact-button" type="submit">Save doubt</button>
+    </form>
+  </section>
+  <a class="notes-study-analysis-link" href="{{ url_for('web.analysis') }}">Check your analysis →</a>
+</aside>
