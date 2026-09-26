@@ -6,11 +6,11 @@ personal typed/handwritten notes and app-managed uploads only.
 from __future__ import annotations
 
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from importlib import import_module
 from pathlib import Path
 from uuid import uuid4
-from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from markupsafe import Markup, escape
 
@@ -104,13 +104,26 @@ def _validated_uploads(uploads):
     return tuple(clean)
 
 
+def _display_timezone(timezone_name):
+    name = str(timezone_name or "").strip() or "Asia/Kolkata"
+    try:
+        return ZoneInfo(name)
+    except ZoneInfoNotFoundError:
+        # Windows/Python installations may not ship the optional IANA tzdata
+        # database. ANVAYA's configured personal timezone is Asia/Kolkata,
+        # which has a stable UTC+05:30 offset and no daylight-saving changes.
+        if name.casefold() == "asia/kolkata":
+            return timezone(timedelta(hours=5, minutes=30))
+        return timezone.utc
+
+
 def _label(value, timezone_name):
     text = str(value or "").strip()
     if not text:
         return ""
     try:
         parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
-        local = parsed.astimezone(ZoneInfo(timezone_name))
+        local = parsed.astimezone(_display_timezone(timezone_name))
         return local.strftime("%d %b %Y · %I:%M %p").replace(" 0", " ")
     except (ValueError, TypeError):
         return text
