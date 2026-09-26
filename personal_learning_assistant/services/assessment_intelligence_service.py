@@ -465,6 +465,9 @@ class AssessmentIntelligenceService:
                     "occurred_at": str(rows[0].get("occurred_at") or ""),
                     "occurred_label": _occurred_label(rows[0].get("occurred_at")),
                     "assessment_type": str(header.get("assessment_type") or rows[0].get("assessment_type") or ""),
+                    "course_id": str(rows[0].get("course_id") or ""),
+                    "course_code": str(rows[0].get("course_code") or ""),
+                    "course_name": str(rows[0].get("course_name") or ""),
                     "authoring_purpose": str(header.get("authoring_purpose") or rows[0].get("authoring_purpose") or ""),
                     **metric,
                 }
