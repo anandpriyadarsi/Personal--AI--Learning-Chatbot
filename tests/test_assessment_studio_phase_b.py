@@ -15,7 +15,7 @@ def _database(tmp_path):
     from personal_learning_assistant.repositories.sqlite.migration_runner import apply_migrations
 
     path = tmp_path / "learning_assistant.db"
-    assert apply_migrations(path) == tuple(range(1, 14))
+    assert apply_migrations(path) == tuple(range(1, 15))
     connection = sqlite3.connect(path)
     try:
         connection.execute(
@@ -520,15 +520,21 @@ def test_web_upload_review_is_prg_and_gets_do_not_create_canonical_assessment(tm
 
     landing = client.get("/assessments/import")
     assert landing.status_code == 200
-    assert "Import Alex assessment package" in landing.get_data(as_text=True)
+    landing_text = landing.get_data(as_text=True)
+    assert "Create assessments with Alex" in landing_text
+    assert "Open Alex / ChatGPT" in landing_text
+    assert "Master Prompt" in landing_text
+    assert "Quiz" in landing_text and "Exam" in landing_text and "Test" in landing_text
 
     response = client.post(
         "/assessments/import",
         data={
+            "workspace_kind": "quiz",
+            "course_id": "course-ma",
             "package": (
                 io.BytesIO(_raw()),
                 "MA103N_quiz.anvaya-assessment.json",
-            )
+            ),
         },
         content_type="multipart/form-data",
         follow_redirects=False,

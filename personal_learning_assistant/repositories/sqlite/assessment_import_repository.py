@@ -19,6 +19,7 @@ _REQUIRED_TABLES = {
     "question_topic_mappings",
     "question_sources",
     "assessment_import_batches",
+    "assessment_authoring_preferences",
     "assessment_import_questions",
     "assessment_import_question_options",
     "assessment_runtime_specs",
@@ -92,6 +93,41 @@ class SQLiteAssessmentImportRepository:
         ).fetchone()
         return _dict(row)
 
+    def list_courses(self):
+        rows = self.connection.execute(
+            "SELECT id, code, name FROM courses "
+            "WHERE deleted_at IS NULL "
+            "ORDER BY code COLLATE NOCASE, name COLLATE NOCASE"
+        ).fetchall()
+        return tuple(dict(row) for row in rows)
+
+    def get_authoring_preference(self):
+        row = self.connection.execute(
+            "SELECT id, master_prompt, revision, updated_at "
+            "FROM assessment_authoring_preferences WHERE id='default'"
+        ).fetchone()
+        return _dict(row)
+
+    def save_authoring_prompt(self, master_prompt: str, *, now: str):
+        with transaction(self.connection, immediate=True):
+            self.connection.execute(
+                "INSERT INTO assessment_authoring_preferences "
+                "(id, master_prompt, revision, updated_at) "
+                "VALUES ('default', ?, 1, ?) "
+                "ON CONFLICT(id) DO UPDATE SET "
+                "master_prompt=excluded.master_prompt, "
+                "revision=assessment_authoring_preferences.revision+1, "
+                "updated_at=excluded.updated_at",
+                (str(master_prompt), str(now)),
+            )
+        return self.get_authoring_preference()
+
+    def reset_authoring_prompt(self):
+        with transaction(self.connection, immediate=True):
+            self.connection.execute(
+                "DELETE FROM assessment_authoring_preferences WHERE id='default'"
+            )
+
     def topic_catalogue(self, course_id: str):
         rows = self.connection.execute(
             "SELECT id, name, normalized_name FROM topics "
@@ -120,18 +156,40 @@ class SQLiteAssessmentImportRepository:
         ).fetchone()
         return _dict(row)
 
-    def list_batches(self, *, limit: int = 50):
+    def list_batches(
+        self,
+        *,
+        workspace_kind: str | None = None,
+        course_id: str | None = None,
+        limit: int = 100,
+    ):
+        where = []
+        params = []
+        if workspace_kind:
+            where.append(
+                "COALESCE(b.workspace_kind, "
+                "CASE "
+                "WHEN b.assessment_type='quiz' THEN 'quiz' "
+                "WHEN b.assessment_type IN ('midsem','endsem','previous_paper') THEN 'exam' "
+                "ELSE 'test' END)=?"
+            )
+            params.append(str(workspace_kind))
+        if course_id:
+            where.append("b.course_id=?")
+            params.append(str(course_id))
+        clause = " WHERE " + " AND ".join(where) if where else ""
+        params.append(max(1, min(int(limit), 200)))
         rows = self.connection.execute(
             "SELECT b.id, b.package_id, b.package_revision, b.title, "
-            "b.assessment_type, b.mode, b.status, b.revision, b.source_filename, "
-            "b.created_at, b.updated_at, b.assessment_id, "
-            "c.code AS course_code, c.name AS course_name, "
+            "b.assessment_type, b.workspace_kind, b.mode, b.status, b.revision, "
+            "b.source_filename, b.created_at, b.updated_at, b.assessment_id, "
+            "b.course_id, c.code AS course_code, c.name AS course_name, "
             "(SELECT COUNT(*) FROM assessment_import_questions q "
             " WHERE q.batch_id=b.id) AS question_count "
             "FROM assessment_import_batches b "
             "JOIN courses c ON c.id=b.course_id "
-            "ORDER BY b.created_at DESC, b.id DESC LIMIT ?",
-            (max(1, min(int(limit), 200)),),
+            "{} ORDER BY b.created_at DESC, b.id DESC LIMIT ?".format(clause),
+            tuple(params),
         ).fetchall()
         return tuple(dict(row) for row in rows)
 
@@ -195,10 +253,10 @@ class SQLiteAssessmentImportRepository:
                     "INSERT INTO assessment_import_batches "
                     "(id, package_id, package_revision, package_schema, package_version, "
                     "source_filename, source_sha256, course_id, title, assessment_type, "
-                    "mode, duration_minutes, total_marks_milli, instructions_text, "
+                    "workspace_kind, mode, duration_minutes, total_marks_milli, instructions_text, "
                     "authoring_engine, authoring_model, authoring_purpose, status, "
                     "package_json, validation_notes_json, revision, created_at, updated_at) "
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, "
                     "'review', ?, ?, 1, ?, ?)",
                     (
                         str(batch["id"]),
@@ -211,6 +269,7 @@ class SQLiteAssessmentImportRepository:
                         str(batch["course_id"]),
                         str(batch["title"]),
                         str(batch["assessment_type"]),
+                        str(batch.get("workspace_kind") or ""),
                         str(batch["mode"]),
                         int(batch["duration_minutes"]),
                         int(batch["total_marks_milli"]),

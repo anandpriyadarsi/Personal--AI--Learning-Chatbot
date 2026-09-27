@@ -54,6 +54,30 @@ AUTHORING_PURPOSES = {
     "manual",
 }
 
+AUTHORING_WORKSPACE_KINDS = {
+    "quiz": {
+        "label": "Quiz",
+        "eyebrow": "Quick assessment",
+        "description": "Short quiz, class quiz or quiz-pattern practice.",
+        "prompt_hint": "Use package assessment_type='quiz' unless the supplied source clearly requires a different exact type.",
+    },
+    "exam": {
+        "label": "Exam",
+        "eyebrow": "Mid-sem / End-sem",
+        "description": "Full exam, mid-sem, end-sem or reproduced examination paper.",
+        "prompt_hint": "Use assessment_type='midsem' or 'endsem' when the source identifies it. Use 'previous_paper' for a faithful reproduced historical exam paper.",
+    },
+    "test": {
+        "label": "Test",
+        "eyebrow": "Practice / Topic test",
+        "description": "Topic test, recovery test, generated practice or custom assessment.",
+        "prompt_hint": "Use assessment_type='topic_test' for a focused topic test; otherwise use the most accurate supported type such as 'custom'.",
+    },
+}
+
+MASTER_PROMPT_FILENAME = "ANVAYA_ASSESSMENT_PACKAGE_AUTHORING_PROMPT.md"
+MASTER_PROMPT_MAX_CHARS = 60000
+
 
 class AssessmentPackageError(RuntimeError):
     pass
@@ -715,6 +739,49 @@ def _best_topic(raw_label, topics):
     return (str(topic["id"]) if score >= 0.38 else None), score
 
 
+def _default_authoring_prompt() -> str:
+    path = Path(config.BASE_PATH) / MASTER_PROMPT_FILENAME
+    try:
+        return path.read_text(encoding="utf-8").strip()
+    except OSError:
+        return (
+            "Act as the external assessment-authoring engine for ANVAYA. "
+            "Create one strict ANVAYA Assessment Package v1 JSON file for "
+            "{{COURSE_CODE}} · {{COURSE_NAME}}. Workspace kind: "
+            "{{ASSESSMENT_KIND}}. Follow schemas/anvaya-assessment-package-v1.schema.json."
+        )
+
+
+def _infer_workspace_kind(assessment_type: str) -> str:
+    value = str(assessment_type or "").strip()
+    if value == "quiz":
+        return "quiz"
+    if value in {"midsem", "endsem", "previous_paper"}:
+        return "exam"
+    return "test"
+
+
+def _render_authoring_prompt(prompt: str, *, workspace_kind: str, course) -> str:
+    kind = AUTHORING_WORKSPACE_KINDS.get(workspace_kind or "")
+    kind_label = kind["label"] if kind else "Quiz / Exam / Test"
+    kind_hint = kind["prompt_hint"] if kind else (
+        "Choose the package assessment_type that most accurately matches the supplied material."
+    )
+    course_code = str((course or {}).get("code") or "[SELECT COURSE]")
+    course_name = str((course or {}).get("name") or "[SELECT COURSE NAME]")
+    values = {
+        "{{ASSESSMENT_KIND}}": kind_label,
+        "{{ASSESSMENT_KIND_ID}}": str(workspace_kind or "[SELECT KIND]"),
+        "{{ASSESSMENT_TYPE_GUIDANCE}}": kind_hint,
+        "{{COURSE_CODE}}": course_code,
+        "{{COURSE_NAME}}": course_name,
+    }
+    rendered = str(prompt or "")
+    for token, value in values.items():
+        rendered = rendered.replace(token, value)
+    return rendered
+
+
 class AssessmentPackageService:
     """Application boundary for external package staging and explicit approval."""
 
@@ -764,7 +831,20 @@ class AssessmentPackageService:
             raise AssessmentPackageValidationError(str(error)) from error
         raise error
 
-    def stage_upload(self, filename: str, raw: bytes):
+    def stage_upload(
+        self,
+        filename: str,
+        raw: bytes,
+        *,
+        workspace_kind: str = "",
+        selected_course_id: str = "",
+    ):
+        workspace_kind = str(workspace_kind or "").strip().lower()
+        if workspace_kind and workspace_kind not in AUTHORING_WORKSPACE_KINDS:
+            raise AssessmentPackageValidationError(
+                "Choose whether this package is a Quiz, Exam or Test."
+            )
+        selected_course_id = str(selected_course_id or "").strip()
         safe_filename = str(filename or "").replace("\\", "/").split("/")[-1]
         lower = safe_filename.lower()
         if not (lower.endswith(".json") or lower.endswith(".anvaya-assessment.json")):
@@ -773,6 +853,10 @@ class AssessmentPackageService:
             )
         package = _parse_json(raw)
         validated = _validate_package(package)
+        if not workspace_kind:
+            workspace_kind = _infer_workspace_kind(
+                validated["assessment"]["assessment_type"]
+            )
         source_hash = hashlib.sha256(raw).hexdigest()
         canonical_json = json.dumps(
             package, ensure_ascii=False, sort_keys=True, separators=(",", ":")
@@ -790,6 +874,21 @@ class AssessmentPackageService:
                             validated["assessment"]["course_code"]
                         )
                     )
+                if selected_course_id:
+                    selected_course = repository.get_course(selected_course_id)
+                    if selected_course is None:
+                        raise AssessmentPackageValidationError(
+                            "The selected ANVAYA subject/course no longer exists."
+                        )
+                    if str(selected_course["id"]) != str(course["id"]):
+                        raise AssessmentPackageValidationError(
+                            "Selected subject {} does not match package course code {}. "
+                            "Choose the matching subject or regenerate the package with Alex."
+                            .format(
+                                selected_course["code"],
+                                validated["assessment"]["course_code"],
+                            )
+                        )
                 existing = repository.find_batch_identity(
                     validated["package_id"], validated["package_revision"]
                 )
@@ -880,6 +979,7 @@ class AssessmentPackageService:
                     "course_id": str(course["id"]),
                     "title": validated["assessment"]["title"],
                     "assessment_type": validated["assessment"]["assessment_type"],
+                    "workspace_kind": workspace_kind,
                     "mode": validated["assessment"]["mode"],
                     "duration_minutes": validated["assessment"]["duration_minutes"],
                     "total_marks_milli": validated["assessment"]["total_marks_milli"],
@@ -904,20 +1004,99 @@ class AssessmentPackageService:
         ) as error:
             self._map_repository_error(error)
 
-    def workspace(self):
+    def workspace(self, *, workspace_kind: str = "", course_id: str = ""):
+        workspace_kind = str(workspace_kind or "").strip().lower()
+        if workspace_kind and workspace_kind not in AUTHORING_WORKSPACE_KINDS:
+            workspace_kind = ""
+        course_id = str(course_id or "").strip()
         with self._repository(write=False) as repository:
-            batches = repository.list_batches()
+            courses = tuple(dict(item) for item in repository.list_courses())
+            selected_course = repository.get_course(course_id) if course_id else None
+            if course_id and selected_course is None:
+                course_id = ""
+            batches = repository.list_batches(
+                workspace_kind=workspace_kind or None,
+                course_id=course_id or None,
+                limit=100,
+            )
+            preference = repository.get_authoring_preference()
+
+        default_prompt = _default_authoring_prompt()
+        master_prompt = (
+            str(preference["master_prompt"])
+            if preference is not None
+            else default_prompt
+        )
+        selected_course = (
+            next((item for item in courses if str(item["id"]) == course_id), None)
+            if course_id
+            else None
+        )
         return {
             "available": True,
             "batches": tuple(self._decorate_batch_summary(item) for item in batches),
             "schema": PACKAGE_SCHEMA,
             "version": PACKAGE_VERSION,
+            "courses": courses,
+            "workspace_kinds": tuple(
+                {"id": key, **value}
+                for key, value in AUTHORING_WORKSPACE_KINDS.items()
+            ),
+            "selected_kind": workspace_kind,
+            "selected_course_id": course_id,
+            "selected_course": selected_course,
+            "master_prompt": master_prompt,
+            "resolved_prompt": _render_authoring_prompt(
+                master_prompt,
+                workspace_kind=workspace_kind,
+                course=selected_course,
+            ),
+            "prompt_is_custom": preference is not None,
+            "prompt_revision": int(preference["revision"]) if preference else 0,
         }
+
+    def save_master_prompt(self, prompt: str):
+        value = str(prompt or "").strip()
+        if not value:
+            raise AssessmentPackageValidationError(
+                "Master prompt cannot be empty."
+            )
+        if len(value) > MASTER_PROMPT_MAX_CHARS:
+            raise AssessmentPackageValidationError(
+                "Master prompt is too long."
+            )
+        try:
+            with self._repository(write=True) as repository:
+                return repository.save_authoring_prompt(value, now=_now())
+        except (
+            AssessmentImportRepositoryNotFoundError,
+            AssessmentImportRepositoryConflictError,
+            AssessmentImportRepositoryDataError,
+        ) as error:
+            self._map_repository_error(error)
+
+    def reset_master_prompt(self):
+        try:
+            with self._repository(write=True) as repository:
+                repository.reset_authoring_prompt()
+        except (
+            AssessmentImportRepositoryNotFoundError,
+            AssessmentImportRepositoryConflictError,
+            AssessmentImportRepositoryDataError,
+        ) as error:
+            self._map_repository_error(error)
 
     @staticmethod
     def _decorate_batch_summary(item):
         result = dict(item)
         result["status_label"] = str(result.get("status") or "").replace("_", " ").title()
+        result["workspace_kind"] = str(
+            result.get("workspace_kind")
+            or _infer_workspace_kind(result.get("assessment_type"))
+        )
+        result["workspace_kind_label"] = AUTHORING_WORKSPACE_KINDS[
+            result["workspace_kind"]
+        ]["label"]
         return result
 
     @staticmethod
@@ -947,6 +1126,13 @@ class AssessmentPackageService:
 
     def _decorate_batch(self, batch, topics):
         result = dict(batch)
+        result["workspace_kind"] = str(
+            result.get("workspace_kind")
+            or _infer_workspace_kind(result.get("assessment_type"))
+        )
+        result["workspace_kind_label"] = AUTHORING_WORKSPACE_KINDS[
+            result["workspace_kind"]
+        ]["label"]
         result["questions"] = tuple(
             self._decorate_question(item) for item in batch.get("questions") or ()
         )

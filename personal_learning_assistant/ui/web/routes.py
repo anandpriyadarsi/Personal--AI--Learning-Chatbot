@@ -1075,14 +1075,25 @@ def assessment_template_reactivate(template_id):
 
 @web_blueprint.get("/assessments/import")
 def assessment_import():
-    """List staged packages and render the explicit package upload form."""
+    """Render the Alex-first authoring/import workspace and staged history."""
+    kind = request.args.get("kind", "")
+    course_id = request.args.get("course_id", "")
     try:
-        workspace = _assessment_package_service().workspace()
+        workspace = _assessment_package_service().workspace(
+            workspace_kind=kind,
+            course_id=course_id,
+        )
+        notice = ""
+        if request.args.get("prompt_saved") == "1":
+            notice = "Master Alex prompt saved."
+        elif request.args.get("prompt_reset") == "1":
+            notice = "Master Alex prompt reset to the repository default."
         return render_template(
             "assessment_import.html",
             active_page="assessments",
             workspace=workspace,
             error_message="",
+            notice_message=notice,
         )
     except Exception as error:
         return (
@@ -1092,10 +1103,20 @@ def assessment_import():
                 workspace={
                     "available": False,
                     "batches": (),
+                    "courses": (),
+                    "workspace_kinds": (),
+                    "selected_kind": "",
+                    "selected_course_id": "",
+                    "selected_course": None,
+                    "master_prompt": "",
+                    "resolved_prompt": "",
+                    "prompt_is_custom": False,
+                    "prompt_revision": 0,
                     "schema": "anvaya.assessment-package",
                     "version": 1,
                 },
                 error_message=str(error),
+                notice_message="",
             ),
             _assessment_package_error_status(error),
         )
@@ -1114,6 +1135,8 @@ def assessment_import_create():
         item = service.stage_upload(
             upload.filename,
             upload.read(MAX_PACKAGE_BYTES + 1),
+            workspace_kind=request.form.get("workspace_kind", ""),
+            selected_course_id=request.form.get("course_id", ""),
         )
         return redirect(
             url_for("web.assessment_import_review", batch_id=item["id"], staged="1"),
@@ -1121,11 +1144,23 @@ def assessment_import_create():
         )
     except Exception as error:
         try:
-            workspace = service.workspace()
+            workspace = service.workspace(
+                workspace_kind=request.form.get("workspace_kind", ""),
+                course_id=request.form.get("course_id", ""),
+            )
         except Exception:
             workspace = {
                 "available": False,
                 "batches": (),
+                "courses": (),
+                "workspace_kinds": (),
+                "selected_kind": request.form.get("workspace_kind", ""),
+                "selected_course_id": request.form.get("course_id", ""),
+                "selected_course": None,
+                "master_prompt": "",
+                "resolved_prompt": "",
+                "prompt_is_custom": False,
+                "prompt_revision": 0,
                 "schema": "anvaya.assessment-package",
                 "version": 1,
             }
@@ -1138,6 +1173,61 @@ def assessment_import_create():
             ),
             _assessment_package_error_status(error),
         )
+
+
+@web_blueprint.post("/assessments/import/prompt")
+def assessment_import_prompt_save():
+    service = _assessment_package_service()
+    kind = request.form.get("workspace_kind", "")
+    course_id = request.form.get("course_id", "")
+    try:
+        service.save_master_prompt(request.form.get("master_prompt", ""))
+        return redirect(
+            url_for(
+                "web.assessment_import",
+                kind=kind,
+                course_id=course_id,
+                prompt_saved="1",
+            ),
+            code=303,
+        )
+    except Exception as error:
+        try:
+            workspace = service.workspace(
+                workspace_kind=kind,
+                course_id=course_id,
+            )
+        except Exception:
+            return str(error), _assessment_package_error_status(error)
+        return (
+            render_template(
+                "assessment_import.html",
+                active_page="assessments",
+                workspace=workspace,
+                error_message=str(error),
+                notice_message="",
+            ),
+            _assessment_package_error_status(error),
+        )
+
+
+@web_blueprint.post("/assessments/import/prompt/reset")
+def assessment_import_prompt_reset():
+    kind = request.form.get("workspace_kind", "")
+    course_id = request.form.get("course_id", "")
+    try:
+        _assessment_package_service().reset_master_prompt()
+        return redirect(
+            url_for(
+                "web.assessment_import",
+                kind=kind,
+                course_id=course_id,
+                prompt_reset="1",
+            ),
+            code=303,
+        )
+    except Exception as error:
+        return str(error), _assessment_package_error_status(error)
 
 
 @web_blueprint.get("/assessments/import/<batch_id>/review")
