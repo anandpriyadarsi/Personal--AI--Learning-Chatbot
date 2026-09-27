@@ -877,22 +877,23 @@ class SQLiteAssessmentImportRepository:
                             str(now),
                         ),
                     )
-                mapping = question["mapping"]
-                self.connection.execute(
-                    "INSERT INTO question_topic_mappings "
-                    "(id, question_id, topic_id, score, rank, method, state, reason, "
-                    "created_at, reviewed_at) "
-                    "VALUES (?, ?, ?, ?, 1, 'package_review_confirmed', 'confirmed', ?, ?, ?)",
-                    (
-                        str(mapping["id"]),
-                        str(question["id"]),
-                        str(mapping["topic_id"]),
-                        mapping.get("score"),
-                        str(mapping.get("reason") or ""),
-                        str(now),
-                        str(now),
-                    ),
-                )
+                mapping = question.get("mapping")
+                if mapping is not None:
+                    self.connection.execute(
+                        "INSERT INTO question_topic_mappings "
+                        "(id, question_id, topic_id, score, rank, method, state, reason, "
+                        "created_at, reviewed_at) "
+                        "VALUES (?, ?, ?, ?, 1, 'package_review_confirmed', 'confirmed', ?, ?, ?)",
+                        (
+                            str(mapping["id"]),
+                            str(question["id"]),
+                            str(mapping["topic_id"]),
+                            mapping.get("score"),
+                            str(mapping.get("reason") or ""),
+                            str(now),
+                            str(now),
+                        ),
+                    )
                 self.connection.execute(
                     "UPDATE assessment_import_questions "
                     "SET canonical_question_id=?, updated_at=? WHERE id=?",
