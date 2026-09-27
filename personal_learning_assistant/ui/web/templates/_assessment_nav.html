@@ -1,0 +1,6 @@
+{% set links = [('Overview','web.assessments'), ('Library','web.assessment_tests'), ('Create','web.assessment_import'), ('Reports','web.assessment_intelligence'), ('Recovery','web.assessment_adaptive_loop')] %}
+<nav class="assessment-nav" aria-label="Assessment Studio">
+  {% for label, endpoint in links %}
+  <a href="{{ url_for(endpoint) }}"{% if request.endpoint == endpoint %} aria-current="page"{% endif %}>{{ label }}</a>
+  {% endfor %}
+</nav>

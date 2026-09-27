@@ -1,61 +1,41 @@
 {% extends "base.html" %}
-{% block title %}Assessment Studio · Personal AI Learning Assistant{% endblock %}
+{% block title %}Assessment Studio · ANVAYA{% endblock %}
 {% block content %}
-<section class="hero dashboard-hero" aria-labelledby="assessments-title">
-  <div>
-    <p class="eyebrow">Assessment Studio</p>
-    <h2 id="assessments-title">Assessments</h2>
-    <p class="lede">Create and import assessments, take timed CBT tests, evaluate responses, and inspect confirmed assessment intelligence without silently changing your learning plan.</p>
+<header class="assessment-heading">
+  <div><p class="eyebrow">Your assessment workspace</p><h2 id="assessments-title">Assessment Studio</h2><p>Prepare, test, understand, improve.</p></div>
+  <a class="button" href="{{ url_for('web.assessment_import') }}">Create with Alex <span aria-hidden="true">↗</span></a>
+</header>
+{% if workspace.available %}
+  {% if workspace.continuation %}{% set next = workspace.continuation %}
+  <section class="assessment-continue" aria-labelledby="continue-title">
+    <div><p class="eyebrow" id="continue-title">Continue where you left off</p><h3>{{ next.title }}</h3><p>{{ next.course_code }} · {{ next.kind|title }} · {{ next.state_label }}</p></div>
+    <a class="button" href="{{ next.action_url }}">{{ next.action_label }} <span aria-hidden="true">→</span></a>
+  </section>
+  {% endif %}
+  <section class="assessment-library-section" aria-labelledby="recent-title">
+    <div class="assessment-section-heading"><h3 id="recent-title">Your assessments</h3><a href="{{ url_for('web.assessment_tests') }}">Open library →</a></div>
+    {% if workspace.rows %}{% with rows=workspace.rows[:6] %}{% include '_assessment_rows.html' %}{% endwith %}
+    {% else %}<div class="assessment-empty"><h3>Start with a paper or a topic.</h3><p>Choose Quiz, Exam or Test, create it with Alex, then import the package for blind review.</p><a href="{{ url_for('web.assessment_import') }}">Create your first assessment →</a></div>{% endif %}
+  </section>
+{% else %}<p class="notice-panel" role="status">{{ workspace.message }}</p>{% endif %}
+<div class="assessment-resource-links">
+  <a href="{{ url_for('web.assessment_intelligence') }}"><strong>Reports</strong><span>Understand confirmed performance</span></a>
+  <a href="{{ url_for('web.assessment_weak_topics') }}"><strong>Weak Topics</strong><span>Find evidence worth acting on</span></a>
+  <a href="{{ url_for('web.assessment_adaptive_loop') }}"><strong>Adaptive Loop</strong><span>Review recovery before adding it to your plan</span></a>
+</div>
+<details class="assessment-disclosure">
+  <summary>Course workspaces &amp; reusable templates</summary>
+  <div class="assessment-tools">
+    <a href="{{ url_for('web.assessment_templates') }}">Manage templates</a>
+    <a href="{{ url_for('web.assessment_template_new') }}">Create template</a>
+    <a href="{{ url_for('web.assessment_tests') }}">Take test</a>
+    {% if studio.available %}<span>{{ studio.active_template_count }} active templates</span>{% endif %}
   </div>
-  {% if catalogue.date %}<p class="date-chip">{{ catalogue.date }}</p>{% endif %}
-</section>
-
-<section class="action-panel" aria-labelledby="studio-actions-title">
-  <p class="eyebrow">Build the test system</p>
-  <h3 id="studio-actions-title">Assessment Studio</h3>
-  <p>Templates are reusable configuration and never count as real assessments or attempts.</p>
-  <div class="quick-actions">
-    {% if studio.available %}
-      <a class="quick-action" href="{{ url_for('web.assessment_templates') }}">Manage templates</a>
-      <a class="quick-action" href="{{ url_for('web.assessment_template_new') }}">Create template</a>
-    {% else %}
-      <span class="quick-action is-disabled" aria-disabled="true">Templates unavailable</span>
-    {% endif %}
-    <a class="quick-action" href="{{ url_for('web.assessment_import') }}">Create with Alex</a>
-    <a class="quick-action" href="{{ url_for('web.assessment_tests') }}">Take test</a>
-    <a class="quick-action" href="{{ url_for('web.assessment_intelligence') }}">Reports</a>
-    <a class="quick-action" href="{{ url_for('web.assessment_weak_topics') }}">Weak Topics</a>
-    <a class="quick-action" href="{{ url_for('web.assessment_adaptive_loop') }}">Adaptive Loop</a>
-  </div>
-</section>
-
-{% if studio.available %}
-<section class="dashboard-panel next-panel" aria-labelledby="course-studios-title">
-  <div class="panel-heading">
-    <div><p class="eyebrow">Course workspaces</p><h3 id="course-studios-title">Start from a course</h3></div>
-    <span class="count-badge">{{ studio.active_template_count }} templates</span>
-  </div>
-  {% if studio.courses %}
-  <ul class="dashboard-list">
-    {% for course in studio.courses %}
-    <li>
-      <div class="list-main">
-        <strong>{{ course.code }} · {{ course.name }}</strong>
-        <span>{{ course.template_count }} active template{% if course.template_count != 1 %}s{% endif %}</span>
-      </div>
-      <a class="button button-secondary compact-button" href="{{ url_for('web.assessment_course', course_id=course.id) }}">Open studio</a>
-    </li>
-    {% endfor %}
-  </ul>
-  {% else %}<p class="empty-state">No active courses are available in the canonical academic store.</p>{% endif %}
-</section>
-{% else %}
-<section class="notice-panel" aria-live="polite">
-  <h3>Template workspace is not ready yet</h3>
-  <p>{{ studio.message }}</p>
-</section>
-{% endif %}
-
+  {% if studio.available %}<ul class="assessment-course-list">{% for course in studio.courses %}<li><a href="{{ url_for('web.assessment_course', course_id=course.id) }}">{{ course.code }} · {{ course.name }}</a><span>{{ course.template_count }} templates</span></li>{% endfor %}</ul>
+  {% else %}<p>{{ studio.message }}</p>{% endif %}
+</details>
+<details class="assessment-disclosure">
+  <summary>Academic deadlines &amp; recorded assessments</summary>
 <section class="dashboard-panel next-panel">
   <div class="panel-heading">
     <div><p class="eyebrow">Assessment timeline</p><h3>Current academic assessments</h3></div>
@@ -101,4 +81,5 @@
   </section>
 {% endif %}
 </section>
+</details>
 {% endblock %}

@@ -1,58 +1,24 @@
 {% extends "base.html" %}
-{% block title %}Take Test · Assessment Studio · ANVAYA{% endblock %}
+{% block title %}Assessment Library · ANVAYA{% endblock %}
 {% block content %}
-<section class="hero dashboard-hero">
-  <div>
-    <p class="eyebrow">Assessment Studio · Test Runner</p>
-    <h2>Take a test</h2>
-    <p class="lede">Start or resume approved ANVAYA assessments in a timed computer-based-test interface. Evaluation and scoring remain Phase D.</p>
-  </div>
-  <a class="button button-secondary" href="{{ url_for('web.assessments') }}">Assessment Studio</a>
-</section>
-
-{% if error_message %}<section class="notice-panel" role="alert"><h3>Runner unavailable</h3><p>{{ error_message }}</p></section>{% endif %}
-
-<section class="dashboard-panel next-panel">
-  <div class="panel-heading"><div><p class="eyebrow">Runnable assessments</p><h3>Exam &amp; practice sessions</h3></div><span class="count-badge">{{ workspace.assessments|length }}</span></div>
-  {% if workspace.assessments %}
-  <ul class="dashboard-list">
-    {% for item in workspace.assessments %}
-    <li>
-      <div class="list-main">
-        <strong>{{ item.course_code }} · {{ item.title }}</strong>
-        <span>{{ item.assessment_type|replace('_',' ')|title }} · {{ item.mode|title }} · {{ item.duration_label }} · {{ item.question_count }} questions{% if item.max_marks %} · {{ item.max_marks }} marks{% endif %}</span>
-        <div class="tag-row"><span class="tag">{{ item.origin|replace('_',' ')|title }}</span><span class="tag">{{ item.completed_session_count }} completed session{% if item.completed_session_count != 1 %}s{% endif %}</span></div>
-      </div>
-      {% if item.can_resume %}
-        <a class="button compact-button" href="{{ url_for('web.assessment_session', session_id=item.active_session_id) }}">Resume test</a>
-      {% else %}
-        <a class="button button-secondary compact-button" href="{{ url_for('web.assessment_test_preflight', assessment_id=item.id) }}">Open instructions</a>
-      {% endif %}
-    </li>
-    {% endfor %}
-  </ul>
-  {% else %}<p class="empty-state">No approved assessments currently have a Phase C runtime specification.</p>{% endif %}
-</section>
-
-<section class="dashboard-panel next-panel">
-  <div class="panel-heading"><div><p class="eyebrow">Session history</p><h3>Previous test sessions</h3></div><span class="count-badge">{{ workspace.sessions|length }}</span></div>
-  {% if workspace.sessions %}
-  <ul class="dashboard-list">
-    {% for item in workspace.sessions %}
-    <li>
-      <div class="list-main">
-        <strong>{{ item.course_code_snapshot }} · {{ item.title_snapshot }}</strong>
-        <span>{{ item.status|replace('_',' ')|title }} · {{ item.question_count }} questions · {{ item.duration_minutes }} min · {{ item.focus_minutes }} focused min</span>
-        <div class="tag-row"><span class="tag">{{ item.mode|title }}</span>{% if item.submission_reason %}<span class="tag">{{ item.submission_reason|title }} submission</span>{% endif %}</div>
-      </div>
-      {% if item.status == 'active' %}
-        <a class="button compact-button" href="{{ url_for('web.assessment_session', session_id=item.id) }}">Resume</a>
-      {% else %}
-        <a class="button button-secondary compact-button" href="{{ url_for('web.assessment_session_summary', session_id=item.id) }}">Session summary</a>
-      {% endif %}
-    </li>
-    {% endfor %}
-  </ul>
-  {% else %}<p class="empty-state">No timed sessions yet.</p>{% endif %}
-</section>
+<header class="assessment-heading"><div><p class="eyebrow">Assessment Studio</p><h2>Assessment library</h2><p>Take a test, continue an attempt or revisit your results.</p></div><a class="button" href="{{ url_for('web.assessment_import') }}">Create with Alex ↗</a></header>
+{% if not workspace.available %}<p class="notice-panel" role="status">{{ workspace.message }}</p>
+{% else %}
+<form class="assessment-filters" method="get" role="search" aria-label="Find an assessment">
+  <label class="assessment-search"><span>Find an assessment</span><input type="search" name="q" value="{{ workspace.query }}" maxlength="200" placeholder="Search title or subject"></label>
+  <label><span>Subject</span><select name="course_id"><option value="">All subjects</option>{% for course in workspace.courses %}<option value="{{ course.id }}"{% if workspace.course_id == course.id %} selected{% endif %}>{{ course.code }} · {{ course.name }}</option>{% endfor %}</select></label>
+  <label><span>Type</span><select name="kind">{% for value,label in workspace.kinds %}<option value="{{ value }}"{% if workspace.kind == value %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+  <label><span>State</span><select name="state">{% for value,label in workspace.states %}<option value="{{ value }}"{% if workspace.state == value %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+  <button class="button button-secondary" type="submit">Filter</button>
+</form>
+<div class="assessment-section-heading"><p>{{ workspace.total }} assessment{% if workspace.total != 1 %}s{% endif %}</p><a href="{{ url_for('web.assessment_tests') }}">Clear filters</a></div>
+{% if workspace.rows %}{% with rows=workspace.rows %}{% include '_assessment_rows.html' %}{% endwith %}
+{% else %}<div class="assessment-empty"><h3>No assessments in this view.</h3><p>Change the filters or create a package with Alex to get started.</p><a href="{{ url_for('web.assessment_import') }}">Create an assessment →</a></div>{% endif %}
+{% if workspace.pages > 1 %}<nav class="assessment-pagination" aria-label="Library pages">
+  {% if workspace.has_previous %}<a href="{{ url_for('web.assessment_tests', q=workspace.query, course_id=workspace.course_id, kind=workspace.kind, state=workspace.state, page=workspace.page-1) }}">← Previous</a>{% endif %}
+  <span>Page {{ workspace.page }} of {{ workspace.pages }}</span>
+  {% if workspace.has_next %}<a href="{{ url_for('web.assessment_tests', q=workspace.query, course_id=workspace.course_id, kind=workspace.kind, state=workspace.state, page=workspace.page+1) }}">Next →</a>{% endif %}
+</nav>{% endif %}
+<p class="assessment-footnote">Questions stay hidden here. Older package revisions remain in <a href="{{ url_for('web.assessment_import') }}">authoring history</a>.</p>
+{% endif %}
 {% endblock %}

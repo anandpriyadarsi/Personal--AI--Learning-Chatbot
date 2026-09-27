@@ -32,6 +32,10 @@ from personal_learning_assistant.services.assessment_dashboard_service import (
     load_assessment_catalogue,
     unavailable_assessment_catalogue,
 )
+from personal_learning_assistant.services.assessment_workspace_service import (
+    AssessmentWorkspaceNotFoundError,
+    build_assessment_workspace_service,
+)
 from personal_learning_assistant.services.assessment_studio_service import (
     AssessmentStudioConflictError,
     AssessmentStudioNotFoundError,
@@ -223,6 +227,29 @@ def _assessment_catalogue():
 def _assessment_studio_service():
     factory = current_app.config.get("ASSESSMENT_STUDIO_SERVICE_FACTORY")
     return factory() if factory is not None else build_assessment_studio_service()
+
+
+def _assessment_workspace_service():
+    factory = current_app.config.get("ASSESSMENT_WORKSPACE_SERVICE_FACTORY")
+    if factory is not None:
+        return factory()
+    # Reuse an explicitly injected assessment store (tests/local embedding).
+    for key in ("ASSESSMENT_RUNNER_SERVICE_FACTORY", "ASSESSMENT_PACKAGE_SERVICE_FACTORY", "ASSESSMENT_STUDIO_SERVICE_FACTORY"):
+        configured = current_app.config.get(key)
+        if configured is not None:
+            path = getattr(configured(), "database_path", None)
+            if path is not None:
+                return build_assessment_workspace_service(path)
+    return build_assessment_workspace_service()
+
+
+def _safe_assessment_workspace(**filters):
+    try:
+        return _assessment_workspace_service().library(**filters)
+    except Exception as error:
+        current_app.logger.warning("Assessment lifecycle unavailable (%s).", type(error).__name__)
+        return {"available": False, "rows": (), "continuation": None,
+                "message": "Assessment library is unavailable. Your academic data was not changed."}
 
 
 def _assessment_package_service():
@@ -944,6 +971,7 @@ def assessments():
         active_page="assessments",
         catalogue=_assessment_catalogue(),
         studio=_safe_assessment_studio(),
+        workspace=_safe_assessment_workspace(),
     )
 
 
@@ -1642,25 +1670,26 @@ def assessment_import_reject(batch_id):
 
 @web_blueprint.get("/assessments/tests")
 def assessment_tests():
-    """List runnable approved assessments and persisted timed sessions."""
+    """Browse safe metadata across preparation, attempts and results."""
+    workspace = _safe_assessment_workspace(
+        query=request.args.get("q", ""), course_id=request.args.get("course_id", ""),
+        kind=request.args.get("kind", ""), state=request.args.get("state", ""),
+        page=request.args.get("page", 1),
+    )
+    return render_template("assessment_test_library.html", active_page="assessments",
+                           workspace=workspace, error_message=""), (200 if workspace["available"] else 503)
+
+
+@web_blueprint.get("/assessments/tests/<assessment_id>/history")
+def assessment_test_history(assessment_id):
     try:
-        workspace = _assessment_runner_service().library()
-        return render_template(
-            "assessment_test_library.html",
-            active_page="assessments",
-            workspace=workspace,
-            error_message="",
-        )
+        history = _assessment_workspace_service().history(assessment_id, page=request.args.get("page", 1))
+        return render_template("assessment_attempt_history.html", active_page="assessments", history=history)
+    except AssessmentWorkspaceNotFoundError:
+        return "Assessment not found.", 404
     except Exception as error:
-        return (
-            render_template(
-                "assessment_test_library.html",
-                active_page="assessments",
-                workspace={"available": False, "assessments": (), "sessions": ()},
-                error_message=str(error),
-            ),
-            _assessment_runner_error_status(error),
-        )
+        current_app.logger.warning("Assessment history unavailable (%s).", type(error).__name__)
+        return "Assessment history is temporarily unavailable.", 503
 
 
 @web_blueprint.get("/assessments/tests/<assessment_id>")

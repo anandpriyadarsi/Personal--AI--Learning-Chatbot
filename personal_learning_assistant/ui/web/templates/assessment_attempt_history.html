@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block title %}Attempt history · ANVAYA{% endblock %}
+{% block content %}
+<header class="assessment-heading"><div><p class="eyebrow">{{ history.assessment.course_code }} · Attempt history</p><h2>{{ history.assessment.title }}</h2><p>{{ history.total }} saved attempt{% if history.total != 1 %}s{% endif %}. Each result belongs to its original snapshot.</p></div><a class="button button-secondary" href="{{ url_for('web.assessment_test_preflight', assessment_id=history.assessment.id) }}">Retake / instructions</a></header>
+{% with rows=history.rows %}{% include '_assessment_rows.html' %}{% endwith %}
+{% if not history.rows %}<p class="assessment-empty">No attempts yet.</p>{% endif %}
+{% if history.pages > 1 %}<nav class="assessment-pagination" aria-label="Attempt pages">{% if history.has_previous %}<a href="{{ url_for('web.assessment_test_history', assessment_id=history.assessment.id, page=history.page-1) }}">← Previous</a>{% endif %}<span>Page {{ history.page }} of {{ history.pages }}</span>{% if history.has_next %}<a href="{{ url_for('web.assessment_test_history', assessment_id=history.assessment.id, page=history.page+1) }}">Next →</a>{% endif %}</nav>{% endif %}
+{% endblock %}
