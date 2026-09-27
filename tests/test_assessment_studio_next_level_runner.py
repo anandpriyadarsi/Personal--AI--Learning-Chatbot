@@ -38,3 +38,13 @@ def test_action_json_returns_state_and_safe_destination_and_heartbeat_counts(tmp
     assert expired.get_json()['status'] == 'expired'
     assert expired.get_json()['redirect_url'].endswith('/summary')
     assert 'SECRET-' not in json.dumps(expired.get_json())
+
+def test_timeout_summary_explains_saved_response_boundary(tmp_path):
+    path = _database(tmp_path)
+    clock = Clock()
+    service = _service(path, clock)
+    sid = service.start('assessment-1', confirmed=True)['session_id']
+    clock.advance(61)
+    response = _app(path,clock).test_client().get(f'/assessments/sessions/{sid}/summary')
+    assert response.status_code == 200
+    assert 'last successfully saved' in response.get_data(as_text=True)

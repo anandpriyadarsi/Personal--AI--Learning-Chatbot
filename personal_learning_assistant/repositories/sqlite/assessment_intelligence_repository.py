@@ -237,6 +237,8 @@ class SQLiteAssessmentIntelligenceRepository:
             "JOIN courses c ON c.id=a.course_id "
             "LEFT JOIN topics t ON t.id=q.topic_id "
             "WHERE m.status='confirmed' "
+            "AND ev.outcome IN ('incorrect','partially_correct','unanswered') "
+            "AND ev.awarded_marks_milli IS NOT NULL "
             "AND ev.status IN ('auto_confirmed','confirmed') "
             "AND a.deleted_at IS NULL AND c.deleted_at IS NULL "
             "{} "

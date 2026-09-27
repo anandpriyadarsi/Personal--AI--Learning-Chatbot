@@ -148,3 +148,18 @@ def test_results_and_editor_reject_an_active_session_even_with_existing_evaluati
         response = client.get(url)
         assert response.status_code == 409
         assert 'MCQ solution' not in response.get_data(as_text=True)
+
+def test_corrected_grade_excludes_old_confirmed_labels_from_analytics_and_recovery(tmp_path):
+    from personal_learning_assistant.services.assessment_intelligence_service import AssessmentIntelligenceService
+    path, sid, service, questions = _evaluated(tmp_path)
+    eid = questions['7']['evaluation_id']
+    service.save_manual_evaluation(eid,{'evaluator_type':'teacher','awarded_marks':'2'})
+    service.classify_mistake(eid,{'category':'concept_gap','source_type':'user'})
+    service.save_manual_evaluation(eid,{'evaluator_type':'teacher','awarded_marks':'5','confirm_final':True})
+    service.save_manual_evaluation(questions['8']['evaluation_id'],{'evaluator_type':'teacher','awarded_marks':'2','confirm_final':True})
+    intelligence = AssessmentIntelligenceService(path)
+    assert intelligence.overview()['mistake_patterns'] == ()
+    assert all(topic['mistake_count'] == 0 for topic in intelligence.weak_topics()['topics'])
+    with sqlite3.connect(path) as db:
+        assert db.execute('SELECT COUNT(*) FROM assessment_evaluation_mistakes').fetchone()[0] == 1
+        assert db.execute('SELECT COUNT(*) FROM mistake_events').fetchone()[0] == 0
