@@ -398,3 +398,97 @@ def test_blind_review_page_shows_inline_revision_upload_when_alex_review_needed(
     assert "Upload revision 2 &amp; run blind preflight" in html
     assert f'/assessments/import/{staged["id"]}/revision' in html
     assert 'type="file"' in html
+
+
+
+def test_topic_catalogue_gap_does_not_force_another_alex_revision(tmp_path):
+    path = _database(tmp_path)
+    package = _package()
+    package["package_id"] = "ma103n.topic-gap.ready"
+    package["questions"][0]["review_required"] = True
+    package["questions"][0]["authoring_confidence"] = 0.99
+    package["questions"][0]["academic_map"]["topic"] = "Span"
+    package["questions"][0]["academic_map"]["topic_mapping_confidence"] = 0.3
+
+    service = _service(path)
+    staged = service.stage_upload(
+        "topic-gap.anvaya-assessment.json",
+        _raw(package),
+        workspace_kind="quiz",
+        selected_course_id="course-ma",
+    )
+    review = service.review(staged["id"])
+
+    assert review["blind_review"]["state"] == "topic_mapping_pending"
+    assert review["blind_review"]["integrity_issue_count"] == 0
+    assert review["blind_review"]["low_authoring_count"] == 0
+    assert review["blind_review"]["topic_mapping_pending_count"] > 0
+    assert review["can_approve"] is False
+    assert review["can_approve_with_topic_gaps"] is True
+
+    client = _app(path).test_client()
+    page = client.get(f'/assessments/import/{staged["id"]}/review')
+    assert page.status_code == 200
+    html = page.get_data(as_text=True)
+    assert "The test is ready. Topic mapping can wait." in html
+    assert "You do not need another Alex revision just for this." in html
+    assert "Upload package revision 2" not in html
+
+    approved = client.post(
+        f'/assessments/import/{staged["id"]}/approve',
+        data={"approval_mode": "topic_gaps"},
+        follow_redirects=False,
+    )
+    assert approved.status_code == 303
+
+    after = service.review(staged["id"])
+    assert after["status"] == "approved"
+    assert after["assessment_id"]
+
+    connection = sqlite3.connect(path)
+    try:
+        mappings = connection.execute(
+            "SELECT COUNT(*) FROM question_topic_mappings m "
+            "JOIN questions q ON q.id=m.question_id "
+            "WHERE q.assessment_id=?",
+            (after["assessment_id"],),
+        ).fetchone()[0]
+        questions = connection.execute(
+            "SELECT COUNT(*) FROM questions WHERE assessment_id=?",
+            (after["assessment_id"],),
+        ).fetchone()[0]
+    finally:
+        connection.close()
+
+    assert questions == len(package["questions"])
+    assert mappings < questions
+
+
+def test_topic_gap_override_never_bypasses_real_content_uncertainty(tmp_path):
+    path = _database(tmp_path)
+    package = _package()
+    package["package_id"] = "ma103n.topic-gap.blocked"
+    package["questions"][0]["review_required"] = True
+    package["questions"][0]["authoring_confidence"] = 0.6
+    package["questions"][0]["academic_map"]["topic"] = "Span"
+    package["questions"][0]["academic_map"]["topic_mapping_confidence"] = 0.3
+
+    service = _service(path)
+    staged = service.stage_upload(
+        "topic-gap-blocked.anvaya-assessment.json",
+        _raw(package),
+        workspace_kind="quiz",
+        selected_course_id="course-ma",
+    )
+    review = service.review(staged["id"])
+
+    assert review["blind_review"]["state"] == "alex_review"
+    assert review["can_approve_with_topic_gaps"] is False
+
+    client = _app(path).test_client()
+    response = client.post(
+        f'/assessments/import/{staged["id"]}/approve',
+        data={"approval_mode": "topic_gaps"},
+    )
+    assert response.status_code == 409
+    assert service.review(staged["id"])["status"] == "review"
