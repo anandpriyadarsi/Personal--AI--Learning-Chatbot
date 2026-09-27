@@ -5,10 +5,10 @@
   <div>
     <p class="eyebrow">Assessment Studio · Import Review</p>
     <h2>{{ batch.title }}</h2>
-    <p class="lede">{{ batch.course_code }} · {{ batch.assessment_type }} · {{ batch.mode }} · package {{ batch.package_id }} rev {{ batch.package_revision }}</p>
+    <p class="lede">{{ batch.workspace_kind_label }} · {{ batch.course_code }} · {{ batch.assessment_type|replace('_',' ')|title }} · {{ batch.mode|title }} · package {{ batch.package_id }} rev {{ batch.package_revision }}</p>
   </div>
   <div class="form-actions">
-    <a class="button button-secondary" href="{{ url_for('web.assessment_import') }}">All imports</a>
+    <a class="button button-secondary" href="{{ url_for('web.assessment_import', kind=batch.workspace_kind, course_id=batch.course_id) }}">Back to {{ batch.workspace_kind_label }} · {{ batch.course_code }}</a>
     <a class="button button-secondary" href="{{ url_for('web.assessments') }}">Assessment Studio</a>
   </div>
 </section>
