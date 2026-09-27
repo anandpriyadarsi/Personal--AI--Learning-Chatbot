@@ -546,8 +546,11 @@ def test_web_upload_review_is_prg_and_gets_do_not_create_canonical_assessment(tm
     assert review.status_code == 200
     text = review.get_data(as_text=True)
     assert "LU Practice Quiz" in text
-    assert "Approve import" in text
-    assert "LU Factorization" in text
+    assert "Blind preflight" in text
+    assert "Spoiler protection active" in text
+    assert "Approve &amp; add to tests" in text
+    assert "In A=LU, which factor is lower triangular?" not in text
+    assert "L is the lower-triangular factor in A=LU." not in text
 
     connection = sqlite3.connect(path)
     try:
