@@ -1606,7 +1606,10 @@ def assessment_import_question_remove(batch_id, question_id):
 def assessment_import_approve(batch_id):
     service = _assessment_package_service()
     try:
-        service.approve(batch_id)
+        service.approve(
+            batch_id,
+            allow_topic_gaps=request.form.get("approval_mode") == "topic_gaps",
+        )
         return redirect(
             url_for("web.assessment_import_review", batch_id=batch_id, approved="1"),
             code=303,
