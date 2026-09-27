@@ -521,10 +521,13 @@ def test_web_upload_review_is_prg_and_gets_do_not_create_canonical_assessment(tm
     landing = client.get("/assessments/import")
     assert landing.status_code == 200
     landing_text = landing.get_data(as_text=True)
-    assert "Create assessments with Alex" in landing_text
+    assert "What do you want to create?" in landing_text
     assert "Open Alex / ChatGPT" in landing_text
-    assert "Master Prompt" in landing_text
-    assert "Quiz" in landing_text and "Exam" in landing_text and "Test" in landing_text
+    assert "Edit master prompt" in landing_text
+    assert "Choose Quiz" in landing_text
+    assert "Choose Exam" in landing_text
+    assert "Choose Test" in landing_text
+    assert "assessment-subject-template" not in landing_text
 
     response = client.post(
         "/assessments/import",
