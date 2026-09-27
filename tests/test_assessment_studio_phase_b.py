@@ -338,7 +338,7 @@ def test_review_required_question_can_be_explicitly_confirmed_and_edited(tmp_pat
     )
     review = service.review(batch["id"])
     assert review["can_approve"] is False
-    assert any("Review required" in item for item in review["blockers"])
+    assert any("marked for Alex review" in item for item in review["blockers"])
 
     question = review["questions"][0]
     service.update_question(
