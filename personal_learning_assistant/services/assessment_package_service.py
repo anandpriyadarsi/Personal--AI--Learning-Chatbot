@@ -931,8 +931,6 @@ class AssessmentPackageService:
                     )
                     review_required = (
                         bool(item["review_required"])
-                        or selected_topic_id is None
-                        or combined_confidence < 0.75
                         or float(item["authoring_confidence"]) < 0.75
                     )
                     correct = set(item["answer"]["correct_option_ids"])
@@ -1213,18 +1211,33 @@ class AssessmentPackageService:
         result["topics"] = tuple(dict(item) for item in topics)
         integrity_blockers = self._integrity_blockers(result)
         semantic_warnings = self._semantic_warnings(result)
+        topic_mapping_warnings = self._topic_mapping_warnings(result)
+        content_review_warnings = self._content_review_warnings(result)
         result["integrity_blockers"] = tuple(integrity_blockers)
         result["semantic_warnings"] = tuple(semantic_warnings)
+        result["topic_mapping_warnings"] = tuple(topic_mapping_warnings)
+        result["content_review_warnings"] = tuple(content_review_warnings)
         result["blockers"] = tuple(integrity_blockers + semantic_warnings)
+        result["approval_blockers"] = tuple(
+            integrity_blockers + content_review_warnings
+        )
         result["blind_review"] = self._blind_review_summary(
             result,
             integrity_blockers=integrity_blockers,
             semantic_warnings=semantic_warnings,
+            content_review_warnings=content_review_warnings,
+            topic_mapping_warnings=topic_mapping_warnings,
         )
         result["can_approve"] = (
             str(result.get("status")) == "review"
             and not integrity_blockers
             and not semantic_warnings
+        )
+        result["can_approve_with_topic_gaps"] = (
+            str(result.get("status")) == "review"
+            and not integrity_blockers
+            and not content_review_warnings
+            and bool(topic_mapping_warnings)
         )
         result["calculated_marks_milli"] = sum(
             int(item.get("max_marks_milli") or 0) for item in result["questions"]
@@ -1325,9 +1338,19 @@ class AssessmentPackageService:
             )
         return blockers
 
+    @staticmethod
+    def _mapping_pending(item):
+        selected = str(item.get("selected_topic_id") or "").strip()
+        confidence = item.get("mapping_confidence")
+        return (
+            not selected
+            or confidence is None
+            or float(confidence) < 0.75
+        )
+
     @classmethod
     def _semantic_warnings(cls, batch):
-        """Issues that need Alex/semantic review, not student exposure to test content."""
+        """All non-structural warnings shown in blind preflight."""
         warnings = []
         for item in batch.get("questions") or ():
             label = cls._question_label(item)
@@ -1351,12 +1374,44 @@ class AssessmentPackageService:
         return warnings
 
     @classmethod
+    def _topic_mapping_warnings(cls, batch):
+        """Taxonomy gaps are visible but must not force an endless Alex revision loop."""
+        warnings = []
+        for item in batch.get("questions") or ():
+            label = cls._question_label(item)
+            selected = str(item.get("selected_topic_id") or "").strip()
+            confidence = item.get("mapping_confidence")
+            if not selected:
+                warnings.append("{} has no confirmed ANVAYA topic.".format(label))
+            elif confidence is None or float(confidence) < 0.75:
+                warnings.append("{} has a low-confidence topic mapping.".format(label))
+        return warnings
+
+    @classmethod
+    def _content_review_warnings(cls, batch):
+        """True content/semantic blockers, excluding catalogue-only topic gaps."""
+        warnings = []
+        for item in batch.get("questions") or ():
+            label = cls._question_label(item)
+            authoring_confidence = item.get("authoring_confidence")
+            if (
+                authoring_confidence is not None
+                and float(authoring_confidence) < 0.75
+            ):
+                warnings.append("{} has low authoring confidence.".format(label))
+            if bool(item.get("review_required")) and not cls._mapping_pending(item):
+                warnings.append("{} is marked for Alex review.".format(label))
+        return warnings
+
+    @classmethod
     def _blind_review_summary(
         cls,
         batch,
         *,
         integrity_blockers,
         semantic_warnings,
+        content_review_warnings,
+        topic_mapping_warnings,
     ):
         questions = list(batch.get("questions") or ())
         review_required = sum(bool(item.get("review_required")) for item in questions)
@@ -1378,9 +1433,12 @@ class AssessmentPackageService:
         if integrity_blockers:
             state = "repair"
             label = "Package repair required"
-        elif semantic_warnings:
+        elif content_review_warnings:
             state = "alex_review"
             label = "Needs Alex review"
+        elif topic_mapping_warnings:
+            state = "topic_mapping_pending"
+            label = "Topic mapping pending"
         else:
             state = "ready"
             label = "Ready for approval"
@@ -1390,6 +1448,8 @@ class AssessmentPackageService:
             "question_count": len(questions),
             "integrity_issue_count": len(integrity_blockers),
             "semantic_warning_count": len(semantic_warnings),
+            "blocking_semantic_warning_count": len(content_review_warnings),
+            "topic_mapping_pending_count": len(topic_mapping_warnings),
             "review_required_count": review_required,
             "unmapped_topic_count": unmapped,
             "low_mapping_count": low_mapping,
@@ -1478,7 +1538,8 @@ class AssessmentPackageService:
                 "Return a complete anvaya.assessment-package version 1 package.",
                 "Keep the same package_id and set package_revision to required_next_package_revision.",
                 "Set review_required=false only where the question and metadata are genuinely verified.",
-                "If evidence is insufficient, leave review_required=true rather than guessing.",
+                "If a verified question has no suitable canonical topic, do not invent a mapping; preserve the truthful topic label/confidence and leave topic mapping for ANVAYA.",
+                "If evidence is insufficient for the question/answer/solution itself, leave review_required=true rather than guessing.",
             ],
         }
         filename = "{}_rev{}_alex-review.anvaya-review.json".format(
@@ -1503,8 +1564,10 @@ class AssessmentPackageService:
             "Resolve the flagged semantic/topic issues using the supplied evidence. "
             "Return a complete anvaya.assessment-package v1 JSON with the SAME "
             "package_id {!r} and package_revision {}. Use the canonical topic catalogue "
-            "inside the handoff. Set review_required=false only when verified; never "
-            "guess if evidence is missing. In chat, give only a non-spoiler summary "
+            "inside the handoff. Set review_required=false when the question/answer/solution "
+            "is verified. If no suitable canonical topic exists, do not invent one; keep "
+            "the truthful topic label/confidence and let ANVAYA mark topic mapping pending. "
+            "Never guess if evidence is missing. In chat, give only a non-spoiler summary "
             "with counts of resolved/unresolved issues and provide the revised JSON "
             "file for ANVAYA import. Current non-spoiler counts: {} question(s), "
             "{} marked for Alex review, {} unmapped topic(s), {} low-confidence "
@@ -1946,22 +2009,40 @@ class AssessmentPackageService:
         ) as error:
             self._map_repository_error(error)
 
-    def approve(self, batch_id: str):
+    def approve(self, batch_id: str, *, allow_topic_gaps: bool = False):
         review = self.review(batch_id)
         if str(review.get("status")) == "approved":
             return str(review.get("assessment_id") or "")
-        blockers = list(review.get("blockers") or ())
+        blockers = list(
+            review.get("approval_blockers")
+            if allow_topic_gaps
+            else review.get("blockers")
+            or ()
+        )
         if blockers:
             raise AssessmentPackageConflictError(
                 "Import cannot be approved yet: {}".format(" | ".join(blockers[:8]))
+            )
+        if (
+            not allow_topic_gaps
+            and review.get("topic_mapping_warnings")
+        ):
+            raise AssessmentPackageConflictError(
+                "Import cannot be approved yet: topic mapping is still pending."
             )
         now = _now()
         assessment_id = str(uuid.uuid4())
         assessment_topics = []
         seen_topics = set()
         for question in review["questions"]:
-            topic_id = str(question["selected_topic_id"])
-            if topic_id in seen_topics:
+            topic_id = str(question.get("selected_topic_id") or "").strip()
+            confidence = question.get("mapping_confidence")
+            if (
+                not topic_id
+                or confidence is None
+                or float(confidence) < 0.75
+                or topic_id in seen_topics
+            ):
                 continue
             seen_topics.add(topic_id)
             assessment_topics.append(
@@ -1969,7 +2050,7 @@ class AssessmentPackageService:
                     "id": str(uuid.uuid4()),
                     "topic_id": topic_id,
                     "raw_label": str(question.get("raw_topic_label") or ""),
-                    "confidence": question.get("mapping_confidence"),
+                    "confidence": confidence,
                 }
             )
 
@@ -2022,14 +2103,22 @@ class AssessmentPackageService:
                         )
                         else None
                     ),
-                    "mapping": {
-                        "id": str(uuid.uuid4()),
-                        "topic_id": str(question["selected_topic_id"]),
-                        "score": question.get("mapping_confidence"),
-                        "reason": "Reviewed import mapping for package topic {!r}.".format(
-                            str(question.get("raw_topic_label") or "")
-                        ),
-                    },
+                    "mapping": (
+                        {
+                            "id": str(uuid.uuid4()),
+                            "topic_id": str(question.get("selected_topic_id") or ""),
+                            "score": question.get("mapping_confidence"),
+                            "reason": "Reviewed import mapping for package topic {!r}.".format(
+                                str(question.get("raw_topic_label") or "")
+                            ),
+                        }
+                        if (
+                            str(question.get("selected_topic_id") or "").strip()
+                            and question.get("mapping_confidence") is not None
+                            and float(question.get("mapping_confidence")) >= 0.75
+                        )
+                        else None
+                    ),
                 }
             )
 
