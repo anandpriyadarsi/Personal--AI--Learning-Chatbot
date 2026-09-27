@@ -254,3 +254,147 @@ def test_default_authoring_prompt_injects_canonical_topics_and_requests_silent_r
     assert "- LU Factorization (aliases: LU decomposition)" in prompt
     assert "silent semantic review of every question" in prompt
     assert "{{COURSE_TOPICS}}" not in prompt
+
+
+def test_revision_upload_accepts_exact_next_revision_and_opens_new_blind_preflight(tmp_path):
+    path = _database(tmp_path)
+    package = _package()
+    package["package_id"] = "ma103n.revision.flow"
+    package["questions"][0]["review_required"] = True
+
+    service = _service(path)
+    first = service.stage_upload(
+        "revision-1.anvaya-assessment.json",
+        _raw(package),
+        workspace_kind="quiz",
+        selected_course_id="course-ma",
+    )
+
+    revised = _package()
+    revised["package_id"] = "ma103n.revision.flow"
+    revised["package_revision"] = 2
+    revised["questions"][0]["review_required"] = False
+
+    client = _app(path).test_client()
+    response = client.post(
+        f"/assessments/import/{first['id']}/revision",
+        data={
+            "package": (
+                io.BytesIO(_raw(revised)),
+                "revision-2.anvaya-assessment.json",
+            )
+        },
+        content_type="multipart/form-data",
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert "revision_staged=1" in response.headers["Location"]
+
+    page = client.get(response.headers["Location"])
+    assert page.status_code == 200
+    html = page.get_data(as_text=True)
+    assert "Revised package validated and staged" in html
+    assert "Package rev 2" in html
+    assert "Spoiler protection active" in html
+
+
+def test_revision_upload_rejects_wrong_package_id_without_staging(tmp_path):
+    path = _database(tmp_path)
+    package = _package()
+    package["package_id"] = "ma103n.revision.original"
+    package["questions"][0]["review_required"] = True
+
+    service = _service(path)
+    first = service.stage_upload(
+        "revision-1.anvaya-assessment.json",
+        _raw(package),
+        workspace_kind="quiz",
+        selected_course_id="course-ma",
+    )
+
+    wrong = _package()
+    wrong["package_id"] = "ma103n.some-other-package"
+    wrong["package_revision"] = 2
+
+    client = _app(path).test_client()
+    response = client.post(
+        f"/assessments/import/{first['id']}/revision",
+        data={
+            "package": (
+                io.BytesIO(_raw(wrong)),
+                "wrong-package.anvaya-assessment.json",
+            )
+        },
+        content_type="multipart/form-data",
+    )
+
+    assert response.status_code == 400
+    html = response.get_data(as_text=True)
+    assert "ANVAYA is waiting for the next revision" in html
+
+    workspace = service.workspace(workspace_kind="quiz", course_id="course-ma")
+    assert len(workspace["batches"]) == 1
+
+
+def test_revision_upload_rejects_skipped_revision_without_staging(tmp_path):
+    path = _database(tmp_path)
+    package = _package()
+    package["package_id"] = "ma103n.revision.sequence"
+    package["questions"][0]["review_required"] = True
+
+    service = _service(path)
+    first = service.stage_upload(
+        "revision-1.anvaya-assessment.json",
+        _raw(package),
+        workspace_kind="quiz",
+        selected_course_id="course-ma",
+    )
+
+    skipped = _package()
+    skipped["package_id"] = "ma103n.revision.sequence"
+    skipped["package_revision"] = 3
+
+    client = _app(path).test_client()
+    response = client.post(
+        f"/assessments/import/{first['id']}/revision",
+        data={
+            "package": (
+                io.BytesIO(_raw(skipped)),
+                "revision-3.anvaya-assessment.json",
+            )
+        },
+        content_type="multipart/form-data",
+    )
+
+    assert response.status_code == 400
+    html = response.get_data(as_text=True)
+    assert "Expected package revision 2" in html
+
+    workspace = service.workspace(workspace_kind="quiz", course_id="course-ma")
+    assert len(workspace["batches"]) == 1
+
+
+def test_blind_review_page_shows_inline_revision_upload_when_alex_review_needed(tmp_path):
+    path = _database(tmp_path)
+    package = _package()
+    package["package_id"] = "ma103n.revision.ui"
+    package["questions"][0]["review_required"] = True
+
+    service = _service(path)
+    staged = service.stage_upload(
+        "revision-ui-1.anvaya-assessment.json",
+        _raw(package),
+        workspace_kind="quiz",
+        selected_course_id="course-ma",
+    )
+
+    client = _app(path).test_client()
+    page = client.get(f"/assessments/import/{staged['id']}/review")
+    assert page.status_code == 200
+    html = page.get_data(as_text=True)
+
+    assert "Upload package revision 2" in html
+    assert "Upload revision 2 &amp; run blind preflight" in html
+    assert f'/assessments/import/{staged["id"]}/revision' in html
+    assert 'type="file"' in html
