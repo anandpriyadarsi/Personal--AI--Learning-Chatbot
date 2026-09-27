@@ -709,6 +709,29 @@ class SQLiteAssessmentImportRepository:
                 self._raise_batch_write_problem(batch_id)
         return self.get_batch(batch_id)
 
+    def delete_rejected_batch(self, batch_id: str):
+        """Permanently remove a rejected, non-canonical import and its staged children."""
+        batch_id = str(batch_id)
+        with transaction(self.connection, immediate=True):
+            row = self.connection.execute(
+                "SELECT status, assessment_id FROM assessment_import_batches WHERE id=?",
+                (batch_id,),
+            ).fetchone()
+            if row is None:
+                raise AssessmentImportRepositoryNotFoundError("Import batch not found.")
+            if str(row["status"]) != "rejected":
+                raise AssessmentImportRepositoryConflictError(
+                    "Only rejected import packages can be deleted."
+                )
+            if row["assessment_id"] is not None:
+                raise AssessmentImportRepositoryConflictError(
+                    "A rejected package linked to a canonical assessment cannot be deleted."
+                )
+            self.connection.execute(
+                "DELETE FROM assessment_import_batches WHERE id=?",
+                (batch_id,),
+            )
+
     def approve_batch(self, batch_id: str, canonical: Mapping[str, Any], *, now: str):
         with transaction(self.connection, immediate=True):
             batch = self.connection.execute(

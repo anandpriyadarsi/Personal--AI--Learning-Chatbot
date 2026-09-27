@@ -230,6 +230,58 @@ def _assessment_package_service():
     return factory() if factory is not None else build_assessment_package_service()
 
 
+_ASSESSMENT_SUBJECT_STYLE_FALLBACKS = (
+    "iris-indigo",
+    "iris-emerald",
+    "iris-cyan",
+    "iris-amber",
+    "iris-coral",
+    "iris-violet",
+)
+
+
+def _assessment_workspace_subject_visuals(workspace):
+    """Reuse Notes Studio subject-card visuals without coupling assessment storage to notes."""
+    result = dict(workspace or {})
+    courses = [dict(item) for item in result.get("courses") or ()]
+
+    notes_cards = ()
+    try:
+        notes_cards = tuple(build_anvaya_notes_service().library().get("cards") or ())
+    except Exception:
+        notes_cards = ()
+
+    for index, course in enumerate(courses):
+        code = str(course.get("code") or "").strip().casefold()
+        name = str(course.get("name") or "").strip().casefold()
+        matched_style = ""
+        for card in notes_cards:
+            note_course = str(card.get("course") or "").strip().casefold()
+            if not note_course:
+                continue
+            if (
+                (code and (note_course == code or code in note_course))
+                or (name and (note_course == name or name in note_course))
+            ):
+                matched_style = str(card.get("card_style") or "").strip()
+                if matched_style:
+                    break
+        if not matched_style:
+            matched_style = _ASSESSMENT_SUBJECT_STYLE_FALLBACKS[
+                index % len(_ASSESSMENT_SUBJECT_STYLE_FALLBACKS)
+            ]
+        course["visual_style"] = matched_style
+        course["visual_family"] = matched_style.split("-", 1)[0]
+
+    result["courses"] = tuple(courses)
+    selected_id = str(result.get("selected_course_id") or "")
+    result["selected_course"] = next(
+        (item for item in courses if str(item.get("id")) == selected_id),
+        None,
+    )
+    return result
+
+
 def _assessment_runner_service():
     factory = current_app.config.get("ASSESSMENT_RUNNER_SERVICE_FACTORY")
     return factory() if factory is not None else build_assessment_runner_service()
@@ -1079,15 +1131,19 @@ def assessment_import():
     kind = request.args.get("kind", "")
     course_id = request.args.get("course_id", "")
     try:
-        workspace = _assessment_package_service().workspace(
-            workspace_kind=kind,
-            course_id=course_id,
+        workspace = _assessment_workspace_subject_visuals(
+            _assessment_package_service().workspace(
+                workspace_kind=kind,
+                course_id=course_id,
+            )
         )
         notice = ""
         if request.args.get("prompt_saved") == "1":
             notice = "Master Alex prompt saved."
         elif request.args.get("prompt_reset") == "1":
             notice = "Master Alex prompt reset to the repository default."
+        elif request.args.get("deleted") == "1":
+            notice = "Rejected package deleted from Assessment Studio history."
         return render_template(
             "assessment_import.html",
             active_page="assessments",
@@ -1144,9 +1200,11 @@ def assessment_import_create():
         )
     except Exception as error:
         try:
-            workspace = service.workspace(
-                workspace_kind=request.form.get("workspace_kind", ""),
-                course_id=request.form.get("course_id", ""),
+            workspace = _assessment_workspace_subject_visuals(
+                service.workspace(
+                    workspace_kind=request.form.get("workspace_kind", ""),
+                    course_id=request.form.get("course_id", ""),
+                )
             )
         except Exception:
             workspace = {
@@ -1193,9 +1251,11 @@ def assessment_import_prompt_save():
         )
     except Exception as error:
         try:
-            workspace = service.workspace(
-                workspace_kind=kind,
-                course_id=course_id,
+            workspace = _assessment_workspace_subject_visuals(
+                service.workspace(
+                    workspace_kind=kind,
+                    course_id=course_id,
+                )
             )
         except Exception:
             return str(error), _assessment_package_error_status(error)
@@ -1223,6 +1283,27 @@ def assessment_import_prompt_reset():
                 kind=kind,
                 course_id=course_id,
                 prompt_reset="1",
+            ),
+            code=303,
+        )
+    except Exception as error:
+        return str(error), _assessment_package_error_status(error)
+
+
+@web_blueprint.post("/assessments/import/<batch_id>/delete")
+def assessment_import_delete(batch_id):
+    service = _assessment_package_service()
+    try:
+        batch = service.review(batch_id)
+        kind = str(batch.get("workspace_kind") or "")
+        course_id = str(batch.get("course_id") or "")
+        service.delete_rejected(batch_id)
+        return redirect(
+            url_for(
+                "web.assessment_import",
+                kind=kind,
+                course_id=course_id,
+                deleted="1",
             ),
             code=303,
         )

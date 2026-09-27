@@ -177,28 +177,45 @@ def test_stage_upload_persists_user_kind_and_rejects_wrong_selected_subject(tmp_
         )
 
 
-def test_authoring_page_is_alex_first_compact_and_notes_style_card_driven(tmp_path):
+def test_authoring_page_is_compact_focused_and_uses_movable_alex_tools(tmp_path):
     client = _app(_database(tmp_path)).test_client()
-    response = client.get("/assessments/import?kind=quiz&course_id=course-ma")
-    assert response.status_code == 200
-    html = response.get_data(as_text=True)
 
-    assert "Create assessments with Alex" in html
-    assert 'href="https://chatgpt.com/"' in html
-    assert "Open Alex / ChatGPT" in html
-    assert "Master Prompt" in html
-    assert "Copy prompt" in html
-    assert "Edit prompt" in html
-    assert "Quiz" in html and "Exam" in html and "Test" in html
-    assert "MA103N" in html
+    home = client.get("/assessments/import")
+    assert home.status_code == 200
+    home_html = home.get_data(as_text=True)
+    assert "What do you want to create?" in home_html
+    assert "Choose Quiz" in home_html
+    assert "Choose Exam" in home_html
+    assert "Choose Test" in home_html
+    assert "assessment-subject-template" not in home_html
+    assert "assessment-alex-tools-launcher" in home_html
+    assert "notes-study-tools-launcher" in home_html
+
+    subject_picker = client.get("/assessments/import?kind=quiz")
+    assert subject_picker.status_code == 200
+    picker_html = subject_picker.get_data(as_text=True)
+    assert "assessment-subject-picker" in picker_html
+    assert "data-auto-open-subject-picker" in picker_html
+    assert "MA103N" in picker_html
+    assert "Engineering Chemistry" in picker_html
+
+    focused = client.get("/assessments/import?kind=quiz&course_id=course-ma")
+    assert focused.status_code == 200
+    html = focused.get_data(as_text=True)
+    assert "Quiz · MA103N" in html
     assert "Linear Algebra" in html
-    assert "Engineering Chemistry" in html
-    assert "Validate &amp; open review" in html
+    assert "Add the ANVAYA package" in html
+    assert "Validate &amp; open blind preflight" in html
+    assert "Create with Alex" in html
+    assert "Copy personalized prompt" in html
+    assert "Open Alex / ChatGPT" in html
+    assert "Preview prompt" in html
+    assert "Edit master prompt" in html
+    assert "Engineering Chemistry" not in html
     assert 'name="workspace_kind"' in html
     assert 'name="course_id"' in html
     assert "assessment-prompt-dialog" in html
-    assert "assessment-kind-card" in html
-    assert "assessment-course-card" in html
+    assert "assessment-kind-card" not in html
 
 
 def test_web_upload_saves_kind_subject_and_history_automatically(tmp_path):
@@ -227,7 +244,8 @@ def test_web_upload_saves_kind_subject_and_history_automatically(tmp_path):
     assert "Quiz · MA103N history" in html
     assert "Linear Algebra Practice Quiz" in html
     assert "MA103N_quiz.anvaya-assessment.json" in html
-    assert "Review" in html
+    assert "assessment-history-card-link" in html
+    assert "Open package review" in html
 
 
 def test_prompt_save_route_is_prg_and_get_page_remains_read_only(tmp_path):
