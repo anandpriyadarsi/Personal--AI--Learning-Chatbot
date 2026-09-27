@@ -107,7 +107,7 @@ def test_workspace_exposes_three_kinds_live_courses_and_personalized_master_prom
     assert [item["code"] for item in workspace["courses"]] == ["CY100N", "MA103N"]
     assert workspace["selected_course"]["code"] == "MA103N"
     assert workspace["selected_kind"] == "quiz"
-    assert "Workspace kind: Quiz" in workspace["resolved_prompt"]
+    assert "**Workspace kind:** Quiz" in workspace["resolved_prompt"]
     assert "ANVAYA course code: MA103N" in workspace["resolved_prompt"]
     assert "{{COURSE_CODE}}" in workspace["master_prompt"]
     assert "{{COURSE_CODE}}" not in workspace["resolved_prompt"]
