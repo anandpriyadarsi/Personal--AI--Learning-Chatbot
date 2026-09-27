@@ -152,6 +152,35 @@
     <button class="button button-secondary" type="button" data-copy-review-prompt>Copy Alex review prompt</button>
     <a class="button button-secondary" href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">Open Alex / ChatGPT ↗</a>
     <span class="assessment-copy-status" data-review-copy-status aria-live="polite"></span>
+
+    <div class="assessment-revision-upload">
+      <div>
+        <p class="eyebrow">Revision ready?</p>
+        <h4>Upload package revision {{ batch.package_revision + 1 }}</h4>
+        <p>
+          ANVAYA will accept only the next revision of
+          <code>{{ batch.package_id }}</code> for {{ batch.course_code }}.
+        </p>
+      </div>
+      <form
+        method="post"
+        enctype="multipart/form-data"
+        action="{{ url_for('web.assessment_import_revision', batch_id=batch.id) }}"
+      >
+        <label class="form-field form-field-full assessment-file-field">
+          <span>Revised ANVAYA Assessment Package</span>
+          <input
+            type="file"
+            name="package"
+            accept=".json,.anvaya-assessment.json,application/json"
+            required
+          >
+        </label>
+        <button class="button" type="submit">
+          Upload revision {{ batch.package_revision + 1 }} &amp; run blind preflight
+        </button>
+      </form>
+    </div>
   </div>
 </section>
 {% endif %}
@@ -200,6 +229,35 @@
     </div>
   </details>
 </section>
+
+{% if batch.status == 'review' and batch.blind_review.integrity_issue_count > 0 and batch.blind_review.semantic_warning_count == 0 %}
+<section class="assessment-alex-review-panel" aria-labelledby="repair-revision-title">
+  <div class="assessment-alex-review-copy">
+    <p class="eyebrow">Package repair</p>
+    <h3 id="repair-revision-title">Upload the corrected next revision</h3>
+    <p>
+      ANVAYA found a deterministic package-integrity problem. Regenerate or repair the
+      package with Alex, then upload revision {{ batch.package_revision + 1 }} here.
+      You still do not need to open the assessment questions.
+    </p>
+  </div>
+  <div class="assessment-alex-review-actions">
+    <form
+      method="post"
+      enctype="multipart/form-data"
+      action="{{ url_for('web.assessment_import_revision', batch_id=batch.id) }}"
+    >
+      <label class="form-field form-field-full assessment-file-field">
+        <span>Revised ANVAYA Assessment Package</span>
+        <input type="file" name="package" accept=".json,.anvaya-assessment.json,application/json" required>
+      </label>
+      <button class="button" type="submit">
+        Upload revision {{ batch.package_revision + 1 }} &amp; run blind preflight
+      </button>
+    </form>
+  </div>
+</section>
+{% endif %}
 
 {% if batch.status == 'review' %}
 <section class="assessment-approval-panel">
