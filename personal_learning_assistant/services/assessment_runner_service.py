@@ -209,6 +209,11 @@ class AssessmentRunnerService:
             active_id and active_expiry and _parse_iso(active_expiry) > now
         )
         result["active_session_id"] = active_id if result["can_resume"] else ""
+        result["marking_groups"] = tuple({
+            **group,
+            "marks": _marks_text(group["max_marks_milli"]),
+            "negative_marks": _marks_text(group["negative_marks_milli"]),
+        } for group in result.get("marking_groups", ()))
         return result
 
     def start(self, assessment_id: str, *, confirmed: bool):
@@ -515,6 +520,7 @@ class AssessmentRunnerService:
                     focus_seconds_delta=_clamp_focus(focus_seconds_delta),
                     now=_iso(now),
                 )
+                public_session = repository.get_public_session(str(session_id))
             if header is None:
                 raise AssessmentRunnerNotFoundError("Test session not found.")
         except (
@@ -527,6 +533,9 @@ class AssessmentRunnerService:
             "status": str(header["status"]),
             "remaining_seconds": self._remaining_seconds(header, now),
             "server_now": _iso(now),
+            "palette_counts": self._palette_counts(tuple(
+                self._decorate_question(question) for question in public_session["questions"]
+            )),
         }
 
     def submit(self, session_id: str):

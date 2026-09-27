@@ -1,259 +1,201 @@
 (() => {
+  "use strict";
   const root = document.getElementById("assessment-runner");
   if (!root) return;
-
   const form = document.getElementById("assessment-response-form");
   const submitForm = document.getElementById("assessment-submit-form");
   const timer = document.getElementById("assessment-timer");
   const saveStatus = document.getElementById("assessment-save-status");
-  const focusInput = document.getElementById("assessment-focus-seconds");
-
-  const sessionId = root.dataset.sessionId;
-  const questionId = root.dataset.questionId;
-  const questionType = root.dataset.questionType;
-  const heartbeatUrl = root.dataset.heartbeatUrl;
-  const autosaveUrl = root.dataset.autosaveUrl;
-  const submitUrl = root.dataset.submitUrl;
-  const summaryUrl = root.dataset.summaryUrl;
-
-  let remainingSeconds = Math.max(0, Number(root.dataset.remainingSeconds || "0"));
+  const palette = document.getElementById("assessment-palette");
+  if (palette && window.matchMedia && window.matchMedia("(max-width: 760px)").matches) palette.open = false;
+  const retry = document.getElementById("assessment-save-retry");
+  const {questionId, questionType, heartbeatUrl, autosaveUrl, submitUrl, summaryUrl} = root.dataset;
+  let remainingSeconds = Number(root.dataset.remainingSeconds || 0);
   let syncStartedAt = performance.now();
   let focusStartedAt = performance.now();
-  let unsentFocusSeconds = 0;
+  let wasVisible = document.visibilityState === "visible";
+  let focusMilliseconds = 0;
+  let editVersion = 0;
+  let savedVersion = 0;
+  let saveFlight = null;
   let autosaveTimer = null;
-  let timeoutHandled = false;
-  let autosaveInFlight = null;
+  let actionBusy = false;
+  let timeoutChecking = false;
+  let allowLeave = false;
+  let terminal = false;
 
-  const visibleElapsedSeconds = () => {
-    if (document.visibilityState !== "visible") return 0;
+  const sampleFocus = () => {
     const now = performance.now();
-    const elapsed = Math.max(0, Math.floor((now - focusStartedAt) / 1000));
+    if (wasVisible) focusMilliseconds += Math.max(0, now - focusStartedAt);
     focusStartedAt = now;
-    return elapsed;
+    wasVisible = document.visibilityState === "visible";
   };
-
   const collectFocus = () => {
-    unsentFocusSeconds += visibleElapsedSeconds();
-    const send = Math.max(0, Math.min(60, unsentFocusSeconds));
-    unsentFocusSeconds -= send;
-    if (focusInput) focusInput.value = String(send);
-    return send;
+    sampleFocus();
+    const seconds = Math.min(60, Math.floor(focusMilliseconds / 1000));
+    focusMilliseconds -= seconds * 1000;
+    return seconds;
   };
+  document.addEventListener("visibilitychange", sampleFocus);
 
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "hidden") {
-      unsentFocusSeconds += visibleElapsedSeconds();
-    } else {
-      focusStartedAt = performance.now();
+  const navigate = (url) => { allowLeave = true; window.location.assign(url); };
+  const checkTerminal = (result) => {
+    if (result.status && result.status !== "active") {
+      terminal = true;
+      navigate(summaryUrl);
     }
-  });
-
-  const formatTime = (seconds) => {
-    const safe = Math.max(0, Math.floor(seconds));
-    const hours = Math.floor(safe / 3600);
-    const minutes = Math.floor((safe % 3600) / 60);
-    const secs = safe % 60;
-    return [hours, minutes, secs].map((part) => String(part).padStart(2, "0")).join(":");
+    return terminal;
   };
-
-  const currentRemaining = () => {
-    const elapsed = Math.floor((performance.now() - syncStartedAt) / 1000);
-    return Math.max(0, remainingSeconds - elapsed);
+  const setSaveState = (message, pending = false, failed = false) => {
+    if (saveStatus) {
+      saveStatus.textContent = message;
+      saveStatus.classList.toggle("is-pending", pending);
+    }
+    if (retry) retry.hidden = !failed;
   };
-
-  const renderTimer = () => {
-    if (!timer) return;
-    const remaining = currentRemaining();
-    timer.textContent = formatTime(remaining);
-    root.classList.toggle("is-time-low", remaining <= 300);
-    if (remaining <= 0) handleTimeout();
+  const cancelDebounce = () => {
+    window.clearTimeout(autosaveTimer);
+    autosaveTimer = null;
   };
-
   const responsePayload = () => {
     if (!form) return {};
-    if (questionType === "mcq" || questionType === "msq") {
-      const selected = Array.from(form.querySelectorAll('input[name="option_ids"]:checked'))
-        .map((input) => input.value);
-      return { selected_option_ids: selected };
+    if (["mcq", "msq"].includes(questionType)) {
+      return {selected_option_ids: Array.from(form.querySelectorAll('input[name="option_ids"]:checked')).map(input => input.value)};
     }
-    if (questionType === "numerical" || questionType === "fill_blank" || questionType === "true_false") {
+    if (questionType === "true_false") {
       const checked = form.querySelector('input[name="answer_value"]:checked');
-      const input = checked || form.querySelector('[name="answer_value"]');
-      return { value: input ? input.value : "" };
+      return {value: checked ? checked.value : ""};
     }
-    if (questionType === "short_subjective" || questionType === "long_subjective") {
-      const input = form.querySelector('[name="answer_text"]');
-      return { text: input ? input.value : "" };
+    if (["numerical", "fill_blank"].includes(questionType)) {
+      const input = form.querySelector('[name="answer_value"]');
+      return {value: input ? input.value : ""};
     }
-    return {};
+    const input = form.querySelector('[name="answer_text"]');
+    return {text: input ? input.value : ""};
   };
-
   const postJson = async (url, payload, keepalive = false) => {
     const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Accept": "application/json"
-      },
-      body: JSON.stringify(payload),
-      credentials: "same-origin",
-      keepalive
+      method: "POST", headers: {"Content-Type": "application/json", "Accept": "application/json"},
+      body: JSON.stringify(payload), credentials: "same-origin", keepalive
     });
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(text || "Request failed");
-    }
+    if (!response.ok) throw new Error("Request failed");
     return response.json();
   };
 
-  const setSaveState = (text, pending = false) => {
-    if (!saveStatus) return;
-    saveStatus.textContent = text;
-    saveStatus.classList.toggle("is-pending", pending);
+  // One writer per page. Changes made during an in-flight save are saved next,
+  // before navigation or submission is allowed to continue.
+  const flush = () => {
+    cancelDebounce();
+    if (saveFlight) return saveFlight;
+    if (terminal) return Promise.resolve(false);
+    saveFlight = (async () => {
+      do {
+        const version = editVersion;
+        setSaveState("Saving…", true);
+        const result = await postJson(autosaveUrl, {response: responsePayload(), focus_seconds_delta: collectFocus()});
+        if (checkTerminal(result)) return false;
+        savedVersion = version;
+      } while (savedVersion < editVersion);
+      setSaveState("Saved to ANVAYA");
+      return true;
+    })().catch(error => {
+      setSaveState("Changes not saved. Keep this page open and retry.", false, true);
+      throw error;
+    }).finally(() => { saveFlight = null; });
+    return saveFlight;
   };
+  const queueAutosave = () => {
+    editVersion += 1;
+    setSaveState("Unsaved changes", true);
+    cancelDebounce();
+    autosaveTimer = window.setTimeout(() => { flush().catch(() => {}); }, 900);
+  };
+  if (form) form.querySelectorAll("input, textarea").forEach(input => {
+    if (input.type !== "hidden") input.addEventListener(input.tagName === "TEXTAREA" || input.type === "text" ? "input" : "change", queueAutosave);
+  });
+  if (retry) retry.addEventListener("click", () => flush().catch(() => {}));
 
-  const autosave = async ({ silent = false, keepalive = false } = {}) => {
-    if (!autosaveUrl || timeoutHandled) return null;
-    if (!silent) setSaveState("Saving…", true);
-    const payload = {
-      response: responsePayload(),
-      focus_seconds_delta: collectFocus()
-    };
-    try {
-      const result = await postJson(autosaveUrl, payload, keepalive);
-      if (result.status && result.status !== "active") {
-        window.location.assign(summaryUrl);
-        return result;
-      }
-      if (!silent) setSaveState("Saved to ANVAYA");
-      return result;
-    } catch (_error) {
-      if (!silent) setSaveState("Autosave pending — use Save & Next");
-      return null;
+  const countsFrom = (counts) => ({
+    answered: counts.answered + counts.answered_marked_for_review,
+    unanswered: counts.not_answered + counts.not_visited + counts.marked_for_review,
+    marked: counts.marked_for_review + counts.answered_marked_for_review,
+    not_visited: counts.not_visited
+  });
+  const heartbeat = async ({keepalive = false} = {}) => {
+    const result = await postJson(heartbeatUrl, {session_question_id: questionId, focus_seconds_delta: collectFocus()}, keepalive);
+    if (checkTerminal(result)) return result;
+    remainingSeconds = Math.max(0, Number(result.remaining_seconds || 0));
+    syncStartedAt = performance.now();
+    if (result.palette_counts) {
+      const counts = countsFrom(result.palette_counts);
+      document.querySelectorAll("[data-runner-count]").forEach(node => { node.textContent = counts[node.dataset.runnerCount]; });
+    }
+    return result;
+  };
+  const withAction = async (work) => {
+    if (actionBusy || terminal) return;
+    actionBusy = true;
+    const fieldset = form && form.querySelector("fieldset");
+    if (fieldset) fieldset.disabled = true;
+    try { if (await flush()) await work(); }
+    catch (_error) {
+      // flush reports its own failure. Other requests must also leave the input in place.
+      if (!retry || retry.hidden) setSaveState("Action failed. Your saved answer is retained; try the action again.");
+    } finally {
+      actionBusy = false;
+      if (fieldset) fieldset.disabled = false;
     }
   };
-
-  const queueAutosave = () => {
-    if (autosaveTimer) window.clearTimeout(autosaveTimer);
-    autosaveTimer = window.setTimeout(() => {
-      autosaveInFlight = autosave().finally(() => {
-        autosaveInFlight = null;
+  document.querySelectorAll("[data-runner-nav]").forEach(link => {
+    link.addEventListener("click", async event => { event.preventDefault(); await withAction(async () => navigate(link.href)); });
+  });
+  if (form) form.addEventListener("submit", async event => {
+    event.preventDefault();
+    const action = event.submitter ? event.submitter.value : "save_next";
+    await withAction(async () => {
+      const current = form.querySelector('[name="current_ordinal"]');
+      const next = form.querySelector('[name="next_ordinal"]');
+      const result = await postJson(form.action, {
+        action, response: responsePayload(), current_ordinal: current ? current.value : 1,
+        next_ordinal: next ? next.value : 1, focus_seconds_delta: collectFocus()
       });
-    }, 900);
-  };
-
-  if (form) {
-    form.querySelectorAll("input, textarea").forEach((input) => {
-      if (input.type === "hidden") return;
-      input.addEventListener(input.tagName === "TEXTAREA" || input.type === "text" ? "input" : "change", queueAutosave);
+      if (!checkTerminal(result)) navigate(result.redirect_url);
     });
-
-    form.addEventListener("submit", () => {
-      if (autosaveTimer) window.clearTimeout(autosaveTimer);
-      if (focusInput) focusInput.value = String(collectFocus());
-      setSaveState("Saving response…", true);
-    });
-  }
-
-  document.querySelectorAll("[data-runner-nav]").forEach((link) => {
-    link.addEventListener("click", async (event) => {
-      event.preventDefault();
-      const target = link.href;
-      if (autosaveTimer) window.clearTimeout(autosaveTimer);
-      if (autosaveInFlight) await autosaveInFlight;
-      await autosave({ silent: true });
-      window.location.assign(target);
+  });
+  if (submitForm) submitForm.addEventListener("submit", async event => {
+    event.preventDefault();
+    await withAction(async () => {
+      const status = await heartbeat();
+      if (terminal) return;
+      const counts = countsFrom(status.palette_counts);
+      if (!window.confirm(`${counts.answered} answered · ${counts.unanswered} unanswered · ${counts.marked} marked for review.\n\nSubmit test? This ends the timed attempt. Cancel to keep working.`)) return;
+      const result = await postJson(submitUrl, {reason: "user"});
+      if (result.status === "active") throw new Error("Submission not completed");
+      terminal = true;
+      navigate(summaryUrl);
     });
   });
 
-  const heartbeat = async ({ keepalive = false } = {}) => {
-    if (!heartbeatUrl || timeoutHandled) return;
-    try {
-      const result = await postJson(
-        heartbeatUrl,
-        {
-          session_question_id: questionId,
-          focus_seconds_delta: collectFocus()
-        },
-        keepalive
-      );
-      if (result.status !== "active") {
-        window.location.assign(summaryUrl);
-        return;
-      }
-      remainingSeconds = Math.max(1, Number(result.remaining_seconds || 0));
-      syncStartedAt = performance.now();
-      renderTimer();
-    } catch (_error) {
-      // Keep the local monotonic countdown running; the next server write re-enforces expiry.
+  const renderTimer = () => {
+    const remaining = Math.max(0, remainingSeconds - Math.floor((performance.now() - syncStartedAt) / 1000));
+    if (timer) timer.textContent = [Math.floor(remaining / 3600), Math.floor((remaining % 3600) / 60), remaining % 60].map(part => String(part).padStart(2, "0")).join(":");
+    root.classList.toggle("is-time-low", remaining <= 300);
+    if (remaining === 0 && !timeoutChecking && !terminal) {
+      timeoutChecking = true;
+      heartbeat().catch(() => {
+        setSaveState("Time check unavailable. Keep this page open; ANVAYA will retry.");
+      }).finally(() => { timeoutChecking = false; });
     }
   };
-
-  const handleTimeout = async () => {
-    if (timeoutHandled) return;
-    timeoutHandled = true;
-    setSaveState("Checking server time…", true);
-    try {
-      const result = await postJson(
-        heartbeatUrl,
-        {
-          session_question_id: questionId,
-          focus_seconds_delta: collectFocus()
-        }
-      );
-      if (result.status === "active") {
-        remainingSeconds = Math.max(1, Number(result.remaining_seconds || 0));
-        syncStartedAt = performance.now();
-        timeoutHandled = false;
-        setSaveState("Saved to ANVAYA");
-        renderTimer();
-        return;
-      }
-    } catch (_error) {
-      timeoutHandled = false;
-      setSaveState("Server check pending — timer will retry");
+  window.addEventListener("beforeunload", event => {
+    if (!allowLeave && (editVersion > savedVersion || saveFlight || actionBusy)) {
+      event.preventDefault();
+      event.returnValue = "";
       return;
     }
-    window.location.assign(summaryUrl);
-  };
-
-  if (submitForm) {
-    submitForm.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      if (!window.confirm("Submit the test now? You cannot continue this timed session after submission.")) {
-        return;
-      }
-      setSaveState("Saving and submitting…", true);
-      if (autosaveTimer) window.clearTimeout(autosaveTimer);
-      if (autosaveInFlight) await autosaveInFlight;
-      await autosave({ silent: true });
-      await heartbeat();
-      try {
-        await postJson(submitUrl, { reason: "user" });
-      } catch (_error) {
-        setSaveState("Submission failed — try again");
-        return;
-      }
-      window.location.assign(summaryUrl);
-    });
-  }
-
-  window.addEventListener("beforeunload", () => {
-    if (timeoutHandled) return;
-    const focusDelta = collectFocus();
-    if (heartbeatUrl && focusDelta > 0) {
-      postJson(
-        heartbeatUrl,
-        {
-          session_question_id: questionId,
-          focus_seconds_delta: focusDelta
-        },
-        true
-      ).catch(() => {});
-    }
+    if (!terminal) heartbeat({keepalive: true}).catch(() => {});
   });
-
   renderTimer();
   window.setInterval(renderTimer, 1000);
-  window.setInterval(() => heartbeat(), 30000);
+  window.setInterval(() => { if (!terminal) return heartbeat().catch(() => {}); }, 30000);
 })();

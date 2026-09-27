@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Test Instructions · {{ test.title }} · ANVAYA{% endblock %}
 {% block content %}
-<section class="hero dashboard-hero">
+<section class="assessment-page-heading">
   <div><p class="eyebrow">Assessment Studio · Test Instructions</p><h2>{{ test.title }}</h2><p class="lede">{{ test.course_code }} · {{ test.assessment_type|replace('_',' ')|title }} · {{ test.mode|title }}</p></div>
   <a class="button button-secondary" href="{{ url_for('web.assessment_tests') }}">Back to tests</a>
 </section>
@@ -26,6 +26,18 @@
     <li>When time expires, the server closes the session as a timeout submission.</li>
     <li>Solutions, rubrics and answer keys are not shown during the attempt.</li>
   </ul>
+</section>
+
+<section class="assessment-disclosure" aria-labelledby="marking-scheme-title">
+  <h3 id="marking-scheme-title">Marking scheme</h3>
+  <div class="assessment-table-scroll"><table>
+    <thead><tr><th>Section / type</th><th>Questions</th><th>Marks each</th><th>Wrong answer penalty</th><th>Scoring</th></tr></thead>
+    <tbody>{% for group in test.marking_groups %}<tr>
+      <td>{{ group.section_label or '—' }} · {{ group.question_type|replace('_',' ')|title }}</td>
+      <td>{{ group.question_count }}</td><td>{{ group.marks }}</td><td>{{ group.negative_marks }}</td><td>{{ group.scoring_policy|replace('_',' ')|title }}</td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+  <p>Unanswered questions receive zero marks. Partial and custom scoring follow the package rules; subjective/custom responses may need grading after submission.</p>
 </section>
 
 {% if test.can_resume %}

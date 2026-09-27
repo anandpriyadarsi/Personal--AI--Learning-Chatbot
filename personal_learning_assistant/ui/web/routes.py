@@ -1803,26 +1803,36 @@ def assessment_session_heartbeat(session_id):
 @web_blueprint.post("/assessments/sessions/<session_id>/questions/<session_question_id>/action")
 def assessment_session_question_action(session_id, session_question_id):
     service = _assessment_runner_service()
-    action = str(request.form.get("action") or "").strip()
-    response = {
+    payload = request.get_json(silent=True) if request.is_json else request.form
+    if not isinstance(payload, (dict, type(request.form))):
+        return jsonify(ok=False, error="invalid_request"), 400
+    action = str(payload.get("action") or "").strip()
+    response = payload.get("response", {}) if request.is_json else {
         "selected_option_ids": request.form.getlist("option_ids"),
         "value": request.form.get("answer_value", ""),
         "text": request.form.get("answer_text", ""),
     }
-    current_ordinal = request.form.get("current_ordinal", type=int) or 1
-    next_ordinal = request.form.get("next_ordinal", type=int) or current_ordinal
-    focus = request.form.get("focus_seconds_delta", 0)
+    if not isinstance(response, dict):
+        return jsonify(ok=False, error="invalid_response"), 400
+    def ordinal(name, default):
+        try:
+            return max(1, int(payload.get(name) or default))
+        except (TypeError, ValueError):
+            return default
+    current_ordinal = ordinal("current_ordinal", 1)
+    next_ordinal = ordinal("next_ordinal", current_ordinal)
+    focus = payload.get("focus_seconds_delta", 0)
 
     try:
         if action == "clear":
-            service.clear_response(
+            result = service.clear_response(
                 session_id,
                 session_question_id,
                 focus_seconds_delta=focus,
             )
             target = current_ordinal
         elif action == "mark_next":
-            service.save_response(
+            result = service.save_response(
                 session_id,
                 session_question_id,
                 response,
@@ -1832,7 +1842,7 @@ def assessment_session_question_action(session_id, session_question_id):
             )
             target = next_ordinal
         elif action == "save_next":
-            service.save_response(
+            result = service.save_response(
                 session_id,
                 session_question_id,
                 response,
@@ -1843,11 +1853,17 @@ def assessment_session_question_action(session_id, session_question_id):
             target = next_ordinal
         else:
             raise AssessmentRunnerValidationError("Unknown test action.")
-        return redirect(
-            url_for("web.assessment_session", session_id=session_id, q=target),
-            code=303,
+        destination = (
+            url_for("web.assessment_session_summary", session_id=session_id)
+            if result.get("status") != "active"
+            else url_for("web.assessment_session", session_id=session_id, q=target)
         )
+        if request.is_json:
+            return jsonify(ok=True, redirect_url=destination, **result)
+        return redirect(destination, code=303)
     except Exception as error:
+        if request.is_json:
+            return jsonify(ok=False, error=str(error)), _assessment_runner_error_status(error)
         return str(error), _assessment_runner_error_status(error)
 
 

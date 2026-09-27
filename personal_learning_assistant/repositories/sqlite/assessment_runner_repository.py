@@ -120,7 +120,18 @@ class SQLiteAssessmentRunnerRepository:
             "WHERE a.id=? AND a.deleted_at IS NULL AND c.deleted_at IS NULL",
             (str(assessment_id),),
         ).fetchone()
-        return self._dict(row)
+        item = self._dict(row)
+        if item is not None:
+            # Deliberately select marking metadata only: no text, key or solution.
+            item["marking_groups"] = tuple(dict(group) for group in self.connection.execute(
+                "SELECT s.section_label, s.question_type, s.scoring_policy, "
+                "q.max_marks_milli, s.negative_marks_milli, COUNT(*) AS question_count "
+                "FROM questions q JOIN assessment_question_specs s ON s.question_id=q.id "
+                "WHERE q.assessment_id=? AND q.deleted_at IS NULL "
+                "GROUP BY s.section_label,s.question_type,s.scoring_policy,q.max_marks_milli,s.negative_marks_milli "
+                "ORDER BY MIN(q.ordinal),s.question_type", (str(assessment_id),)
+            ).fetchall())
+        return item
 
     def list_sessions(self, *, assessment_id: str | None = None, limit: int = 100):
         where = ""

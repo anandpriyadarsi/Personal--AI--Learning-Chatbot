@@ -20,15 +20,16 @@
       <p class="eyebrow">{{ view.session.course_code_snapshot }} · {{ view.session.mode|title }} mode</p>
       <h2>{{ view.session.title_snapshot }}</h2>
     </div>
-    <div class="exam-timer-panel" aria-live="polite">
+    <div class="exam-timer-panel">
       <span class="metric-label">Time left</span>
       <strong id="assessment-timer">--:--:--</strong>
-      <span id="assessment-save-status">Responses saved to ANVAYA</span>
+      <span id="assessment-save-status" role="status" aria-live="polite">Responses saved to ANVAYA</span>
+      <button id="assessment-save-retry" class="button button-secondary compact-button" type="button" hidden>Retry save</button>
     </div>
   </header>
 
   <div class="exam-layout">
-    <main class="exam-question-panel">
+    <section class="exam-question-panel" aria-label="Current question">
       <div class="exam-question-heading">
         <div>
           <p class="eyebrow">{% if view.question.section_label %}{{ view.question.section_label }} · {% endif %}Question {{ view.question.question_number or view.question.ordinal }}</p>
@@ -79,7 +80,7 @@
               <label class="exam-option"><input type="radio" name="answer_value" value="False"{% if value == 'False' %} checked{% endif %}><span class="exam-option-key">F</span><span>False</span></label>
             </div>
           {% elif view.question.question_type in ['numerical','fill_blank'] %}
-            <label class="form-field form-field-full"><span>Your answer</span><input type="text" inputmode="decimal" name="answer_value" value="{{ view.question.response.get('value', '') }}" autocomplete="off"></label>
+            <label class="form-field form-field-full"><span>Your answer</span><input type="text" {% if view.question.question_type == 'numerical' %}inputmode="decimal"{% endif %} name="answer_value" value="{{ view.question.response.get('value', '') }}" autocomplete="off"></label>
           {% elif view.question.question_type in ['short_subjective','long_subjective'] %}
             <label class="form-field form-field-full"><span>Your response</span><textarea name="answer_text" rows="{% if view.question.question_type == 'long_subjective' %}14{% else %}7{% endif %}" spellcheck="true">{{ view.question.response.get('text', '') }}</textarea></label>
           {% endif %}
@@ -92,10 +93,11 @@
           <button class="button" type="submit" name="action" value="save_next">Save &amp; Next</button>
         </div>
       </form>
-    </main>
+    </section>
 
     <aside class="exam-palette-panel" aria-label="Question palette">
       <div class="panel-heading"><div><p class="eyebrow">Question palette</p><h3>{{ view.question.ordinal }} / {{ view.session.question_count }}</h3></div></div>
+      <details id="assessment-palette" class="exam-palette-disclosure" open><summary>Show question palette</summary>
       <div class="question-palette">
         {% for item in view.questions %}
           <a
@@ -114,14 +116,16 @@
         {% endfor %}
       </div>
 
+      </details>
       <dl class="exam-summary-list">
-        <div><dt>Answered</dt><dd>{{ view.palette_counts.answered + view.palette_counts.answered_marked_for_review }}</dd></div>
-        <div><dt>Not answered</dt><dd>{{ view.palette_counts.not_answered }}</dd></div>
-        <div><dt>Not visited</dt><dd>{{ view.palette_counts.not_visited }}</dd></div>
-        <div><dt>Marked</dt><dd>{{ view.palette_counts.marked_for_review + view.palette_counts.answered_marked_for_review }}</dd></div>
+        <div><dt>Answered</dt><dd data-runner-count="answered">{{ view.palette_counts.answered + view.palette_counts.answered_marked_for_review }}</dd></div>
+        <div><dt>Unanswered</dt><dd data-runner-count="unanswered">{{ view.palette_counts.not_answered + view.palette_counts.not_visited + view.palette_counts.marked_for_review }}</dd></div>
+        <div><dt>Not visited</dt><dd data-runner-count="not_visited">{{ view.palette_counts.not_visited }}</dd></div>
+        <div><dt>Marked</dt><dd data-runner-count="marked">{{ view.palette_counts.marked_for_review + view.palette_counts.answered_marked_for_review }}</dd></div>
       </dl>
 
       <form id="assessment-submit-form" method="post" action="{{ url_for('web.assessment_session_submit', session_id=view.session.id) }}">
+        <noscript><p>Use Save &amp; Next to save your current answer before submitting.</p><label><input type="checkbox" required> End this timed attempt now. I cannot continue after submission.</label></noscript>
         <button class="button exam-submit-button" type="submit">Submit Test</button>
       </form>
     </aside>

@@ -81,3 +81,18 @@
 .assessment-protection, .assessment-facts { margin: .8rem 0; color: var(--muted); }
 .assessment-repair-panel { padding: 1.25rem; margin: 1rem 0; border: 1px solid var(--line); border-radius: 1rem; }
 .assessment-page .assessment-disclosure textarea { display: block; width: 100%; margin-top: .5rem; }
+
+.assessment-page [hidden] { display: none !important; }
+.assessment-table-scroll { max-width: 100%; overflow-x: auto; }
+.assessment-table-scroll table { width: 100%; text-align: left; border-collapse: collapse; }
+.assessment-table-scroll th, .assessment-table-scroll td { padding: .7rem; border-bottom: 1px solid var(--line); }
+.exam-palette-disclosure > summary { cursor: pointer; padding: .5rem 0; font-weight: 600; }
+.assessment-page .exam-palette-panel { order: 0; }
+@media (max-width: 760px) {
+  .assessment-page .exam-layout { display: flex; flex-direction: column; }
+  .assessment-page .exam-question-panel { order: 0; }
+  .assessment-page .exam-palette-panel { order: 1; position: static; }
+  .assessment-page .exam-header { position: sticky; top: 0; z-index: 4; background: var(--surface, #fff); padding: .7rem; }
+  .assessment-page .exam-header h2 { font-size: 1.15rem; }
+  .assessment-page .exam-actions { flex-wrap: wrap; }
+}
