@@ -836,19 +836,15 @@ class AssessmentPackageService:
         filename: str,
         raw: bytes,
         *,
-        workspace_kind: str,
-        selected_course_id: str,
+        workspace_kind: str = "",
+        selected_course_id: str = "",
     ):
         workspace_kind = str(workspace_kind or "").strip().lower()
-        if workspace_kind not in AUTHORING_WORKSPACE_KINDS:
+        if workspace_kind and workspace_kind not in AUTHORING_WORKSPACE_KINDS:
             raise AssessmentPackageValidationError(
                 "Choose whether this package is a Quiz, Exam or Test."
             )
         selected_course_id = str(selected_course_id or "").strip()
-        if not selected_course_id:
-            raise AssessmentPackageValidationError(
-                "Choose the ANVAYA subject/course for this package."
-            )
         safe_filename = str(filename or "").replace("\\", "/").split("/")[-1]
         lower = safe_filename.lower()
         if not (lower.endswith(".json") or lower.endswith(".anvaya-assessment.json")):
@@ -857,6 +853,10 @@ class AssessmentPackageService:
             )
         package = _parse_json(raw)
         validated = _validate_package(package)
+        if not workspace_kind:
+            workspace_kind = _infer_workspace_kind(
+                validated["assessment"]["assessment_type"]
+            )
         source_hash = hashlib.sha256(raw).hexdigest()
         canonical_json = json.dumps(
             package, ensure_ascii=False, sort_keys=True, separators=(",", ":")
@@ -874,20 +874,21 @@ class AssessmentPackageService:
                             validated["assessment"]["course_code"]
                         )
                     )
-                selected_course = repository.get_course(selected_course_id)
-                if selected_course is None:
-                    raise AssessmentPackageValidationError(
-                        "The selected ANVAYA subject/course no longer exists."
-                    )
-                if str(selected_course["id"]) != str(course["id"]):
-                    raise AssessmentPackageValidationError(
-                        "Selected subject {} does not match package course code {}. "
-                        "Choose the matching subject or regenerate the package with Alex."
-                        .format(
-                            selected_course["code"],
-                            validated["assessment"]["course_code"],
+                if selected_course_id:
+                    selected_course = repository.get_course(selected_course_id)
+                    if selected_course is None:
+                        raise AssessmentPackageValidationError(
+                            "The selected ANVAYA subject/course no longer exists."
                         )
-                    )
+                    if str(selected_course["id"]) != str(course["id"]):
+                        raise AssessmentPackageValidationError(
+                            "Selected subject {} does not match package course code {}. "
+                            "Choose the matching subject or regenerate the package with Alex."
+                            .format(
+                                selected_course["code"],
+                                validated["assessment"]["course_code"],
+                            )
+                        )
                 existing = repository.find_batch_identity(
                     validated["package_id"], validated["package_revision"]
                 )
