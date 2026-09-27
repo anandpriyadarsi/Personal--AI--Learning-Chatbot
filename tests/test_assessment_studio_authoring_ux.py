@@ -109,8 +109,12 @@ def test_workspace_exposes_three_kinds_live_courses_and_personalized_master_prom
     assert workspace["selected_kind"] == "quiz"
     assert "**Workspace kind:** Quiz" in workspace["resolved_prompt"]
     assert "**ANVAYA course code:** MA103N" in workspace["resolved_prompt"]
+    assert "Matrix Inverse" in workspace["resolved_prompt"]
+    assert "LU Factorization" in workspace["resolved_prompt"]
     assert "{{COURSE_CODE}}" in workspace["master_prompt"]
+    assert "{{COURSE_TOPICS}}" in workspace["master_prompt"]
     assert "{{COURSE_CODE}}" not in workspace["resolved_prompt"]
+    assert "{{COURSE_TOPICS}}" not in workspace["resolved_prompt"]
 
 
 def test_master_prompt_edit_persists_and_reset_restores_repository_default(tmp_path):
@@ -285,6 +289,7 @@ def test_master_prompt_contract_contains_context_and_strict_package_requirements
     assert "{{ASSESSMENT_KIND}}" in prompt
     assert "{{COURSE_CODE}}" in prompt
     assert "{{COURSE_NAME}}" in prompt
+    assert "{{COURSE_TOPICS}}" in prompt
     assert "anvaya.assessment-package" in prompt
     assert "mcq" in prompt
     assert "msq" in prompt
