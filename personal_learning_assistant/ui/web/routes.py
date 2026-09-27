@@ -1233,12 +1233,16 @@ def assessment_import_prompt_reset():
 @web_blueprint.get("/assessments/import/<batch_id>/review")
 def assessment_import_review(batch_id):
     try:
-        batch = _assessment_package_service().review(batch_id)
+        service = _assessment_package_service()
+        batch = service.review(batch_id)
         notice = ""
         if request.args.get("staged") == "1":
-            notice = "Package validated and staged. Review it before approval."
+            notice = (
+                "Package validated and staged. ANVAYA ran the blind preflight "
+                "without exposing test content."
+            )
         elif request.args.get("saved") == "1":
-            notice = "Review changes saved."
+            notice = "Assessment setup changes saved."
         elif request.args.get("approved") == "1":
             notice = "Package approved and committed as a canonical assessment."
         elif request.args.get("rejected") == "1":
@@ -1247,8 +1251,28 @@ def assessment_import_review(batch_id):
             "assessment_import_review.html",
             active_page="assessments",
             batch=batch,
+            alex_review_prompt=service.alex_review_prompt(batch_id),
             error_message="",
             notice_message=notice,
+        )
+    except Exception as error:
+        return str(error), _assessment_package_error_status(error)
+
+
+@web_blueprint.get("/assessments/import/<batch_id>/alex-review-handoff")
+def assessment_import_alex_review_handoff(batch_id):
+    try:
+        handoff = _assessment_package_service().alex_review_handoff(batch_id)
+        return (
+            handoff["json"],
+            200,
+            {
+                "Content-Type": "application/json; charset=utf-8",
+                "Content-Disposition": 'attachment; filename="{}"'.format(
+                    handoff["filename"].replace('"', "")
+                ),
+                "X-ANVAYA-Flagged-Questions": str(handoff["flagged_count"]),
+            },
         )
     except Exception as error:
         return str(error), _assessment_package_error_status(error)

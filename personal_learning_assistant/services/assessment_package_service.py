@@ -761,7 +761,13 @@ def _infer_workspace_kind(assessment_type: str) -> str:
     return "test"
 
 
-def _render_authoring_prompt(prompt: str, *, workspace_kind: str, course) -> str:
+def _render_authoring_prompt(
+    prompt: str,
+    *,
+    workspace_kind: str,
+    course,
+    topics=(),
+) -> str:
     kind = AUTHORING_WORKSPACE_KINDS.get(workspace_kind or "")
     kind_label = kind["label"] if kind else "Quiz / Exam / Test"
     kind_hint = kind["prompt_hint"] if kind else (
@@ -769,12 +775,25 @@ def _render_authoring_prompt(prompt: str, *, workspace_kind: str, course) -> str
     )
     course_code = str((course or {}).get("code") or "[SELECT COURSE]")
     course_name = str((course or {}).get("name") or "[SELECT COURSE NAME]")
+    topic_lines = []
+    for topic in topics or ():
+        aliases = [
+            str(alias.get("alias") or "").strip()
+            for alias in topic.get("aliases") or ()
+            if str(alias.get("alias") or "").strip()
+        ]
+        line = "- {}".format(str(topic.get("name") or "").strip())
+        if aliases:
+            line += " (aliases: {})".format(", ".join(aliases))
+        topic_lines.append(line)
+    course_topics = "\n".join(topic_lines) if topic_lines else "[NO CANONICAL TOPICS AVAILABLE]"
     values = {
         "{{ASSESSMENT_KIND}}": kind_label,
         "{{ASSESSMENT_KIND_ID}}": str(workspace_kind or "[SELECT KIND]"),
         "{{ASSESSMENT_TYPE_GUIDANCE}}": kind_hint,
         "{{COURSE_CODE}}": course_code,
         "{{COURSE_NAME}}": course_name,
+        "{{COURSE_TOPICS}}": course_topics,
     }
     rendered = str(prompt or "")
     for token, value in values.items():
@@ -1020,6 +1039,11 @@ class AssessmentPackageService:
                 limit=100,
             )
             preference = repository.get_authoring_preference()
+            selected_topics = (
+                repository.topic_catalogue(course_id)
+                if course_id
+                else ()
+            )
 
         default_prompt = _default_authoring_prompt()
         master_prompt = (
@@ -1050,6 +1074,7 @@ class AssessmentPackageService:
                 master_prompt,
                 workspace_kind=workspace_kind,
                 course=selected_course,
+                topics=selected_topics,
             ),
             "prompt_is_custom": preference is not None,
             "prompt_revision": int(preference["revision"]) if preference else 0,
@@ -1144,10 +1169,20 @@ class AssessmentPackageService:
             result["validation_notes"] = []
         result["total_marks"] = _marks_text(result.get("total_marks_milli"))
         result["topics"] = tuple(dict(item) for item in topics)
-        blockers = self._review_blockers(result)
-        result["blockers"] = tuple(blockers)
+        integrity_blockers = self._integrity_blockers(result)
+        semantic_warnings = self._semantic_warnings(result)
+        result["integrity_blockers"] = tuple(integrity_blockers)
+        result["semantic_warnings"] = tuple(semantic_warnings)
+        result["blockers"] = tuple(integrity_blockers + semantic_warnings)
+        result["blind_review"] = self._blind_review_summary(
+            result,
+            integrity_blockers=integrity_blockers,
+            semantic_warnings=semantic_warnings,
+        )
         result["can_approve"] = (
-            str(result.get("status")) == "review" and not blockers
+            str(result.get("status")) == "review"
+            and not integrity_blockers
+            and not semantic_warnings
         )
         result["calculated_marks_milli"] = sum(
             int(item.get("max_marks_milli") or 0) for item in result["questions"]
@@ -1182,51 +1217,64 @@ class AssessmentPackageService:
         }
 
     @staticmethod
-    def _review_blockers(batch):
+    def _question_label(item):
+        return "Question {}".format(item.get("question_number") or item.get("ordinal"))
+
+    @classmethod
+    def _integrity_blockers(cls, batch):
+        """Deterministic package failures that can be checked without revealing content."""
         blockers = []
         questions = list(batch.get("questions") or ())
         if not questions:
-            blockers.append("The package has no questions.")
-            return blockers
+            return ["The package has no questions."]
+
         total = 0
         expected_ordinals = list(range(1, len(questions) + 1))
         ordinals = [int(item.get("ordinal") or 0) for item in questions]
         if ordinals != expected_ordinals:
             blockers.append("Question order is not contiguous.")
+
         for item in questions:
-            label = "Question {}".format(item.get("question_number") or item.get("ordinal"))
+            label = cls._question_label(item)
             marks = item.get("max_marks_milli")
             if marks is None or int(marks) <= 0:
                 blockers.append("{} needs positive marks.".format(label))
             else:
                 total += int(marks)
-            if not str(item.get("selected_topic_id") or ""):
-                blockers.append("{} needs a confirmed course topic.".format(label))
-            if bool(item.get("review_required")):
-                blockers.append("{} is still marked Review required.".format(label))
+
             if not str(item.get("question_text") or "").strip():
                 blockers.append("{} has no question text.".format(label))
             if not str(item.get("solution_text") or "").strip():
                 blockers.append("{} needs a solution.".format(label))
+
             question_type = str(item.get("question_type") or "")
             options = list(item.get("options") or ())
             correct = [option for option in options if bool(option.get("is_correct"))]
             if question_type == "mcq":
                 if len(options) < 2 or len(correct) != 1:
-                    blockers.append("{} needs valid MCQ options and one correct answer.".format(label))
+                    blockers.append(
+                        "{} has an invalid MCQ option/answer-key structure.".format(label)
+                    )
             elif question_type == "msq":
                 if len(options) < 2 or not correct:
-                    blockers.append("{} needs valid MSQ options and correct selections.".format(label))
+                    blockers.append(
+                        "{} has an invalid MSQ option/answer-key structure.".format(label)
+                    )
             elif question_type in ACCEPTED_ANSWER_TYPES:
                 try:
                     answer = json.loads(str(item.get("answer_json") or "{}"))
                 except json.JSONDecodeError:
                     answer = {}
                 if not list(answer.get("accepted_answers") or ()):
-                    blockers.append("{} needs at least one accepted answer.".format(label))
+                    blockers.append(
+                        "{} needs at least one accepted answer.".format(label)
+                    )
             elif question_type in SUBJECTIVE_TYPES:
                 if not str(item.get("rubric_text") or "").strip():
-                    blockers.append("{} needs a subjective marking rubric.".format(label))
+                    blockers.append(
+                        "{} needs a subjective marking rubric.".format(label)
+                    )
+
         if total != int(batch.get("total_marks_milli") or 0):
             blockers.append(
                 "Assessment total marks ({}) do not match question marks ({}).".format(
@@ -1234,6 +1282,200 @@ class AssessmentPackageService:
                 )
             )
         return blockers
+
+    @classmethod
+    def _semantic_warnings(cls, batch):
+        """Issues that need Alex/semantic review, not student exposure to test content."""
+        warnings = []
+        for item in batch.get("questions") or ():
+            label = cls._question_label(item)
+            if not str(item.get("selected_topic_id") or ""):
+                warnings.append("{} has no confirmed ANVAYA topic.".format(label))
+            confidence = item.get("mapping_confidence")
+            if (
+                str(item.get("selected_topic_id") or "")
+                and confidence is not None
+                and float(confidence) < 0.75
+            ):
+                warnings.append("{} has a low-confidence topic mapping.".format(label))
+            authoring_confidence = item.get("authoring_confidence")
+            if (
+                authoring_confidence is not None
+                and float(authoring_confidence) < 0.75
+            ):
+                warnings.append("{} has low authoring confidence.".format(label))
+            if bool(item.get("review_required")):
+                warnings.append("{} is marked for Alex review.".format(label))
+        return warnings
+
+    @classmethod
+    def _blind_review_summary(
+        cls,
+        batch,
+        *,
+        integrity_blockers,
+        semantic_warnings,
+    ):
+        questions = list(batch.get("questions") or ())
+        review_required = sum(bool(item.get("review_required")) for item in questions)
+        unmapped = sum(
+            not bool(str(item.get("selected_topic_id") or "").strip())
+            for item in questions
+        )
+        low_mapping = sum(
+            bool(str(item.get("selected_topic_id") or "").strip())
+            and item.get("mapping_confidence") is not None
+            and float(item.get("mapping_confidence")) < 0.75
+            for item in questions
+        )
+        low_authoring = sum(
+            item.get("authoring_confidence") is not None
+            and float(item.get("authoring_confidence")) < 0.75
+            for item in questions
+        )
+        if integrity_blockers:
+            state = "repair"
+            label = "Package repair required"
+        elif semantic_warnings:
+            state = "alex_review"
+            label = "Needs Alex review"
+        else:
+            state = "ready"
+            label = "Ready for approval"
+        return {
+            "state": state,
+            "label": label,
+            "question_count": len(questions),
+            "integrity_issue_count": len(integrity_blockers),
+            "semantic_warning_count": len(semantic_warnings),
+            "review_required_count": review_required,
+            "unmapped_topic_count": unmapped,
+            "low_mapping_count": low_mapping,
+            "low_authoring_count": low_authoring,
+            "content_hidden": True,
+        }
+
+    @classmethod
+    def _review_blockers(cls, batch):
+        # Compatibility boundary for existing tests/callers.
+        return cls._integrity_blockers(batch) + cls._semantic_warnings(batch)
+
+    def alex_review_handoff(self, batch_id: str):
+        """Create a spoiler-safe handoff file for Alex to repair only flagged imports."""
+        review = self.review(batch_id)
+        try:
+            source_package = json.loads(str(review.get("package_json") or "{}"))
+        except json.JSONDecodeError as error:
+            raise AssessmentPackageValidationError(
+                "The staged source package cannot be reconstructed for Alex review."
+            ) from error
+
+        topic_catalogue = [
+            {
+                "id": str(topic.get("id") or ""),
+                "name": str(topic.get("name") or ""),
+                "aliases": [
+                    str(alias.get("alias") or "")
+                    for alias in topic.get("aliases") or ()
+                ],
+            }
+            for topic in review.get("topics") or ()
+        ]
+        flagged = []
+        for item in review.get("questions") or ():
+            issues = []
+            if not str(item.get("selected_topic_id") or ""):
+                issues.append("topic_unmapped")
+            elif (
+                item.get("mapping_confidence") is not None
+                and float(item.get("mapping_confidence")) < 0.75
+            ):
+                issues.append("topic_mapping_low_confidence")
+            if (
+                item.get("authoring_confidence") is not None
+                and float(item.get("authoring_confidence")) < 0.75
+            ):
+                issues.append("authoring_low_confidence")
+            if bool(item.get("review_required")):
+                issues.append("package_review_required")
+            if issues:
+                flagged.append(
+                    {
+                        "package_question_id": str(
+                            item.get("package_question_id") or ""
+                        ),
+                        "ordinal": int(item.get("ordinal") or 0),
+                        "issues": issues,
+                        "raw_topic_label": str(item.get("raw_topic_label") or ""),
+                        "selected_topic_id": item.get("selected_topic_id"),
+                        "mapping_confidence": item.get("mapping_confidence"),
+                        "authoring_confidence": item.get("authoring_confidence"),
+                    }
+                )
+
+        payload = {
+            "schema": "anvaya.assessment-review-handoff",
+            "version": 1,
+            "package_id": str(review["package_id"]),
+            "current_package_revision": int(review["package_revision"]),
+            "required_next_package_revision": int(review["package_revision"]) + 1,
+            "course": {
+                "id": str(review["course_id"]),
+                "code": str(review["course_code"]),
+                "name": str(review["course_name"]),
+            },
+            "non_spoiler_summary": dict(review["blind_review"]),
+            "canonical_topic_catalogue": topic_catalogue,
+            "flagged_questions": flagged,
+            "source_package": source_package,
+            "instructions_for_alex": [
+                "Review the source_package without revealing question text, options, answer keys, solutions or rubrics in the chat summary.",
+                "Use any original papers/notes/PPTs/PDFs supplied by the user to verify semantic correctness.",
+                "Resolve flagged questions where the evidence supports a correction.",
+                "Use the canonical_topic_catalogue for topic mapping.",
+                "Return a complete anvaya.assessment-package version 1 package.",
+                "Keep the same package_id and set package_revision to required_next_package_revision.",
+                "Set review_required=false only where the question and metadata are genuinely verified.",
+                "If evidence is insufficient, leave review_required=true rather than guessing.",
+            ],
+        }
+        filename = "{}_rev{}_alex-review.anvaya-review.json".format(
+            str(review["package_id"]).replace("/", "-"),
+            int(review["package_revision"]),
+        )
+        return {
+            "filename": filename,
+            "json": json.dumps(payload, ensure_ascii=False, indent=2),
+            "flagged_count": len(flagged),
+        }
+
+    def alex_review_prompt(self, batch_id: str):
+        review = self.review(batch_id)
+        summary = review["blind_review"]
+        return (
+            "You are reviewing an ANVAYA assessment package before I take the test. "
+            "I must remain blind to the assessment content. I will upload an "
+            "ANVAYA assessment-review handoff JSON plus the original source papers/"
+            "notes/PPTs/PDFs. Review the package silently. Do not reproduce or reveal "
+            "question text, options, answer keys, solutions or rubrics in chat. "
+            "Resolve the flagged semantic/topic issues using the supplied evidence. "
+            "Return a complete anvaya.assessment-package v1 JSON with the SAME "
+            "package_id {!r} and package_revision {}. Use the canonical topic catalogue "
+            "inside the handoff. Set review_required=false only when verified; never "
+            "guess if evidence is missing. In chat, give only a non-spoiler summary "
+            "with counts of resolved/unresolved issues and provide the revised JSON "
+            "file for ANVAYA import. Current non-spoiler counts: {} question(s), "
+            "{} marked for Alex review, {} unmapped topic(s), {} low-confidence "
+            "topic mapping(s)."
+        ).format(
+            str(review["package_id"]),
+            int(review["package_revision"]) + 1,
+            int(summary["question_count"]),
+            int(summary["review_required_count"]),
+            int(summary["unmapped_topic_count"]),
+            int(summary["low_mapping_count"]),
+        )
+
 
     def update_metadata(self, batch_id: str, payload: dict):
         title = _nonempty(str(payload.get("title") or ""), "Title", maximum=240)
