@@ -1023,6 +1023,48 @@ class AssessmentPackageService:
         ) as error:
             self._map_repository_error(error)
 
+    def stage_revision(self, batch_id: str, filename: str, raw: bytes):
+        """Validate and stage the exact next revision of an existing review batch."""
+        current = self.review(str(batch_id))
+        if str(current.get("status")) != "review":
+            raise AssessmentPackageConflictError(
+                "Only a package still under review can accept a revised package."
+            )
+
+        package = _parse_json(raw)
+        validated = _validate_package(package)
+        expected_revision = int(current["package_revision"]) + 1
+
+        if str(validated["package_id"]) != str(current["package_id"]):
+            raise AssessmentPackageValidationError(
+                "This revision belongs to package {!r}, but ANVAYA is waiting for "
+                "the next revision of {!r}.".format(
+                    validated["package_id"], current["package_id"]
+                )
+            )
+        if int(validated["package_revision"]) != expected_revision:
+            raise AssessmentPackageValidationError(
+                "Expected package revision {}, but the uploaded file is revision {}."
+                .format(expected_revision, validated["package_revision"])
+            )
+        if (
+            str(validated["assessment"]["course_code"]).strip().casefold()
+            != str(current["course_code"]).strip().casefold()
+        ):
+            raise AssessmentPackageValidationError(
+                "Revised package course code {} does not match the current assessment "
+                "course {}.".format(
+                    validated["assessment"]["course_code"], current["course_code"]
+                )
+            )
+
+        return self.stage_upload(
+            filename,
+            raw,
+            workspace_kind=str(current["workspace_kind"]),
+            selected_course_id=str(current["course_id"]),
+        )
+
     def workspace(self, *, workspace_kind: str = "", course_id: str = ""):
         workspace_kind = str(workspace_kind or "").strip().lower()
         if workspace_kind and workspace_kind not in AUTHORING_WORKSPACE_KINDS:
