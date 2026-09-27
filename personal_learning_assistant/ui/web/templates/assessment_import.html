@@ -1,59 +1,358 @@
 {% extends "base.html" %}
-{% block title %}Import Assessment Package · ANVAYA{% endblock %}
-{% block content %}
-<section class="hero dashboard-hero">
-  <div>
-    <p class="eyebrow">Assessment Studio · Phase B</p>
-    <h2>Import Alex assessment package</h2>
-    <p class="lede">Upload a versioned <code>*.anvaya-assessment.json</code> created by Alex/ChatGPT. ANVAYA validates and stages it for review before any canonical assessment is created.</p>
-  </div>
-  <a class="button button-secondary" href="{{ url_for('web.assessments') }}">Assessment Studio</a>
-</section>
+{% block title %}Create with Alex · Assessment Studio · ANVAYA{% endblock %}
 
-{% if error_message %}
-<section class="notice-panel" role="alert"><h3>Package was not staged</h3><p>{{ error_message }}</p></section>
+{% block page_scripts %}
+<script defer src="{{ url_for('static', filename='js/assessment_authoring.js') }}"></script>
+{% endblock %}
+
+{% block content %}
+<nav class="notes-reader-back" aria-label="Assessment Studio navigation">
+  <a href="{{ url_for('web.assessments') }}">← Back to Assessment Studio</a>
+</nav>
+
+<header class="assessment-authoring-header" aria-labelledby="assessment-authoring-title">
+  <div>
+    <p class="eyebrow">Assessment Studio · Alex authoring workspace</p>
+    <h2 id="assessment-authoring-title">Create assessments with Alex</h2>
+    <p class="lede">
+      Choose Quiz, Exam or Test, choose the subject, copy the ANVAYA master prompt,
+      open ChatGPT, then import the generated <code>.anvaya-assessment.json</code>.
+    </p>
+  </div>
+  <a class="button button-secondary" href="{{ url_for('web.assessment_tests') }}">Take a test</a>
+</header>
+
+{% if notice_message %}
+<section class="notice-panel assessment-authoring-notice">
+  <h3>Saved</h3>
+  <p>{{ notice_message }}</p>
+</section>
 {% endif %}
 
-<section class="action-panel">
-  <p class="eyebrow">Package upload</p>
-  <h3>Validate and stage</h3>
-  <form method="post" enctype="multipart/form-data" action="{{ url_for('web.assessment_import_create') }}">
-    <div class="form-grid">
-      <label class="form-field form-field-full">
-        <span>ANVAYA Assessment Package</span>
-        <input type="file" name="package" accept=".json,.anvaya-assessment.json,application/json" required>
-      </label>
+{% if error_message %}
+<section class="notice-panel error-panel assessment-authoring-notice" role="alert">
+  <h3>Assessment authoring workspace needs attention</h3>
+  <p>{{ error_message }}</p>
+</section>
+{% endif %}
+
+<section class="assessment-authoring-launch-grid" aria-label="Alex authoring tools">
+  <article class="assessment-launch-card assessment-launch-card-alex">
+    <div class="assessment-launch-icon" aria-hidden="true">A</div>
+    <div class="assessment-launch-copy">
+      <p class="eyebrow">External authoring engine</p>
+      <h3>Alex / ChatGPT</h3>
+      <p>Open ChatGPT directly. Upload papers, notes, PPTs or PDFs there and use the ANVAYA master prompt to create the package.</p>
     </div>
-    <div class="form-actions"><button class="button" type="submit">Validate &amp; open review</button></div>
-  </form>
-  <p class="lede">Maximum package size: 5 MB. JSON with duplicate keys, unsupported fields or invalid answer keys is rejected before staging.</p>
+    <a
+      class="button assessment-launch-primary"
+      href="https://chatgpt.com/"
+      target="_blank"
+      rel="noopener noreferrer"
+    >Open Alex / ChatGPT ↗</a>
+  </article>
+
+  <article class="assessment-launch-card assessment-prompt-card">
+    <button
+      class="assessment-card-main-action"
+      type="button"
+      data-open-prompt-preview
+      aria-label="Preview the ANVAYA assessment master prompt"
+    >
+      <span class="eyebrow">ANVAYA authoring contract</span>
+      <strong>Master Prompt</strong>
+      <span class="assessment-prompt-snippet">
+        {{ workspace.resolved_prompt|replace('\n', ' ')|truncate(230, True, '…') }}
+      </span>
+    </button>
+    <div class="assessment-launch-actions">
+      <button class="button compact-button" type="button" data-copy-prompt>Copy prompt</button>
+      <button class="button button-secondary compact-button" type="button" data-open-prompt-editor>Edit prompt</button>
+      <span class="assessment-copy-status" data-copy-status aria-live="polite"></span>
+    </div>
+  </article>
 </section>
 
-<section class="dashboard-panel next-panel">
-  <div class="panel-heading">
-    <div><p class="eyebrow">Import history</p><h3>Recent packages</h3></div>
-    <span class="count-badge">{{ workspace.batches|length }}</span>
-  </div>
-  {% if workspace.batches %}
-  <ul class="dashboard-list">
-    {% for item in workspace.batches %}
-    <li>
-      <div class="list-main">
-        <strong>{{ item.course_code }} · {{ item.title }}</strong>
-        <span>{{ item.question_count }} questions · {{ item.status_label }} · package rev {{ item.package_revision }}</span>
-        <div class="tag-row"><span class="tag">{{ item.assessment_type }}</span><span class="tag">{{ item.mode }}</span><span class="tag">{{ item.package_id }}</span></div>
+<section class="assessment-authoring-step" aria-labelledby="assessment-kind-title">
+  <div class="assessment-step-heading">
+    <div>
+      <span class="assessment-step-number">1</span>
+      <div>
+        <p class="eyebrow">Choose assessment workspace</p>
+        <h3 id="assessment-kind-title">What are you creating?</h3>
       </div>
-      <a class="button button-secondary compact-button" href="{{ url_for('web.assessment_import_review', batch_id=item.id) }}">Review</a>
-    </li>
+    </div>
+    {% if workspace.selected_kind %}
+      <a class="assessment-clear-link" href="{{ url_for('web.assessment_import') }}">Clear selection</a>
+    {% endif %}
+  </div>
+
+  <div class="assessment-kind-grid">
+    {% for kind in workspace.workspace_kinds %}
+    <a
+      class="assessment-kind-card{% if workspace.selected_kind == kind.id %} is-selected{% endif %}"
+      href="{{ url_for('web.assessment_import', kind=kind.id) }}#assessment-subjects"
+      {% if workspace.selected_kind == kind.id %}aria-current="true"{% endif %}
+    >
+      <span class="assessment-kind-kicker">{{ kind.eyebrow }}</span>
+      <strong>{{ kind.label }}</strong>
+      <p>{{ kind.description }}</p>
+      <span class="assessment-kind-cta">
+        {% if workspace.selected_kind == kind.id %}Selected{% else %}Choose {{ kind.label }}{% endif %}
+        <span aria-hidden="true">→</span>
+      </span>
+    </a>
     {% endfor %}
-  </ul>
+  </div>
+</section>
+
+<section id="assessment-subjects" class="assessment-authoring-step" aria-labelledby="assessment-course-title">
+  <div class="assessment-step-heading">
+    <div>
+      <span class="assessment-step-number">2</span>
+      <div>
+        <p class="eyebrow">Choose subject</p>
+        <h3 id="assessment-course-title">
+          {% if workspace.selected_kind %}
+            {{ workspace.selected_kind|title }} · Select the course
+          {% else %}
+            Select Quiz, Exam or Test first
+          {% endif %}
+        </h3>
+      </div>
+    </div>
+  </div>
+
+  {% if workspace.selected_kind %}
+    {% if workspace.courses %}
+    <div class="assessment-course-grid">
+      {% for course in workspace.courses %}
+      <a
+        class="assessment-course-card{% if workspace.selected_course_id == course.id %} is-selected{% endif %}"
+        href="{{ url_for('web.assessment_import', kind=workspace.selected_kind, course_id=course.id) }}#assessment-import-ready"
+        {% if workspace.selected_course_id == course.id %}aria-current="true"{% endif %}
+      >
+        <span class="assessment-course-code">{{ course.code }}</span>
+        <strong>{{ course.name }}</strong>
+        <span class="assessment-course-arrow" aria-hidden="true">→</span>
+      </a>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="empty-state">No active ANVAYA courses are available.</p>
+    {% endif %}
   {% else %}
-  <p class="empty-state">No assessment packages have been staged yet.</p>
+  <div class="assessment-step-placeholder">
+    <strong>Your subjects will appear here.</strong>
+    <span>Choose one of the three assessment cards above first.</span>
+  </div>
   {% endif %}
 </section>
 
-<section class="notice-panel">
-  <h3>Alex authoring contract</h3>
-  <p>Package schema: <code>{{ workspace.schema }}</code> version {{ workspace.version }}. The repository also contains the JSON Schema, example package and reusable authoring prompt.</p>
+<section id="assessment-import-ready" class="assessment-authoring-step assessment-import-stage" aria-labelledby="assessment-import-title">
+  <div class="assessment-step-heading">
+    <div>
+      <span class="assessment-step-number">3</span>
+      <div>
+        <p class="eyebrow">Create with Alex, then import</p>
+        <h3 id="assessment-import-title">
+          {% if workspace.selected_kind and workspace.selected_course %}
+            {{ workspace.selected_kind|title }} · {{ workspace.selected_course.code }}
+          {% else %}
+            Finish the two selections above
+          {% endif %}
+        </h3>
+      </div>
+    </div>
+  </div>
+
+  {% if workspace.selected_kind and workspace.selected_course %}
+  <div class="assessment-ready-layout">
+    <section class="assessment-ready-guide">
+      <div class="assessment-ready-context">
+        <span class="tag">{{ workspace.selected_kind|title }}</span>
+        <span class="tag">{{ workspace.selected_course.code }}</span>
+        <span class="tag">{{ workspace.selected_course.name }}</span>
+      </div>
+      <h4>1. Send the material to Alex</h4>
+      <p>Upload the source papers, notes, PPTs or PDFs to ChatGPT. Then paste the personalized ANVAYA prompt.</p>
+      <div class="form-actions">
+        <button class="button" type="button" data-copy-prompt>Copy personalized prompt</button>
+        <a class="button button-secondary" href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">Open Alex / ChatGPT ↗</a>
+      </div>
+      <p class="assessment-copy-status" data-copy-status aria-live="polite"></p>
+
+      <h4>2. Ask Alex to return the JSON file</h4>
+      <p>The package must use course code <code>{{ workspace.selected_course.code }}</code>. ANVAYA will reject a package for a different subject.</p>
+
+      <h4>3. Import and review here</h4>
+      <p>Import does not immediately create a canonical assessment. Validation opens the Phase B review screen first.</p>
+    </section>
+
+    <section class="assessment-upload-card">
+      <p class="eyebrow">Package upload</p>
+      <h3>Import Alex package</h3>
+      <form method="post" enctype="multipart/form-data" action="{{ url_for('web.assessment_import_create') }}">
+        <div class="form-grid">
+          <label class="form-field">
+            <span>Save as</span>
+            <select name="workspace_kind" required>
+              {% for kind in workspace.workspace_kinds %}
+              <option value="{{ kind.id }}" {% if workspace.selected_kind == kind.id %}selected{% endif %}>{{ kind.label }}</option>
+              {% endfor %}
+            </select>
+          </label>
+
+          <label class="form-field">
+            <span>Subject</span>
+            <select name="course_id" required>
+              {% for course in workspace.courses %}
+              <option value="{{ course.id }}" {% if workspace.selected_course_id == course.id %}selected{% endif %}>{{ course.code }} · {{ course.name }}</option>
+              {% endfor %}
+            </select>
+          </label>
+
+          <label class="form-field form-field-full assessment-file-field">
+            <span>ANVAYA Assessment Package</span>
+            <input type="file" name="package" accept=".json,.anvaya-assessment.json,application/json" required>
+          </label>
+        </div>
+        <div class="form-actions">
+          <button class="button" type="submit">Validate &amp; open review</button>
+        </div>
+      </form>
+      <div class="assessment-upload-help">
+        <strong>ANVAYA package v{{ workspace.version }}</strong>
+        <span>Max 5 MB · strict JSON · answer keys checked · subject match enforced</span>
+      </div>
+    </section>
+  </div>
+  {% else %}
+  <div class="assessment-step-placeholder">
+    <strong>Import unlocks after you choose type + subject.</strong>
+    <span>This keeps the copied Alex prompt and saved history correctly organized.</span>
+  </div>
+  {% endif %}
 </section>
+
+<section class="assessment-history-section" aria-labelledby="assessment-history-title">
+  <div class="assessment-step-heading">
+    <div>
+      <span class="assessment-step-number assessment-step-number-muted">✓</span>
+      <div>
+        <p class="eyebrow">Saved automatically</p>
+        <h3 id="assessment-history-title">
+          {% if workspace.selected_kind and workspace.selected_course %}
+            {{ workspace.selected_kind|title }} · {{ workspace.selected_course.code }} history
+          {% elif workspace.selected_kind %}
+            {{ workspace.selected_kind|title }} history
+          {% elif workspace.selected_course %}
+            {{ workspace.selected_course.code }} history
+          {% else %}
+            Assessment package history
+          {% endif %}
+        </h3>
+      </div>
+    </div>
+    {% if workspace.selected_kind or workspace.selected_course_id %}
+      <a class="assessment-clear-link" href="{{ url_for('web.assessment_import') }}#assessment-history-title">Show all history</a>
+    {% endif %}
+  </div>
+
+  {% if workspace.batches %}
+  <div class="assessment-history-grid">
+    {% for item in workspace.batches %}
+    <article class="assessment-history-card">
+      <div class="assessment-history-topline">
+        <div class="tag-row">
+          <span class="tag">{{ item.workspace_kind_label }}</span>
+          <span class="tag">{{ item.course_code }}</span>
+          <span class="tag">{{ item.status_label }}</span>
+        </div>
+        <span class="assessment-history-revision">rev {{ item.package_revision }}</span>
+      </div>
+      <h4>{{ item.title }}</h4>
+      <p>{{ item.question_count }} questions · {{ item.assessment_type|replace('_',' ')|title }} · {{ item.mode|title }}</p>
+      <span class="assessment-history-file">{{ item.source_filename or item.package_id }}</span>
+      <a class="template-preview-link" href="{{ url_for('web.assessment_import_review', batch_id=item.id) }}">
+        Open package review <span aria-hidden="true">→</span>
+      </a>
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="assessment-history-empty">
+    <strong>No packages saved in this view yet.</strong>
+    <span>After you validate a package, ANVAYA automatically keeps it in this history with its type, subject and review state.</span>
+  </div>
+  {% endif %}
+</section>
+
+<textarea id="assessment-resolved-prompt" class="visually-hidden" aria-hidden="true" tabindex="-1">{{ workspace.resolved_prompt }}</textarea>
+
+<dialog id="assessment-prompt-preview" class="assessment-prompt-dialog">
+  <div class="assessment-dialog-shell">
+    <div class="assessment-dialog-header">
+      <div>
+        <p class="eyebrow">ANVAYA · Personalized Alex prompt</p>
+        <h3>
+          {% if workspace.selected_kind and workspace.selected_course %}
+            {{ workspace.selected_kind|title }} · {{ workspace.selected_course.code }}
+          {% else %}
+            Master assessment prompt
+          {% endif %}
+        </h3>
+      </div>
+      <button class="assessment-dialog-close" type="button" data-close-dialog="assessment-prompt-preview" aria-label="Close prompt preview">×</button>
+    </div>
+    <div class="assessment-prompt-full">
+      <pre>{{ workspace.resolved_prompt }}</pre>
+    </div>
+    <div class="form-actions assessment-dialog-actions">
+      <button class="button" type="button" data-copy-prompt>Copy prompt</button>
+      <button class="button button-secondary" type="button" data-open-prompt-editor>Edit master prompt</button>
+      <a class="button button-secondary" href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">Open Alex / ChatGPT ↗</a>
+    </div>
+    <span class="assessment-copy-status" data-copy-status aria-live="polite"></span>
+  </div>
+</dialog>
+
+<dialog id="assessment-prompt-editor" class="assessment-prompt-dialog assessment-prompt-editor-dialog">
+  <div class="assessment-dialog-shell">
+    <div class="assessment-dialog-header">
+      <div>
+        <p class="eyebrow">Editable authoring contract</p>
+        <h3>Edit master prompt</h3>
+      </div>
+      <button class="assessment-dialog-close" type="button" data-close-dialog="assessment-prompt-editor" aria-label="Close prompt editor">×</button>
+    </div>
+    <p class="lede">
+      Keep these placeholders if you want ANVAYA to personalize the copied prompt automatically:
+      <code>{{ '{{ASSESSMENT_KIND}}' }}</code>,
+      <code>{{ '{{ASSESSMENT_TYPE_GUIDANCE}}' }}</code>,
+      <code>{{ '{{COURSE_CODE}}' }}</code>,
+      <code>{{ '{{COURSE_NAME}}' }}</code>.
+    </p>
+    <form method="post" action="{{ url_for('web.assessment_import_prompt_save') }}">
+      <input type="hidden" name="workspace_kind" value="{{ workspace.selected_kind }}">
+      <input type="hidden" name="course_id" value="{{ workspace.selected_course_id }}">
+      <label class="form-field form-field-full">
+        <span>Master Alex prompt</span>
+        <textarea class="assessment-prompt-editor-textarea" name="master_prompt" rows="24" required>{{ workspace.master_prompt }}</textarea>
+      </label>
+      <div class="form-actions">
+        <button class="button" type="submit">Save master prompt</button>
+        <button class="button button-secondary" type="button" data-close-dialog="assessment-prompt-editor">Cancel</button>
+      </div>
+    </form>
+    {% if workspace.prompt_is_custom %}
+    <form method="post" action="{{ url_for('web.assessment_import_prompt_reset') }}" class="assessment-prompt-reset-form">
+      <input type="hidden" name="workspace_kind" value="{{ workspace.selected_kind }}">
+      <input type="hidden" name="course_id" value="{{ workspace.selected_course_id }}">
+      <button class="button button-secondary compact-button" type="submit">Reset to repository default</button>
+      <span>Custom prompt revision {{ workspace.prompt_revision }}</span>
+    </form>
+    {% endif %}
+  </div>
+</dialog>
 {% endblock %}
