@@ -1247,6 +1247,11 @@ def assessment_import_review(batch_id):
             notice = "Package approved and committed as a canonical assessment."
         elif request.args.get("rejected") == "1":
             notice = "Package rejected. No canonical assessment was created."
+        elif request.args.get("revision_staged") == "1":
+            notice = (
+                "Revised package validated and staged. ANVAYA opened the new "
+                "blind preflight without exposing test content."
+            )
         return render_template(
             "assessment_import_review.html",
             active_page="assessments",
@@ -1257,6 +1262,46 @@ def assessment_import_review(batch_id):
         )
     except Exception as error:
         return str(error), _assessment_package_error_status(error)
+
+
+@web_blueprint.post("/assessments/import/<batch_id>/revision")
+def assessment_import_revision(batch_id):
+    service = _assessment_package_service()
+    try:
+        upload = request.files.get("package")
+        if upload is None or not upload.filename:
+            raise AssessmentPackageValidationError(
+                "Choose the revised ANVAYA assessment package file."
+            )
+        staged = service.stage_revision(
+            batch_id,
+            upload.filename,
+            upload.read(MAX_PACKAGE_BYTES + 1),
+        )
+        return redirect(
+            url_for(
+                "web.assessment_import_review",
+                batch_id=staged["id"],
+                revision_staged="1",
+            ),
+            code=303,
+        )
+    except Exception as error:
+        try:
+            batch = service.review(batch_id)
+            return (
+                render_template(
+                    "assessment_import_review.html",
+                    active_page="assessments",
+                    batch=batch,
+                    alex_review_prompt=service.alex_review_prompt(batch_id),
+                    error_message=str(error),
+                    notice_message="",
+                ),
+                _assessment_package_error_status(error),
+            )
+        except Exception:
+            return str(error), _assessment_package_error_status(error)
 
 
 @web_blueprint.get("/assessments/import/<batch_id>/alex-review-handoff")
