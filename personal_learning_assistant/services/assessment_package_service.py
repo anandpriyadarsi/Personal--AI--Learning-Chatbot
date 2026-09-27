@@ -1935,6 +1935,17 @@ class AssessmentPackageService:
         ) as error:
             self._map_repository_error(error)
 
+    def delete_rejected(self, batch_id: str):
+        try:
+            with self._repository(write=True) as repository:
+                repository.delete_rejected_batch(str(batch_id))
+        except (
+            AssessmentImportRepositoryNotFoundError,
+            AssessmentImportRepositoryConflictError,
+            AssessmentImportRepositoryDataError,
+        ) as error:
+            self._map_repository_error(error)
+
     def approve(self, batch_id: str):
         review = self.review(batch_id)
         if str(review.get("status")) == "approved":
