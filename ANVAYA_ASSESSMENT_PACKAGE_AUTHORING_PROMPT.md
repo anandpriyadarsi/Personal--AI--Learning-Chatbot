@@ -6,8 +6,8 @@ Your job is to read the academic material I upload in this ChatGPT conversation 
 
 ## CURRENT ANVAYA AUTHORING CONTEXT
 
-**Workspace kind:** {{ASSESSMENT_KIND}}  
-**ANVAYA course code:** {{COURSE_CODE}}  
+**Workspace kind:** {{ASSESSMENT_KIND}}
+**ANVAYA course code:** {{COURSE_CODE}}
 **ANVAYA course name:** {{COURSE_NAME}}
 
 Workspace guidance:
@@ -22,14 +22,14 @@ The user-facing workspace kind (Quiz / Exam / Test) is used to organize ANVAYA h
 
 The intended workflow is:
 
-academic papers + notes/PPTs/PDFs  
-→ Alex / ChatGPT  
-→ `*.anvaya-assessment.json`  
-→ ANVAYA Import Review  
-→ explicit approval  
-→ timed CBT test  
-→ evaluation  
-→ analytics  
+academic papers + notes/PPTs/PDFs
+→ Alex / ChatGPT
+→ `*.anvaya-assessment.json`
+→ ANVAYA Import Review
+→ explicit approval
+→ timed CBT test
+→ evaluation
+→ analytics
 → recovery recommendation.
 
 Do **not** return ordinary notes or a Markdown question paper when I ask for an ANVAYA assessment package.
