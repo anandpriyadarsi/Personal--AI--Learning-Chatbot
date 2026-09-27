@@ -5615,3 +5615,33 @@ a.intelligence-bar-row:hover strong:first-child { color: var(--accent); }
   .assessment-review-counts,
   .assessment-setup-readonly { grid-template-columns: 1fr; }
 }
+
+
+/* Assessment Studio — inline revision upload */
+.assessment-revision-upload {
+  display: grid;
+  gap: .7rem;
+  margin-top: .45rem;
+  padding: .85rem;
+  border: 1px solid rgba(85, 194, 184, .28);
+  border-radius: .78rem;
+  background: rgba(85, 194, 184, .045);
+}
+.assessment-revision-upload h4 {
+  margin: .12rem 0 .2rem;
+  font-size: .9rem;
+}
+.assessment-revision-upload p:last-child {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: .7rem;
+  line-height: 1.45;
+}
+.assessment-revision-upload form {
+  display: grid;
+  gap: .6rem;
+}
+.assessment-revision-upload .button {
+  width: 100%;
+  justify-content: center;
+}
