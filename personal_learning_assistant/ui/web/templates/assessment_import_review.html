@@ -112,6 +112,8 @@
       </div>
       {% if batch.blind_review.semantic_warning_count == 0 %}
       <span class="assessment-status-pill is-good">Clear</span>
+      {% elif batch.blind_review.state == 'topic_mapping_pending' %}
+      <span class="assessment-status-pill is-warn">Topic map pending</span>
       {% else %}
       <span class="assessment-status-pill is-warn">Needed</span>
       {% endif %}
@@ -122,14 +124,23 @@
       <div><strong>{{ batch.blind_review.low_mapping_count }}</strong><span>low-confidence mappings</span></div>
       <div><strong>{{ batch.blind_review.low_authoring_count }}</strong><span>low authoring confidence</span></div>
     </div>
+    {% if batch.blind_review.state == 'topic_mapping_pending' %}
     <p>
-      ANVAYA will not ask you to open those questions. If any count is non-zero,
-      use the Alex handoff below and re-import the revised package.
+      The question content is usable. The remaining issue is ANVAYA's course-topic
+      catalogue: some package topics are missing or do not match confidently.
+      You do not need another Alex revision just for this. You can add the test now;
+      uncertain mappings will be left pending instead of being saved as false topic evidence.
     </p>
+    {% else %}
+    <p>
+      ANVAYA will not ask you to open those questions. If content-level review is still
+      required, use the Alex handoff below and re-import the revised package.
+    </p>
+    {% endif %}
   </article>
 </section>
 
-{% if batch.status == 'review' and batch.blind_review.semantic_warning_count > 0 %}
+{% if batch.status == 'review' and batch.blind_review.state == 'alex_review' %}
 <section class="assessment-alex-review-panel" aria-labelledby="alex-review-title">
   <div class="assessment-alex-review-copy">
     <p class="eyebrow">Recommended repair path</p>
@@ -269,6 +280,13 @@
         You can add this package to the test library without seeing any question or answer.
         Approval creates the canonical assessment but does not start the test or change mastery/planning.
       </p>
+    {% elif batch.can_approve_with_topic_gaps %}
+      <h3>The test is ready. Topic mapping can wait.</h3>
+      <p>
+        The remaining warnings come from an incomplete or mismatched ANVAYA topic catalogue,
+        not from a structural failure. You can add the assessment now. Only confidently matched
+        topics will feed topic-level analytics; uncertain mappings stay pending instead of being guessed.
+      </p>
     {% elif batch.blind_review.integrity_issue_count > 0 %}
       <h3>Package repair is required first.</h3>
       <p>
@@ -278,14 +296,21 @@
     {% else %}
       <h3>Alex review is required first.</h3>
       <p>
-        Structural checks passed, but semantic/topic uncertainty remains. Use the spoiler-safe
+        Structural checks passed, but content-level uncertainty remains. Use the spoiler-safe
         Alex handoff above, then import the revised package.
       </p>
     {% endif %}
   </div>
   <div class="assessment-approval-actions">
     <form method="post" action="{{ url_for('web.assessment_import_approve', batch_id=batch.id) }}">
-      <button class="button" type="submit"{% if not batch.can_approve %} disabled{% endif %}>Approve &amp; add to tests</button>
+      {% if batch.can_approve_with_topic_gaps %}
+      <input type="hidden" name="approval_mode" value="topic_gaps">
+      {% endif %}
+      <button
+        class="button"
+        type="submit"
+        {% if not (batch.can_approve or batch.can_approve_with_topic_gaps) %}disabled{% endif %}
+      >Approve &amp; add to tests</button>
     </form>
     <form method="post" action="{{ url_for('web.assessment_import_reject', batch_id=batch.id) }}">
       <button class="button button-secondary" type="submit">Reject package</button>
