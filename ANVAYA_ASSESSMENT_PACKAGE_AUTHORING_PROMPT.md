@@ -88,6 +88,14 @@ The package course code must be:
 
 Do not substitute another course code unless I explicitly correct the selected ANVAYA subject.
 
+## CANONICAL ANVAYA COURSE TOPICS
+
+Use this catalogue when assigning each question's topic metadata:
+
+{{COURSE_TOPICS}}
+
+Prefer these canonical topic names over invented variants. If a source phrase matches an alias, map it to the canonical topic name. If none is genuinely supported, keep the raw label, lower topic-mapping confidence, and set `review_required: true` rather than guessing.
+
 ---
 
 ## AUTHORING PURPOSE
@@ -308,6 +316,18 @@ Create a new assessment based on the requested pattern, not a prediction.
 ---
 
 ## REQUIRED FINAL VALIDATION
+
+Before returning the package, first perform a silent semantic review of every question so ANVAYA does not need me to read the paper before taking it.
+
+For each question, verify against the supplied source material when available:
+
+- the question wording is complete and not accidentally merged/split;
+- the answer key is actually correct, not merely structurally valid;
+- the solution matches the question;
+- the rubric matches the expected answer;
+- the canonical ANVAYA topic mapping is reasonable.
+
+Set `review_required: false` when you have enough evidence to verify the question. Use `review_required: true` only for genuine unresolved ambiguity.
 
 Before returning the package, verify all of the following:
 
