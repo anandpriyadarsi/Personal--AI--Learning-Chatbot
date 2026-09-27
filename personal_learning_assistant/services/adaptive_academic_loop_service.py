@@ -379,9 +379,10 @@ class AdaptiveAcademicLoopService:
             raise AdaptiveAcademicLoopConflictError(str(error)) from error
         raise error
 
-    def preview(self, *, limit=MAX_RECOMMENDATIONS):
+    def preview(self, *, limit=MAX_RECOMMENDATIONS, course_id=""):
         report = self.intelligence.weak_topics()
-        topics = tuple(report.get("topics") or ())
+        topics = tuple(item for item in report.get("topics") or ()
+                       if not course_id or str(item.get("course_id")) == str(course_id))
         candidates = tuple(
             _candidate(topic)
             for topic in topics[: max(1, min(int(limit), MAX_RECOMMENDATIONS))]
@@ -412,13 +413,16 @@ class AdaptiveAcademicLoopService:
         )["label"]
         return item
 
-    def workspace(self):
-        preview = self.preview()
+    def workspace(self, course_id=""):
+        course_id = str(course_id or "").strip()
+        preview = self.preview(course_id=course_id)
         with self._repository(write=False) as repository:
             saved = tuple(
                 self._decorate_saved(row)
                 for row in repository.list_recommendations()
+                if not course_id or str(row.get("course_id")) == course_id
             )
+            courses = repository.list_courses()
         pending = tuple(item for item in saved if item["status"] == "pending")
         accepted = tuple(item for item in saved if item["status"] == "accepted")
         applied = tuple(item for item in saved if item["status"] == "applied")
@@ -426,6 +430,9 @@ class AdaptiveAcademicLoopService:
         superseded = tuple(item for item in saved if item["status"] == "superseded")
         return {
             **preview,
+            "courses": courses,
+            "selected_course_id": course_id,
+            "selected_course": next((course for course in courses if course["id"] == course_id), None),
             "saved": saved,
             "pending": pending,
             "accepted": accepted,
@@ -440,7 +447,7 @@ class AdaptiveAcademicLoopService:
             },
         }
 
-    def generate(self, fingerprints):
+    def generate(self, fingerprints, *, course_id=""):
         requested = {
             str(value).strip()
             for value in fingerprints or ()
@@ -450,7 +457,7 @@ class AdaptiveAcademicLoopService:
             raise AdaptiveAcademicLoopValidationError(
                 "Select at least one evidence recommendation to generate."
             )
-        preview = self.preview()
+        preview = self.preview(course_id=course_id)
         by_fingerprint = {
             item["evidence_fingerprint"]: item
             for item in preview["candidates"]

@@ -220,6 +220,17 @@ class SQLiteAssessmentEvaluationRepository:
         attempt_id: str,
         now: str,
     ) -> None:
+        evaluation = connection.execute(
+            "SELECT status, outcome, awarded_marks_milli, question_attempt_id "
+            "FROM assessment_response_evaluations WHERE id=?",
+            (str(response_evaluation_id),),
+        ).fetchone()
+        # Recheck at the evidence write boundary, including legacy classifications.
+        if (evaluation is None or evaluation["status"] not in {"confirmed", "auto_confirmed"}
+                or evaluation["outcome"] not in {"incorrect", "partially_correct", "unanswered"}
+                or evaluation["awarded_marks_milli"] is None
+                or str(evaluation["question_attempt_id"]) != str(attempt_id)):
+            return
         rows = connection.execute(
             "SELECT id, category, note FROM assessment_evaluation_mistakes "
             "WHERE response_evaluation_id=? AND status='confirmed' "
@@ -403,13 +414,14 @@ class SQLiteAssessmentEvaluationRepository:
     def get_evaluation(self, session_id: str):
         session = self.connection.execute(
             "SELECT s.id AS session_id, s.assessment_id, s.status AS session_status, "
-            "s.mode, s.title_snapshot, s.course_code_snapshot, s.course_name_snapshot, "
+            "a.course_id, s.mode, s.title_snapshot, s.course_code_snapshot, s.course_name_snapshot, "
             "s.question_count, s.max_marks_milli AS session_max_marks_milli, "
             "s.started_at, s.submitted_at, s.submission_reason, "
             "e.id AS session_evaluation_id, e.status AS evaluation_status, "
             "e.engine_version, e.created_at AS evaluation_created_at, "
             "e.updated_at AS evaluation_updated_at, e.confirmed_at AS evaluation_confirmed_at "
             "FROM assessment_test_sessions s "
+            "LEFT JOIN assessments a ON a.id=s.assessment_id "
             "LEFT JOIN assessment_session_evaluations e ON e.session_id=s.id "
             "WHERE s.id=?",
             (str(session_id),),
@@ -622,11 +634,12 @@ class SQLiteAssessmentEvaluationRepository:
             "SELECT ev.*, q.ordinal, q.question_number, q.question_type, q.question_text, "
             "q.negative_marks_milli, q.topic_id, q.options_json, q.answer_key_json, "
             "q.solution_text, q.rubric_text, r.response_json, r.focus_seconds, "
-            "se.session_id "
+            "se.session_id, s.status AS session_status "
             "FROM assessment_response_evaluations ev "
             "JOIN assessment_test_session_questions q ON q.id=ev.session_question_id "
             "JOIN assessment_test_responses r ON r.id=ev.response_id "
             "JOIN assessment_session_evaluations se ON se.id=ev.session_evaluation_id "
+            "JOIN assessment_test_sessions s ON s.id=se.session_id "
             "WHERE ev.id=?",
             (str(evaluation_id),),
         ).fetchone()
@@ -655,13 +668,20 @@ class SQLiteAssessmentEvaluationRepository:
     ):
         with transaction(self.connection, immediate=True):
             row = self.connection.execute(
-                "SELECT ev.id, ev.question_attempt_id, ev.session_evaluation_id "
+                "SELECT ev.id, ev.question_attempt_id, ev.session_evaluation_id, "
+                "ev.status AS evaluation_status, ev.outcome, ev.awarded_marks_milli "
                 "FROM assessment_response_evaluations ev WHERE ev.id=?",
                 (str(evaluation_id),),
             ).fetchone()
             if row is None:
                 raise AssessmentEvaluationRepositoryNotFoundError(
                     "Response evaluation not found."
+                )
+            if (row["evaluation_status"] == "awaiting_review"
+                    or row["awarded_marks_milli"] is None
+                    or row["outcome"] not in {"incorrect", "partially_correct", "unanswered"}):
+                raise AssessmentEvaluationRepositoryConflictError(
+                    "Mistakes require a graded, non-correct response."
                 )
             try:
                 self.connection.execute(
@@ -711,7 +731,8 @@ class SQLiteAssessmentEvaluationRepository:
     def confirm_mistake(self, mistake_id: str, *, now: str):
         with transaction(self.connection, immediate=True):
             row = self.connection.execute(
-                "SELECT m.*, ev.question_attempt_id, ev.session_evaluation_id "
+                "SELECT m.*, ev.question_attempt_id, ev.session_evaluation_id, "
+                "ev.status AS evaluation_status, ev.outcome, ev.awarded_marks_milli "
                 "FROM assessment_evaluation_mistakes m "
                 "JOIN assessment_response_evaluations ev "
                 "ON ev.id=m.response_evaluation_id "
@@ -721,6 +742,12 @@ class SQLiteAssessmentEvaluationRepository:
             if row is None:
                 raise AssessmentEvaluationRepositoryNotFoundError(
                     "Mistake classification not found."
+                )
+            if (row["evaluation_status"] == "awaiting_review"
+                    or row["awarded_marks_milli"] is None
+                    or row["outcome"] not in {"incorrect", "partially_correct", "unanswered"}):
+                raise AssessmentEvaluationRepositoryConflictError(
+                    "Mistakes require a graded, non-correct response."
                 )
             if str(row["status"]) == "confirmed":
                 return self.get_response_evaluation(str(row["response_evaluation_id"]))

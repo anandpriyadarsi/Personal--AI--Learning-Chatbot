@@ -564,13 +564,23 @@ class AssessmentEvaluationService:
             str(result.get("status") or "").replace("_", " ").title(),
         )
         result["mistakes"] = tuple(dict(x) for x in result.get("mistakes") or ())
+        options = {str(option.get("id")): str(option.get("text") or "") for option in result["options"]}
+        def option_labels(ids):
+            return tuple("{} · {}".format(value, options.get(str(value), "Option unavailable")) for value in ids)
+        result["selected_options"] = option_labels(result["response"].get("selected_option_ids", ()))
+        result["correct_options"] = option_labels(result["answer_key"].get("correct_option_ids", ()))
+        result["can_classify"] = (result.get("status") != "awaiting_review"
+            and result.get("awarded_marks_milli") is not None
+            and result.get("outcome") in {"incorrect", "partially_correct", "unanswered"})
         return result
 
-    def results(self, session_id: str):
+    def results(self, session_id: str, *, outcome="", question=""):
         with self._repository(write=False) as repository:
             evaluation = repository.get_evaluation(str(session_id))
         if evaluation is None:
             raise AssessmentEvaluationNotFoundError("Test session not found.")
+        if evaluation.get("session_status") not in {"submitted", "expired"}:
+            raise AssessmentEvaluationConflictError("Submit the test before viewing results.")
         if not evaluation.get("session_evaluation_id"):
             raise AssessmentEvaluationNotFoundError(
                 "This session has not been evaluated yet."
@@ -617,6 +627,26 @@ class AssessmentEvaluationService:
             if result["is_final"]
             else None
         )
+        filters = (("", "All"), ("incorrect", "Incorrect"), ("partially_correct", "Partial"),
+                   ("unanswered", "Unanswered"), ("needs_grading", "Needs grading"), ("correct", "Correct"))
+        outcome = str(outcome) if outcome in dict(filters) else ""
+        def matches(item, value):
+            if value == "needs_grading":
+                return item["status"] in {"awaiting_review", "provisional"}
+            return not value or item["outcome"] == value
+        result["outcome_filters"] = tuple({"value": value, "label": label,
+            "count": sum(matches(item, value) for item in questions)} for value, label in filters)
+        result["review_outcome"] = outcome
+        visible = tuple(item for item in questions if matches(item, outcome))
+        result["review_questions"] = visible
+        selected = next((item for item in visible if item["evaluation_id"] == str(question)), visible[0] if visible else None)
+        result["selected_question"] = selected
+        position = visible.index(selected) if selected else -1
+        result["previous_question"] = visible[position - 1] if position > 0 else None
+        result["next_question"] = visible[position + 1] if position + 1 < len(visible) else None
+        result["next_grading"] = next(iter(awaiting + provisional), None)
+        result["negative_marks_total"] = _marks_text(sum(int(item.get("penalty_marks_milli") or 0) for item in scored))
+        result["focus_seconds"] = sum(int(item.get("focus_seconds") or 0) for item in questions)
         return result
 
     def response_editor(self, evaluation_id: str):
@@ -626,8 +656,11 @@ class AssessmentEvaluationService:
             raise AssessmentEvaluationNotFoundError(
                 "Response evaluation not found."
             )
+        if item.get("session_status") not in {"submitted", "expired"}:
+            raise AssessmentEvaluationConflictError("Submit the test before reviewing responses.")
         result = self._decorate_question(item)
         result["session_id"] = str(item["session_id"])
+        result["evaluation_id"] = str(item["id"])
         result["evaluator_types"] = ("user", "teacher", "alex_ai")
         result["mistake_categories"] = tuple(sorted(MISTAKE_CATEGORIES))
         return result
@@ -724,6 +757,8 @@ class AssessmentEvaluationService:
 
     def classify_mistake(self, evaluation_id: str, payload: dict):
         current = self.response_editor(evaluation_id)
+        if current["status"] == "awaiting_review" or current["awarded_marks_milli"] is None:
+            raise AssessmentEvaluationValidationError("Grade the response before classifying a mistake.")
         if str(current["outcome"]) == "correct":
             raise AssessmentEvaluationValidationError(
                 "A correct response does not need a mistake classification."

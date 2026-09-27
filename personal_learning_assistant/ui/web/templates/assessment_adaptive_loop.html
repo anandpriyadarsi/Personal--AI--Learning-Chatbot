@@ -1,9 +1,9 @@
 {% extends "base.html" %}
 {% block title %}Adaptive Academic Loop · ANVAYA{% endblock %}
 {% block content %}
-<section class="hero dashboard-hero">
+<section class="assessment-heading">
   <div>
-    <p class="eyebrow">Assessment Studio · Phase F</p>
+    <p class="eyebrow">Assessment Studio · Recovery</p>
     <h2>Adaptive Academic Loop</h2>
     <p class="lede">Turn confirmed assessment evidence into reviewable recovery actions. ANVAYA proposes; you decide what enters the planner.</p>
   </div>
@@ -13,6 +13,15 @@
   </div>
 </section>
 
+<form class="assessment-filters" method="get">
+  <label><span>Course</span><select name="course_id"><option value="">All courses</option>
+  {% for course in workspace.courses %}<option value="{{ course.id }}"{% if workspace.selected_course_id == course.id %} selected{% endif %}>{{ course.code }} · {{ course.name }}</option>{% endfor %}
+  </select></label><button class="button button-secondary" type="submit">Filter recovery</button>
+</form>
+{% if workspace.selected_course %}
+<p class="assessment-facts">{{ workspace.selected_course.code }} · {{ workspace.selected_course.name }}</p>
+<p><a class="button button-secondary" href="{{ url_for('web.assessment_import', kind='test', course_id=workspace.selected_course_id) }}">Create a retest with Alex</a></p>
+{% endif %}
 {% if notice_message %}<section class="notice-panel"><h3>Adaptive Loop updated</h3><p>{{ notice_message }}</p></section>{% endif %}
 {% if error_message %}<section class="notice-panel" role="alert"><h3>Action not completed</h3><p>{{ error_message }}</p></section>{% endif %}
 
@@ -30,12 +39,13 @@
 
 <section class="dashboard-panel next-panel">
   <div class="panel-heading">
-    <div><p class="eyebrow">Live Phase E evidence</p><h3>Preview recommendations before saving</h3></div>
+    <div><p class="eyebrow">Confirmed assessment evidence</p><h3>Preview recommendations before saving</h3></div>
     <span class="count-badge">{{ workspace.candidates|length }}</span>
   </div>
   <p class="lede">{{ workspace.source_note }}</p>
   {% if workspace.candidates %}
   <form method="post" action="{{ url_for('web.assessment_adaptive_generate') }}">
+    <input type="hidden" name="course_id" value="{{ workspace.selected_course_id }}">
     <div class="adaptive-preview-grid">
     {% for item in workspace.candidates %}
       <article class="adaptive-card">
@@ -67,7 +77,7 @@
 {% if workspace.accepted %}
 <section class="dashboard-panel next-panel">
   <div class="panel-heading"><div><p class="eyebrow">Safe resume</p><h3>Accepted, planner application pending</h3></div><span class="count-badge">{{ workspace.accepted|length }}</span></div>
-  <p class="lede">These were already accepted. Retrying Apply is idempotent and will reuse the same recovery task external ID.</p>
+  <p class="lede">These were already accepted. Retry to finish creating the planner task; this will not create a duplicate.</p>
   <div class="adaptive-saved-grid">
   {% for item in workspace.accepted %}
     <article class="adaptive-card adaptive-card-warning">
@@ -75,6 +85,7 @@
       <h3>{{ item.suggested_title }}</h3>
       <p>{{ item.action_label }} · {{ item.applied_payload.get('priority', item.suggested_priority) }} · {{ item.applied_payload.get('estimated_minutes', item.suggested_minutes) }} min</p>
       <form method="post" action="{{ url_for('web.assessment_adaptive_apply', recommendation_id=item.id) }}">
+    <input type="hidden" name="course_id" value="{{ workspace.selected_course_id }}">
         <input type="hidden" name="revision" value="{{ item.revision }}">
         <button class="button" type="submit">Retry planner application</button>
       </form>
@@ -96,6 +107,7 @@
       <ol class="adaptive-step-list">{% for step in item.action_plan %}<li>{{ step.instruction }}</li>{% endfor %}</ol>
 
       <form method="post" action="{{ url_for('web.assessment_adaptive_apply', recommendation_id=item.id) }}">
+    <input type="hidden" name="course_id" value="{{ workspace.selected_course_id }}">
         <input type="hidden" name="revision" value="{{ item.revision }}">
         <div class="form-grid">
           <label class="form-field form-field-full"><span>Planner task title</span><input name="title" maxlength="300" value="{{ item.suggested_title }}" required></label>
@@ -108,6 +120,7 @@
       </form>
 
       <form class="adaptive-reject-form" method="post" action="{{ url_for('web.assessment_adaptive_reject', recommendation_id=item.id) }}">
+    <input type="hidden" name="course_id" value="{{ workspace.selected_course_id }}">
         <input type="hidden" name="revision" value="{{ item.revision }}">
         <label class="form-field"><span>Reject note (optional)</span><input name="reason" maxlength="1000" placeholder="Why this is not useful now"></label>
         <button class="button button-secondary compact-button" type="submit">Reject recommendation</button>
@@ -139,7 +152,7 @@
 {% endif %}
 
 <section class="notice-panel next-panel">
-  <h3>What Phase F does not do</h3>
-  <p>It does not mark a topic weak/mastered, auto-schedule a calendar slot, create a daily agenda item, or silently generate a new test. A retest is an explicit recommended action that you can create with Alex/ChatGPT and import through the existing Assessment Package workflow.</p>
+  <h3>After recovery</h3>
+  <p>Use the recovery prompt with Alex / ChatGPT, create a new test package, then import it for blind review. Course reports compare confirmed attempts; an automatic link between a recovery task and a specific retest is not yet recorded.</p>
 </section>
 {% endblock %}

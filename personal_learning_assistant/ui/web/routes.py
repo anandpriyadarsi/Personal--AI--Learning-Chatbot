@@ -1914,7 +1914,9 @@ def assessment_session_evaluate(session_id):
 @web_blueprint.get("/assessments/sessions/<session_id>/evaluation")
 def assessment_evaluation_results(session_id):
     try:
-        result = _assessment_evaluation_service().results(session_id)
+        result = _assessment_evaluation_service().results(
+            session_id, outcome=request.args.get("outcome", ""), question=request.args.get("question", "")
+        )
         notice = ""
         if request.args.get("created") == "1":
             notice = "Evaluation created. Deterministic questions were scored; subjective/custom questions remain under review."
@@ -1967,7 +1969,7 @@ def assessment_evaluation_review_save(evaluation_id):
         service.save_manual_evaluation(evaluation_id, payload)
         item = service.response_editor(evaluation_id)
         return redirect(
-            url_for("web.assessment_evaluation_results", session_id=item["session_id"], saved="1"),
+            url_for("web.assessment_evaluation_results", session_id=item["session_id"], question=evaluation_id, saved="1"),
             code=303,
         )
     except Exception as error:
@@ -1992,7 +1994,7 @@ def assessment_evaluation_confirm(evaluation_id):
     try:
         item = service.confirm_provisional(evaluation_id)
         return redirect(
-            url_for("web.assessment_evaluation_results", session_id=item["session_id"], confirmed="1"),
+            url_for("web.assessment_evaluation_results", session_id=item["session_id"], question=evaluation_id, confirmed="1"),
             code=303,
         )
     except Exception as error:
@@ -2012,7 +2014,7 @@ def assessment_evaluation_mistake_add(evaluation_id):
             },
         )
         return redirect(
-            url_for("web.assessment_evaluation_results", session_id=item["session_id"], mistake="1"),
+            url_for("web.assessment_evaluation_results", session_id=item["session_id"], question=evaluation_id, mistake="1"),
             code=303,
         )
     except Exception as error:
@@ -2029,6 +2031,7 @@ def assessment_evaluation_mistake_confirm(mistake_id):
                 "web.assessment_evaluation_results",
                 session_id=item["session_id"],
                 mistake_confirmed="1",
+                question=item["id"],
             ),
             code=303,
         )
@@ -2114,7 +2117,7 @@ def assessment_weak_topics():
 @web_blueprint.get("/assessments/adaptive")
 def assessment_adaptive_loop():
     try:
-        workspace = _adaptive_academic_loop_service().workspace()
+        workspace = _adaptive_academic_loop_service().workspace(course_id=request.args.get("course_id", ""))
         notice = ""
         if request.args.get("generated") == "1":
             notice = "Selected recovery recommendations were saved for review."
@@ -2137,8 +2140,8 @@ def assessment_adaptive_loop():
 def assessment_adaptive_generate():
     service = _adaptive_academic_loop_service()
     try:
-        service.generate(request.form.getlist("evidence_fingerprint"))
-        return redirect(url_for("web.assessment_adaptive_loop", generated="1"), code=303)
+        service.generate(request.form.getlist("evidence_fingerprint"), course_id=request.form.get("course_id", ""))
+        return redirect(url_for("web.assessment_adaptive_loop", generated="1", course_id=request.form.get("course_id", "")), code=303)
     except (
         AdaptiveAcademicLoopValidationError,
         AdaptiveAcademicLoopNotFoundError,
@@ -2146,7 +2149,7 @@ def assessment_adaptive_generate():
         AdaptiveAcademicLoopUnavailableError,
     ) as error:
         try:
-            workspace = service.workspace()
+            workspace = service.workspace(course_id=request.form.get("course_id", ""))
         except Exception:
             return str(error), _adaptive_academic_loop_error_status(error)
         return (
@@ -2176,7 +2179,7 @@ def assessment_adaptive_apply(recommendation_id):
                 "due_on": request.form.get("due_on", ""),
             },
         )
-        return redirect(url_for("web.assessment_adaptive_loop", applied="1"), code=303)
+        return redirect(url_for("web.assessment_adaptive_loop", applied="1", course_id=request.form.get("course_id", "")), code=303)
     except (
         AdaptiveAcademicLoopValidationError,
         AdaptiveAcademicLoopNotFoundError,
@@ -2184,7 +2187,7 @@ def assessment_adaptive_apply(recommendation_id):
         AdaptiveAcademicLoopUnavailableError,
     ) as error:
         try:
-            workspace = service.workspace()
+            workspace = service.workspace(course_id=request.form.get("course_id", ""))
         except Exception:
             return str(error), _adaptive_academic_loop_error_status(error)
         return (
@@ -2208,7 +2211,7 @@ def assessment_adaptive_reject(recommendation_id):
             revision=request.form.get("revision", ""),
             reason=request.form.get("reason", ""),
         )
-        return redirect(url_for("web.assessment_adaptive_loop", rejected="1"), code=303)
+        return redirect(url_for("web.assessment_adaptive_loop", rejected="1", course_id=request.form.get("course_id", "")), code=303)
     except (
         AdaptiveAcademicLoopValidationError,
         AdaptiveAcademicLoopNotFoundError,
@@ -2216,7 +2219,7 @@ def assessment_adaptive_reject(recommendation_id):
         AdaptiveAcademicLoopUnavailableError,
     ) as error:
         try:
-            workspace = service.workspace()
+            workspace = service.workspace(course_id=request.form.get("course_id", ""))
         except Exception:
             return str(error), _adaptive_academic_loop_error_status(error)
         return (

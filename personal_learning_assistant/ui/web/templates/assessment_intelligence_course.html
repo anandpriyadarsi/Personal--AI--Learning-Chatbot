@@ -1,14 +1,14 @@
 {% extends "base.html" %}
 {% block title %}{{ report.course.code }} Assessment Intelligence · ANVAYA{% endblock %}
 {% block content %}
-<section class="hero dashboard-hero">
+<section class="assessment-heading">
   <div>
     <p class="eyebrow">Assessment Intelligence · {{ report.course.code }}</p>
     <h2>{{ report.course.name }}</h2>
     <p class="lede">Cross-test confirmed evidence for score, timing, topics, difficulty, question type and repeated mistakes.</p>
   </div>
   <div class="form-actions">
-    <a class="button" href="{{ url_for('web.assessment_adaptive_loop') }}">Adaptive Loop</a>
+    <a class="button" href="{{ url_for('web.assessment_adaptive_loop', course_id=report.course.id) }}">Adaptive Loop</a>
     <a class="button button-secondary" href="{{ url_for('web.assessment_weak_topics') }}">Recovery evidence</a>
     <a class="button button-secondary" href="{{ url_for('web.assessment_intelligence') }}">All reports</a>
   </div>
@@ -101,7 +101,7 @@
   <div class="table-wrap"><table><thead><tr><th>Topic</th><th>Questions</th><th>Sessions</th><th>Signed score</th><th>Weighted %</th><th>Accuracy %</th><th>Mistakes</th><th>Sec/mark</th></tr></thead><tbody>{% for item in report.topics %}<tr><td>{{ item.label }}</td><td>{{ item.question_count }}</td><td>{{ item.session_count }}</td><td>{{ item.signed_score }}/{{ item.max_marks }}</td><td>{{ item.weighted_performance_percent if item.weighted_performance_percent is not none else '—' }}</td><td>{{ item.full_accuracy_percent if item.full_accuracy_percent is not none else '—' }}</td><td>{{ item.mistake_count }}</td><td>{{ item.time_per_available_mark_seconds if item.time_per_available_mark_seconds is not none else '—' }}</td></tr>{% endfor %}</tbody></table></div>
 </details>
 {% else %}
-<section class="notice-panel"><h3>No confirmed evidence for this course</h3><p>Finish at least one Phase D evaluation before cross-test intelligence is available.</p></section>
+<section class="notice-panel"><h3>No confirmed evidence for this course</h3><p>Finish at least one evaluation before cross-test intelligence is available.</p></section>
 {% endif %}
 
 <section class="notice-panel next-panel"><h3>Evidence, not mastery</h3><p>These charts summarize confirmed assessment evidence. They do not mark topics mastered/weak in the academic store and do not change the planner.</p></section>

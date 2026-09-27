@@ -1,9 +1,9 @@
 {% extends "base.html" %}
 {% block title %}Assessment Intelligence · ANVAYA{% endblock %}
 {% block content %}
-<section class="hero dashboard-hero">
+<section class="assessment-heading">
   <div>
-    <p class="eyebrow">Assessment Studio · Phase E</p>
+    <p class="eyebrow">Assessment Studio · Reports</p>
     <h2>Assessment Intelligence</h2>
     <p class="lede">Read-only intelligence from confirmed test evaluations: score, accuracy, time, topic evidence, repeated mistakes and historical coverage.</p>
   </div>
@@ -126,7 +126,7 @@
   </div>
 </details>
 {% else %}
-<section class="notice-panel"><h3>No confirmed evaluation evidence yet</h3><p>Complete a test and finish Phase D evaluation first. Provisional and awaiting-review grades are intentionally excluded from cross-test intelligence.</p></section>
+<section class="notice-panel"><h3>No confirmed evaluation evidence yet</h3><p>Complete a test and confirm its evaluation first. Provisional and awaiting-review grades are intentionally excluded from cross-test intelligence.</p></section>
 {% endif %}
 
 <section class="notice-panel next-panel">

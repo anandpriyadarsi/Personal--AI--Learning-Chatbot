@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Weak Topics / Recovery Evidence · ANVAYA{% endblock %}
 {% block content %}
-<section class="hero dashboard-hero">
+<section class="assessment-heading">
   <div><p class="eyebrow">Assessment Intelligence · Recovery Evidence</p><h2>Topics to inspect first</h2><p class="lede">A transparent order based only on confirmed assessment performance, repeated misses and confirmed mistake classifications.</p></div>
   <div class="form-actions"><a class="button" href="{{ url_for('web.assessment_adaptive_loop') }}">Open Adaptive Loop</a>  <a class="button button-secondary" href="{{ url_for('web.assessment_intelligence') }}">Assessment reports</a></div>
 </section>
@@ -16,6 +16,7 @@
       <div class="intelligence-card-heading">
         <div><p class="eyebrow">{{ item.course_code }} · Evidence order #{{ item.recovery_order }}</p><h3>{{ item.label }}</h3></div>
         <a class="button button-secondary compact-button" href="{{ url_for('web.assessment_intelligence_course', course_id=item.course_id) }}">Course report</a>
+        <a class="button compact-button" href="{{ url_for('web.assessment_adaptive_loop', course_id=item.course_id) }}">Review recovery actions</a>
       </div>
       <div class="intelligence-bar"><span class="intelligence-band-{{ item.band }}" style="--intelligence-value: {{ item.bar_percent }}"></span></div>
       <div class="intelligence-stat-row">

@@ -5,7 +5,7 @@
 <nav class="notes-reader-back" aria-label="Preparation navigation">
   <a href="{{ url_for('web.assessment_import', kind=batch.workspace_kind, course_id=batch.course_id) }}">← {{ batch.workspace_kind_label }} · {{ batch.course_code }}</a>
 </nav>
-<header class="assessment-page-heading">
+<header class="assessment-heading">
   <div><p class="eyebrow">Blind preflight · {{ batch.course_code }} · Package rev {{ batch.package_revision }}</p><h2>{{ batch.title }}</h2></div>
 </header>
 {% if notice_message %}<p class="notice-panel" role="status">{{ notice_message }}</p>{% endif %}

@@ -85,6 +85,11 @@ class SQLiteAssessmentRecoveryRepository:
             ),
         )
 
+    def list_courses(self):
+        return tuple(dict(row) for row in self.connection.execute(
+            "SELECT id, code, name FROM courses WHERE deleted_at IS NULL ORDER BY code, id"
+        ).fetchall())
+
     def list_recommendations(self):
         rows = self.connection.execute(
             "SELECT r.*, c.code AS course_code, c.name AS course_name, "

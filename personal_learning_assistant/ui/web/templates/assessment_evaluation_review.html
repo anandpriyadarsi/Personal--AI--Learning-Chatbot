@@ -1,13 +1,13 @@
 {% extends "base.html" %}
 {% block title %}Grade Response · ANVAYA{% endblock %}
 {% block content %}
-<section class="hero dashboard-hero">
+<section class="assessment-heading">
   <div>
     <p class="eyebrow">Assessment Studio · Rubric Review</p>
     <h2>Question {{ item.question_number or item.ordinal }}</h2>
     <p class="lede">{{ item.question_type|replace('_',' ')|title }} · {{ item.max_marks }} marks · {{ item.status_label }}</p>
   </div>
-  <a class="button button-secondary" href="{{ url_for('web.assessment_evaluation_results', session_id=item.session_id) }}">Back to evaluation</a>
+  <a class="button button-secondary" href="{{ url_for('web.assessment_evaluation_results', session_id=item.session_id, question=item.evaluation_id) }}">Back to evaluation</a>
 </section>
 
 {% if error_message %}<section class="notice-panel" role="alert"><h3>Grade was not saved</h3><p>{{ error_message }}</p></section>{% endif %}
@@ -19,7 +19,7 @@
     <section>
       <h3>Your response</h3>
       {% if item.question_type in ['mcq','msq'] %}
-        <p>{{ item.response.get('selected_option_ids', [])|join(', ') or 'No answer.' }}</p>
+        <p>{{ item.selected_options|join(' · ') or 'No answer.' }}</p>
       {% elif item.question_type in ['numerical','fill_blank','true_false'] %}
         <p>{{ item.response.get('value', '') or 'No answer.' }}</p>
       {% else %}
@@ -37,7 +37,7 @@
   <p class="eyebrow">Rubric snapshot</p>
   <h3>Grade against the rubric used when the test started</h3>
   <p class="reader-prose">{{ item.rubric_text or 'No rubric was supplied. Use the solution and question requirements carefully.' }}</p>
-  <p class="lede">Rubric version: <code>{{ item.rubric_version[:16] }}</code></p>
+  <details class="assessment-disclosure"><summary>Grading provenance</summary><p>Rubric version: <code>{{ item.rubric_version[:16] }}</code></p></details>
 </section>
 
 {% if item.status == 'provisional' %}
@@ -51,6 +51,7 @@
 </section>
 {% endif %}
 
+{% if item.status in ['awaiting_review', 'provisional'] %}
 <section class="action-panel">
   <p class="eyebrow">Record evaluation</p>
   <h3>Subjective/custom score</h3>
@@ -73,4 +74,5 @@
     <div class="form-actions"><button class="button" type="submit">Save evaluation</button></div>
   </form>
 </section>
+{% else %}<p class="notice-panel">This grade is final. Return to evaluation to review the next question.</p>{% endif %}
 {% endblock %}

@@ -1,13 +1,13 @@
 {% extends "base.html" %}
 {% block title %}Session Intelligence · {{ report.session.title_snapshot }} · ANVAYA{% endblock %}
 {% block content %}
-<section class="hero dashboard-hero">
+<section class="assessment-heading">
   <div><p class="eyebrow">Assessment Intelligence · Session</p><h2>{{ report.session.title_snapshot }}</h2><p class="lede">{{ report.session.course_code_snapshot }} · {{ report.session.assessment_type|replace('_',' ')|title }} · {{ report.session.evaluation_status|replace('_',' ')|title }}</p></div>
-  <div class="form-actions"><a class="button button-secondary" href="{{ url_for('web.assessment_evaluation_results', session_id=report.session.session_id) }}">Evaluation</a><a class="button button-secondary" href="{{ url_for('web.assessment_intelligence_course', course_id=report.session.course_id) }}">Course report</a></div>
+  <div class="form-actions"><a class="button" href="{{ url_for('web.assessment_adaptive_loop', course_id=report.session.course_id) }}">Course recovery</a><a class="button button-secondary" href="{{ url_for('web.assessment_evaluation_results', session_id=report.session.session_id) }}">Evaluation</a><a class="button button-secondary" href="{{ url_for('web.assessment_intelligence_course', course_id=report.session.course_id) }}">Course report</a></div>
 </section>
 
 {% if not report.is_final %}
-<section class="notice-panel"><h3>Preliminary intelligence</h3><p>{{ report.provisional_count }} provisional and {{ report.awaiting_review_count }} awaiting-review question{% if report.awaiting_review_count != 1 %}s{% endif %} are excluded from the confirmed analytics below. Cross-test reports will not include this session until Phase D is fully confirmed.</p></section>
+<section class="notice-panel"><h3>Preliminary intelligence</h3><p>{{ report.provisional_count }} provisional and {{ report.awaiting_review_count }} awaiting-review question{% if report.awaiting_review_count != 1 %}s{% endif %} are excluded from the confirmed analytics below. Cross-test reports will not include this session until all grades are confirmed.</p></section>
 {% endif %}
 
 <section class="metric-grid">

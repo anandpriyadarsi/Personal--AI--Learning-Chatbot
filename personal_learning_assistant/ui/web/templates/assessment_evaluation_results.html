@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Evaluation · {{ result.title_snapshot }} · ANVAYA{% endblock %}
 {% block content %}
-<section class="hero dashboard-hero">
+<section class="assessment-heading">
   <div>
     <p class="eyebrow">Assessment Studio · Evaluation Engine</p>
     <h2>{{ result.title_snapshot }}</h2>
@@ -10,7 +10,7 @@
   <div class="form-actions">
     <a class="button button-secondary" href="{{ url_for('web.assessment_session_analysis', session_id=result.session_id) }}">Open Intelligence</a>
     <a class="button button-secondary" href="{{ url_for('web.assessment_session_summary', session_id=result.session_id) }}">Session summary</a>
-    <a class="button button-secondary" href="{{ url_for('web.assessment_tests') }}">Tests</a>
+    <a class="button button-secondary" href="{{ url_for('web.assessment_test_history', assessment_id=result.assessment_id) }}">Attempt history</a>
   </div>
 </section>
 
@@ -40,6 +40,20 @@
   </article>
 </section>
 
+<p class="assessment-facts">{{ result.negative_marks_total }} marks lost to penalties · {{ result.focus_seconds }} seconds of captured focus time</p>
+<section class="assessment-continue">
+  {% if result.next_grading %}
+  <div><h3>Finish grading</h3><p>{{ result.awaiting_review_count }} awaiting review · {{ result.provisional_count }} provisional. Confirmed score: {{ result.confirmed_score }} / {{ result.max_marks }}.</p></div>
+  <a class="button" href="{{ url_for('web.assessment_evaluation_review', evaluation_id=result.next_grading.evaluation_id) }}">{% if result.next_grading.status == 'awaiting_review' %}Grade response{% else %}Review provisional grade{% endif %}</a>
+  {% else %}
+  <div><h3>Choose what to work on next</h3><p>Review mistakes below, then use confirmed course evidence to plan recovery.</p></div>
+  <a class="button" href="{{ url_for('web.assessment_adaptive_loop', course_id=result.course_id) }}">Review recovery actions</a>
+  {% endif %}
+</section>
+<div class="assessment-tools">
+  <a href="{{ url_for('web.assessment_adaptive_loop', course_id=result.course_id) }}">Course recovery</a>
+  <a href="{{ url_for('web.assessment_import', kind='test', course_id=result.course_id) }}">Create a retest with Alex</a>
+</div>
 {% if result.provisional_count %}
 <section class="notice-panel">
   <h3>Provisional grading is not final</h3>
@@ -53,9 +67,16 @@
     <span class="count-badge">{{ result.questions|length }}</span>
   </div>
 
+  <nav class="assessment-review-filters" aria-label="Filter question outcomes">
+  {% for filter in result.outcome_filters %}<a href="{{ url_for('web.assessment_evaluation_results', session_id=result.session_id, outcome=filter.value) }}"{% if filter.value == result.review_outcome %} aria-current="true"{% endif %}>{{ filter.label }} ({{ filter.count }})</a>{% endfor %}
+  </nav>
+  <nav class="assessment-question-index" aria-label="Choose a question to review">
+  {% for item in result.review_questions %}<a href="{{ url_for('web.assessment_evaluation_results', session_id=result.session_id, outcome=result.review_outcome, question=item.evaluation_id) }}"{% if result.selected_question and item.evaluation_id == result.selected_question.evaluation_id %} aria-current="true"{% endif %}>Q{{ item.question_number or item.ordinal }} · {{ item.outcome_label }} · {{ item.awarded_marks }}/{{ item.max_marks }}</a>{% endfor %}
+  </nav>
   <div class="evaluation-list">
-  {% for q in result.questions %}
-    <article class="evaluation-card">
+  {% if result.selected_question %}
+  {% set q = result.selected_question %}
+    <article class="evaluation-card" data-review-question="{{ q.evaluation_id }}">
       <div class="evaluation-card-header">
         <div>
           <p class="eyebrow">{% if q.section_label %}{{ q.section_label }} · {% endif %}Question {{ q.question_number or q.ordinal }}</p>
@@ -68,6 +89,7 @@
         </div>
       </div>
 
+      <p class="assessment-facts">{{ q.focus_seconds }} seconds captured · {{ q.negative_marks }} penalty marks · {{ q.difficulty|title }}{% if q.chapter_label %} · {{ q.chapter_label }}{% endif %}{% if q.subtopic_label %} / {{ q.subtopic_label }}{% endif %}</p>
       <div class="evaluation-question-text">{{ q.question_text }}</div>
 
       <div class="evaluation-grid">
@@ -75,7 +97,7 @@
           <h4>Your response</h4>
           {% if q.question_type in ['mcq','msq'] %}
             {% set selected = q.response.get('selected_option_ids', []) %}
-            {% if selected %}<p>{{ selected|join(', ') }}</p>{% else %}<p class="empty-state">No option selected.</p>{% endif %}
+            {% if selected %}<p>{{ q.selected_options|join(' · ') }}</p>{% else %}<p class="empty-state">No option selected.</p>{% endif %}
           {% elif q.question_type in ['numerical','fill_blank','true_false'] %}
             <p>{{ q.response.get('value', '') or 'No answer.' }}</p>
           {% else %}
@@ -86,7 +108,7 @@
           <h4>Correct answer / guide</h4>
           {% if q.question_type in ['mcq','msq'] %}
             {% set keys = q.answer_key.get('correct_option_ids', []) %}
-            <p>{% if keys %}Correct option{% if keys|length != 1 %}s{% endif %}: {{ keys|join(', ') }}{% else %}No deterministic key available.{% endif %}</p>
+            <p>{% if keys %}Correct option{% if keys|length != 1 %}s{% endif %}: {{ q.correct_options|join(' · ') }}{% else %}No deterministic key available.{% endif %}</p>
           {% elif q.question_type in ['numerical','fill_blank','true_false'] %}
             {% set accepted = q.answer_key.get('accepted_answers', []) %}
             <p>{% if accepted %}Accepted: {{ accepted|join(' · ') }}{% else %}No deterministic key available.{% endif %}</p>
@@ -120,9 +142,9 @@
       </div>
       {% endif %}
 
-      {% if q.outcome != 'correct' %}
-      <div class="evaluation-mistakes">
-        <h4>Mistake classification</h4>
+      {% if q.can_classify %}
+      <details class="evaluation-mistakes assessment-disclosure">
+        <summary>Mistake classification ({{ q.mistakes|length }})</summary>
         {% if q.mistakes %}
           <div class="tag-row">
           {% for mistake in q.mistakes %}
@@ -154,15 +176,19 @@
           </div>
           <div class="form-actions"><button class="button button-secondary compact-button" type="submit">Add classification</button></div>
         </form>
-      </div>
+      </details>
       {% endif %}
     </article>
-  {% endfor %}
+    <nav class="assessment-pagination" aria-label="Review question navigation">
+      {% if result.previous_question %}<a href="{{ url_for('web.assessment_evaluation_results', session_id=result.session_id, outcome=result.review_outcome, question=result.previous_question.evaluation_id) }}">← Previous question</a>{% endif %}
+      {% if result.next_question %}<a href="{{ url_for('web.assessment_evaluation_results', session_id=result.session_id, outcome=result.review_outcome, question=result.next_question.evaluation_id) }}">Next question →</a>{% endif %}
+    </nav>
+  {% else %}<p class="empty-state">No questions match this filter. Choose another outcome to continue reviewing.</p>{% endif %}
   </div>
 </section>
 
 <section class="notice-panel">
   <h3>Academic evidence boundary</h3>
-  <p>Confirmed question attempts and confirmed mistake classifications are recorded as assessment evidence. Phase D does not change topic mastery, progress status or your planner; those decisions remain later explicit phases.</p>
+  <p>Confirmed question attempts and confirmed mistake classifications are recorded as assessment evidence. Recovery proposals use confirmed evidence. Applying a proposal to your planner requires your explicit action.</p>
 </section>
 {% endblock %}

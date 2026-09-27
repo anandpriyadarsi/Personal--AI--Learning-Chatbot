@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Test Instructions · {{ test.title }} · ANVAYA{% endblock %}
 {% block content %}
-<section class="assessment-page-heading">
+<section class="assessment-heading">
   <div><p class="eyebrow">Assessment Studio · Test Instructions</p><h2>{{ test.title }}</h2><p class="lede">{{ test.course_code }} · {{ test.assessment_type|replace('_',' ')|title }} · {{ test.mode|title }}</p></div>
   <a class="button button-secondary" href="{{ url_for('web.assessment_tests') }}">Back to tests</a>
 </section>

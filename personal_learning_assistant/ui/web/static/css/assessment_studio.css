@@ -78,14 +78,14 @@
  .assessment-page *, .assessment-page *::before, .assessment-page *::after { scroll-behavior:auto !important; transition:none !important; animation:none !important; }
 }
 
-.assessment-protection, .assessment-facts { margin: .8rem 0; color: var(--muted); }
-.assessment-repair-panel { padding: 1.25rem; margin: 1rem 0; border: 1px solid var(--line); border-radius: 1rem; }
+.assessment-protection, .assessment-facts { margin: .8rem 0; color: var(--text-muted); }
+.assessment-repair-panel { padding: 1.25rem; margin: 1rem 0; border: 1px solid var(--border); border-radius: 1rem; }
 .assessment-page .assessment-disclosure textarea { display: block; width: 100%; margin-top: .5rem; }
 
 .assessment-page [hidden] { display: none !important; }
 .assessment-table-scroll { max-width: 100%; overflow-x: auto; }
 .assessment-table-scroll table { width: 100%; text-align: left; border-collapse: collapse; }
-.assessment-table-scroll th, .assessment-table-scroll td { padding: .7rem; border-bottom: 1px solid var(--line); }
+.assessment-table-scroll th, .assessment-table-scroll td { padding: .7rem; border-bottom: 1px solid var(--border); }
 .exam-palette-disclosure > summary { cursor: pointer; padding: .5rem 0; font-weight: 600; }
 .assessment-page .exam-palette-panel { order: 0; }
 @media (max-width: 760px) {
@@ -95,4 +95,16 @@
   .assessment-page .exam-header { position: sticky; top: 0; z-index: 4; background: var(--surface, #fff); padding: .7rem; }
   .assessment-page .exam-header h2 { font-size: 1.15rem; }
   .assessment-page .exam-actions { flex-wrap: wrap; }
+}
+
+.assessment-review-filters, .assessment-question-index { display: flex; flex-wrap: wrap; gap: .5rem; margin: 1rem 0; }
+.assessment-review-filters a, .assessment-question-index a { padding: .6rem .8rem; border: 1px solid var(--border); border-radius: .5rem; font-size: .8rem; text-decoration: none; }
+.assessment-review-filters a[aria-current], .assessment-question-index a[aria-current] { background: var(--accent-soft); border-color: var(--accent); }
+.assessment-question-index { max-height: 12rem; overflow-y: auto; padding: .2rem; }
+.assessment-page .evaluation-card { min-width: 0; }
+.assessment-page .evaluation-question-text, .assessment-page .reader-prose { overflow-wrap: anywhere; }
+.assessment-page a:focus-visible, .assessment-page button:focus-visible, .assessment-page summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+@media (max-width: 760px) {
+  .assessment-page .evaluation-grid { grid-template-columns: 1fr; }
+  .assessment-page .evaluation-card-header { align-items: flex-start; flex-direction: column; }
 }
