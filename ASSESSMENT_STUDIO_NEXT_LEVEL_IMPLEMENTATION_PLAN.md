@@ -33,11 +33,11 @@
 
 **Interfaces:** `AssessmentWorkspaceService(database_path, now_fn=None).library(query='', course_id='', kind='', state='', page=1, assessment_id='')` returns safe rows, courses, counts, filters, pagination and continuation. `history(assessment_id, page=1)` returns paged snapshot headers. Routes consume this service via ASSESSMENT_WORKSPACE_SERVICE_FACTORY; default canonical path follows existing builders.
 
-- [ ] Write failing tests for safe projection, missing DB non-creation, zero writes on GET, revision grouping, active/expired/evaluation states, filters and >100-row pagination.
-- [ ] Run `python -m pytest -q tests/test_assessment_studio_next_level.py`; expect missing implementation failures.
-- [ ] Implement repository parameterized reads, service labels/actions and overview/library route integration. Retain legacy timeline and tools in disclosures.
-- [ ] Run new tests and existing A/C/legacy assessment tests; expect pass. Update only deliberately replaced presentation assertions with documented reasons.
-- [ ] Commit scoped task files after verification.
+- [x] Write failing tests for safe projection, missing DB non-creation, zero writes on GET, revision grouping, active/expired/evaluation states, filters and >100-row pagination.
+- [x] Run `python -m pytest -q tests/test_assessment_studio_next_level.py`; expect missing implementation failures.
+- [x] Implement repository parameterized reads, service labels/actions and overview/library route integration. Retain legacy timeline and tools in disclosures.
+- [x] Run new tests and existing A/C/legacy assessment tests; expect pass. Update only deliberately replaced presentation assertions with documented reasons.
+- [x] Commit scoped task files after verification.
 
 ### Task 2: Compact blind review and authoring accessibility
 
@@ -45,11 +45,11 @@
 
 **Interfaces:** existing package `review`, `stage_revision`, `approve`, `reject` and handoff remain unchanged. Use safe batch fields only.
 
-- [ ] Add failing route/markup tests: rejected/approved state-specific actions, no hidden snippets, named dialogs, manual prompt fallback, contextual test link.
-- [ ] Run focused new cases; expect failure before template changes.
-- [ ] Reorganize current review into next action → facts → disclosures. Preserve exact revision upload and strict gate, add reject confirmation and accessible drawer focus.
-- [ ] Run blind/simplified/authoring/B regressions and new cases; expect pass.
-- [ ] Commit scoped task files.
+- [x] Add failing route/markup tests: rejected/approved state-specific actions, no hidden snippets, named dialogs, manual prompt fallback, contextual test link.
+- [x] Run focused new cases; expect failure before template changes.
+- [x] Reorganize current review into next action → facts → disclosures. Preserve exact revision upload and strict gate, add reject confirmation and accessible drawer focus.
+- [x] Run blind/simplified/authoring/B regressions and new cases; expect pass.
+- [x] Commit scoped task files.
 
 ### Task 3: Reliable exam actions and preflight
 
@@ -57,11 +57,11 @@
 
 **Interfaces:** existing autosave/heartbeat/action/submit endpoints. `preflight` adds safe `marking_groups` only. JS remains plain browser script; test harness executes that actual script.
 
-- [ ] Reproduce unselected True/False, failed save followed by submit/nav, overlapping requests, clear race and hidden focus interval in executable Node tests.
-- [ ] Run `node --test tests/js/assessment_runner.test.cjs`; expect regression failures.
-- [ ] Serialize saves and require flush success before actions; visible dirty/error/retry state; separate timer announcement; summary confirmation; safe responsive palette. Add aggregate preflight marking metadata.
-- [ ] Run JS tests and Phase C/new runner tests; expect pass, with secret-answer checks unchanged.
-- [ ] Commit scoped task files.
+- [x] Reproduce unselected True/False, failed save followed by submit/nav, overlapping requests, clear race and hidden focus interval in executable Node tests.
+- [x] Run `node --test tests/js/assessment_runner.test.cjs`; expect regression failures.
+- [x] Serialize saves and require flush success before actions; visible dirty/error/retry state; separate timer announcement; summary confirmation; safe responsive palette. Add aggregate preflight marking metadata.
+- [x] Run JS tests and Phase C/new runner tests; expect pass, with secret-answer checks unchanged.
+- [x] Commit scoped task files.
 
 ### Task 4: Focused post-test review and connected recovery
 
@@ -69,20 +69,34 @@
 
 **Interfaces:** existing `results` snapshot plus pure review selection in service; `response_editor` supplies `evaluation_id`. Adaptive `workspace(course_id='')` returns filtered candidates and saved records; POST redirects carry course_id.
 
-- [ ] Write failing tests for rendered grading action, pending classification guard, correct-outcome canonical exclusion, question filtering/option text/secret active protection and course recovery GET/PRG.
-- [ ] Run focused tests; expect failures reproducing audit defects.
-- [ ] Implement guards, stable editor ID, one-question review and concise score/outcome next action. Preserve provisional/confirmed boundaries and disclose classification. Connect course recovery/retest without new evidence lineage.
-- [ ] Run new results tests and D/E/F regressions; expect pass.
-- [ ] Commit scoped task files.
+- [x] Write failing tests for rendered grading action, pending classification guard, correct-outcome canonical exclusion, question filtering/option text/secret active protection and course recovery GET/PRG.
+- [x] Run focused tests; expect failures reproducing audit defects.
+- [x] Implement guards, stable editor ID, one-question review and concise score/outcome next action. Preserve provisional/confirmed boundaries and disclose classification. Connect course recovery/retest without new evidence lineage.
+- [x] Run new results tests and D/E/F regressions; expect pass.
+- [x] Commit scoped task files.
 
 ### Task 5: Integrated verification and delivery
 
 **Files:** ASSESSMENT_STUDIO_NEXT_LEVEL_IMPLEMENTATION_REPORT.md, repeatable next-level verification command/script if needed; update this plan's progress.
 
-- [ ] Run compileall and pip check; expect no errors.
-- [ ] Run focused Python/Node tests, all Assessment Studio regressions, then broader project suite; record all counts and unavailable production-DB tests.
-- [ ] Apply migrations 0001..0014 to a fresh temporary DB; integrity_check must be ok and foreign_key_check empty.
-- [ ] Attempt browser rendering; if blocked, verify representative rendered markup and CSS breakpoints, document exact local commands and all required desktop/narrow screens.
-- [ ] Review whole diff; fix important findings with regression tests. Run git diff --check with inherited line-ending-only files excluded from staging.
-- [ ] Write report with baseline, changes/deferred scope, test evidence, visual limits, exact implementation HEAD and explain that report commit SHA is supplied in final delivery (a file cannot embed its own commit hash).
-- [ ] Commit report, push only next-level, verify remote HEAD matches, return concise user report with final SHA. Do not merge.
+- [x] Run compileall and pip check; expect no errors.
+- [x] Run focused Python/Node tests, all Assessment Studio regressions, then broader project suite; record all counts and unavailable production-DB tests.
+- [x] Apply migrations 0001..0014 to a fresh temporary DB; integrity_check must be ok and foreign_key_check empty.
+- [x] Attempt browser rendering; if blocked, verify representative rendered markup and CSS breakpoints, document exact local commands and all required desktop/narrow screens.
+- [x] Review whole diff; fix important findings with regression tests. Run git diff --check with inherited line-ending-only files excluded from staging.
+- [x] Write report with baseline, changes/deferred scope, test evidence, visual limits, exact implementation HEAD and explain that report commit SHA is supplied in final delivery (a file cannot embed its own commit hash).
+- Delivery after this documentation commit: push only next-level, verify remote HEAD matches and return the final SHA. Do not merge. Publication evidence is recorded in the final delivery message because this file cannot contain its own commit hash.
+
+## Completion notes
+
+Tasks 1–4 are implemented and tested. Task 3 extended the existing action endpoint
+with JSON responses while preserving native form POST/redirect behavior. Task 4
+also filters corrected historical mistake labels out of confirmed analytics;
+original records are retained. No schema or package contract changed.
+
+Final validation is detailed in `ASSESSMENT_STUDIO_NEXT_LEVEL_IMPLEMENTATION_REPORT.md`.
+A separate reviewer was attempted but could not run due to the session usage limit;
+the implementer completed the diff review and added regressions for the findings.
+The full-suite production-data failures were reproduced at the baseline.
+The user had already authorised pushing this branch and explicitly prohibited a
+main merge, so no integration-choice prompt is required.
