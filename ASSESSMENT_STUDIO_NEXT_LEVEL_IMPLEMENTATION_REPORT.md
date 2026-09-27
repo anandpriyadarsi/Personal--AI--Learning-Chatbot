@@ -6,9 +6,11 @@
 - Verified starting branch: `phase7.5.assessment-studio-ux/simplified-authoring`.
 - Baseline: `c01e39d14d8945505e8acfa10a0fc2fb7cd2e058`.
 - Delivery branch: `phase7.5.assessment-studio-ux/next-level`.
-- Exact tested implementation HEAD: `a645b6ab9700712c4c9fb36fb37660e4f46e142d`.
-- This report and the completed plan are a following documentation-only commit.
-  Its exact final delivery SHA is supplied in the delivery response and verified
+- Original local tested implementation HEAD: `a645b6ab9700712c4c9fb36fb37660e4f46e142d`.
+- Delivery implementation HEAD: `5f9142cad7301fc356042bd8afb0d57ff36fd17f`.
+- Verified implementation tree: `74269fee8d2e710f7d4587205de00b08da9a1020`.
+- This report and the completed plan follow in documentation-only commits.
+  The exact final delivery SHA is supplied in the delivery response and verified
   against the remote branch after pushing. A committed file cannot embed its own
   commit hash. `git rev-parse HEAD` on the delivered branch returns that final SHA.
 - No merge into `main`, schema migration, dependency change or package-version change.
@@ -236,3 +238,17 @@ production database intentionally exists; it was not needed in this clean clone.
 The audit/specification/plan were written before implementation. All selected
 implementation work is committed; the final publication step pushes only the
 requested next-level branch and verifies its remote SHA.
+
+## Publication transport
+
+The shell push could not authenticate (`could not read Username for https://github.com`).
+Publication therefore used the already-connected GitHub app's Git Data API.
+Each implementation tree returned by GitHub was compared with its local Git tree
+SHA before its commit was created. All five implementation trees matched exactly,
+including the final tested tree above. GitHub supplies commit author/time metadata,
+so publication commit SHAs differ from the original local SHAs while file contents
+and ordered changes are identical. Documentation records both identities.
+
+The delivered branch is synchronized to the published history. The original local
+commit history is retained on `phase7.5.assessment-studio-ux/validated-local`;
+only `phase7.5.assessment-studio-ux/next-level` is published.
