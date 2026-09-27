@@ -1126,6 +1126,13 @@ class AssessmentPackageService:
 
     def _decorate_batch(self, batch, topics):
         result = dict(batch)
+        result["workspace_kind"] = str(
+            result.get("workspace_kind")
+            or _infer_workspace_kind(result.get("assessment_type"))
+        )
+        result["workspace_kind_label"] = AUTHORING_WORKSPACE_KINDS[
+            result["workspace_kind"]
+        ]["label"]
         result["questions"] = tuple(
             self._decorate_question(item) for item in batch.get("questions") or ()
         )
