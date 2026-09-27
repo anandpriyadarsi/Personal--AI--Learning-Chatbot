@@ -1,192 +1,78 @@
 {% extends "base.html" %}
 {% block title %}Blind Preflight · {{ batch.title }} · ANVAYA{% endblock %}
-
-{% block page_scripts %}
-<script defer src="{{ url_for('static', filename='js/assessment_review.js') }}"></script>
-{% endblock %}
-
+{% block page_scripts %}<script defer src="{{ url_for('static', filename='js/assessment_review.js') }}"></script>{% endblock %}
 {% block content %}
-<nav class="notes-reader-back" aria-label="Assessment Studio navigation">
-  <a href="{{ url_for('web.assessment_import', kind=batch.workspace_kind, course_id=batch.course_id) }}">← Back to {{ batch.workspace_kind_label }} · {{ batch.course_code }}</a>
+<nav class="notes-reader-back" aria-label="Preparation navigation">
+  <a href="{{ url_for('web.assessment_import', kind=batch.workspace_kind, course_id=batch.course_id) }}">← {{ batch.workspace_kind_label }} · {{ batch.course_code }}</a>
 </nav>
-
-<header class="assessment-review-hero" aria-labelledby="assessment-review-title">
-  <div>
-    <p class="eyebrow">Assessment Studio · Blind preflight</p>
-    <h2 id="assessment-review-title">{{ batch.title }}</h2>
-    <div class="assessment-review-tags">
-      <span class="tag">{{ batch.workspace_kind_label }}</span>
-      <span class="tag">{{ batch.course_code }}</span>
-      <span class="tag">{{ batch.assessment_type|replace('_',' ')|title }}</span>
-      <span class="tag">{{ batch.mode|title }}</span>
-      <span class="tag">Package rev {{ batch.package_revision }}</span>
-    </div>
-  </div>
-  <a class="button button-secondary" href="{{ url_for('web.assessments') }}">Assessment Studio</a>
+<header class="assessment-page-heading">
+  <div><p class="eyebrow">Blind preflight · {{ batch.course_code }} · Package rev {{ batch.package_revision }}</p><h2>{{ batch.title }}</h2></div>
 </header>
+{% if notice_message %}<p class="notice-panel" role="status">{{ notice_message }}</p>{% endif %}
+{% if error_message %}<p class="notice-panel error-panel" role="alert">{{ error_message }}</p>{% endif %}
 
-<section class="assessment-blind-banner" aria-label="Blind review protection">
-  <div class="assessment-blind-icon" aria-hidden="true">◉</div>
+{% set lifecycle = batch.status if batch.status != 'review' else batch.blind_review.state %}
+<section class="assessment-continue" data-preflight-state="{{ lifecycle }}" aria-labelledby="preflight-next-action">
   <div>
-    <p class="eyebrow">Spoiler protection active</p>
-    <h3>Test content is hidden from this review page.</h3>
-    <p>
-      ANVAYA does not show question text, options, answer keys, accepted answers,
-      solutions or rubrics before you take the assessment. Review is limited to
-      setup, structural validation and non-spoiler issue counts.
-    </p>
-  </div>
-  <span class="assessment-blind-state">BLIND MODE</span>
-</section>
-
-{% if notice_message %}
-<section class="notice-panel assessment-review-notice">
-  <h3>Import status</h3>
-  <p>{{ notice_message }}</p>
-</section>
-{% endif %}
-{% if error_message %}
-<section class="notice-panel error-panel assessment-review-notice" role="alert">
-  <h3>Review action failed</h3>
-  <p>{{ error_message }}</p>
-</section>
-{% endif %}
-
-<section class="metric-grid assessment-review-metrics" aria-label="Blind preflight summary">
-  <article class="metric-card">
-    <span class="metric-label">Questions</span>
-    <strong>{{ batch.blind_review.question_count }}</strong>
-    <span>content hidden</span>
-  </article>
-  <article class="metric-card">
-    <span class="metric-label">Marks</span>
-    <strong>{{ batch.total_marks }}</strong>
-    <span>{{ batch.calculated_marks }} from questions</span>
-  </article>
-  <article class="metric-card">
-    <span class="metric-label">Duration</span>
-    <strong>{{ batch.duration_minutes }}</strong>
-    <span>minutes</span>
-  </article>
-  <article class="metric-card">
-    <span class="metric-label">Preflight</span>
-    <strong class="assessment-preflight-state assessment-preflight-{{ batch.blind_review.state }}">{{ batch.blind_review.label }}</strong>
-    <span>{{ batch.status|title }} lifecycle</span>
-  </article>
-</section>
-
-<section class="assessment-preflight-grid" aria-label="ANVAYA review results">
-  <article class="assessment-preflight-card">
-    <div class="assessment-preflight-card-head">
-      <div>
-        <p class="eyebrow">Automatic ANVAYA checks</p>
-        <h3>Package integrity</h3>
-      </div>
-      {% if batch.blind_review.integrity_issue_count == 0 %}
-      <span class="assessment-status-pill is-good">Passed</span>
-      {% else %}
-      <span class="assessment-status-pill is-warn">{{ batch.blind_review.integrity_issue_count }} issue{% if batch.blind_review.integrity_issue_count != 1 %}s{% endif %}</span>
-      {% endif %}
-    </div>
-    <p>
-      ANVAYA checks ordering, marks, required solutions/rubrics, objective answer-key
-      structure, accepted-answer presence and total-mark consistency automatically.
-    </p>
-    {% if batch.integrity_blockers %}
-    <details class="assessment-review-details">
-      <summary>Show non-spoiler integrity issues</summary>
-      <ul>
-        {% for blocker in batch.integrity_blockers %}<li>{{ blocker }}</li>{% endfor %}
-      </ul>
-    </details>
+    {% if batch.status == 'approved' %}
+    <h3 id="preflight-next-action">Ready to take</h3><p>Approved and added to your library. Review the instructions before starting your timer.</p>
+    {% elif batch.status == 'rejected' %}
+    <h3 id="preflight-next-action">Rejected</h3><p>No assessment was created from this package.</p>
+    {% elif batch.can_approve %}
+    <h3 id="preflight-next-action">Blind preflight is clear.</h3><p>Approval adds the assessment to your library. It does not start the timer.</p>
+    {% elif batch.blind_review.integrity_issue_count > 0 %}
+    <h3 id="preflight-next-action">Package repair required</h3><p>Correct {{ batch.blind_review.integrity_issue_count }} structural issue(s) with Alex, then upload the next revision below.</p>
     {% else %}
-    <div class="assessment-check-line"><span>✓</span><strong>No structural package blocker detected.</strong></div>
+    <h3 id="preflight-next-action">Needs Alex review</h3><p>Structural checks passed. Resolve {{ batch.blind_review.semantic_warning_count }} academic or topic warning(s) with Alex before approval.</p>
     {% endif %}
-  </article>
-
-  <article class="assessment-preflight-card">
-    <div class="assessment-preflight-card-head">
-      <div>
-        <p class="eyebrow">Semantic / academic checks</p>
-        <h3>Alex review</h3>
-      </div>
-      {% if batch.blind_review.semantic_warning_count == 0 %}
-      <span class="assessment-status-pill is-good">Clear</span>
-      {% else %}
-      <span class="assessment-status-pill is-warn">Needed</span>
-      {% endif %}
-    </div>
-    <div class="assessment-review-counts">
-      <div><strong>{{ batch.blind_review.review_required_count }}</strong><span>author review flags</span></div>
-      <div><strong>{{ batch.blind_review.unmapped_topic_count }}</strong><span>unmapped topics</span></div>
-      <div><strong>{{ batch.blind_review.low_mapping_count }}</strong><span>low-confidence mappings</span></div>
-      <div><strong>{{ batch.blind_review.low_authoring_count }}</strong><span>low authoring confidence</span></div>
-    </div>
-    <p>
-      ANVAYA will not ask you to open those questions. If any count is non-zero,
-      use the Alex handoff below and re-import the revised package.
-    </p>
-  </article>
-</section>
-
-{% if batch.status == 'review' and batch.blind_review.semantic_warning_count > 0 %}
-<section class="assessment-alex-review-panel" aria-labelledby="alex-review-title">
-  <div class="assessment-alex-review-copy">
-    <p class="eyebrow">Recommended repair path</p>
-    <h3 id="alex-review-title">Let Alex review the flagged questions without spoiling the test</h3>
-    <p>
-      ANVAYA prepares a review handoff containing the hidden package, the flagged
-      issue metadata and this course's canonical topic catalogue. Upload that file
-      to Alex together with the original source papers/notes/PPTs/PDFs. Alex returns
-      the complete corrected package as the next revision.
-    </p>
-    <ol class="assessment-review-steps">
-      <li><strong>Download the Alex review handoff.</strong> Do not open it; just upload it to ChatGPT.</li>
-      <li><strong>Copy the non-spoiler Alex review prompt.</strong></li>
-      <li><strong>Open Alex / ChatGPT</strong> and attach the handoff plus original source material.</li>
-      <li><strong>Re-import the returned package</strong> as revision {{ batch.package_revision + 1 }}. ANVAYA will run blind preflight again.</li>
-    </ol>
   </div>
-  <div class="assessment-alex-review-actions">
+  {% if batch.status == 'approved' %}
+  <a class="button" href="{{ url_for('web.assessment_test_preflight', assessment_id=batch.assessment_id) }}">Review instructions &amp; start</a>
+  {% elif batch.status == 'review' %}
+  <form method="post" action="{{ url_for('web.assessment_import_approve', batch_id=batch.id) }}">
+    <button class="button" type="submit"{% if not batch.can_approve %} disabled{% endif %}>Approve &amp; add to tests</button>
+  </form>
+  {% endif %}
+</section>
+<p class="assessment-protection"><strong>Spoiler protection active.</strong> Test content is hidden from this review page.</p>
+<p class="assessment-facts">{{ batch.blind_review.question_count }} questions · {{ batch.total_marks }} marks · {{ batch.duration_minutes }} minutes · {{ batch.mode|title }} mode</p>
+
+{% if batch.status == 'review' and not batch.can_approve %}
+<section class="assessment-repair-panel" aria-labelledby="alex-review-title">
+  <h3 id="alex-review-title">Repair with Alex</h3>
+  <p>Upload the review file and your original source material to Alex / ChatGPT. The file contains hidden test content; upload it without opening it.</p>
+  <div class="form-actions">
     <a class="button" href="{{ url_for('web.assessment_import_alex_review_handoff', batch_id=batch.id) }}">Download Alex review file</a>
     <button class="button button-secondary" type="button" data-copy-review-prompt>Copy Alex review prompt</button>
     <a class="button button-secondary" href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">Open Alex / ChatGPT ↗</a>
-    <span class="assessment-copy-status" data-review-copy-status aria-live="polite"></span>
-
-    <div class="assessment-revision-upload">
-      <div>
-        <p class="eyebrow">Revision ready?</p>
-        <h4>Upload package revision {{ batch.package_revision + 1 }}</h4>
-        <p>
-          ANVAYA will accept only the next revision of
-          <code>{{ batch.package_id }}</code> for {{ batch.course_code }}.
-        </p>
-      </div>
-      <form
-        method="post"
-        enctype="multipart/form-data"
-        action="{{ url_for('web.assessment_import_revision', batch_id=batch.id) }}"
-      >
-        <label class="form-field form-field-full assessment-file-field">
-          <span>Revised ANVAYA Assessment Package</span>
-          <input
-            type="file"
-            name="package"
-            accept=".json,.anvaya-assessment.json,application/json"
-            required
-          >
-        </label>
-        <button class="button" type="submit">
-          Upload revision {{ batch.package_revision + 1 }} &amp; run blind preflight
-        </button>
-      </form>
-    </div>
   </div>
+  <span class="assessment-copy-status" data-review-copy-status role="status"></span>
+  <details class="assessment-disclosure">
+    <summary>View or manually copy the safe review prompt</summary>
+    <label for="assessment-alex-review-prompt">Alex review prompt</label>
+    <textarea id="assessment-alex-review-prompt" rows="8" readonly>{{ alex_review_prompt }}</textarea>
+  </details>
+  <h4>Upload package revision {{ batch.package_revision + 1 }}</h4>
+  <p>Alex must return the complete next revision for this course and package.</p>
+  <form method="post" enctype="multipart/form-data" action="{{ url_for('web.assessment_import_revision', batch_id=batch.id) }}">
+    <label class="form-field assessment-file-field"><span>Revised ANVAYA Assessment Package</span><input type="file" name="package" accept=".json,.anvaya-assessment.json,application/json" required></label>
+    <button class="button" type="submit">Upload revision {{ batch.package_revision + 1 }} &amp; run blind preflight</button>
+  </form>
 </section>
 {% endif %}
 
+<details class="assessment-disclosure">
+  <summary>Preflight checks · {{ batch.blind_review.integrity_issue_count }} structural issues · {{ batch.blind_review.semantic_warning_count }} academic warnings</summary>
+  <h3>Package integrity</h3>
+  <p>ANVAYA checks ordering, marks, required solutions/rubrics, answer-key structure and accepted-answer presence.</p>
+  {% if batch.integrity_blockers %}<ul>{% for blocker in batch.integrity_blockers %}<li>{{ blocker }}</li>{% endfor %}</ul>
+  {% else %}<p>No structural package blocker detected.</p>{% endif %}
+  <h3>Academic checks</h3>
+  <p>{{ batch.blind_review.review_required_count }} author review flags · {{ batch.blind_review.unmapped_topic_count }} unmapped topics · {{ batch.blind_review.low_mapping_count }} low-confidence mappings · {{ batch.blind_review.low_authoring_count }} low authoring confidence</p>
+  <p>Question text, options, keys, solutions and rubrics remain hidden.</p>
+</details>
 <section class="assessment-setup-panel">
-  <details{% if batch.status != 'review' %} open{% endif %}>
+  <details>
     <summary>
       <span>
         <span class="eyebrow">Safe to view</span>
@@ -230,80 +116,14 @@
   </details>
 </section>
 
-{% if batch.status == 'review' and batch.blind_review.integrity_issue_count > 0 and batch.blind_review.semantic_warning_count == 0 %}
-<section class="assessment-alex-review-panel" aria-labelledby="repair-revision-title">
-  <div class="assessment-alex-review-copy">
-    <p class="eyebrow">Package repair</p>
-    <h3 id="repair-revision-title">Upload the corrected next revision</h3>
-    <p>
-      ANVAYA found a deterministic package-integrity problem. Regenerate or repair the
-      package with Alex, then upload revision {{ batch.package_revision + 1 }} here.
-      You still do not need to open the assessment questions.
-    </p>
-  </div>
-  <div class="assessment-alex-review-actions">
-    <form
-      method="post"
-      enctype="multipart/form-data"
-      action="{{ url_for('web.assessment_import_revision', batch_id=batch.id) }}"
-    >
-      <label class="form-field form-field-full assessment-file-field">
-        <span>Revised ANVAYA Assessment Package</span>
-        <input type="file" name="package" accept=".json,.anvaya-assessment.json,application/json" required>
-      </label>
-      <button class="button" type="submit">
-        Upload revision {{ batch.package_revision + 1 }} &amp; run blind preflight
-      </button>
-    </form>
-  </div>
-</section>
-{% endif %}
 
 {% if batch.status == 'review' %}
-<section class="assessment-approval-panel">
-  <div>
-    <p class="eyebrow">Final import decision</p>
-    {% if batch.can_approve %}
-      <h3>Blind preflight is clear.</h3>
-      <p>
-        You can add this package to the test library without seeing any question or answer.
-        Approval creates the canonical assessment but does not start the test or change mastery/planning.
-      </p>
-    {% elif batch.blind_review.integrity_issue_count > 0 %}
-      <h3>Package repair is required first.</h3>
-      <p>
-        ANVAYA found deterministic integrity problems. Repair/regenerate the package with Alex,
-        then import the next revision. The hidden test content does not need to be opened here.
-      </p>
-    {% else %}
-      <h3>Alex review is required first.</h3>
-      <p>
-        Structural checks passed, but semantic/topic uncertainty remains. Use the spoiler-safe
-        Alex handoff above, then import the revised package.
-      </p>
-    {% endif %}
-  </div>
-  <div class="assessment-approval-actions">
-    <form method="post" action="{{ url_for('web.assessment_import_approve', batch_id=batch.id) }}">
-      <button class="button" type="submit"{% if not batch.can_approve %} disabled{% endif %}>Approve &amp; add to tests</button>
-    </form>
-    <form method="post" action="{{ url_for('web.assessment_import_reject', batch_id=batch.id) }}">
-      <button class="button button-secondary" type="submit">Reject package</button>
-    </form>
-  </div>
-</section>
-{% elif batch.status == 'approved' %}
-<section class="notice-panel">
-  <h3>Approved</h3>
-  <p>
-    This blind-reviewed package created canonical assessment <code>{{ batch.assessment_id }}</code>.
-    Question/answer content remains hidden until the test flow needs it.
-  </p>
-  <a class="button" href="{{ url_for('web.assessment_tests') }}">Go to test library</a>
-</section>
-{% else %}
-<section class="notice-panel"><h3>Rejected</h3><p>No canonical assessment was created from this package.</p></section>
+<details class="assessment-disclosure">
+  <summary>Reject this package</summary>
+  <p>Rejection closes this preparation item without creating an assessment.</p>
+  <form method="post" action="{{ url_for('web.assessment_import_reject', batch_id=batch.id) }}" data-confirm-reject>
+    <button class="button button-secondary" type="submit">Reject package</button>
+  </form>
+</details>
 {% endif %}
-
-<textarea id="assessment-alex-review-prompt" class="visually-hidden" tabindex="-1" aria-hidden="true">{{ alex_review_prompt }}</textarea>
 {% endblock %}

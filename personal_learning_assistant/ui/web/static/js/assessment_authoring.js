@@ -99,12 +99,15 @@
   }
 
   if (launcher && drawer && drawerClose) {
+    let drawerInvoker = launcher;
     const setDrawerOpen = (open) => {
+      if (open) drawerInvoker = document.activeElement || launcher;
       drawer.classList.toggle("is-open", open);
       drawer.setAttribute("aria-hidden", open ? "false" : "true");
       drawer.inert = !open;
       launcher.setAttribute("aria-expanded", open ? "true" : "false");
-      if (!open && drawer.contains(document.activeElement)) launcher.focus();
+      if (open) drawerClose.focus();
+      else if (drawer.contains(document.activeElement)) drawerInvoker.focus();
     };
 
     launcher.addEventListener("click", () => {

@@ -141,3 +141,39 @@ def test_history_pagination_and_home_continuation(tmp_path):
     assert history.status_code == 200
     assert 'Attempt history' in history.get_data(as_text=True)
     assert client.get('/assessments/tests/missing/history').status_code == 404
+
+
+def test_blind_review_lifecycle_and_context_actions(tmp_path):
+    from test_assessment_studio_blind_review import _database as blind_db, _package, _service, _raw
+    path = blind_db(tmp_path)
+    service = _service(path)
+    staged = service.stage_upload('ready.json', _raw(_package()))
+    client = _app(path).test_client()
+    page = client.get(f'/assessments/import/{staged["id"]}/review').get_data(as_text=True)
+    assert 'data-preflight-state="ready"' in page
+    assert 'data-confirm-reject' in page
+    approved = service.approve(staged['id'])
+    page = client.get(f'/assessments/import/{staged["id"]}/review').get_data(as_text=True)
+    assert 'data-preflight-state="approved"' in page
+    assert f'/assessments/tests/{approved}' in page
+    package = _package(); package['package_id'] = 'rejected-test'
+    rejected = service.stage_upload('rejected.json', _raw(package)); service.reject(rejected['id'])
+    page = client.get(f'/assessments/import/{rejected["id"]}/review').get_data(as_text=True)
+    assert 'data-preflight-state="rejected"' in page
+    assert 'Approve &amp; add to tests' not in page
+    assert 'Needs Alex review' not in page
+
+
+def test_authoring_dialog_names_and_manual_blind_prompt_fallback(tmp_path):
+    from test_assessment_studio_blind_review import _database as blind_db, _package, _service, _raw
+    path = blind_db(tmp_path)
+    client = _app(path).test_client()
+    page = client.get('/assessments/import?kind=quiz').get_data(as_text=True)
+    assert 'aria-labelledby="assessment-subject-title"' in page
+    assert '<noscript>' in page
+    package = _package(); package['questions'][0]['review_required'] = True
+    staged = _service(path).stage_upload('review.json', _raw(package))
+    page = client.get(f'/assessments/import/{staged["id"]}/review').get_data(as_text=True)
+    assert '<label for="assessment-alex-review-prompt">' in page
+    assert 'readonly' in page
+    assert package['questions'][0]['text'] not in page

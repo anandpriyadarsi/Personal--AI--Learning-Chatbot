@@ -198,12 +198,12 @@
 {% endif %}
 
 {% if workspace.selected_kind and not workspace.selected_course %}
-<dialog id="assessment-subject-picker" class="assessment-subject-dialog" data-auto-open-subject-picker>
+<dialog id="assessment-subject-picker" aria-labelledby="assessment-subject-title" class="assessment-subject-dialog" data-auto-open-subject-picker>
   <div class="assessment-subject-dialog-shell">
     <header class="assessment-dialog-header">
       <div>
         <p class="eyebrow">{{ workspace.selected_kind|title }}</p>
-        <h3>Choose subject</h3>
+        <h3 id="assessment-subject-title">Choose subject</h3>
         <p>Select one course. You will then see only that course's {{ workspace.selected_kind }} workspace.</p>
       </div>
       <button class="assessment-dialog-close" type="button" data-close-dialog="assessment-subject-picker" aria-label="Close subject picker">×</button>
@@ -222,6 +222,9 @@
     </div>
   </div>
 </dialog>
+<noscript><section class="assessment-disclosure"><h3>Choose subject</h3>
+{% for course in workspace.courses %}<p><a href="{{ url_for('web.assessment_import', kind=workspace.selected_kind, course_id=course.id) }}">{{ course.code }} · {{ course.name }}</a></p>{% endfor %}
+</section></noscript>
 {% endif %}
 
 <button
@@ -271,12 +274,12 @@
 
 <textarea id="assessment-resolved-prompt" class="visually-hidden" aria-hidden="true" tabindex="-1">{{ workspace.resolved_prompt }}</textarea>
 
-<dialog id="assessment-prompt-preview" class="assessment-prompt-dialog">
+<dialog id="assessment-prompt-preview" aria-labelledby="assessment-preview-title" class="assessment-prompt-dialog">
   <div class="assessment-dialog-shell">
     <div class="assessment-dialog-header">
       <div>
         <p class="eyebrow">ANVAYA · Personalized Alex prompt</p>
-        <h3>
+        <h3 id="assessment-preview-title">
           {% if workspace.selected_kind and workspace.selected_course %}
             {{ workspace.selected_kind|title }} · {{ workspace.selected_course.code }}
           {% else %}
@@ -296,10 +299,10 @@
   </div>
 </dialog>
 
-<dialog id="assessment-prompt-editor" class="assessment-prompt-dialog assessment-prompt-editor-dialog">
+<dialog id="assessment-prompt-editor" aria-labelledby="assessment-editor-title" class="assessment-prompt-dialog assessment-prompt-editor-dialog">
   <div class="assessment-dialog-shell">
     <div class="assessment-dialog-header">
-      <div><p class="eyebrow">Editable authoring contract</p><h3>Edit master prompt</h3></div>
+      <div><p class="eyebrow">Editable authoring contract</p><h3 id="assessment-editor-title">Edit master prompt</h3></div>
       <button class="assessment-dialog-close" type="button" data-close-dialog="assessment-prompt-editor" aria-label="Close prompt editor">×</button>
     </div>
     <p class="lede">

@@ -1,6 +1,12 @@
 (() => {
   "use strict";
 
+  document.querySelectorAll("[data-confirm-reject]").forEach((form) => {
+    form.addEventListener("submit", (event) => {
+      if (!window.confirm("Reject this package? No assessment will be created from it.")) event.preventDefault();
+    });
+  });
+
   const source = document.getElementById("assessment-alex-review-prompt");
 
   const setStatus = (message) => {
@@ -43,7 +49,7 @@
         }
         setStatus("Alex review prompt copied.");
       } catch (_error) {
-        setStatus("Copy failed. Try again from a secure/local browser.");
+        setStatus("Copy failed. Open the safe review prompt below to select and copy it manually.");
       }
     });
   });
