@@ -1,6 +1,7 @@
 /* Assessment Runner — math typography, structured fill-ups and stronger palette */
 [data-assessment-math] {
   font-variant-numeric: lining-nums tabular-nums;
+  font-family: "Cambria Math", "STIX Two Math", "Times New Roman", var(--font-body);
 }
 .assessment-math-sup,
 .assessment-math-sub {
@@ -14,7 +15,7 @@
   display: inline-grid;
   grid-template-columns: auto auto auto;
   align-items: stretch;
-  margin: .15rem .28rem;
+  margin: .28rem .42rem;
   vertical-align: middle;
   white-space: nowrap;
 }
@@ -182,6 +183,63 @@
 }
 .evaluation-fill-parts li {
   line-height: 1.55;
+}
+.evaluation-option-list {
+  display: grid;
+  gap: .55rem;
+  margin: .25rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.evaluation-option-list li {
+  padding: .55rem .68rem;
+  border: 1px solid rgba(148, 163, 184, .18);
+  border-radius: .55rem;
+  background: rgba(255, 255, 255, .018);
+  line-height: 1.6;
+}
+.evaluation-correct-options li {
+  border-color: rgba(85, 194, 184, .26);
+  background: rgba(45, 156, 148, .055);
+}
+.evaluation-answer-label {
+  margin: 0 0 .35rem;
+  color: var(--text-muted);
+  font-size: .72rem;
+  font-weight: 800;
+  letter-spacing: .035em;
+  text-transform: uppercase;
+}
+.evaluation-explanation-lines {
+  display: grid;
+  gap: .58rem;
+}
+.evaluation-explanation-lines .reader-prose {
+  margin: 0;
+  padding: .45rem 0;
+  border-bottom: 1px solid rgba(148, 163, 184, .12);
+  line-height: 1.7;
+}
+.evaluation-explanation-lines .reader-prose:last-child {
+  border-bottom: 0;
+}
+.evaluation-expected-method {
+  margin-top: .8rem;
+  padding: .72rem .82rem;
+  border: 1px solid rgba(85, 194, 184, .22);
+  border-radius: .62rem;
+}
+.evaluation-expected-method > strong {
+  display: block;
+  margin-bottom: .4rem;
+}
+.evaluation-expected-method p {
+  margin: .25rem 0;
+  line-height: 1.6;
+}
+.evaluation-question-text[data-assessment-math] {
+  white-space: pre-wrap;
+  line-height: 1.7;
 }
 .palette-item {
   position: relative;
