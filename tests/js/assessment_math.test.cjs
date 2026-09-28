@@ -39,7 +39,7 @@ test('parses determinant literals and common LaTeX matrix environments', () => {
 test('normalizes compact sums and elementary elimination matrices for readable display', () => {
   assert.equal(
     math.replaceSymbols('Σ(i=1 to 3) Σ(j=1 to 3) (A^-1)_{ij}'),
-    'Σ_{i=1}^{3} Σ_{j=1}^{3} (A^-1)_{ij}'
+    '∑_{i=1}^{3} ∑_{j=1}^{3} (A^-1)_{ij}'
   );
   assert.equal(
     math.replaceSymbols('E3E2E1A = U'),
@@ -47,6 +47,25 @@ test('normalizes compact sums and elementary elimination matrices for readable d
   );
   assert.equal(
     math.replaceSymbols(String.raw`\sum_{i=1}^{n} a_i + \ell_42`),
-    'Σ_{i=1}^{n} a_i + ℓ_42'
+    '∑_{i=1}^{n} a_i + ℓ_42'
+  );
+});
+
+
+test('normalizes common indexed basis and factorization symbols', () => {
+  assert.equal(
+    math.replaceSymbols('B = (b1, b2, b3), L = E1^-1 E2^-1 E3^-1, pair (l42, u34)'),
+    'B = (b_1, b_2, b_3), L = E_1^-1 E_2^-1 E_3^-1, pair (ℓ_42, u_34)'
+  );
+});
+
+test('parses display-style summation and product limits', () => {
+  assert.deepEqual(
+    math.parseBigOperatorAt('∑_{i=1}^{3} a_i', 0),
+    {symbol: '∑', lower: 'i=1', upper: '3', end: 11}
+  );
+  assert.deepEqual(
+    math.parseBigOperatorAt('∏_{k=0}^{n} x_k', 0),
+    {symbol: '∏', lower: 'k=0', upper: 'n', end: 11}
   );
 });

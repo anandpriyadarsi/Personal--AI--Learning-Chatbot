@@ -238,11 +238,11 @@ Then list accepted answers in that exact same order. Do not force the student to
 For mathematical notation, use ANVAYA's renderer-safe notation consistently so the timed test remains readable:
 
 - powers/subscripts: `A^-1`, `A^T`, `x^2`, `x_1`, `[p]_B`;
-- indexed objects: write `E_3 E_2 E_1 A = U`, `ℓ_42`, `u_34`, `a_ij`; do not compress them as `E3E2E1A`, `l42`, or `u34`;
+- indexed objects: write `E_3 E_2 E_1 A = U`, `b_1`, `b_2`, `ℓ_42`, `u_34`, `a_ij`; do not compress them as `E3E2E1A`, `b1`, `l42`, or `u34`;
 - Greek/set symbols: UTF-8 such as `λ`, `μ`, `∈`, `⊆`, or the supported lightweight forms such as `\\lambda`, `\\mu`;
 - matrices: encode rows exactly as `[[a, b], [c, d]]`;
 - determinants: write `det([[a, b], [c, d]])`;
-- sums/products: write `Σ_{i=1}^{3} Σ_{j=1}^{3} (A^-1)_{ij}` or `\\sum_{i=1}^{3}`; never write prose-like forms such as `Σ(i=1 to 3)`;
+- sums/products: write `∑_{i=1}^{3} ∑_{j=1}^{3} (A^-1)_{ij}` or `\\sum_{i=1}^{3}`; ANVAYA renders the limits above and below the large operator; never write prose-like forms such as `Σ(i=1 to 3)`;
 - products/relations: prefer `×`, `·`, `≤`, `≥`, `≠` where useful;
 - fractions that do not need stacked typography may be written unambiguously as `(a)/(b)`;
 - systems of equations: put each equation on its own line in the question text;
@@ -401,7 +401,7 @@ Before returning the package, verify all of the following:
 20. For generated practice with sufficient evidence, the final review-required count is `0`.
 21. Source provenance is preserved where supported.
 22. The package contains no unsupported fields.
-23. Matrix/determinant notation follows the renderer-safe contract above.
+23. Matrix/determinant notation follows the renderer-safe contract above, with matrix rows enclosed by full-height delimiters.
 24. Every fill-blank question exposes each answer target through visible underscores or an ordered `Enter:` cue.
 25. Every numerical question clearly identifies the single value the student must enter.
 26. Summations, products, indexed variables and elementary matrices use renderer-safe subscript/superscript notation rather than compressed prose notation.

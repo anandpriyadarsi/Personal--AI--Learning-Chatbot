@@ -8,7 +8,7 @@
     ["\\supseteq", "⊇"], ["\\in", "∈"], ["\\notin", "∉"], ["\\neq", "≠"],
     ["\\leq", "≤"], ["\\le", "≤"], ["\\geq", "≥"], ["\\ge", "≥"],
     ["\\times", "×"], ["\\cdot", "·"], ["\\to", "→"], ["\\Rightarrow", "⇒"],
-    ["\\sum", "Σ"], ["\\prod", "∏"], ["\\ell", "ℓ"], ["\\forall", "∀"],
+    ["\\sum", "∑"], ["\\prod", "∏"], ["\\ell", "ℓ"], ["\\forall", "∀"],
     ["\\exists", "∃"], ["\\therefore", "∴"], ["\\because", "∵"], ["\\emptyset", "∅"],
     ["\\infty", "∞"], ["\\pm", "±"], ["\\mathbb{R}", "ℝ"], ["\\mathbb{C}", "ℂ"],
     ["\\mathbb{Q}", "ℚ"], ["\\mathbb{Z}", "ℤ"], ["\\mathbb{N}", "ℕ"],
@@ -24,11 +24,16 @@
       .replace(/\\;/g, " ");
     for (const [source, target] of SYMBOLS) text = text.split(source).join(target);
     return text
-      .replace(/\b(?:sum|sigma)\s*\(\s*([A-Za-z][A-Za-z0-9]*)\s*=\s*([^()]+?)\s+to\s+([^()]+?)\s*\)/gi, "Σ_{$1=$2}^{$3}")
-      .replace(/Σ\s*\(\s*([A-Za-z][A-Za-z0-9]*)\s*=\s*([^()]+?)\s+to\s+([^()]+?)\s*\)/g, "Σ_{$1=$2}^{$3}")
+      .replace(/\b(?:sum|sigma)\s*\(\s*([A-Za-z][A-Za-z0-9]*)\s*=\s*([^()]+?)\s+to\s+([^()]+?)\s*\)/gi, "∑_{$1=$2}^{$3}")
+      .replace(/[Σ∑]\s*\(\s*([A-Za-z][A-Za-z0-9]*)\s*=\s*([^()]+?)\s+to\s+([^()]+?)\s*\)/g, "∑_{$1=$2}^{$3}")
       .replace(/\b(?:prod|product)\s*\(\s*([A-Za-z][A-Za-z0-9]*)\s*=\s*([^()]+?)\s+to\s+([^()]+?)\s*\)/gi, "∏_{$1=$2}^{$3}")
       .replace(/∏\s*\(\s*([A-Za-z][A-Za-z0-9]*)\s*=\s*([^()]+?)\s+to\s+([^()]+?)\s*\)/g, "∏_{$1=$2}^{$3}")
       .replace(/E(\d+)(?=E|A|\s|$)/g, "E_$1 ")
+      .replace(/\bE(\d+)\b/g, "E_$1")
+      .replace(/\bb(\d+)\b/g, "b_$1")
+      .replace(/\bu(\d+)\b/g, "u_$1")
+      .replace(/\bl(\d+)\b/g, "ℓ_$1")
+      .replace(/ℓ(\d+)\b/g, "ℓ_$1")
       .replace(/!=/g, "≠")
       .replace(/<=/g, "≤")
       .replace(/>=/g, "≥");
@@ -84,6 +89,46 @@
       i += 1;
     }
     flush();
+  };
+
+  const parseBigOperatorAt = (text, start) => {
+    const symbol = text[start];
+    if (symbol !== "∑" && symbol !== "∏") return null;
+    let index = start + 1;
+    let lower = "";
+    let upper = "";
+    for (let count = 0; count < 2; count += 1) {
+      while (index < text.length && /\s/.test(text[index])) index += 1;
+      const marker = text[index];
+      if (marker !== "_" && marker !== "^") break;
+      const token = readScriptToken(text, index + 1);
+      if (marker === "_") lower = token.value;
+      else upper = token.value;
+      index = token.end;
+    }
+    if (!lower && !upper) return null;
+    return {symbol, lower, upper, end: index};
+  };
+
+  const createBigOperator = (documentRef, parsed) => {
+    const shell = documentRef.createElement("span");
+    shell.className = "assessment-big-operator";
+    shell.setAttribute("role", "math");
+
+    const upper = documentRef.createElement("span");
+    upper.className = "assessment-big-operator-upper";
+    if (parsed.upper) appendInlineMath(documentRef, upper, parsed.upper);
+
+    const symbol = documentRef.createElement("span");
+    symbol.className = "assessment-big-operator-symbol";
+    symbol.textContent = parsed.symbol;
+
+    const lower = documentRef.createElement("span");
+    lower.className = "assessment-big-operator-lower";
+    if (parsed.lower) appendInlineMath(documentRef, lower, parsed.lower);
+
+    shell.append(upper, symbol, lower);
+    return shell;
   };
 
   const parseMatrixAt = (text, start) => {
@@ -183,7 +228,7 @@
 
   const renderText = (documentRef, raw) => {
     const fragment = documentRef.createDocumentFragment();
-    const text = String(raw ?? "");
+    const text = replaceSymbols(String(raw ?? ""));
     let cursor = 0;
     let plainStart = 0;
     const flushPlain = (end) => {
@@ -193,6 +238,14 @@
       while (span.firstChild) fragment.appendChild(span.firstChild);
     };
     while (cursor < text.length) {
+      const bigOperator = parseBigOperatorAt(text, cursor);
+      if (bigOperator) {
+        flushPlain(cursor);
+        fragment.appendChild(createBigOperator(documentRef, bigOperator));
+        cursor = bigOperator.end;
+        plainStart = cursor;
+        continue;
+      }
       const determinant = parseDeterminantAt(text, cursor);
       if (determinant) {
         flushPlain(cursor);
@@ -243,6 +296,7 @@
   const api = {
     replaceSymbols,
     readScriptToken,
+    parseBigOperatorAt,
     parseMatrixAt,
     parseDeterminantAt,
     parseLatexMatrixAt,
