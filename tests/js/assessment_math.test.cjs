@@ -1,7 +1,7 @@
 const {test} = require('node:test');
 const assert = require('node:assert/strict');
 
-const math = require('../personal_learning_assistant/ui/web/static/js/assessment_math.js');
+const math = require('../../personal_learning_assistant/ui/web/static/js/assessment_math.js');
 
 test('math renderer normalizes common linear algebra symbols', () => {
   assert.equal(math.replaceSymbols('\\lambda != 0'), 'λ ≠ 0');
@@ -15,9 +15,10 @@ test('math renderer reads superscript and subscript tokens safely', () => {
 });
 
 test('math renderer recognizes rectangular matrix literals', () => {
-  const parsed = math.parseMatrixAt('A = [[1, 2], [3, 4]]', 4);
+  const source = 'A = [[1, 2], [3, 4]]';
+  const parsed = math.parseMatrixAt(source, 4);
   assert.deepEqual(parsed.rows, [['1', '2'], ['3', '4']]);
-  assert.equal(parsed.end, 20);
+  assert.equal(parsed.end, source.length);
 });
 
 test('math renderer leaves malformed matrix text unparsed', () => {
