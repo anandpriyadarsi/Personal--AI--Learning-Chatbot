@@ -8,6 +8,8 @@
     ["\\supseteq", "⊇"], ["\\in", "∈"], ["\\notin", "∉"], ["\\neq", "≠"],
     ["\\leq", "≤"], ["\\le", "≤"], ["\\geq", "≥"], ["\\ge", "≥"],
     ["\\times", "×"], ["\\cdot", "·"], ["\\to", "→"], ["\\Rightarrow", "⇒"],
+    ["\\sum", "Σ"], ["\\prod", "∏"], ["\\ell", "ℓ"], ["\\forall", "∀"],
+    ["\\exists", "∃"], ["\\therefore", "∴"], ["\\because", "∵"], ["\\emptyset", "∅"],
     ["\\infty", "∞"], ["\\pm", "±"], ["\\mathbb{R}", "ℝ"], ["\\mathbb{C}", "ℂ"],
     ["\\mathbb{Q}", "ℚ"], ["\\mathbb{Z}", "ℤ"], ["\\mathbb{N}", "ℕ"],
   ]);
@@ -22,6 +24,11 @@
       .replace(/\\;/g, " ");
     for (const [source, target] of SYMBOLS) text = text.split(source).join(target);
     return text
+      .replace(/\b(?:sum|sigma)\s*\(\s*([A-Za-z][A-Za-z0-9]*)\s*=\s*([^()]+?)\s+to\s+([^()]+?)\s*\)/gi, "Σ_{$1=$2}^{$3}")
+      .replace(/Σ\s*\(\s*([A-Za-z][A-Za-z0-9]*)\s*=\s*([^()]+?)\s+to\s+([^()]+?)\s*\)/g, "Σ_{$1=$2}^{$3}")
+      .replace(/\b(?:prod|product)\s*\(\s*([A-Za-z][A-Za-z0-9]*)\s*=\s*([^()]+?)\s+to\s+([^()]+?)\s*\)/gi, "∏_{$1=$2}^{$3}")
+      .replace(/∏\s*\(\s*([A-Za-z][A-Za-z0-9]*)\s*=\s*([^()]+?)\s+to\s+([^()]+?)\s*\)/g, "∏_{$1=$2}^{$3}")
+      .replace(/E(\d+)(?=E|A|\s|$)/g, "E_$1 ")
       .replace(/!=/g, "≠")
       .replace(/<=/g, "≤")
       .replace(/>=/g, "≥");

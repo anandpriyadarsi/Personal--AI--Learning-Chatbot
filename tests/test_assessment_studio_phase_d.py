@@ -257,6 +257,26 @@ def test_exact_custom_msq_is_auto_confirmed_but_non_exact_custom_msq_still_needs
     )
 
 
+def test_explanation_lines_split_option_and_step_reasoning_without_changing_math():
+    from personal_learning_assistant.services.assessment_evaluation_service import (
+        _explanation_lines,
+    )
+
+    assert _explanation_lines(
+        "A · det(A^-1)=1/det(A) B · det(-A)=(-1)^n det(A) C · singular means dependent rows"
+    ) == (
+        "A · det(A^-1)=1/det(A)",
+        "B · det(-A)=(-1)^n det(A)",
+        "C · singular means dependent rows",
+    )
+    assert _explanation_lines(
+        "Step 1: Row reduce A. Step 2: Read pivots."
+    ) == (
+        "Step 1: Row reduce A.",
+        "Step 2: Read pivots.",
+    )
+
+
 def test_deterministic_evaluation_is_idempotent_and_creates_signed_canonical_attempts(tmp_path):
     path = _database(tmp_path)
     session_id = _submitted_session(path)
@@ -510,11 +530,24 @@ def test_web_evaluation_flow_shows_results_solution_and_provisional_confirmation
     html = results.get_data(as_text=True)
     assert "Evaluation Engine" in html
     assert "MCQ solution" in html
+    assert "evaluation-option-list" in html
     assert "Correct option" in html
     assert "Grade response" in html
     assert "16.667" not in html
 
     service = _evaluation(path)
+    all_results = service.results(session_id)
+    q3 = next(q for q in all_results["questions"] if q["question_number"] == "3")
+    q3_html = client.get(
+        f"/assessments/sessions/{session_id}/evaluation"
+        f"?outcome=partially_correct&question={q3['evaluation_id']}"
+    ).get_data(as_text=True)
+    assert q3_html.count('class="evaluation-option-list') >= 2
+    assert "A · Correct A</li>" in q3_html
+    assert "C · Correct C</li>" in q3_html
+    assert "D · Correct D</li>" in q3_html
+    assert "A · Correct A · C · Correct C" not in q3_html
+
     q7 = next(
         q for q in service.results(session_id)["questions"]
         if q["question_number"] == "7"

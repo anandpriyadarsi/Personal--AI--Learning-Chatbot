@@ -211,6 +211,36 @@ def _normalize_number(value):
     return number.normalize()
 
 
+_OPTION_EXPLANATION_BOUNDARY_RE = re.compile(
+    r"(?<!^)\s+(?=(?:Option\s+)?[A-H]\s*(?:[:)·-])\s*)",
+    flags=re.I,
+)
+_STEP_EXPLANATION_BOUNDARY_RE = re.compile(
+    r"(?<!^)\s+(?=(?:Step\s+\d+|\d+[.)])\s*[:.-]?\s+)",
+    flags=re.I,
+)
+
+
+def _explanation_lines(value):
+    """Preserve authored line breaks and split compact option/step explanations safely."""
+    text = str(value or "").replace("\r\n", "\n").replace("\r", "\n").strip()
+    if not text:
+        return ()
+    lines = []
+    for raw_line in text.split("\n"):
+        line = raw_line.strip()
+        if not line:
+            continue
+        option_parts = _OPTION_EXPLANATION_BOUNDARY_RE.split(line)
+        for option_part in option_parts:
+            option_part = option_part.strip()
+            if not option_part:
+                continue
+            step_parts = _STEP_EXPLANATION_BOUNDARY_RE.split(option_part)
+            lines.extend(part.strip() for part in step_parts if part.strip())
+    return tuple(lines)
+
+
 def _response_blank(question_type: str, response: dict) -> bool:
     if question_type in OBJECTIVE_OPTION_TYPES:
         return not [
@@ -642,6 +672,9 @@ class AssessmentEvaluationService:
             return tuple("{} · {}".format(value, options.get(str(value), "Option unavailable")) for value in ids)
         result["selected_options"] = option_labels(result["response"].get("selected_option_ids", ()))
         result["correct_options"] = option_labels(result["answer_key"].get("correct_option_ids", ()))
+        result["solution_lines"] = _explanation_lines(result.get("solution_text"))
+        result["rubric_lines"] = _explanation_lines(result.get("rubric_text"))
+        result["expected_method_lines"] = _explanation_lines(result.get("expected_method"))
         result["can_classify"] = (result.get("status") != "awaiting_review"
             and result.get("awarded_marks_milli") is not None
             and result.get("outcome") in {"incorrect", "partially_correct", "unanswered"})
