@@ -739,6 +739,39 @@ def _best_topic(raw_label, topics):
     return (str(topic["id"]) if score >= 0.38 else None), score
 
 
+def _semantic_issue_counts(validated_questions, topics):
+    """Return spoiler-safe semantic issue counts for a validated package."""
+    counts = {
+        "unresolved_question_count": 0,
+        "review_required_count": 0,
+        "unmapped_topic_count": 0,
+        "low_mapping_count": 0,
+        "low_authoring_count": 0,
+    }
+    for item in validated_questions:
+        selected_topic_id, local_score = _best_topic(
+            item["raw_topic_label"], topics
+        )
+        combined_confidence = min(
+            float(item["package_mapping_confidence"]), float(local_score)
+        )
+        review_flag = bool(item["review_required"])
+        unmapped = selected_topic_id is None
+        low_mapping = selected_topic_id is not None and combined_confidence < 0.75
+        low_authoring = float(item["authoring_confidence"]) < 0.75
+        if review_flag:
+            counts["review_required_count"] += 1
+        if unmapped:
+            counts["unmapped_topic_count"] += 1
+        if low_mapping:
+            counts["low_mapping_count"] += 1
+        if low_authoring:
+            counts["low_authoring_count"] += 1
+        if review_flag or unmapped or low_mapping or low_authoring:
+            counts["unresolved_question_count"] += 1
+    return counts
+
+
 def _default_authoring_prompt() -> str:
     path = Path(config.BASE_PATH) / MASTER_PROMPT_FILENAME
     try:
@@ -1032,6 +1065,15 @@ class AssessmentPackageService:
             )
 
         package = _parse_json(raw)
+        if (
+            isinstance(package, dict)
+            and package.get("schema") == "anvaya.assessment-review-handoff"
+        ):
+            raise AssessmentPackageValidationError(
+                "This is the Alex review handoff file, not the revised assessment "
+                "package. Upload the complete anvaya.assessment-package JSON returned "
+                "by Alex / ChatGPT."
+            )
         validated = _validate_package(package)
         expected_revision = int(current["package_revision"]) + 1
 
@@ -1055,6 +1097,31 @@ class AssessmentPackageService:
                 "Revised package course code {} does not match the current assessment "
                 "course {}.".format(
                     validated["assessment"]["course_code"], current["course_code"]
+                )
+            )
+
+        # A review revision is accepted only when the semantic review queue is
+        # actually clear. Rejecting an incomplete revision before staging lets
+        # Alex repair the same revision number instead of creating rev 3, rev 4,
+        # ... with the same unresolved flags.
+        with self._repository(write=False) as repository:
+            topics = repository.topic_catalogue(str(current["course_id"]))
+        issue_counts = _semantic_issue_counts(validated["questions"], topics)
+        if issue_counts["unresolved_question_count"]:
+            raise AssessmentPackageValidationError(
+                "Revision {} still has {} unresolved question(s): {} author-review "
+                "flag(s), {} unmapped topic(s), {} low-confidence topic mapping(s), "
+                "and {} low-authoring-confidence question(s). ANVAYA did not stage "
+                "this revision. Ask Alex to repair the SAME revision {} using the "
+                "review handoff and source evidence; do not increase package_revision."
+                .format(
+                    expected_revision,
+                    issue_counts["unresolved_question_count"],
+                    issue_counts["review_required_count"],
+                    issue_counts["unmapped_topic_count"],
+                    issue_counts["low_mapping_count"],
+                    issue_counts["low_authoring_count"],
+                    expected_revision,
                 )
             )
 
@@ -1452,6 +1519,14 @@ class AssessmentPackageService:
                         "selected_topic_id": item.get("selected_topic_id"),
                         "mapping_confidence": item.get("mapping_confidence"),
                         "authoring_confidence": item.get("authoring_confidence"),
+                        "resolution_requirement": (
+                            "Resolve every listed issue. For a verified topic mapping, "
+                            "use the exact canonical topic name from "
+                            "canonical_topic_catalogue, set topic_mapping_confidence "
+                            "to at least 0.90, set authoring_confidence to at least "
+                            "0.90 when the question is semantically verified, and set "
+                            "review_required to false."
+                        ),
                     }
                 )
 
@@ -1470,15 +1545,30 @@ class AssessmentPackageService:
             "canonical_topic_catalogue": topic_catalogue,
             "flagged_questions": flagged,
             "source_package": source_package,
+            "review_exit_contract": {
+                "required_review_required_count": 0,
+                "required_unmapped_topic_count": 0,
+                "required_low_mapping_count": 0,
+                "required_low_authoring_count": 0,
+                "mapping_confidence_target": 0.90,
+                "authoring_confidence_target": 0.90,
+                "staging_policy": (
+                    "ANVAYA rejects the revised package without staging if any "
+                    "semantic review issue remains, so repair the same required "
+                    "revision until this contract is satisfied."
+                ),
+            },
             "instructions_for_alex": [
                 "Review the source_package without revealing question text, options, answer keys, solutions or rubrics in the chat summary.",
                 "Use any original papers/notes/PPTs/PDFs supplied by the user to verify semantic correctness.",
-                "Resolve flagged questions where the evidence supports a correction.",
-                "Use the canonical_topic_catalogue for topic mapping.",
-                "Return a complete anvaya.assessment-package version 1 package.",
+                "Process EVERY item in flagged_questions; do not simply copy the original review flags into the next revision.",
+                "For a verified topic mapping, copy the exact canonical topic name from canonical_topic_catalogue into academic_map.topic.",
+                "For a verified topic mapping set academic_map.topic_mapping_confidence to at least 0.90.",
+                "For a semantically verified question set authoring_confidence to at least 0.90 and review_required=false.",
+                "Run a final pass over ALL questions and satisfy review_exit_contract before returning the package.",
+                "Return a complete anvaya.assessment-package version 1 package, never the handoff wrapper.",
                 "Keep the same package_id and set package_revision to required_next_package_revision.",
-                "Set review_required=false only where the question and metadata are genuinely verified.",
-                "If evidence is insufficient, leave review_required=true rather than guessing.",
+                "If evidence is genuinely insufficient for any question, do not guess and do not claim the package is clean. Give only a non-spoiler unresolved count and ask for the missing source evidence; keep the same required revision number.",
             ],
         }
         filename = "{}_rev{}_alex-review.anvaya-review.json".format(
@@ -1495,20 +1585,29 @@ class AssessmentPackageService:
         review = self.review(batch_id)
         summary = review["blind_review"]
         return (
-            "You are reviewing an ANVAYA assessment package before I take the test. "
-            "I must remain blind to the assessment content. I will upload an "
+            "You are repairing an ANVAYA assessment package before I take the test. "
+            "I must remain blind to all assessment content. I will upload an "
             "ANVAYA assessment-review handoff JSON plus the original source papers/"
-            "notes/PPTs/PDFs. Review the package silently. Do not reproduce or reveal "
-            "question text, options, answer keys, solutions or rubrics in chat. "
-            "Resolve the flagged semantic/topic issues using the supplied evidence. "
-            "Return a complete anvaya.assessment-package v1 JSON with the SAME "
-            "package_id {!r} and package_revision {}. Use the canonical topic catalogue "
-            "inside the handoff. Set review_required=false only when verified; never "
-            "guess if evidence is missing. In chat, give only a non-spoiler summary "
-            "with counts of resolved/unresolved issues and provide the revised JSON "
-            "file for ANVAYA import. Current non-spoiler counts: {} question(s), "
-            "{} marked for Alex review, {} unmapped topic(s), {} low-confidence "
-            "topic mapping(s)."
+            "notes/PPTs/PDFs. Work silently: do not reproduce or reveal question text, "
+            "options, answer keys, solutions or rubrics in chat. Your job is to repair "
+            "EVERY flagged question, not merely copy the source_package into a new "
+            "revision. Return a complete anvaya.assessment-package v1 JSON with the "
+            "SAME package_id {!r} and package_revision {}. For each verified topic, "
+            "set academic_map.topic to the EXACT canonical topic name from the handoff "
+            "catalogue and set topic_mapping_confidence to at least 0.90. For each "
+            "semantically verified question set authoring_confidence to at least 0.90 "
+            "and review_required=false. Before returning the file, run a second pass "
+            "over ALL questions: target 0 review_required flags, 0 unmapped topics, "
+            "0 low-confidence topic mappings and 0 low-authoring-confidence questions. "
+            "Return the assessment package itself, never the review-handoff wrapper. "
+            "ANVAYA will reject an unresolved revision without staging it and will keep "
+            "waiting for the SAME revision number. If evidence is genuinely missing, "
+            "do not guess: give only a non-spoiler unresolved count and ask me for the "
+            "missing source evidence instead of returning a supposedly clean package. "
+            "When the exit contract is satisfied, provide the revised JSON file for "
+            "ANVAYA import and only a non-spoiler resolved/unresolved count in chat. "
+            "Current non-spoiler counts: {} question(s), {} marked for Alex review, "
+            "{} unmapped topic(s), {} low-confidence topic mapping(s)."
         ).format(
             str(review["package_id"]),
             int(review["package_revision"]) + 1,
