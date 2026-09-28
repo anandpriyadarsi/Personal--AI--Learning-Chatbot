@@ -98,7 +98,11 @@
           <h4>Your response</h4>
           {% if q.question_type in ['mcq','msq'] %}
             {% set selected = q.response.get('selected_option_ids', []) %}
-            {% if selected %}<p data-assessment-math>{{ q.selected_options|join(' · ') }}</p>{% else %}<p class="empty-state">No option selected.</p>{% endif %}
+            {% if selected %}
+              <ul class="evaluation-option-list">
+                {% for option in q.selected_options %}<li data-assessment-math>{{ option }}</li>{% endfor %}
+              </ul>
+            {% else %}<p class="empty-state">No option selected.</p>{% endif %}
           {% elif q.question_type == 'fill_blank' and q.response.get('parts') %}
             <ol class="evaluation-fill-parts">
               {% for part in q.response.get('parts', []) %}
@@ -115,10 +119,20 @@
           <h4>Correct answer / guide</h4>
           {% if q.question_type in ['mcq','msq'] %}
             {% set keys = q.answer_key.get('correct_option_ids', []) %}
-            <p data-assessment-math>{% if keys %}Correct option{% if keys|length != 1 %}s{% endif %}: {{ q.correct_options|join(' · ') }}{% else %}No deterministic key available.{% endif %}</p>
+            {% if keys %}
+              <p class="evaluation-answer-label">Correct option{% if keys|length != 1 %}s{% endif %}</p>
+              <ul class="evaluation-option-list evaluation-correct-options">
+                {% for option in q.correct_options %}<li data-assessment-math>{{ option }}</li>{% endfor %}
+              </ul>
+            {% else %}<p>No deterministic key available.</p>{% endif %}
           {% elif q.question_type in ['numerical','fill_blank','true_false'] %}
             {% set accepted = q.answer_key.get('accepted_answers', []) %}
-            <p data-assessment-math>{% if accepted %}Accepted: {{ accepted|join(' · ') }}{% else %}No deterministic key available.{% endif %}</p>
+            {% if accepted %}
+              <p class="evaluation-answer-label">Accepted answer{% if accepted|length != 1 %}s{% endif %}</p>
+              <ul class="evaluation-option-list evaluation-accepted-list">
+                {% for answer in accepted %}<li data-assessment-math>{{ answer }}</li>{% endfor %}
+              </ul>
+            {% else %}<p>No deterministic key available.</p>{% endif %}
           {% else %}
             <p>Use the model solution and rubric below.</p>
           {% endif %}
@@ -130,10 +144,28 @@
       <details class="evaluation-details">
         <summary>Solution, rubric &amp; method</summary>
         <div class="evaluation-grid">
-          <section><h4>Solution</h4><p class="reader-prose" data-assessment-math>{{ q.solution_text or 'No solution snapshot.' }}</p></section>
-          <section><h4>Rubric</h4><p class="reader-prose">{{ q.rubric_text or 'No rubric required.' }}</p></section>
+          <section>
+            <h4>Solution</h4>
+            {% if q.solution_lines %}
+              <div class="evaluation-explanation-lines">
+                {% for line in q.solution_lines %}<p class="reader-prose" data-assessment-math>{{ line }}</p>{% endfor %}
+              </div>
+            {% else %}<p class="reader-prose">No solution snapshot.</p>{% endif %}
+          </section>
+          <section>
+            <h4>Rubric</h4>
+            {% if q.rubric_lines %}
+              <div class="evaluation-explanation-lines">
+                {% for line in q.rubric_lines %}<p class="reader-prose" data-assessment-math>{{ line }}</p>{% endfor %}
+              </div>
+            {% else %}<p class="reader-prose">No rubric required.</p>{% endif %}
+          </section>
         </div>
-        {% if q.expected_method %}<p><strong>Expected method:</strong> {{ q.expected_method }}</p>{% endif %}
+        {% if q.expected_method_lines %}
+          <div class="evaluation-expected-method"><strong>Expected method</strong>
+            {% for line in q.expected_method_lines %}<p data-assessment-math>{{ line }}</p>{% endfor %}
+          </div>
+        {% endif %}
       </details>
 
       {% if q.status in ['awaiting_review','provisional'] %}
