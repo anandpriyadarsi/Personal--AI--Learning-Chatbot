@@ -135,3 +135,59 @@ def test_palette_css_has_stronger_answered_review_and_current_states():
     assert "rgba(138, 113, 240, .34)" in css
     assert ".palette-item.is-current" in css
     assert "outline: 3px solid var(--accent)" in css
+
+
+def test_runner_infers_structured_fields_from_visible_enter_cue(tmp_path):
+    path = _database(tmp_path)
+    connection = sqlite3.connect(path)
+    try:
+        connection.execute(
+            "UPDATE questions SET question_text=? WHERE id='q-num'",
+            (
+                "For the system to be consistent determine the parameters and nullity. "
+                "Enter: k, μ, number of free variables."
+            ),
+        )
+        connection.execute(
+            "UPDATE assessment_question_specs SET question_type='fill_blank', "
+            "answer_json=? WHERE question_id='q-num'",
+            (json.dumps({"correct_option_ids": [], "accepted_answers": ["2,1,1"]}),),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    service = _service(path, Clock())
+    sid = service.start("assessment-1", confirmed=True)["session_id"]
+    question = service.runner_view(sid, ordinal=3)["question"]
+
+    assert [item["label"] for item in question["fill_fields"]] == [
+        "k",
+        "μ",
+        "number of free variables",
+    ]
+
+
+def test_html_form_fallback_saves_structured_fill_parts(tmp_path):
+    path = _database(tmp_path)
+    _make_structured_fill_question(path)
+    clock = Clock()
+    service = _service(path, clock)
+    sid = service.start("assessment-1", confirmed=True)["session_id"]
+    question = service.runner_view(sid, ordinal=3)["question"]
+
+    client = _app(path, clock).test_client()
+    response = client.post(
+        f"/assessments/sessions/{sid}/questions/{question['session_question_id']}/action",
+        data={
+            "action": "save_next",
+            "current_ordinal": "3",
+            "next_ordinal": "4",
+            "fill_parts": ["2", "3", "-2"],
+        },
+        follow_redirects=False,
+    )
+    assert response.status_code == 303
+
+    reloaded = service.runner_view(sid, ordinal=3)["question"]
+    assert reloaded["response"]["parts"] == ["2", "3", "-2"]
