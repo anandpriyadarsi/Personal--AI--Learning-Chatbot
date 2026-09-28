@@ -1810,6 +1810,7 @@ def assessment_session_question_action(session_id, session_question_id):
     response = payload.get("response", {}) if request.is_json else {
         "selected_option_ids": request.form.getlist("option_ids"),
         "value": request.form.get("answer_value", ""),
+        "parts": request.form.getlist("fill_parts"),
         "text": request.form.get("answer_text", ""),
     }
     if not isinstance(response, dict):
