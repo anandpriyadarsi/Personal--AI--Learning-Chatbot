@@ -34,3 +34,19 @@ test('parses determinant literals and common LaTeX matrix environments', () => {
   assert.equal(latex.delimiter, 'determinant');
   assert.equal(latex.end, source.length);
 });
+
+
+test('normalizes compact sums and elementary elimination matrices for readable display', () => {
+  assert.equal(
+    math.replaceSymbols('Σ(i=1 to 3) Σ(j=1 to 3) (A^-1)_{ij}'),
+    'Σ_{i=1}^{3} Σ_{j=1}^{3} (A^-1)_{ij}'
+  );
+  assert.equal(
+    math.replaceSymbols('E3E2E1A = U'),
+    'E_3 E_2 E_1 A = U'
+  );
+  assert.equal(
+    math.replaceSymbols(String.raw`\sum_{i=1}^{n} a_i + \ell_42`),
+    'Σ_{i=1}^{n} a_i + ℓ_42'
+  );
+});
