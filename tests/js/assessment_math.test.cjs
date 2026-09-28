@@ -28,7 +28,7 @@ test('parses determinant literals and common LaTeX matrix environments', () => {
   assert.deepEqual(determinant.rows, [['1', '2'], ['3', '4']]);
   assert.equal(determinant.delimiter, 'determinant');
 
-  const source = String.raw`\\begin{vmatrix}1 & 2 \\\\ 3 & 4\\end{vmatrix}`;
+  const source = String.raw`\begin{vmatrix}1 & 2 \\ 3 & 4\end{vmatrix}`;
   const latex = math.parseLatexMatrixAt(source, 0);
   assert.deepEqual(latex.rows, [['1', '2'], ['3', '4']]);
   assert.equal(latex.delimiter, 'determinant');
