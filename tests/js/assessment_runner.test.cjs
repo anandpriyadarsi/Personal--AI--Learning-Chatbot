@@ -14,9 +14,17 @@ function harness(type='numerical') {
   let now=0, serial=0, responder=async()=>({status:'active',remaining_seconds:3600,state:'answered',palette_counts:{answered:2,not_answered:1,not_visited:1,marked_for_review:1,answered_marked_for_review:1}});
   const timers=new Map(), intervals=new Map(), calls=[], navigations=[], confirmations=[];
   const input=new Element({name:type==='long_subjective'?'answer_text':'answer_value',value:type==='true_false'?'True':'',type:type==='true_false'?'radio':'text'});
+  const fillParts=type==='fill_blank'
+    ? [new Element({name:'fill_parts',value:'',type:'text'}),new Element({name:'fill_parts',value:'',type:'text'}),new Element({name:'fill_parts',value:'',type:'text'})]
+    : [];
   const fieldset=new Element(), focus=new Element({type:'hidden'}), button=new Element({value:'save_next'});
   const form=new Element({action:'/action'});
-  form.querySelectorAll=(selector)=>selector==='input, textarea'?[input]:selector.includes(':checked')?[]:[button];
+  form.querySelectorAll=(selector)=>{
+    if(selector==='input, textarea') return fillParts.length?fillParts:[input];
+    if(selector==='[data-fill-part]') return fillParts;
+    if(selector.includes(':checked')) return [];
+    return [button];
+  };
   form.querySelector=(selector)=>selector==='fieldset'?fieldset:selector.includes(':checked')?null:input;
   const nav=new Element({href:'/next'}), submit=new Element(), retry=new Element(), status=new Element(), timer=new Element();
   const root=new Element({dataset:{sessionId:'s',questionId:'q',questionType:type,remainingSeconds:'3600',heartbeatUrl:'/heartbeat',autosaveUrl:'/autosave',submitUrl:'/submit',summaryUrl:'/summary'}});
@@ -25,9 +33,10 @@ function harness(type='numerical') {
   const window=new Element({location:{assign:url=>navigations.push(url)},setTimeout:(fn)=>{timers.set(++serial,fn);return serial},clearTimeout:id=>timers.delete(id),setInterval:(fn,ms)=>{intervals.set(ms,fn)},confirm:message=>{confirmations.push(message);return window.confirmResult},confirmResult:true});
   const fetch=async(url,opts)=>{const payload=JSON.parse(opts.body);calls.push({url,payload});const data=await responder(url,payload);return {ok:true,json:async()=>data}};
   vm.runInNewContext(source,{document,window,performance:{now:()=>now},fetch,URLSearchParams,FormData,console});
-  return {input,form,button,nav,submit,retry,status,window,document,calls,navigations,confirmations,
+  return {input,fillParts,form,button,nav,submit,retry,status,window,document,calls,navigations,confirmations,
     setResponder:fn=>responder=fn,advance:ms=>{now+=ms},interval:async ms=>{await intervals.get(ms)();await settle()},
     edit:async value=>{input.value=value;await input.emit('input');await input.emit('change')},
+    editPart:async(index,value)=>{fillParts[index].value=value;await fillParts[index].emit('input');await fillParts[index].emit('change')},
     debounce:async()=>{const tasks=[...timers.values()];timers.clear();tasks.forEach(fn=>fn());await settle()}};
 }
 test('untouched true/false remains unanswered when leaving the question',async()=>{
@@ -79,4 +88,15 @@ test('failed clear or final submit preserves the page and re-enables the answer'
     await (action==='clear'?h.form.emit('submit',{submitter:{value:'clear'}}):h.submit.emit('submit'));
     assert.deepEqual(h.navigations,[]);assert.equal(h.input.value,'42');assert.equal(h.form.querySelector('fieldset').disabled,false);assert.match(h.status.textContent,/action failed/i);
   }
+});
+
+test('structured fill-up autosave sends ordered parts without requiring punctuation',async()=>{
+  const h=harness('fill_blank');
+  await h.editPart(0,'3');
+  await h.editPart(1,'3');
+  await h.editPart(2,'2');
+  await h.debounce();
+  const save=h.calls.find(x=>x.url==='/autosave');
+  assert.deepEqual(save.payload.response.parts,['3','3','2']);
+  assert.equal(save.payload.response.value,'3,3,2');
 });
