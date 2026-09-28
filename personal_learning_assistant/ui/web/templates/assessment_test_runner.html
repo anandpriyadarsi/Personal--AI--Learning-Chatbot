@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ view.session.title_snapshot }} · Test Runner · ANVAYA{% endblock %}
 {% block body_class %}assessment-exam-body{% endblock %}
-{% block page_scripts %}<script defer src="{{ url_for('static', filename='js/assessment_runner.js') }}"></script>{% endblock %}
+{% block page_scripts %}<link rel="stylesheet" href="{{ url_for('static', filename='css/assessment_runner_math.css') }}"><script defer src="{{ url_for('static', filename='js/assessment_math.js') }}"></script><script defer src="{{ url_for('static', filename='js/assessment_runner.js') }}"></script>{% endblock %}
 {% block content %}
 <div
   id="assessment-runner"
@@ -41,7 +41,7 @@
         </div>
       </div>
 
-      <div class="exam-question-text">{{ view.question.question_text }}</div>
+      <div class="exam-question-text" data-assessment-math>{{ view.question.question_text }}</div>
 
       <form id="assessment-response-form" method="post" action="{{ url_for('web.assessment_session_question_action', session_id=view.session.id, session_question_id=view.question.session_question_id) }}">
         <input type="hidden" name="current_ordinal" value="{{ view.question.ordinal }}">
@@ -58,7 +58,7 @@
               <label class="exam-option">
                 <input type="radio" name="option_ids" value="{{ option.id }}"{% if option.id in selected %} checked{% endif %}>
                 <span class="exam-option-key">{{ option.id }}</span>
-                <span>{{ option.text }}</span>
+                <span data-assessment-math>{{ option.text }}</span>
               </label>
             {% endfor %}
             </div>
@@ -69,7 +69,7 @@
               <label class="exam-option">
                 <input type="checkbox" name="option_ids" value="{{ option.id }}"{% if option.id in selected %} checked{% endif %}>
                 <span class="exam-option-key">{{ option.id }}</span>
-                <span>{{ option.text }}</span>
+                <span data-assessment-math>{{ option.text }}</span>
               </label>
             {% endfor %}
             </div>
@@ -79,8 +79,28 @@
               <label class="exam-option"><input type="radio" name="answer_value" value="True"{% if value == 'True' %} checked{% endif %}><span class="exam-option-key">T</span><span>True</span></label>
               <label class="exam-option"><input type="radio" name="answer_value" value="False"{% if value == 'False' %} checked{% endif %}><span class="exam-option-key">F</span><span>False</span></label>
             </div>
-          {% elif view.question.question_type in ['numerical','fill_blank'] %}
-            <label class="form-field form-field-full"><span>Your answer</span><input type="text" {% if view.question.question_type == 'numerical' %}inputmode="decimal"{% endif %} name="answer_value" value="{{ view.question.response.get('value', '') }}" autocomplete="off"></label>
+          {% elif view.question.question_type == 'numerical' %}
+            <label class="form-field form-field-full exam-answer-field"><span>Your answer</span><input type="text" inputmode="decimal" name="answer_value" value="{{ view.question.response.get('value', '') }}" autocomplete="off"></label>
+          {% elif view.question.question_type == 'fill_blank' %}
+            {% if view.question.fill_fields %}
+              <div class="exam-fill-response" data-structured-fill>
+                <div class="exam-fill-heading">
+                  <div><span class="metric-label">Fill the blanks</span><strong>Enter each answer separately</strong></div>
+                  <span>{{ view.question.fill_fields|length }} parts</span>
+                </div>
+                <div class="exam-fill-grid">
+                  {% for field in view.question.fill_fields %}
+                    <label class="exam-fill-field">
+                      <span>{{ field.label }}</span>
+                      <input type="text" name="fill_parts" data-fill-part data-fill-index="{{ field.index }}" value="{{ field.value }}" autocomplete="off" aria-label="{{ field.label }}">
+                    </label>
+                  {% endfor %}
+                </div>
+                <p class="exam-fill-help">ANVAYA saves the parts together for evaluation. You do not need to type commas, brackets or labels yourself.</p>
+              </div>
+            {% else %}
+              <label class="form-field form-field-full exam-answer-field"><span>Your answer</span><input type="text" name="answer_value" value="{{ view.question.response.get('value', '') }}" autocomplete="off"></label>
+            {% endif %}
           {% elif view.question.question_type in ['short_subjective','long_subjective'] %}
             <label class="form-field form-field-full"><span>Your response</span><textarea name="answer_text" rows="{% if view.question.question_type == 'long_subjective' %}14{% else %}7{% endif %}" spellcheck="true">{{ view.question.response.get('text', '') }}</textarea></label>
           {% endif %}
