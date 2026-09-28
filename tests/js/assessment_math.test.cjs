@@ -62,10 +62,10 @@ test('normalizes common indexed basis and factorization symbols', () => {
 test('parses display-style summation and product limits', () => {
   assert.deepEqual(
     math.parseBigOperatorAt('∑_{i=1}^{3} a_i', 0),
-    {symbol: '∑', lower: 'i=1', upper: '3', end: 12}
+    {symbol: '∑', lower: 'i=1', upper: '3', end: 11}
   );
   assert.deepEqual(
     math.parseBigOperatorAt('∏_{k=0}^{n} x_k', 0),
-    {symbol: '∏', lower: 'k=0', upper: 'n', end: 12}
+    {symbol: '∏', lower: 'k=0', upper: 'n', end: 11}
   );
 });
