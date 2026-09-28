@@ -565,7 +565,7 @@ class AssessmentRunnerService:
                     if any(len(item) > 500 for item in parts):
                         raise AssessmentRunnerValidationError("A fill-up answer part is too long.")
                     value = ",".join(parts)
-                    return {"value": value, "parts": parts}, any(parts)
+                    return {"value": value, "parts": parts}, bool(parts) and all(parts)
             if len(value) > 2000:
                 raise AssessmentRunnerValidationError("Answer is too long.")
             return {"value": value}, bool(value)
