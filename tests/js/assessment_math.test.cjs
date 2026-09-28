@@ -21,3 +21,16 @@ test('reads grouped and signed superscript/subscript tokens', () => {
   assert.deepEqual(math.readScriptToken('-1 rest', 0), {value: '-1', end: 2});
   assert.deepEqual(math.readScriptToken('34 rest', 0), {value: '34', end: 2});
 });
+
+
+test('parses determinant literals and common LaTeX matrix environments', () => {
+  const determinant = math.parseDeterminantAt('det([[1, 2], [3, 4]]) + 1', 0);
+  assert.deepEqual(determinant.rows, [['1', '2'], ['3', '4']]);
+  assert.equal(determinant.delimiter, 'determinant');
+
+  const source = String.raw`\\begin{vmatrix}1 & 2 \\\\ 3 & 4\\end{vmatrix}`;
+  const latex = math.parseLatexMatrixAt(source, 0);
+  assert.deepEqual(latex.rows, [['1', '2'], ['3', '4']]);
+  assert.equal(latex.delimiter, 'determinant');
+  assert.equal(latex.end, source.length);
+});
