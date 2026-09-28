@@ -36,7 +36,13 @@ _FILL_LABEL_RE = re.compile(
 
 def _compact_fill_label(value: str) -> str:
     label = " ".join(str(value or "").split()).strip(" ,;:.()")
-    label = re.sub(r"^(?:and|then|for these values,?)\s+", "", label, flags=re.I)
+    label = re.sub(
+        r"^(?:and|then|for these values,?|for consistency|"
+        r"for the system to be consistent,?)\s+",
+        "",
+        label,
+        flags=re.I,
+    )
     if len(label) > 42:
         label = label[-42:].lstrip(" ,;:.")
     return label
@@ -560,7 +566,7 @@ class AssessmentRunnerService:
                     if any(len(item) > 500 for item in parts):
                         raise AssessmentRunnerValidationError("A fill-up answer part is too long.")
                     value = ",".join(parts)
-                    return {"value": value, "parts": parts}, any(parts)
+                    return {"value": value, "parts": parts}, bool(parts) and all(parts)
             if len(value) > 2000:
                 raise AssessmentRunnerValidationError("Answer is too long.")
             return {"value": value}, bool(value)
