@@ -66,6 +66,54 @@
 .exam-fill-field input {
   font-family: "Cambria Math", "STIX Two Math", "Times New Roman", var(--font-body);
 }
+.exam-question-with-inputs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .3rem .38rem;
+}
+.exam-question-with-inputs > span {
+  display: inline;
+}
+.exam-inline-answer {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+}
+.exam-inline-answer input {
+  width: clamp(6.5rem, 14vw, 10rem);
+  min-height: 2.55rem;
+  padding: .42rem .58rem;
+  border: 2px solid rgba(85, 194, 184, .72);
+  border-radius: .55rem;
+  background: rgba(45, 156, 148, .13);
+  color: var(--text);
+  font-family: "Cambria Math", "STIX Two Math", "Times New Roman", var(--font-body);
+  font-size: 1rem;
+  text-align: center;
+}
+.exam-inline-answer input:focus {
+  border-color: rgba(85, 194, 184, 1);
+  outline: 3px solid rgba(85, 194, 184, .2);
+  outline-offset: 2px;
+}
+.exam-inline-numerical input {
+  width: clamp(7.5rem, 16vw, 11rem);
+}
+.exam-inline-answer-help {
+  padding: .68rem .78rem;
+  border: 1px solid rgba(85, 194, 184, .28);
+  border-radius: .62rem;
+  background: rgba(85, 194, 184, .06);
+  color: var(--text-muted);
+  font-size: .78rem;
+  line-height: 1.5;
+}
+.exam-answer-field small {
+  color: var(--text-muted);
+  font-size: .72rem;
+  line-height: 1.45;
+}
 .exam-fill-response {
   display: grid;
   gap: .8rem;
@@ -185,4 +233,6 @@
 @media (max-width: 620px) {
   .exam-fill-grid { grid-template-columns: 1fr; }
   .assessment-matrix-grid { gap: .12rem .42rem; }
+  .exam-question-with-inputs { gap: .42rem .3rem; }
+  .exam-inline-answer input { width: 7rem; }
 }
