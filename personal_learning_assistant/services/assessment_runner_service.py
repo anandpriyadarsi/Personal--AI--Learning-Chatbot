@@ -68,7 +68,7 @@ def _enter_fill_fields(question_text: str):
         for item in re.split(r"\s*(?:,|;|\band\b)\s*", raw, flags=re.I)
         if _compact_fill_label(item)
     ]
-    if len(labels) <= 1 or len(labels) > 20:
+    if not labels or len(labels) > 20:
         return ()
     if any(len(label) > 60 for label in labels):
         return ()
