@@ -237,6 +237,36 @@ def test_underscore_fill_labels_trim_instructional_cues(tmp_path):
     assert [item["label"] for item in question["fill_fields"]] == ["k", "μ"]
 
 
+def test_single_named_fill_cue_gets_explicit_labeled_box(tmp_path):
+    path = _database(tmp_path)
+    connection = sqlite3.connect(path)
+    try:
+        connection.execute(
+            "UPDATE questions SET question_text=? WHERE id='q-num'",
+            ("Compute the determinant. Enter: det(A).",),
+        )
+        connection.execute(
+            "UPDATE assessment_question_specs SET question_type='fill_blank', "
+            "answer_json=? WHERE question_id='q-num'",
+            (json.dumps({"correct_option_ids": [], "accepted_answers": ["-2"]}),),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    service = _service(path, Clock())
+    sid = service.start("assessment-1", confirmed=True)["session_id"]
+    question = service.runner_view(sid, ordinal=3)["question"]
+    assert [field["label"] for field in question["fill_fields"]] == ["det(A)"]
+    assert question["fill_segments"] == ()
+
+    html = _app(path, Clock()).test_client().get(
+        f"/assessments/sessions/{sid}?q=3"
+    ).get_data(as_text=True)
+    assert "Blank 1 · det(A)" in html
+    assert 'placeholder="Enter blank 1"' in html
+
+
 def test_single_visible_fill_blank_becomes_inline_answer_field(tmp_path):
     path = _database(tmp_path)
     connection = sqlite3.connect(path)
