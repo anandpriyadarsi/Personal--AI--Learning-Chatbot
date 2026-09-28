@@ -209,6 +209,18 @@ and preserve the rule in the assessment/question context for review.
 
 Provide one or more accepted answers.
 
+For a `fill_blank` question with multiple answer parts, make the expected input structure explicit in the **visible question text** using an ordered cue such as:
+
+`Enter: k, μ, number of free variables.`
+
+or:
+
+`Enter ℓ43, u44.`
+
+Then list accepted answers in that exact same order. Do not force the student to guess a combined comma/bracket format. ANVAYA may render those named parts as separate input fields while preserving the package's accepted-answer contract.
+
+For mathematical notation, prefer clear UTF-8 symbols or consistent lightweight math notation that survives JSON safely, for example `A⁻¹`, `Aᵀ`, `λ`, `μ`, `x^2`, `[p]_B`, and matrix rows encoded consistently. Do not embed executable HTML, scripts, or browser-specific markup in question text.
+
 ### Subjective questions
 
 Do not invent objective answer keys.

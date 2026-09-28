@@ -191,3 +191,56 @@ def test_html_form_fallback_saves_structured_fill_parts(tmp_path):
 
     reloaded = service.runner_view(sid, ordinal=3)["question"]
     assert reloaded["response"]["parts"] == ["2", "3", "-2"]
+
+
+def test_incomplete_structured_fill_is_saved_but_not_marked_answered(tmp_path):
+    path = _database(tmp_path)
+    _make_structured_fill_question(path)
+    service = _service(path, Clock())
+    sid = service.start("assessment-1", confirmed=True)["session_id"]
+    question = service.runner_view(sid, ordinal=3)["question"]
+
+    saved = service.save_response(
+        sid,
+        question["session_question_id"],
+        {"parts": ["2", "", "-2"]},
+        mark_for_review=False,
+    )
+    assert saved["state"] == "not_answered"
+
+    reloaded = service.runner_view(sid, ordinal=3)["question"]
+    assert reloaded["response"]["parts"] == ["2", "", "-2"]
+
+
+def test_underscore_fill_labels_trim_instructional_cues(tmp_path):
+    path = _database(tmp_path)
+    connection = sqlite3.connect(path)
+    try:
+        connection.execute(
+            "UPDATE questions SET question_text=? WHERE id='q-num'",
+            ("For consistency k = ___ and μ = ___.",),
+        )
+        connection.execute(
+            "UPDATE assessment_question_specs SET question_type='fill_blank', "
+            "answer_json=? WHERE question_id='q-num'",
+            (json.dumps({"correct_option_ids": [], "accepted_answers": ["3,3"]}),),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    service = _service(path, Clock())
+    sid = service.start("assessment-1", confirmed=True)["session_id"]
+    question = service.runner_view(sid, ordinal=3)["question"]
+    assert [item["label"] for item in question["fill_fields"]] == ["k", "μ"]
+
+
+def test_authoring_prompt_documents_ordered_multi_part_fill_inputs():
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    prompt = (root / "ANVAYA_ASSESSMENT_PACKAGE_AUTHORING_PROMPT.md").read_text(
+        encoding="utf-8"
+    )
+    assert "Enter: k, μ, number of free variables." in prompt
+    assert "accepted answers in that exact same order" in prompt
