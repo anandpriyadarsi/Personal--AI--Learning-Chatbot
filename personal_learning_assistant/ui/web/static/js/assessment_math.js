@@ -100,17 +100,27 @@
     return null;
   };
 
-  const createMatrix = (documentRef, rows) => {
+  const createMatrix = (documentRef, rows, delimiter = "brackets") => {
+    const delimiters = {
+      brackets: ["[", "]"],
+      parentheses: ["(", ")"],
+      determinant: ["|", "|"],
+      none: ["", ""],
+    };
+    const pair = delimiters[delimiter] || delimiters.brackets;
     const shell = documentRef.createElement("span");
-    shell.className = "assessment-matrix";
+    shell.className = `assessment-matrix assessment-matrix-${delimiter}`;
     shell.setAttribute("role", "math");
-    shell.setAttribute("aria-label", `matrix with ${rows.length} rows and ${rows[0].length} columns`);
+    shell.setAttribute(
+      "aria-label",
+      `${delimiter === "determinant" ? "determinant" : "matrix"} with ${rows.length} rows and ${rows[0].length} columns`
+    );
     const left = documentRef.createElement("span");
     const right = documentRef.createElement("span");
     left.className = "assessment-matrix-bracket assessment-matrix-bracket-left";
     right.className = "assessment-matrix-bracket assessment-matrix-bracket-right";
-    left.textContent = "[";
-    right.textContent = "]";
+    left.textContent = pair[0];
+    right.textContent = pair[1];
     const grid = documentRef.createElement("span");
     grid.className = "assessment-matrix-grid";
     grid.style.setProperty("--matrix-columns", String(rows[0].length));
@@ -126,6 +136,44 @@
     return shell;
   };
 
+  const parseDeterminantAt = (text, start) => {
+    const match = text.slice(start).match(/^det\s*\(/i);
+    if (!match) return null;
+    let matrixStart = start + match[0].length;
+    while (matrixStart < text.length && /\s/.test(text[matrixStart])) matrixStart += 1;
+    const matrix = parseMatrixAt(text, matrixStart);
+    if (!matrix) return null;
+    let end = matrix.end;
+    while (end < text.length && /\s/.test(text[end])) end += 1;
+    if (text[end] !== ")") return null;
+    return {rows: matrix.rows, end: end + 1, delimiter: "determinant"};
+  };
+
+  const parseLatexMatrixAt = (text, start) => {
+    const match = text.slice(start).match(/^\\begin\{(bmatrix|pmatrix|vmatrix|matrix)\}/);
+    if (!match) return null;
+    const environment = match[1];
+    const bodyStart = start + match[0].length;
+    const endMarker = `\\end{${environment}}`;
+    const endIndex = text.indexOf(endMarker, bodyStart);
+    if (endIndex < 0) return null;
+    const body = text.slice(bodyStart, endIndex).trim();
+    const rows = body
+      .split(/\\\\/)
+      .map(row => row.split("&").map(cell => cell.trim()))
+      .filter(row => row.some(Boolean));
+    if (!rows.length || !rows[0].length) return null;
+    if (!rows.every(row => row.length === rows[0].length)) return null;
+    const delimiter = environment === "pmatrix"
+      ? "parentheses"
+      : environment === "vmatrix"
+        ? "determinant"
+        : environment === "matrix"
+          ? "none"
+          : "brackets";
+    return {rows, end: endIndex + endMarker.length, delimiter};
+  };
+
   const renderText = (documentRef, raw) => {
     const fragment = documentRef.createDocumentFragment();
     const text = String(raw ?? "");
@@ -138,6 +186,26 @@
       while (span.firstChild) fragment.appendChild(span.firstChild);
     };
     while (cursor < text.length) {
+      const determinant = parseDeterminantAt(text, cursor);
+      if (determinant) {
+        flushPlain(cursor);
+        fragment.appendChild(
+          createMatrix(documentRef, determinant.rows, determinant.delimiter)
+        );
+        cursor = determinant.end;
+        plainStart = cursor;
+        continue;
+      }
+      const latexMatrix = parseLatexMatrixAt(text, cursor);
+      if (latexMatrix) {
+        flushPlain(cursor);
+        fragment.appendChild(
+          createMatrix(documentRef, latexMatrix.rows, latexMatrix.delimiter)
+        );
+        cursor = latexMatrix.end;
+        plainStart = cursor;
+        continue;
+      }
       const matrix = parseMatrixAt(text, cursor);
       if (matrix) {
         flushPlain(cursor);
@@ -165,7 +233,13 @@
     root.querySelectorAll("[data-assessment-math]").forEach(renderElement);
   };
 
-  const api = {replaceSymbols, readScriptToken, parseMatrixAt};
+  const api = {
+    replaceSymbols,
+    readScriptToken,
+    parseMatrixAt,
+    parseDeterminantAt,
+    parseLatexMatrixAt,
+  };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   if (typeof window !== "undefined") {
     window.ANVAYAAssessmentMath = api;
