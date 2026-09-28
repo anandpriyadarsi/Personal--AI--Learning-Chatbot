@@ -112,3 +112,73 @@ def test_incomplete_structured_fill_is_not_scored_as_blank_if_submitted_directly
         )
     )
     assert result["outcome"] == "incorrect"
+
+
+def test_runner_template_and_form_fallback_keep_structured_fill_contract():
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    template = (
+        root
+        / "personal_learning_assistant/ui/web/templates/assessment_test_runner.html"
+    ).read_text(encoding="utf-8")
+    routes = (
+        root / "personal_learning_assistant/ui/web/routes.py"
+    ).read_text(encoding="utf-8")
+
+    assert "assessment_runner_math.css" in template
+    assert "assessment_math.js" in template
+    assert "data-assessment-math" in template
+    assert 'name="fill_parts"' in template
+    assert "data-fill-part" in template
+    assert 'request.form.getlist("fill_parts")' in routes
+
+
+def test_math_renderer_uses_dom_text_nodes_not_inner_html():
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    script = (
+        root
+        / "personal_learning_assistant/ui/web/static/js/assessment_math.js"
+    ).read_text(encoding="utf-8")
+
+    assert "createTextNode" in script
+    assert "textContent" in script
+    assert "innerHTML" not in script
+    assert "eval(" not in script
+
+
+def test_palette_styles_make_attempt_states_visually_distinct():
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    css = (
+        root
+        / "personal_learning_assistant/ui/web/static/css/assessment_runner_math.css"
+    ).read_text(encoding="utf-8")
+
+    for state in (
+        "answered",
+        "not_answered",
+        "not_visited",
+        "marked_for_review",
+        "answered_marked_for_review",
+    ):
+        assert f".palette-{state}" in css
+
+    assert ".palette-item.is-current" in css
+    assert "outline: 3px solid var(--accent)" in css
+
+
+def test_authoring_prompt_documents_multi_part_fill_contract():
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    prompt = (root / "ANVAYA_ASSESSMENT_PACKAGE_AUTHORING_PROMPT.md").read_text(
+        encoding="utf-8"
+    )
+
+    assert "fill_blank" in prompt
+    assert "Enter: k, μ, number of free variables." in prompt
+    assert "accepted answers in that exact same order" in prompt
