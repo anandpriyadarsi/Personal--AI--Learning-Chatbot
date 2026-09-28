@@ -130,9 +130,9 @@ def test_palette_css_has_stronger_answered_review_and_current_states():
     root = Path(__file__).resolve().parents[1]
     css = (root / "personal_learning_assistant/ui/web/static/css/assessment_runner_math.css").read_text(encoding="utf-8")
     assert ".palette-answered" in css
-    assert "rgba(85, 194, 184, .42)" in css
+    assert "rgba(45, 156, 148, .62)" in css
     assert ".palette-marked_for_review" in css
-    assert "rgba(138, 113, 240, .34)" in css
+    assert "rgba(112, 85, 210, .52)" in css
     assert ".palette-item.is-current" in css
     assert "outline: 3px solid var(--accent)" in css
 
