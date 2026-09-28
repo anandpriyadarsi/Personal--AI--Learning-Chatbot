@@ -126,6 +126,20 @@ def test_runner_html_uses_math_renderer_structured_fill_and_no_answer_key(tmp_pa
     assert "2,(3,-2)" not in html
 
 
+def test_evaluation_css_formats_options_and_explanations_as_separate_rows():
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    css = (
+        root / "personal_learning_assistant/ui/web/static/css/assessment_runner_math.css"
+    ).read_text(encoding="utf-8")
+    assert ".evaluation-option-list" in css
+    assert ".evaluation-correct-options li" in css
+    assert ".evaluation-explanation-lines" in css
+    assert ".evaluation-question-text[data-assessment-math]" in css
+    assert "white-space: pre-wrap" in css
+
+
 def test_palette_css_has_stronger_answered_review_and_current_states():
     from pathlib import Path
 
@@ -343,3 +357,8 @@ def test_authoring_prompt_documents_ordered_multi_part_fill_inputs():
     assert "literal underscore blanks" in prompt
     assert "det(A) = ____" in prompt
     assert "Every numerical question clearly identifies the single value" in prompt
+    assert "Σ_{i=1}^{3} Σ_{j=1}^{3}" in prompt
+    assert "E_3 E_2 E_1 A = U" in prompt
+    assert "put each equation on its own line" in prompt
+    assert "option A, option B, option C" in prompt
+    assert "option-wise explanations are written on separate lines" in prompt
