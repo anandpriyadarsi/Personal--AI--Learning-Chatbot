@@ -43,7 +43,7 @@
 
       <form id="assessment-response-form" method="post" action="{{ url_for('web.assessment_session_question_action', session_id=view.session.id, session_question_id=view.question.session_question_id) }}">
         {% if view.question.question_type == 'fill_blank' and view.question.fill_segments %}
-          <div class="exam-question-text exam-question-with-inputs" data-inline-fill-question>
+          <div class="exam-question-text exam-question-with-inputs" data-inline-fill-question data-structured-fill>
             {% for segment in view.question.fill_segments %}
               {% if segment.kind == 'text' %}
                 <span data-assessment-math>{{ segment.text }}</span>
@@ -119,7 +119,7 @@
             {% endif %}
           {% elif view.question.question_type == 'fill_blank' %}
             {% if view.question.fill_segments %}
-              <div class="exam-inline-answer-help" role="note">Fill each highlighted blank directly in the question above. Every blank is saved as a separate answer part.</div>
+              <div class="exam-inline-answer-help" role="note">Enter each answer separately in the highlighted blanks in the question above. Every blank is saved as a separate answer part.</div>
             {% elif view.question.fill_fields %}
               <div class="exam-fill-response" data-structured-fill>
                 <div class="exam-fill-heading">
