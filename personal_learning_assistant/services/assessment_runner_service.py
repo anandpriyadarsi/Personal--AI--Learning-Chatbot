@@ -42,9 +42,54 @@ def _compact_fill_label(value: str) -> str:
     return label
 
 
+def _enter_fill_fields(question_text: str):
+    """Infer ordered multi-part fill labels from an explicit student-facing 'enter ...' cue."""
+    text = " ".join(str(question_text or "").split())
+    matches = list(
+        re.finditer(
+            r"\benter(?:\s+(?:the\s+)?(?:values?|answers?))?\s*:?\s*"
+            r"(?P<labels>[^.?]+?)(?:[.?]|$)",
+            text,
+            flags=re.I,
+        )
+    )
+    if not matches:
+        return ()
+
+    raw = matches[-1].group("labels").strip(" ,;:")
+    labels = [
+        _compact_fill_label(item)
+        for item in re.split(r"\s*(?:,|;|\band\b)\s*", raw, flags=re.I)
+        if _compact_fill_label(item)
+    ]
+    if len(labels) <= 1 or len(labels) > 20:
+        return ()
+    if any(len(label) > 60 for label in labels):
+        return ()
+
+    return tuple(
+        {
+            "index": index,
+            "name": f"Blank {index}",
+            "label": label,
+        }
+        for index, label in enumerate(labels, start=1)
+    )
+
+
 def _fill_blank_fields(question_text: str):
-    """Infer safe display labels for explicit underscore blanks without reading answer keys."""
+    """Infer safe multi-part fill labels without reading answer keys or solutions."""
     text = str(question_text or "")
+
+    # Current ANVAYA packages commonly state the response contract explicitly,
+    # e.g. "enter: k, μ, number of free variables." Prefer that wording because
+    # it is already visible to the student and does not inspect hidden answers.
+    entered = _enter_fill_fields(text)
+    if entered:
+        return entered
+
+    # Backward-compatible support for questions authored with visible underscore
+    # blanks such as "k = ___ and μ = ___".
     matches = list(_FILL_BLANK_RE.finditer(text))
     if len(matches) <= 1:
         return ()
