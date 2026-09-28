@@ -41,9 +41,37 @@
         </div>
       </div>
 
-      <div class="exam-question-text" data-assessment-math>{{ view.question.question_text }}</div>
-
       <form id="assessment-response-form" method="post" action="{{ url_for('web.assessment_session_question_action', session_id=view.session.id, session_question_id=view.question.session_question_id) }}">
+        {% if view.question.question_type == 'fill_blank' and view.question.fill_segments %}
+          <div class="exam-question-text exam-question-with-inputs" data-inline-fill-question>
+            {% for segment in view.question.fill_segments %}
+              {% if segment.kind == 'text' %}
+                <span data-assessment-math>{{ segment.text }}</span>
+              {% else %}
+                <label class="exam-inline-answer">
+                  <span class="visually-hidden">{{ segment.label }}</span>
+                  <input type="text" name="fill_parts" data-fill-part data-fill-index="{{ segment.index }}" value="{{ segment.value }}" autocomplete="off" aria-label="{{ segment.label }}" placeholder="Blank {{ segment.index }}">
+                </label>
+              {% endif %}
+            {% endfor %}
+          </div>
+        {% elif view.question.question_type == 'numerical' and view.question.numerical_segments %}
+          <div class="exam-question-text exam-question-with-inputs" data-inline-numerical-question>
+            {% for segment in view.question.numerical_segments %}
+              {% if segment.kind == 'text' %}
+                <span data-assessment-math>{{ segment.text }}</span>
+              {% else %}
+                <label class="exam-inline-answer exam-inline-numerical">
+                  <span class="visually-hidden">{{ segment.label }}</span>
+                  <input type="text" inputmode="decimal" name="answer_value" value="{{ segment.value }}" autocomplete="off" aria-label="{{ segment.label }}" placeholder="Answer">
+                </label>
+              {% endif %}
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="exam-question-text" data-assessment-math>{{ view.question.question_text }}</div>
+        {% endif %}
+
         <input type="hidden" name="current_ordinal" value="{{ view.question.ordinal }}">
         <input type="hidden" name="next_ordinal" value="{{ view.next_ordinal or view.question.ordinal }}">
         <input id="assessment-focus-seconds" type="hidden" name="focus_seconds_delta" value="0">
@@ -80,26 +108,40 @@
               <label class="exam-option"><input type="radio" name="answer_value" value="False"{% if value == 'False' %} checked{% endif %}><span class="exam-option-key">F</span><span>False</span></label>
             </div>
           {% elif view.question.question_type == 'numerical' %}
-            <label class="form-field form-field-full exam-answer-field"><span>Your answer</span><input type="text" inputmode="decimal" name="answer_value" value="{{ view.question.response.get('value', '') }}" autocomplete="off"></label>
+            {% if view.question.numerical_segments %}
+              <div class="exam-inline-answer-help" role="note">Enter the value directly in the highlighted blank in the question above.</div>
+            {% else %}
+              <label class="form-field form-field-full exam-answer-field">
+                <span>Numerical answer</span>
+                <input type="text" inputmode="decimal" name="answer_value" value="{{ view.question.response.get('value', '') }}" autocomplete="off" placeholder="Enter the single numerical value">
+                <small>Enter the number requested by the question. Include a sign or decimal value when required.</small>
+              </label>
+            {% endif %}
           {% elif view.question.question_type == 'fill_blank' %}
-            {% if view.question.fill_fields %}
+            {% if view.question.fill_segments %}
+              <div class="exam-inline-answer-help" role="note">Fill each highlighted blank directly in the question above. Every blank is saved as a separate answer part.</div>
+            {% elif view.question.fill_fields %}
               <div class="exam-fill-response" data-structured-fill>
                 <div class="exam-fill-heading">
-                  <div><span class="metric-label">Fill the blanks</span><strong>Enter each answer separately</strong></div>
-                  <span>{{ view.question.fill_fields|length }} parts</span>
+                  <div><span class="metric-label">Fill the blanks</span><strong>Enter each requested value separately</strong></div>
+                  <span>{{ view.question.fill_fields|length }} part{% if view.question.fill_fields|length != 1 %}s{% endif %}</span>
                 </div>
                 <div class="exam-fill-grid">
                   {% for field in view.question.fill_fields %}
                     <label class="exam-fill-field">
-                      <span>{{ field.label }}</span>
-                      <input type="text" name="fill_parts" data-fill-part data-fill-index="{{ field.index }}" value="{{ field.value }}" autocomplete="off" aria-label="{{ field.label }}">
+                      <span>Blank {{ field.index }} · {{ field.label }}</span>
+                      <input type="text" name="fill_parts" data-fill-part data-fill-index="{{ field.index }}" value="{{ field.value }}" autocomplete="off" aria-label="Blank {{ field.index }}: {{ field.label }}" placeholder="Enter blank {{ field.index }}">
                     </label>
                   {% endfor %}
                 </div>
-                <p class="exam-fill-help">ANVAYA saves the parts together for evaluation. You do not need to type commas, brackets or labels yourself.</p>
+                <p class="exam-fill-help">Each box corresponds to one requested value. ANVAYA keeps their order for evaluation; do not combine several answers in one box.</p>
               </div>
             {% else %}
-              <label class="form-field form-field-full exam-answer-field"><span>Your answer</span><input type="text" name="answer_value" value="{{ view.question.response.get('value', '') }}" autocomplete="off"></label>
+              <label class="form-field form-field-full exam-answer-field">
+                <span>Answer for the blank</span>
+                <input type="text" name="answer_value" value="{{ view.question.response.get('value', '') }}" autocomplete="off" placeholder="Enter the value requested in the question">
+                <small>This package does not contain a visible underscore or named multi-part cue, so ANVAYA provides one explicit answer box.</small>
+              </label>
             {% endif %}
           {% elif view.question.question_type in ['short_subjective','long_subjective'] %}
             <label class="form-field form-field-full"><span>Your response</span><textarea name="answer_text" rows="{% if view.question.question_type == 'long_subjective' %}14{% else %}7{% endif %}" spellcheck="true">{{ view.question.response.get('text', '') }}</textarea></label>
