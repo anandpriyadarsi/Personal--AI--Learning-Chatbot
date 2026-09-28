@@ -53,7 +53,8 @@
     <textarea id="assessment-alex-review-prompt" rows="8" readonly>{{ alex_review_prompt }}</textarea>
   </details>
   <h4>Upload package revision {{ batch.package_revision + 1 }}</h4>
-  <p>Alex must return the complete next revision for this course and package.</p>
+  <p>Alex must return the complete next revision for this course and package with the review queue cleared. ANVAYA will not stage a revised package while any author-review flag, unmapped topic, low-confidence mapping or low-authoring-confidence question remains.</p>
+  <p><strong>Do not upload the <code>_alex-review.anvaya-review.json</code> handoff here.</strong> Upload the complete revised <code>anvaya.assessment-package</code> JSON returned by Alex. If ANVAYA rejects revision {{ batch.package_revision + 1 }}, repair that same revision number and upload it again.</p>
   <form method="post" enctype="multipart/form-data" action="{{ url_for('web.assessment_import_revision', batch_id=batch.id) }}">
     <label class="form-field assessment-file-field"><span>Revised ANVAYA Assessment Package</span><input type="file" name="package" accept=".json,.anvaya-assessment.json,application/json" required></label>
     <button class="button" type="submit">Upload revision {{ batch.package_revision + 1 }} &amp; run blind preflight</button>
