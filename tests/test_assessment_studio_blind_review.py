@@ -194,6 +194,10 @@ def test_alex_review_prompt_is_non_spoiler_and_handoff_contains_hidden_source_pa
     prompt = service.alex_review_prompt(staged["id"])
     assert "remain blind" in prompt
     assert "package_revision 2" in prompt
+    assert "repair EVERY flagged question" in prompt
+    assert "target 0 review_required flags" in prompt
+    assert "EXACT canonical topic name" in prompt
+    assert "SAME revision number" in prompt
     assert "Which statement best describes" not in prompt
     assert "determinant is non-zero" not in prompt
 
@@ -204,6 +208,10 @@ def test_alex_review_prompt_is_non_spoiler_and_handoff_contains_hidden_source_pa
     assert payload["package_id"] == "ma103n.blind.handoff"
     assert payload["flagged_questions"]
     assert payload["canonical_topic_catalogue"][0]["name"] == "Matrix Inverse"
+    assert payload["review_exit_contract"]["required_review_required_count"] == 0
+    assert payload["review_exit_contract"]["required_unmapped_topic_count"] == 0
+    assert payload["review_exit_contract"]["mapping_confidence_target"] == 0.90
+    assert "Process EVERY item" in " ".join(payload["instructions_for_alex"])
     assert payload["source_package"]["questions"][0]["text"].startswith(
         "Which statement best describes"
     )
@@ -396,5 +404,99 @@ def test_blind_review_page_shows_inline_revision_upload_when_alex_review_needed(
 
     assert "Upload package revision 2" in html
     assert "Upload revision 2 &amp; run blind preflight" in html
+    assert "review queue cleared" in html
+    assert "_alex-review.anvaya-review.json" in html
+    assert "repair that same revision number" in html
     assert f'/assessments/import/{staged["id"]}/revision' in html
     assert 'type="file"' in html
+
+
+def test_revision_upload_rejects_unresolved_semantic_queue_without_consuming_revision(tmp_path):
+    path = _database(tmp_path)
+    package = _package()
+    package["package_id"] = "ma103n.revision.must-clear"
+    package["questions"][0]["review_required"] = True
+
+    service = _service(path)
+    first = service.stage_upload(
+        "revision-1.anvaya-assessment.json",
+        _raw(package),
+        workspace_kind="quiz",
+        selected_course_id="course-ma",
+    )
+
+    revised = _package()
+    revised["package_id"] = "ma103n.revision.must-clear"
+    revised["package_revision"] = 2
+    revised["questions"][0]["review_required"] = True
+
+    client = _app(path).test_client()
+    rejected = client.post(
+        f"/assessments/import/{first['id']}/revision",
+        data={
+            "package": (
+                io.BytesIO(_raw(revised)),
+                "revision-2-still-flagged.anvaya-assessment.json",
+            )
+        },
+        content_type="multipart/form-data",
+    )
+
+    assert rejected.status_code == 400
+    html = rejected.get_data(as_text=True)
+    assert "still has 1 unresolved question(s)" in html
+    assert "ANVAYA did not stage this revision" in html
+    assert "SAME revision 2" in html
+
+    workspace = service.workspace(workspace_kind="quiz", course_id="course-ma")
+    assert len(workspace["batches"]) == 1
+
+    revised["questions"][0]["review_required"] = False
+    accepted = client.post(
+        f"/assessments/import/{first['id']}/revision",
+        data={
+            "package": (
+                io.BytesIO(_raw(revised)),
+                "revision-2-clean.anvaya-assessment.json",
+            )
+        },
+        content_type="multipart/form-data",
+        follow_redirects=False,
+    )
+    assert accepted.status_code == 303
+    assert "revision_staged=1" in accepted.headers["Location"]
+
+
+def test_revision_upload_rejects_review_handoff_with_specific_non_spoiler_error(tmp_path):
+    path = _database(tmp_path)
+    package = _package()
+    package["package_id"] = "ma103n.revision.handoff-error"
+    package["questions"][0]["review_required"] = True
+
+    service = _service(path)
+    first = service.stage_upload(
+        "revision-1.anvaya-assessment.json",
+        _raw(package),
+        workspace_kind="quiz",
+        selected_course_id="course-ma",
+    )
+    handoff = service.alex_review_handoff(first["id"])
+
+    client = _app(path).test_client()
+    response = client.post(
+        f"/assessments/import/{first['id']}/revision",
+        data={
+            "package": (
+                io.BytesIO(handoff["json"].encode("utf-8")),
+                handoff["filename"],
+            )
+        },
+        content_type="multipart/form-data",
+    )
+
+    assert response.status_code == 400
+    html = response.get_data(as_text=True)
+    assert "Alex review handoff file" in html
+    assert "complete anvaya.assessment-package JSON" in html
+    workspace = service.workspace(workspace_kind="quiz", course_id="course-ma")
+    assert len(workspace["batches"]) == 1
