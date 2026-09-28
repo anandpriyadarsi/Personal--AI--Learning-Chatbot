@@ -140,6 +140,21 @@ def test_evaluation_css_formats_options_and_explanations_as_separate_rows():
     assert "white-space: pre-wrap" in css
 
 
+def test_math_css_uses_full_height_matrix_delimiters_and_display_operators():
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    css = (
+        root / "personal_learning_assistant/ui/web/static/css/assessment_runner_math.css"
+    ).read_text(encoding="utf-8")
+    assert ".assessment-big-operator" in css
+    assert 'grid-template-areas:' in css
+    assert ".assessment-matrix-brackets .assessment-matrix-bracket-left" in css
+    assert "border-left: 2px solid currentColor" in css
+    assert ".assessment-matrix-brackets .assessment-matrix-bracket-right" in css
+    assert "gap: .34rem 1rem" in css
+
+
 def test_palette_css_has_stronger_answered_review_and_current_states():
     from pathlib import Path
 
@@ -357,7 +372,8 @@ def test_authoring_prompt_documents_ordered_multi_part_fill_inputs():
     assert "literal underscore blanks" in prompt
     assert "det(A) = ____" in prompt
     assert "Every numerical question clearly identifies the single value" in prompt
-    assert "Σ_{i=1}^{3} Σ_{j=1}^{3}" in prompt
+    assert "∑_{i=1}^{3} ∑_{j=1}^{3}" in prompt
+    assert "b_1" in prompt
     assert "E_3 E_2 E_1 A = U" in prompt
     assert "put each equation on its own line" in prompt
     assert "option A, option B, option C" in prompt
