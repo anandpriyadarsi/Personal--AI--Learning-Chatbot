@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 import uuid
 from contextlib import contextmanager
@@ -26,6 +27,72 @@ OBJECTIVE_TYPES = {"mcq", "msq"}
 VALUE_TYPES = {"numerical", "fill_blank", "true_false"}
 SUBJECTIVE_TYPES = {"short_subjective", "long_subjective"}
 QUESTION_TYPES = OBJECTIVE_TYPES | VALUE_TYPES | SUBJECTIVE_TYPES
+
+_FILL_BLANK_RE = re.compile(r"_{2,}")
+_FILL_LABEL_RE = re.compile(
+    r"(?P<label>(?:\[[^\]]+\](?:_[A-Za-z0-9{}-]+)?|[A-Za-zΑ-Ωα-ωμλ][A-Za-z0-9Α-Ωα-ωμλ _\[\]^{}-]{0,44}))\s*=\s*$"
+)
+
+
+def _compact_fill_label(value: str) -> str:
+    label = " ".join(str(value or "").split()).strip(" ,;:.()")
+    label = re.sub(r"^(?:and|then|for these values,?)\s+", "", label, flags=re.I)
+    if len(label) > 42:
+        label = label[-42:].lstrip(" ,;:.")
+    return label
+
+
+def _fill_blank_fields(question_text: str):
+    """Infer safe display labels for explicit underscore blanks without reading answer keys."""
+    text = str(question_text or "")
+    matches = list(_FILL_BLANK_RE.finditer(text))
+    if len(matches) <= 1:
+        return ()
+
+    fields = []
+    for index, match in enumerate(matches, start=1):
+        prefix = text[max(0, match.start() - 90):match.start()]
+        label_match = _FILL_LABEL_RE.search(prefix)
+        label = _compact_fill_label(label_match.group("label")) if label_match else ""
+
+        if not label:
+            open_paren = prefix.rfind("(")
+            close_paren = prefix.rfind(")")
+            if open_paren > close_paren:
+                before_tuple = prefix[:open_paren]
+                tuple_match = _FILL_LABEL_RE.search(before_tuple)
+                base = _compact_fill_label(tuple_match.group("label")) if tuple_match else "Coordinate"
+                component = prefix[open_paren + 1:].count(",") + 1
+                label = f"{base} component {component}"
+
+        if not label:
+            cue = re.split(r"[.;\n]", prefix)[-1]
+            cue = re.sub(r"\s+", " ", cue).strip(" ,;:()")
+            cue = re.sub(r"^(?:and|then|for these values,?)\s+", "", cue, flags=re.I)
+            cue = re.sub(r"\s+(?:is|equals)$", "", cue, flags=re.I)
+            if 2 <= len(cue) <= 42 and not cue.endswith(("(", "=", ",")):
+                label = cue
+
+        fields.append({
+            "index": index,
+            "name": f"Blank {index}",
+            "label": label or f"Blank {index}",
+        })
+    return tuple(fields)
+
+
+def _split_legacy_fill_value(value: str, count: int):
+    """Best-effort split for displaying an older single-string fill response."""
+    if count <= 1:
+        return (str(value or ""),)
+    raw = str(value or "").strip()
+    if not raw:
+        return tuple("" for _ in range(count))
+    simplified = re.sub(r"[\[\](){}]", ",", raw)
+    parts = [item.strip() for item in re.split(r"[,;|]", simplified) if item.strip()]
+    if len(parts) == count:
+        return tuple(parts)
+    return tuple([raw] + [""] * (count - 1))
 
 STATE_LABELS = {
     "not_visited": "Not Visited",
@@ -281,6 +348,24 @@ class AssessmentRunnerService:
         result.pop("concepts_json", None)
         result["marks"] = _marks_text(result.get("max_marks_milli"))
         result["negative_marks"] = _marks_text(result.get("negative_marks_milli"))
+        if str(result.get("question_type") or "") == "fill_blank":
+            fields = _fill_blank_fields(result.get("question_text") or "")
+            if fields:
+                stored_parts = result["response"].get("parts")
+                if isinstance(stored_parts, list) and len(stored_parts) == len(fields):
+                    values = [str(item or "") for item in stored_parts]
+                else:
+                    values = list(
+                        _split_legacy_fill_value(
+                            result["response"].get("value", ""), len(fields)
+                        )
+                    )
+                result["fill_fields"] = tuple(
+                    {**field, "value": values[index]}
+                    for index, field in enumerate(fields)
+                )
+            else:
+                result["fill_fields"] = ()
         state = str(result.get("state") or "not_visited")
         result["state_label"] = STATE_LABELS.get(state, state.replace("_", " ").title())
         result["answered"] = state in {"answered", "answered_marked_for_review"}
@@ -426,6 +511,16 @@ class AssessmentRunnerService:
 
         if question_type in VALUE_TYPES:
             value = str(payload.get("value") or "").strip()
+            if question_type == "fill_blank":
+                raw_parts = payload.get("parts")
+                if isinstance(raw_parts, (list, tuple)):
+                    parts = [str(item or "").strip() for item in raw_parts]
+                    if len(parts) > 20:
+                        raise AssessmentRunnerValidationError("Too many fill-up answer parts.")
+                    if any(len(item) > 500 for item in parts):
+                        raise AssessmentRunnerValidationError("A fill-up answer part is too long.")
+                    value = ",".join(parts)
+                    return {"value": value, "parts": parts}, any(parts)
             if len(value) > 2000:
                 raise AssessmentRunnerValidationError("Answer is too long.")
             return {"value": value}, bool(value)
