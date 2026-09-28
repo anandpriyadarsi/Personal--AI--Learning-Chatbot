@@ -24,8 +24,7 @@
     return text
       .replace(/!=/g, "≠")
       .replace(/<=/g, "≤")
-      .replace(/>=/g, "≥")
-      .replace(/\s+x\s+/g, " × ");
+      .replace(/>=/g, "≥");
   };
 
   const readScriptToken = (text, start) => {
