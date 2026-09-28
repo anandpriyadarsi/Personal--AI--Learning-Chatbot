@@ -92,7 +92,7 @@ def _fill_blank_fields(question_text: str):
         return entered
 
     matches = list(_FILL_BLANK_RE.finditer(text))
-    if len(matches) <= 1:
+    if not matches:
         return ()
 
     fields = []
@@ -125,6 +125,37 @@ def _fill_blank_fields(question_text: str):
             "label": label or f"Blank {index}",
         })
     return tuple(fields)
+
+
+def _inline_blank_segments(question_text: str, fields, values):
+    """Build safe text/input segments for visible underscore blanks."""
+    text = str(question_text or "")
+    matches = list(_FILL_BLANK_RE.finditer(text))
+    if not matches or len(matches) != len(fields):
+        return ()
+    segments = []
+    cursor = 0
+    for index, match in enumerate(matches):
+        if match.start() > cursor:
+            segments.append({
+                "kind": "text",
+                "text": text[cursor:match.start()],
+            })
+        field = fields[index]
+        segments.append({
+            "kind": "field",
+            "index": int(field["index"]),
+            "name": str(field["name"]),
+            "label": str(field["label"]),
+            "value": str(values[index] if index < len(values) else ""),
+        })
+        cursor = match.end()
+    if cursor < len(text):
+        segments.append({
+            "kind": "text",
+            "text": text[cursor:],
+        })
+    return tuple(segments)
 
 
 def _split_legacy_fill_value(value: str, count: int):
@@ -394,8 +425,10 @@ class AssessmentRunnerService:
         result.pop("concepts_json", None)
         result["marks"] = _marks_text(result.get("max_marks_milli"))
         result["negative_marks"] = _marks_text(result.get("negative_marks_milli"))
-        if str(result.get("question_type") or "") == "fill_blank":
-            fields = _fill_blank_fields(result.get("question_text") or "")
+        question_type = str(result.get("question_type") or "")
+        question_text = str(result.get("question_text") or "")
+        if question_type == "fill_blank":
+            fields = _fill_blank_fields(question_text)
             if fields:
                 stored_parts = result["response"].get("parts")
                 if isinstance(stored_parts, list) and len(stored_parts) == len(fields):
@@ -410,8 +443,29 @@ class AssessmentRunnerService:
                     {**field, "value": values[index]}
                     for index, field in enumerate(fields)
                 )
+                result["fill_segments"] = _inline_blank_segments(
+                    question_text,
+                    result["fill_fields"],
+                    values,
+                )
             else:
                 result["fill_fields"] = ()
+                result["fill_segments"] = ()
+        elif question_type == "numerical":
+            matches = list(_FILL_BLANK_RE.finditer(question_text))
+            if len(matches) == 1:
+                fields = _fill_blank_fields(question_text)
+                if fields:
+                    value = str(result["response"].get("value") or "")
+                    result["numerical_segments"] = _inline_blank_segments(
+                        question_text,
+                        fields,
+                        [value],
+                    )
+                else:
+                    result["numerical_segments"] = ()
+            else:
+                result["numerical_segments"] = ()
         state = str(result.get("state") or "not_visited")
         result["state_label"] = STATE_LABELS.get(state, state.replace("_", " ").title())
         result["answered"] = state in {"answered", "answered_marked_for_review"}
