@@ -39,6 +39,19 @@
   min-width: 1.2rem;
   text-align: center;
 }
+.assessment-matrix-determinant .assessment-matrix-bracket {
+  font-size: clamp(1.7rem, 2.35vw, 2.15rem);
+  font-weight: 500;
+  transform: scaleY(1.32);
+}
+.assessment-matrix-parentheses .assessment-matrix-bracket {
+  font-size: clamp(1.65rem, 2.25vw, 2.08rem);
+  transform: scaleY(1.22);
+}
+.assessment-matrix-none .assessment-matrix-bracket {
+  width: .08rem;
+  opacity: 0;
+}
 .exam-question-text[data-assessment-math] {
   font-family: "Cambria Math", "STIX Two Math", "Times New Roman", var(--font-body);
   font-size: clamp(1rem, 1.45vw, 1.18rem);
@@ -121,27 +134,27 @@
 }
 .palette-answered {
   border-color: rgba(85, 194, 184, .9);
-  background: rgba(85, 194, 184, .42);
+  background: rgba(45, 156, 148, .62);
   color: #effffd;
 }
 .palette-not_answered {
   border-color: rgba(240, 138, 138, .7);
-  background: rgba(240, 138, 138, .2);
+  background: rgba(184, 79, 79, .38);
   color: #ffe9e9;
 }
 .palette-not_visited {
   border-color: rgba(148, 163, 184, .45);
-  background: rgba(100, 116, 139, .14);
+  background: rgba(71, 85, 105, .34);
   color: #dbe3ea;
 }
 .palette-marked_for_review {
   border-color: rgba(174, 151, 255, .88);
-  background: rgba(138, 113, 240, .34);
+  background: rgba(112, 85, 210, .52);
   color: #f1edff;
 }
 .palette-answered_marked_for_review {
   border-color: rgba(174, 151, 255, .94);
-  background: linear-gradient(135deg, rgba(85, 194, 184, .46), rgba(138, 113, 240, .46));
+  background: linear-gradient(135deg, rgba(45, 156, 148, .62), rgba(112, 85, 210, .62));
   color: #fff;
 }
 .palette-answered::after,
@@ -162,12 +175,12 @@
   outline-offset: 2px;
   box-shadow: 0 0 0 2px rgba(11, 15, 20, .9);
 }
-.palette-swatch.palette-answered { background: rgba(85, 194, 184, .6); }
-.palette-swatch.palette-not_answered { background: rgba(240, 138, 138, .32); }
-.palette-swatch.palette-not_visited { background: rgba(100, 116, 139, .22); }
-.palette-swatch.palette-marked_for_review { background: rgba(138, 113, 240, .5); }
+.palette-swatch.palette-answered { background: rgba(45, 156, 148, .78); }
+.palette-swatch.palette-not_answered { background: rgba(184, 79, 79, .56); }
+.palette-swatch.palette-not_visited { background: rgba(71, 85, 105, .52); }
+.palette-swatch.palette-marked_for_review { background: rgba(112, 85, 210, .7); }
 .palette-swatch.palette-answered_marked_for_review {
-  background: linear-gradient(135deg, rgba(85, 194, 184, .6), rgba(138, 113, 240, .6));
+  background: linear-gradient(135deg, rgba(45, 156, 148, .78), rgba(112, 85, 210, .76));
 }
 @media (max-width: 620px) {
   .exam-fill-grid { grid-template-columns: 1fr; }
