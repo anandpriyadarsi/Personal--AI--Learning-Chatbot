@@ -11,6 +11,39 @@
 }
 .assessment-math-sup { vertical-align: .62em; }
 .assessment-math-sub { vertical-align: -.28em; }
+
+.assessment-big-operator {
+  display: inline-grid;
+  grid-template-areas:
+    "upper"
+    "symbol"
+    "lower";
+  justify-items: center;
+  align-items: center;
+  margin: 0 .22rem;
+  vertical-align: middle;
+  line-height: 1;
+}
+.assessment-big-operator-upper {
+  grid-area: upper;
+  min-height: .7em;
+  font-size: .56em;
+  line-height: 1;
+  transform: translateY(.08em);
+}
+.assessment-big-operator-symbol {
+  grid-area: symbol;
+  font-family: "Cambria Math", "STIX Two Math", "Times New Roman", serif;
+  font-size: 1.8em;
+  line-height: .82;
+}
+.assessment-big-operator-lower {
+  grid-area: lower;
+  min-height: .72em;
+  font-size: .56em;
+  line-height: 1;
+  transform: translateY(-.02em);
+}
 .assessment-matrix {
   display: inline-grid;
   grid-template-columns: auto auto auto;
@@ -22,32 +55,54 @@
 .assessment-matrix-bracket {
   display: flex;
   align-items: center;
+  align-self: stretch;
   color: var(--text);
   font-family: Georgia, "Times New Roman", serif;
-  font-size: clamp(1.55rem, 2.1vw, 2rem);
   font-weight: 400;
   line-height: 1;
-  transform: scaleY(1.15);
 }
 .assessment-matrix-grid {
   display: grid;
-  grid-template-columns: repeat(var(--matrix-columns), minmax(1.65rem, auto));
-  gap: .18rem .65rem;
+  grid-template-columns: repeat(var(--matrix-columns), minmax(2rem, auto));
+  gap: .34rem 1rem;
   align-content: center;
-  padding: .08rem .32rem;
+  padding: .18rem .58rem;
 }
 .assessment-matrix-cell {
-  min-width: 1.2rem;
+  min-width: 1.45rem;
   text-align: center;
 }
+.assessment-matrix-brackets .assessment-matrix-bracket {
+  width: .58rem;
+  min-height: 100%;
+  font-size: 0;
+  transform: none;
+}
+.assessment-matrix-brackets .assessment-matrix-bracket-left {
+  border-top: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  border-left: 2px solid currentColor;
+}
+.assessment-matrix-brackets .assessment-matrix-bracket-right {
+  border-top: 2px solid currentColor;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+}
 .assessment-matrix-determinant .assessment-matrix-bracket {
-  font-size: clamp(1.7rem, 2.35vw, 2.15rem);
-  font-weight: 500;
-  transform: scaleY(1.32);
+  width: .28rem;
+  min-height: 100%;
+  font-size: 0;
+  transform: none;
+}
+.assessment-matrix-determinant .assessment-matrix-bracket-left {
+  border-left: 2px solid currentColor;
+}
+.assessment-matrix-determinant .assessment-matrix-bracket-right {
+  border-right: 2px solid currentColor;
 }
 .assessment-matrix-parentheses .assessment-matrix-bracket {
-  font-size: clamp(1.65rem, 2.25vw, 2.08rem);
-  transform: scaleY(1.22);
+  font-size: clamp(1.8rem, 2.6vw, 2.4rem);
+  transform: scaleY(1.3);
 }
 .assessment-matrix-none .assessment-matrix-bracket {
   width: .08rem;
@@ -299,7 +354,11 @@
 }
 @media (max-width: 620px) {
   .exam-fill-grid { grid-template-columns: 1fr; }
-  .assessment-matrix-grid { gap: .12rem .42rem; }
+  .assessment-matrix-grid {
+    grid-template-columns: repeat(var(--matrix-columns), minmax(1.65rem, auto));
+    gap: .25rem .7rem;
+    padding: .14rem .42rem;
+  }
   .exam-question-with-inputs { gap: .42rem .3rem; }
   .exam-inline-answer input { width: 7rem; }
 }
