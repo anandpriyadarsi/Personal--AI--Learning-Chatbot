@@ -145,7 +145,7 @@ def test_runner_infers_structured_fields_from_visible_enter_cue(tmp_path):
             "UPDATE questions SET question_text=? WHERE id='q-num'",
             (
                 "For the system to be consistent determine the parameters and nullity. "
-                "Enter: k, μ, number of free variables."
+                "Enter: k, μ, number of free variables.",
             ),
         )
         connection.execute(
