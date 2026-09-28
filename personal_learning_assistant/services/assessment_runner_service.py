@@ -35,7 +35,7 @@ _FILL_LABEL_RE = re.compile(
 
 
 def _compact_fill_label(value: str) -> str:
-    label = " ".join(str(value or "").split()).strip(" ,;:.()")
+    label = " ".join(str(value or "").split()).strip(" ,;:.")
     label = re.sub(
         r"^(?:and|then|for these values,?|for consistency|"
         r"for the system to be consistent,?)\s+",
