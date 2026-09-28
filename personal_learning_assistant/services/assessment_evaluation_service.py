@@ -81,6 +81,34 @@ class AssessmentEvaluationUnavailableError(AssessmentEvaluationError):
     pass
 
 
+def _split_fill_answer_parts(value: str, expected_count: int):
+    """Split a legacy accepted fill-up answer into scalar parts when unambiguous."""
+    if expected_count <= 1:
+        return [str(value or "").strip()]
+    raw = str(value or "").strip()
+    if not raw:
+        return []
+
+    assignments = re.findall(r"(?:^|[,;])\s*[^=,;]+?=\s*([^,;]+)", raw)
+    if len(assignments) == expected_count:
+        return [item.strip().strip("()[]{}") for item in assignments]
+
+    simplified = re.sub(r"[\[\](){}]", ",", raw)
+    parts = [item.strip() for item in re.split(r"[,;|]", simplified) if item.strip()]
+    return parts if len(parts) == expected_count else []
+
+
+def _fill_parts_match(actual_parts, accepted_answers):
+    actual = [_normalize_text(item) for item in actual_parts]
+    if not actual or any(not item for item in actual):
+        return False, []
+    for candidate in accepted_answers:
+        expected = _split_fill_answer_parts(candidate, len(actual))
+        if expected and actual == [_normalize_text(item) for item in expected]:
+            return True, expected
+    return False, []
+
+
 def _now() -> str:
     return (
         datetime.now(timezone.utc)
@@ -383,9 +411,15 @@ def _deterministic_score(question: dict):
             }
         else:
             normalized_actual = _normalize_text(actual)
-            is_correct = normalized_actual in {
-                _normalize_text(item) for item in accepted
-            }
+            response_parts = response.get("parts")
+            if qtype == "fill_blank" and isinstance(response_parts, list) and len(response_parts) > 1:
+                is_correct, matched_parts = _fill_parts_match(response_parts, accepted)
+                normalized_actual = ",".join(_normalize_text(item) for item in response_parts)
+            else:
+                matched_parts = []
+                is_correct = normalized_actual in {
+                    _normalize_text(item) for item in accepted
+                }
 
         if is_correct:
             return {
@@ -395,7 +429,10 @@ def _deterministic_score(question: dict):
                 "penalty_marks_milli": 0,
                 "feedback_text": "Answer matches an accepted answer.",
                 "confidence": 1.0,
-                "details": {"normalized_response": normalized_actual},
+                "details": {
+                    "normalized_response": normalized_actual,
+                    **({"matched_fill_parts": matched_parts} if qtype == "fill_blank" and matched_parts else {}),
+                },
             }
         penalty = negative
         return {
