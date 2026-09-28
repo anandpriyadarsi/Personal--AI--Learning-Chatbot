@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Evaluation · {{ result.title_snapshot }} · ANVAYA{% endblock %}
+{% block page_scripts %}<link rel="stylesheet" href="{{ url_for('static', filename='css/assessment_runner_math.css') }}"><script defer src="{{ url_for('static', filename='js/assessment_math.js') }}"></script>{% endblock %}
 {% block content %}
 <section class="assessment-heading">
   <div>
@@ -90,16 +91,22 @@
       </div>
 
       <p class="assessment-facts">{{ q.focus_seconds }} seconds captured · {{ q.negative_marks }} penalty marks · {{ q.difficulty|title }}{% if q.chapter_label %} · {{ q.chapter_label }}{% endif %}{% if q.subtopic_label %} / {{ q.subtopic_label }}{% endif %}</p>
-      <div class="evaluation-question-text">{{ q.question_text }}</div>
+      <div class="evaluation-question-text" data-assessment-math>{{ q.question_text }}</div>
 
       <div class="evaluation-grid">
         <section>
           <h4>Your response</h4>
           {% if q.question_type in ['mcq','msq'] %}
             {% set selected = q.response.get('selected_option_ids', []) %}
-            {% if selected %}<p>{{ q.selected_options|join(' · ') }}</p>{% else %}<p class="empty-state">No option selected.</p>{% endif %}
+            {% if selected %}<p data-assessment-math>{{ q.selected_options|join(' · ') }}</p>{% else %}<p class="empty-state">No option selected.</p>{% endif %}
+          {% elif q.question_type == 'fill_blank' and q.response.get('parts') %}
+            <ol class="evaluation-fill-parts">
+              {% for part in q.response.get('parts', []) %}
+                <li><strong>Blank {{ loop.index }}:</strong> <span data-assessment-math>{{ part or 'No answer.' }}</span></li>
+              {% endfor %}
+            </ol>
           {% elif q.question_type in ['numerical','fill_blank','true_false'] %}
-            <p>{{ q.response.get('value', '') or 'No answer.' }}</p>
+            <p data-assessment-math>{{ q.response.get('value', '') or 'No answer.' }}</p>
           {% else %}
             <p class="reader-prose">{{ q.response.get('text', '') or 'No answer.' }}</p>
           {% endif %}
@@ -108,10 +115,10 @@
           <h4>Correct answer / guide</h4>
           {% if q.question_type in ['mcq','msq'] %}
             {% set keys = q.answer_key.get('correct_option_ids', []) %}
-            <p>{% if keys %}Correct option{% if keys|length != 1 %}s{% endif %}: {{ q.correct_options|join(' · ') }}{% else %}No deterministic key available.{% endif %}</p>
+            <p data-assessment-math>{% if keys %}Correct option{% if keys|length != 1 %}s{% endif %}: {{ q.correct_options|join(' · ') }}{% else %}No deterministic key available.{% endif %}</p>
           {% elif q.question_type in ['numerical','fill_blank','true_false'] %}
             {% set accepted = q.answer_key.get('accepted_answers', []) %}
-            <p>{% if accepted %}Accepted: {{ accepted|join(' · ') }}{% else %}No deterministic key available.{% endif %}</p>
+            <p data-assessment-math>{% if accepted %}Accepted: {{ accepted|join(' · ') }}{% else %}No deterministic key available.{% endif %}</p>
           {% else %}
             <p>Use the model solution and rubric below.</p>
           {% endif %}
@@ -123,7 +130,7 @@
       <details class="evaluation-details">
         <summary>Solution, rubric &amp; method</summary>
         <div class="evaluation-grid">
-          <section><h4>Solution</h4><p class="reader-prose">{{ q.solution_text or 'No solution snapshot.' }}</p></section>
+          <section><h4>Solution</h4><p class="reader-prose" data-assessment-math>{{ q.solution_text or 'No solution snapshot.' }}</p></section>
           <section><h4>Rubric</h4><p class="reader-prose">{{ q.rubric_text or 'No rubric required.' }}</p></section>
         </div>
         {% if q.expected_method %}<p><strong>Expected method:</strong> {{ q.expected_method }}</p>{% endif %}
