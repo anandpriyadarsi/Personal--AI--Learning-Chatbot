@@ -66,7 +66,13 @@
       const checked = form.querySelector('input[name="answer_value"]:checked');
       return {value: checked ? checked.value : ""};
     }
-    if (["numerical", "fill_blank"].includes(questionType)) {
+    if (questionType === "fill_blank") {
+      const parts = Array.from(form.querySelectorAll("[data-fill-part]")).map(input => input.value);
+      if (parts.length) return {parts, value: parts.join(",")};
+      const input = form.querySelector('[name="answer_value"]');
+      return {value: input ? input.value : ""};
+    }
+    if (questionType === "numerical") {
       const input = form.querySelector('[name="answer_value"]');
       return {value: input ? input.value : ""};
     }
