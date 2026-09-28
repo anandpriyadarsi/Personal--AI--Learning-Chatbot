@@ -211,13 +211,50 @@ def test_deterministic_engine_scores_negative_partial_and_normalized_answers(tmp
 
     assert by_number["7"]["status"] == "awaiting_review"
     assert by_number["7"]["awarded_marks_milli"] is None
-    assert by_number["8"]["status"] == "awaiting_review"
-    assert by_number["8"]["details"]["reason"] == "custom_scoring_requires_manual_review"
+    assert by_number["8"]["status"] == "auto_confirmed"
+    assert by_number["8"]["outcome"] == "correct"
+    assert by_number["8"]["awarded_marks_milli"] == 2000
+    assert by_number["8"]["details"]["exact_match_auto_confirmed"] is True
 
-    assert result["confirmed_score_milli"] == 10667
-    assert result["awaiting_review_count"] == 2
+    assert result["confirmed_score_milli"] == 12667
+    assert result["awaiting_review_count"] == 1
     assert result["evaluation_status"] == "pending_review"
     assert result["is_final"] is False
+
+
+def test_exact_custom_msq_is_auto_confirmed_but_non_exact_custom_msq_still_needs_review():
+    from personal_learning_assistant.services.assessment_evaluation_service import (
+        _deterministic_score,
+    )
+
+    base = {
+        "question_type": "msq",
+        "scoring_policy": "custom",
+        "max_marks_milli": 2000,
+        "negative_marks_milli": 500,
+        "answer_key_json": json.dumps(
+            {"correct_option_ids": ["A", "D"], "accepted_answers": []}
+        ),
+    }
+
+    exact = _deterministic_score({
+        **base,
+        "response_json": json.dumps({"selected_option_ids": ["D", "A"]}),
+    })
+    assert exact["status"] == "auto_confirmed"
+    assert exact["outcome"] == "correct"
+    assert exact["awarded_marks_milli"] == 2000
+
+    non_exact = _deterministic_score({
+        **base,
+        "response_json": json.dumps({"selected_option_ids": ["A"]}),
+    })
+    assert non_exact["status"] == "awaiting_review"
+    assert non_exact["awarded_marks_milli"] is None
+    assert (
+        non_exact["details"]["reason"]
+        == "custom_scoring_requires_manual_review_for_non_exact_response"
+    )
 
 
 def test_deterministic_evaluation_is_idempotent_and_creates_signed_canonical_attempts(tmp_path):
@@ -236,7 +273,7 @@ def test_deterministic_evaluation_is_idempotent_and_creates_signed_canonical_att
             "JOIN questions q ON q.id=a.question_id "
             "ORDER BY q.ordinal"
         ).fetchall()
-        assert len(attempts) == 6
+        assert len(attempts) == 7
         q2 = next(row for row in attempts if row[0] == "q2")
         assert q2[1] == "incorrect"
         assert q2[2] == 0
@@ -301,14 +338,13 @@ def test_alex_subjective_grade_is_always_provisional_until_explicit_confirmation
         connection.close()
 
 
-def test_manual_custom_grade_can_finalize_session_and_preserves_no_mastery_mutation(tmp_path):
+def test_manual_subjective_grade_can_finalize_session_and_preserves_no_mastery_mutation(tmp_path):
     path = _database(tmp_path)
     session_id = _submitted_session(path)
     service = _evaluation(path)
     service.create(session_id)
     result = service.results(session_id)
     q7 = next(q for q in result["questions"] if q["question_number"] == "7")
-    q8 = next(q for q in result["questions"] if q["question_number"] == "8")
 
     service.save_manual_evaluation(
         q7["evaluation_id"],
@@ -318,17 +354,6 @@ def test_manual_custom_grade_can_finalize_session_and_preserves_no_mastery_mutat
             "awarded_marks": "4",
             "confidence": "1",
             "feedback_text": "Rubric reviewed manually.",
-            "confirm_final": True,
-        },
-    )
-    service.save_manual_evaluation(
-        q8["evaluation_id"],
-        {
-            "evaluator_type": "teacher",
-            "evaluator_model": "",
-            "awarded_marks": "2",
-            "confidence": "1",
-            "feedback_text": "Custom scheme confirmed.",
             "confirm_final": True,
         },
     )

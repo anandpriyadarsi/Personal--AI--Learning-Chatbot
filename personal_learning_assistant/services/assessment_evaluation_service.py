@@ -266,28 +266,6 @@ def _deterministic_score(question: dict):
             "details": {"reason": "subjective_requires_rubric_review"},
         }
 
-    if policy == "custom":
-        return {
-            "status": "awaiting_review",
-            "outcome": "pending_review",
-            "awarded_marks_milli": None,
-            "penalty_marks_milli": 0,
-            "feedback_text": "",
-            "confidence": None,
-            "details": {"reason": "custom_scoring_requires_manual_review"},
-        }
-
-    if policy not in DETERMINISTIC_POLICIES:
-        return {
-            "status": "awaiting_review",
-            "outcome": "pending_review",
-            "awarded_marks_milli": None,
-            "penalty_marks_milli": 0,
-            "feedback_text": "",
-            "confidence": None,
-            "details": {"reason": "unsupported_scoring_policy"},
-        }
-
     if qtype in OBJECTIVE_OPTION_TYPES:
         selected = {
             str(item)
@@ -318,6 +296,36 @@ def _deterministic_score(question: dict):
                 "feedback_text": "Answer matches the confirmed option key.",
                 "confidence": 1.0,
                 "details": {
+                    "selected_option_ids": sorted(selected),
+                    "correct_option_ids": sorted(correct),
+                    "exact_match_auto_confirmed": True,
+                    "scoring_policy": policy,
+                },
+            }
+        if policy == "custom":
+            return {
+                "status": "awaiting_review",
+                "outcome": "pending_review",
+                "awarded_marks_milli": None,
+                "penalty_marks_milli": 0,
+                "feedback_text": "",
+                "confidence": None,
+                "details": {
+                    "reason": "custom_scoring_requires_manual_review_for_non_exact_response",
+                    "selected_option_ids": sorted(selected),
+                    "correct_option_ids": sorted(correct),
+                },
+            }
+        if policy not in DETERMINISTIC_POLICIES:
+            return {
+                "status": "awaiting_review",
+                "outcome": "pending_review",
+                "awarded_marks_milli": None,
+                "penalty_marks_milli": 0,
+                "feedback_text": "",
+                "confidence": None,
+                "details": {
+                    "reason": "unsupported_scoring_policy_for_non_exact_response",
                     "selected_option_ids": sorted(selected),
                     "correct_option_ids": sorted(correct),
                 },
@@ -431,7 +439,35 @@ def _deterministic_score(question: dict):
                 "confidence": 1.0,
                 "details": {
                     "normalized_response": normalized_actual,
+                    "exact_match_auto_confirmed": True,
+                    "scoring_policy": policy,
                     **({"matched_fill_parts": matched_parts} if qtype == "fill_blank" and matched_parts else {}),
+                },
+            }
+        if policy == "custom":
+            return {
+                "status": "awaiting_review",
+                "outcome": "pending_review",
+                "awarded_marks_milli": None,
+                "penalty_marks_milli": 0,
+                "feedback_text": "",
+                "confidence": None,
+                "details": {
+                    "reason": "custom_scoring_requires_manual_review_for_non_exact_response",
+                    "normalized_response": normalized_actual,
+                },
+            }
+        if policy not in DETERMINISTIC_POLICIES:
+            return {
+                "status": "awaiting_review",
+                "outcome": "pending_review",
+                "awarded_marks_milli": None,
+                "penalty_marks_milli": 0,
+                "feedback_text": "",
+                "confidence": None,
+                "details": {
+                    "reason": "unsupported_scoring_policy_for_non_exact_response",
+                    "normalized_response": normalized_actual,
                 },
             }
         penalty = negative

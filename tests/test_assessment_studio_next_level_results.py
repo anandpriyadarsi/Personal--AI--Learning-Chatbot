@@ -156,7 +156,6 @@ def test_corrected_grade_excludes_old_confirmed_labels_from_analytics_and_recove
     service.save_manual_evaluation(eid,{'evaluator_type':'teacher','awarded_marks':'2'})
     service.classify_mistake(eid,{'category':'concept_gap','source_type':'user'})
     service.save_manual_evaluation(eid,{'evaluator_type':'teacher','awarded_marks':'5','confirm_final':True})
-    service.save_manual_evaluation(questions['8']['evaluation_id'],{'evaluator_type':'teacher','awarded_marks':'2','confirm_final':True})
     intelligence = AssessmentIntelligenceService(path)
     assert intelligence.overview()['mistake_patterns'] == ()
     assert all(topic['mistake_count'] == 0 for topic in intelligence.weak_topics()['topics'])

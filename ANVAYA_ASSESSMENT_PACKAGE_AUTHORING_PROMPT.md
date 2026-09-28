@@ -209,7 +209,23 @@ and preserve the rule in the assessment/question context for review.
 
 Provide one or more accepted answers.
 
-For a `fill_blank` question with multiple answer parts, make the expected input structure explicit in the **visible question text** using an ordered cue such as:
+For a `numerical` question, make the requested numerical target explicit in the visible question text. Prefer a natural visible blank when appropriate, for example:
+
+`det(A) = ____`
+
+or clearly state the single requested value, for example:
+
+`Find the rank of A.`
+
+Do not write a numerical question whose answer target is ambiguous.
+
+For every `fill_blank` question, the visible question text must make **each answer location or answer part explicit**. Prefer literal underscore blanks at the intended positions, for example:
+
+`k = ____ and μ = ____.`
+
+ANVAYA can place separate input boxes directly into these visible blanks.
+
+If inline blanks are awkward, use an ordered cue such as:
 
 `Enter: k, μ, number of free variables.`
 
@@ -217,7 +233,7 @@ or:
 
 `Enter ℓ43, u44.`
 
-Then list accepted answers in that exact same order. Do not force the student to guess a combined comma/bracket format. ANVAYA may render those named parts as separate input fields while preserving the package's accepted-answer contract.
+Then list accepted answers in that exact same order. Do not force the student to guess a combined comma/bracket format, and do not create a multi-part fill question with only one generic answer box. ANVAYA renders each visible blank or named part as a separate input while preserving the package's accepted-answer contract.
 
 For mathematical notation, use ANVAYA's renderer-safe notation consistently so the timed test remains readable:
 
@@ -379,6 +395,8 @@ Before returning the package, verify all of the following:
 21. Source provenance is preserved where supported.
 22. The package contains no unsupported fields.
 23. Matrix/determinant notation follows the renderer-safe contract above.
+24. Every fill-blank question exposes each answer target through visible underscores or an ordered `Enter:` cue.
+25. Every numerical question clearly identifies the single value the student must enter.
 
 ---
 
