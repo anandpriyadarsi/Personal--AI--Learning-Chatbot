@@ -238,11 +238,15 @@ Then list accepted answers in that exact same order. Do not force the student to
 For mathematical notation, use ANVAYA's renderer-safe notation consistently so the timed test remains readable:
 
 - powers/subscripts: `A^-1`, `A^T`, `x^2`, `x_1`, `[p]_B`;
+- indexed objects: write `E_3 E_2 E_1 A = U`, `ℓ_42`, `u_34`, `a_ij`; do not compress them as `E3E2E1A`, `l42`, or `u34`;
 - Greek/set symbols: UTF-8 such as `λ`, `μ`, `∈`, `⊆`, or the supported lightweight forms such as `\\lambda`, `\\mu`;
 - matrices: encode rows exactly as `[[a, b], [c, d]]`;
 - determinants: write `det([[a, b], [c, d]])`;
+- sums/products: write `Σ_{i=1}^{3} Σ_{j=1}^{3} (A^-1)_{ij}` or `\\sum_{i=1}^{3}`; never write prose-like forms such as `Σ(i=1 to 3)`;
 - products/relations: prefer `×`, `·`, `≤`, `≥`, `≠` where useful;
-- fractions that do not need stacked typography may be written unambiguously as `(a)/(b)`.
+- fractions that do not need stacked typography may be written unambiguously as `(a)/(b)`;
+- systems of equations: put each equation on its own line in the question text;
+- a displayed matrix or system should not be squeezed into a long prose sentence; put a line break before and after it when that improves readability.
 
 Do not use ASCII-art matrices, tab-aligned columns, executable HTML/scripts, or browser-specific markup. Do not emit unsupported LaTeX matrix environments unless the source must be preserved verbatim; translate generated mathematics into the renderer-safe forms above.
 
@@ -326,7 +330,10 @@ For mathematical/scientific problems:
 
 - show the intended method;
 - include key intermediate steps;
-- keep the final result unambiguous.
+- keep the final result unambiguous;
+- preserve readable line breaks between major algebraic steps;
+- for MCQ/MSQ solutions, explain option A, option B, option C, etc. on separate lines whenever option-wise reasoning is useful; never merge all option explanations into one long sentence;
+- use the same renderer-safe mathematical notation in solutions, rubrics and expected-method text as in the question.
 
 ---
 
@@ -397,6 +404,9 @@ Before returning the package, verify all of the following:
 23. Matrix/determinant notation follows the renderer-safe contract above.
 24. Every fill-blank question exposes each answer target through visible underscores or an ordered `Enter:` cue.
 25. Every numerical question clearly identifies the single value the student must enter.
+26. Summations, products, indexed variables and elementary matrices use renderer-safe subscript/superscript notation rather than compressed prose notation.
+27. Systems and multi-step mathematical solutions preserve meaningful line breaks.
+28. MCQ/MSQ option-wise explanations are written on separate lines.
 
 ---
 
