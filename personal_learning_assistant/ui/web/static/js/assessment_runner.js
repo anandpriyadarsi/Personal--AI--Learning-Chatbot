@@ -8,8 +8,40 @@
   const saveStatus = document.getElementById("assessment-save-status");
   const palette = document.getElementById("assessment-palette");
   if (palette && window.matchMedia && window.matchMedia("(max-width: 760px)").matches) palette.open = false;
+  const palettePanel = document.getElementById("assessment-palette-panel");
+  const paletteClose = document.getElementById("assessment-palette-close");
+  const paletteOpen = document.getElementById("assessment-palette-open");
+  const paletteScroll = document.getElementById("assessment-palette-scroll");
   const retry = document.getElementById("assessment-save-retry");
-  const {questionId, questionType, heartbeatUrl, autosaveUrl, submitUrl, summaryUrl} = root.dataset;
+  const {sessionId, questionId, questionType, heartbeatUrl, autosaveUrl, submitUrl, summaryUrl} = root.dataset;
+
+  const paletteStorageKey = `anvaya:assessment:${sessionId || "session"}:palette-collapsed`;
+  let paletteStorage = null;
+  try { paletteStorage = window.sessionStorage || null; } catch (_error) { paletteStorage = null; }
+  const setPaletteCollapsed = (collapsed, persist = true) => {
+    const value = Boolean(collapsed);
+    root.classList.toggle("is-palette-collapsed", value);
+    if (palettePanel) palettePanel.setAttribute("aria-hidden", value ? "true" : "false");
+    if (paletteClose) paletteClose.setAttribute("aria-expanded", value ? "false" : "true");
+    if (paletteOpen) {
+      paletteOpen.hidden = !value;
+      paletteOpen.setAttribute("aria-expanded", value ? "false" : "true");
+    }
+    if (persist && paletteStorage) {
+      try { paletteStorage.setItem(paletteStorageKey, value ? "1" : "0"); } catch (_error) {}
+    }
+  };
+  let initialPaletteCollapsed = false;
+  if (paletteStorage) {
+    try { initialPaletteCollapsed = paletteStorage.getItem(paletteStorageKey) === "1"; } catch (_error) {}
+  }
+  setPaletteCollapsed(initialPaletteCollapsed, false);
+  if (paletteClose) paletteClose.addEventListener("click", () => setPaletteCollapsed(true));
+  if (paletteOpen) paletteOpen.addEventListener("click", () => setPaletteCollapsed(false));
+  if (paletteScroll) {
+    const current = paletteScroll.querySelector(".palette-item.is-current");
+    if (current && typeof current.scrollIntoView === "function") current.scrollIntoView({block: "nearest"});
+  }
   let remainingSeconds = Number(root.dataset.remainingSeconds || 0);
   let syncStartedAt = performance.now();
   let focusStartedAt = performance.now();
@@ -84,8 +116,14 @@
       method: "POST", headers: {"Content-Type": "application/json", "Accept": "application/json"},
       body: JSON.stringify(payload), credentials: "same-origin", keepalive
     });
-    if (!response.ok) throw new Error("Request failed");
-    return response.json();
+    let result = null;
+    try { result = await response.json(); } catch (_error) { result = null; }
+    if (!response.ok) {
+      const message = result && result.error ? String(result.error) : `Request failed (${response.status || "unknown"})`;
+      throw new Error(message);
+    }
+    if (!result || typeof result !== "object") throw new Error("ANVAYA returned an invalid action response.");
+    return result;
   };
 
   // One writer per page. Changes made during an in-flight save are saved next,
@@ -138,15 +176,22 @@
     }
     return result;
   };
-  const withAction = async (work) => {
+  const withAction = async (work, {flushFirst = true} = {}) => {
     if (actionBusy || terminal) return;
     actionBusy = true;
     const fieldset = form && form.querySelector("fieldset");
     if (fieldset) fieldset.disabled = true;
-    try { if (await flush()) await work(); }
-    catch (_error) {
-      // flush reports its own failure. Other requests must also leave the input in place.
-      if (!retry || retry.hidden) setSaveState("Action failed. Your saved answer is retained; try the action again.");
+    try {
+      if (!flushFirst || await flush()) await work();
+    } catch (error) {
+      // Autosave reports its own failure. Action failures keep the current response
+      // on-screen so the student can retry without re-entering an answer.
+      if (!retry || retry.hidden) {
+        setSaveState("Action failed. Your answer is still on this page; try the action again.");
+      }
+      if (window.console && typeof window.console.error === "function") {
+        window.console.error("Assessment Runner action failed", error);
+      }
     } finally {
       actionBusy = false;
       if (fieldset) fieldset.disabled = false;
@@ -158,15 +203,24 @@
   if (form) form.addEventListener("submit", async event => {
     event.preventDefault();
     const action = event.submitter ? event.submitter.value : "save_next";
+    // The action endpoint already saves the current response and updates the
+    // review state atomically. Do not autosave first and then perform a second
+    // write: one click should produce one authoritative action request.
     await withAction(async () => {
+      cancelDebounce();
+      setSaveState(action === "clear" ? "Clearing response…" : "Saving response…", true);
       const current = form.querySelector('[name="current_ordinal"]');
       const next = form.querySelector('[name="next_ordinal"]');
       const result = await postJson(form.action, {
         action, response: responsePayload(), current_ordinal: current ? current.value : 1,
         next_ordinal: next ? next.value : 1, focus_seconds_delta: collectFocus()
       });
-      if (!checkTerminal(result)) navigate(result.redirect_url);
-    });
+      if (checkTerminal(result)) return;
+      if (!result.redirect_url) throw new Error("ANVAYA did not return the next question.");
+      savedVersion = editVersion;
+      setSaveState("Saved to ANVAYA");
+      navigate(result.redirect_url);
+    }, {flushFirst: false});
   });
   if (submitForm) submitForm.addEventListener("submit", async event => {
     event.preventDefault();
