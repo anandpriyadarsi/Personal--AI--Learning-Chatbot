@@ -54,6 +54,20 @@ test('clear waits for prior autosave then performs the clear once',async()=>{
   assert.equal(h.calls.length,1);h.setResponder(async()=>({status:'active',redirect_url:'/current'}));release({status:'active'});await action;
   assert.deepEqual(h.calls.map(x=>x.url),['/autosave','/action']);assert.equal(h.calls[1].payload.action,'clear');assert.deepEqual(h.navigations,['/current']);
 });
+test('question action click uses one authoritative write when debounce has not fired',async()=>{
+  for(const action of ['save_next','mark_next','clear']) {
+    const h=harness('numerical');
+    await h.edit('42');
+    h.setResponder(async url=>url==='/action'
+      ? {status:'active',redirect_url:'/next',state:action==='mark_next'?'answered_marked_for_review':action==='clear'?'not_answered':'answered'}
+      : {status:'active'});
+    await h.form.emit('submit',{submitter:{value:action}});
+    assert.deepEqual(h.calls.map(x=>x.url),['/action']);
+    assert.equal(h.calls[0].payload.action,action);
+    assert.equal(h.calls[0].payload.response.value,'42');
+    assert.deepEqual(h.navigations,['/next']);
+  }
+});
 test('focus includes the visible interval before hiding and excludes hidden time',async()=>{
   const h=harness();h.advance(5000);h.document.visibilityState='hidden';await h.document.emit('visibilitychange');
   h.advance(15000);h.document.visibilityState='visible';await h.document.emit('visibilitychange');h.advance(10000);await h.interval(30000);
