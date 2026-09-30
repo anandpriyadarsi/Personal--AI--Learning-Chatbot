@@ -33,13 +33,20 @@
       <div class="exam-question-heading">
         <div>
           <p class="eyebrow">{% if view.question.section_label %}{{ view.question.section_label }} · {% endif %}Question {{ view.question.question_number or view.question.ordinal }}</p>
-          <h3>{{ view.question.question_type|replace('_',' ')|title }}</h3>
+          <h3>{{ view.question.question_type|replace('_',' ')|upper }}</h3>
         </div>
         <div class="tag-row">
           <span class="tag">{{ view.question.marks }} marks</span>
           {% if view.question.negative_marks and view.question.negative_marks != '0' %}<span class="tag">−{{ view.question.negative_marks }}</span>{% endif %}
         </div>
       </div>
+
+      {% if view.question.question_type == 'mcq' %}
+      <div class="exam-question-instruction" role="note">
+        <strong>MCQ · Single correct answer</strong>
+        <span>Select exactly one option. <b>Save &amp; Next</b> saves your answer and moves ahead; <b>Mark for Review &amp; Next</b> saves it, flags it for review, and moves ahead.</span>
+      </div>
+      {% endif %}
 
       <form id="assessment-response-form" method="post" action="{{ url_for('web.assessment_session_question_action', session_id=view.session.id, session_question_id=view.question.session_question_id) }}">
         {% if view.question.question_type == 'fill_blank' and view.question.fill_segments %}
@@ -157,19 +164,24 @@
       </form>
     </section>
 
-    <aside class="exam-palette-panel" aria-label="Question palette">
-      <div class="panel-heading"><div><p class="eyebrow">Question palette</p><h3>{{ view.question.ordinal }} / {{ view.session.question_count }}</h3></div></div>
+    <aside id="assessment-palette-panel" class="exam-palette-panel" aria-label="Question palette">
+      <div class="panel-heading exam-palette-heading">
+        <div><p class="eyebrow">Question palette</p><h3>{{ view.question.ordinal }} / {{ view.session.question_count }}</h3></div>
+        <button id="assessment-palette-close" class="exam-palette-toggle" type="button" aria-controls="assessment-palette-panel" aria-expanded="true">Hide palette <span aria-hidden="true">→</span></button>
+      </div>
       <details id="assessment-palette" class="exam-palette-disclosure" open><summary>Show question palette</summary>
-      <div class="question-palette">
-        {% for item in view.questions %}
-          <a
-            class="palette-item palette-{{ item.state }}{% if item.ordinal == view.question.ordinal %} is-current{% endif %}"
-            data-runner-nav
-            href="{{ url_for('web.assessment_session', session_id=view.session.id, q=item.ordinal) }}"
-            aria-label="Question {{ item.question_number or item.ordinal }}: {{ item.state_label }}"
-            {% if item.ordinal == view.question.ordinal %}aria-current="true"{% endif %}
-          >{{ item.question_number or item.ordinal }}</a>
-        {% endfor %}
+      <div id="assessment-palette-scroll" class="question-palette-scroll" tabindex="0" aria-label="Scrollable question list">
+        <div class="question-palette">
+          {% for item in view.questions %}
+            <a
+              class="palette-item palette-{{ item.state }}{% if item.ordinal == view.question.ordinal %} is-current{% endif %}"
+              data-runner-nav
+              href="{{ url_for('web.assessment_session', session_id=view.session.id, q=item.ordinal) }}"
+              aria-label="Question {{ item.question_number or item.ordinal }}: {{ item.state_label }}"
+              {% if item.ordinal == view.question.ordinal %}aria-current="true"{% endif %}
+            >{{ item.question_number or item.ordinal }}</a>
+          {% endfor %}
+        </div>
       </div>
 
       <div class="palette-legend">
@@ -191,6 +203,7 @@
         <button class="button exam-submit-button" type="submit">Submit Test</button>
       </form>
     </aside>
+    <button id="assessment-palette-open" class="exam-palette-open-tab" type="button" aria-controls="assessment-palette-panel" aria-expanded="false" hidden><span aria-hidden="true">←</span> Question palette</button>
   </div>
 </div>
 {% endblock %}
