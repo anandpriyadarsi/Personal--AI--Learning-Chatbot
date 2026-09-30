@@ -208,6 +208,9 @@
     // write: one click should produce one authoritative action request.
     await withAction(async () => {
       cancelDebounce();
+      // If an autosave was already sent before the click, let that single
+      // in-flight write finish before the authoritative action request.
+      if (saveFlight) await saveFlight;
       setSaveState(action === "clear" ? "Clearing response…" : "Saving response…", true);
       const current = form.querySelector('[name="current_ordinal"]');
       const next = form.querySelector('[name="next_ordinal"]');
