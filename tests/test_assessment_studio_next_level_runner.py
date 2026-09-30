@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 from test_assessment_studio_phase_c import _database, _service, _app, Clock
 
 
@@ -38,6 +39,32 @@ def test_action_json_returns_state_and_safe_destination_and_heartbeat_counts(tmp
     assert expired.get_json()['status'] == 'expired'
     assert expired.get_json()['redirect_url'].endswith('/summary')
     assert 'SECRET-' not in json.dumps(expired.get_json())
+
+def test_runner_mcq_guidance_scrollable_palette_and_full_width_toggle(tmp_path):
+    path = _database(tmp_path)
+    clock = Clock()
+    service = _service(path, clock)
+    sid = service.start('assessment-1', confirmed=True)['session_id']
+    html = _app(path, clock).test_client().get(
+        f'/assessments/sessions/{sid}?q=1'
+    ).get_data(as_text=True)
+
+    assert '<h3>MCQ</h3>' in html
+    assert 'MCQ · Single correct answer' in html
+    assert 'Select exactly one option.' in html
+    assert 'id="assessment-palette-scroll"' in html
+    assert 'id="assessment-palette-close"' in html
+    assert 'id="assessment-palette-open"' in html
+    assert 'Hide palette' in html
+    assert 'Question palette' in html
+
+    css = Path(
+        'personal_learning_assistant/ui/web/static/css/app.css'
+    ).read_text(encoding='utf-8')
+    assert '.question-palette-scroll {' in css
+    assert 'overflow-y: auto;' in css
+    assert '.assessment-runner.is-palette-collapsed .exam-layout {' in css
+
 
 def test_timeout_summary_explains_saved_response_boundary(tmp_path):
     path = _database(tmp_path)
