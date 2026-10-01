@@ -34,6 +34,7 @@ def test_primary_navigation_keeps_core_workspaces_visible_and_uses_more_for_seco
         ">ANVAYA<",
         ">Tutor<",
         ">Learning<",
+        ">Library<",
         ">Notes<",
         ">Resources<",
         ">Academics<",
@@ -58,6 +59,7 @@ def test_real_destinations_are_links_and_future_destinations_are_disabled():
     for endpoint in (
         "web.home",
         "web.academic_agent",
+        "web.learning_library",
         "web.notes",
         "web.resources",
         "web.knowledge",

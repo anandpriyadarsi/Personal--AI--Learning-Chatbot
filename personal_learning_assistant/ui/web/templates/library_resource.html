@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}{{ resource.title }} · Library · ANVAYA{% endblock %}
+{% block page_scripts %}<link rel="stylesheet" href="{{ url_for('static', filename='css/library.css') }}">{% endblock %}
+{% block body_class %}library-page{% endblock %}
+{% block content %}
+<a class="library-back" href="{{ url_for('web.learning_library') }}">← Back to Library</a>
+<section class="workspace-header" aria-labelledby="resource-title">
+  <div><p class="eyebrow">Library · Resource</p><h1 id="resource-title">{{ resource.title }}</h1>
+  <p class="lede">{{ resource.resource_type }}{% if resource.provider %} · {{ resource.provider }}{% endif %}</p></div>
+</section>
+<section class="dashboard-panel" aria-label="Resource information">
+  <p class="library-status">{{ resource.learning_status|replace('_', ' ')|capitalize }}</p>
+  <p>Updated {{ resource.updated_at }}</p>
+  <h2>Courses &amp; topics</h2>
+  <div class="library-labels">{% for course in resource.courses %}<span class="library-label">{{ course.label }}</span>{% else %}<span>No course links recorded.</span>{% endfor %}</div>
+  <ul>{% for topic in resource.topics %}<li>{{ topic.label }}</li>{% else %}<li>No topic links recorded.</li>{% endfor %}</ul>
+  {% if resource.external_url %}<a class="button secondary-button" href="{{ resource.external_url }}" target="_blank" rel="noopener noreferrer">Open external resource</a>{% endif %}
+</section>
+<section aria-labelledby="documents-title">
+  <h2 id="documents-title">Documents <span class="library-count">({{ resource.documents|length }})</span></h2>
+  <p class="library-coverage">View source opens the existing Knowledge reader. Extraction status does not indicate retrieval availability.</p>
+  {% for doc in resource.documents %}
+  <article class="dashboard-panel library-card"><div class="library-card-main">
+    <h3>{{ doc.title }}</h3><p>{{ doc.kind }}{% if doc.mime_type %} · {{ doc.mime_type }}{% endif %}</p>
+    <p class="library-extraction">Extraction: {{ doc.extraction_status|replace('_',' ') }}</p>
+  </div><a class="button secondary-button" href="{{ doc.open_target }}">View source</a></article>
+  {% else %}<p class="notice-panel">No documents are linked to this resource.</p>{% endfor %}
+</section>
+{% if resource.notes %}
+<section class="dashboard-panel" aria-labelledby="related-notes-title"><h2 id="related-notes-title">Related Obsidian notes</h2>
+<p>Recorded note references; this page does not scan your vault.</p>
+<ul>{% for note in resource.notes %}<li>{{ note.label }}</li>{% endfor %}</ul></section>
+{% endif %}
+{% endblock %}
