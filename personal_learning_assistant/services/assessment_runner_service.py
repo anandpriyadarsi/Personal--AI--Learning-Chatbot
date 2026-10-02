@@ -564,7 +564,7 @@ class AssessmentRunnerService:
             raise AssessmentRunnerConflictError("This timed attempt has ended.")
         if context["ordinal"] != context["current_ordinal"]:
             raise AssessmentRunnerConflictError("Open the current question before requesting help.")
-        return {key: context[key] for key in ("mode", "course", "assessment_title", "question_text")}
+        return {key: context[key] for key in ("mode", "course_code", "assessment_title", "question_text")}
 
     def _load_private_question(self, session_id: str, session_question_id: str):
         with self._repository(write=False) as repository:

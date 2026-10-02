@@ -18,15 +18,20 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "tests"))
 
 
-def build_fixture(directory, *, exam=False, live_helper=False):
+def build_fixture(directory, *, exam=False, live_helper=False, course="UC100N", mode="practice"):
+    if course not in {"UC100N", "MA103N", "CY100N", "UC103N", "DE100N"} or mode not in {"practice", "assignment", "exam"}:
+        raise ValueError("Choose a supported fixture course and mode.")
+    runtime_mode = "exam" if exam or mode == "exam" else "practice"
     from test_assessment_studio_phase_c import _app, _database, _service
     from personal_learning_assistant.domain.tutor_models import TutorProviderResponse
     from flask import abort, request
 
     path = _database(directory)
     with sqlite3.connect(path) as db:
-        db.execute("UPDATE assessment_runtime_specs SET mode=?, duration_minutes=180", ("exam" if exam else "practice",))
-        db.execute("UPDATE courses SET code='UC100N', name='Data Science and AI'")
+        db.execute("UPDATE assessment_runtime_specs SET mode=?, duration_minutes=180", (runtime_mode,))
+        db.execute("UPDATE courses SET code=?, name=?", (course, "Data Science and AI" if course == "UC100N" else course))
+        if mode == "assignment":
+            db.execute("UPDATE assessments SET assessment_type='assignment'")
         db.execute("UPDATE assessments SET title='Disposable DSAI acceptance fixture'")
         db.execute("UPDATE questions SET question_text='Practice task: select one synthetic response and test navigation.' WHERE id='q-mcq'")
     clock = lambda: datetime.now(timezone.utc)
@@ -65,11 +70,13 @@ def build_fixture(directory, *, exam=False, live_helper=False):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--port", type=int, default=5057)
-    parser.add_argument("--exam", action="store_true")
+    parser.add_argument("--exam", action="store_true", help="Alias for --mode exam")
+    parser.add_argument("--course", choices=["UC100N", "MA103N", "CY100N", "UC103N", "DE100N"], default="UC100N")
+    parser.add_argument("--mode", choices=["practice", "assignment", "exam"], default="practice")
     parser.add_argument("--live-helper", action="store_true")
     args = parser.parse_args()
     with TemporaryDirectory(prefix="anvaya-assessment-acceptance-") as temporary:
-        app, sid, _ = build_fixture(Path(temporary), exam=args.exam, live_helper=args.live_helper)
+        app, sid, _ = build_fixture(Path(temporary), exam=args.exam, live_helper=args.live_helper, course=args.course, mode=args.mode)
         print("Disposable test data only. Stop with Ctrl+C.")
         print(f"OPEN: http://127.0.0.1:{args.port}/assessments/sessions/{sid}", flush=True)
         app.run(host="127.0.0.1", port=args.port, debug=False, use_reloader=False)

@@ -1,14 +1,15 @@
 <dialog id="coding-helper-dialog" class="coding-helper-dialog" aria-labelledby="coding-helper-title" data-policy="{{ coding_tools.policy }}">
   <header class="coding-helper-heading">
-    <div><p class="eyebrow">Understand · Try · Explain</p><h2 id="coding-helper-title">Coding Helper</h2></div>
+    <div><p class="eyebrow">Understand · Try · Explain</p><h2 id="coding-helper-title">Coding Helper 2.0</h2></div>
     <button id="coding-helper-close" class="button button-secondary compact-button" type="button" aria-label="Close Coding Helper">Close</button>
   </header>
-  <p class="coding-helper-intro">Choose an operation, understand what it returns, then explain it in your own words. The assessment timer keeps running.</p>
+  <p class="coding-helper-intro">Understand here. Run your code in Colab. Then explain it in your own words. The assessment timer keeps running.</p>
   {% if coding_tools.policy == 'concepts' %}<p role="note">General concept help only. Assessment questions and code are excluded in this mode.</p>{% endif %}
   <form id="coding-helper-form" action="{{ url_for('assessment_tools.coding_helper', session_id=view.session.id, session_question_id=view.question.session_question_id) }}" method="post">
     <label>How can I help?
-      <select name="action" id="coding-helper-action">{% for value,label in coding_tools.actions.items() %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select>
+      <select name="action" id="coding-helper-action">{% for value,label in coding_tools.actions.items() %}<option value="{{ value }}" data-allows-solution="{{ 'true' if coding_tools.action_details[value].allows_solution else 'false' }}" data-guidance="{{ coding_tools.action_details[value].guidance }}">{{ label }}</option>{% endfor %}</select>
     </label>
+    <p id="coding-mode-guidance" class="coding-mode-guidance" role="note"></p>
     <label>Concept / operation
       {% if coding_tools.policy == 'concepts' %}
       <select name="topic">{% for value,label in coding_tools.generic_topics.items() %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select>
@@ -17,41 +18,49 @@
       {% endif %}
     </label>
     {% if coding_tools.policy == 'full' %}
-    <label>What did you try independently? <textarea name="attempt" maxlength="2000" rows="2" placeholder="Describe your first attempt, even if it did not work."></textarea></label>
+    <label>Your attempt / prediction <textarea name="attempt" maxlength="2000" rows="2" placeholder="Describe your first attempt, even if it did not work."></textarea></label>
     <label>Your question <textarea name="message" maxlength="2000" rows="2" placeholder="What would you like to understand?"></textarea></label>
     <details class="coding-code-inputs"><summary>Paste my code and error / output</summary>
       <label>My code <textarea name="code" maxlength="12000" rows="6" spellcheck="false" placeholder="Paste your Python code here"></textarea></label>
       <label>Error or unexpected output <textarea name="error" maxlength="3000" rows="2" spellcheck="false"></textarea></label>
     </details>
+    <input type="hidden" name="card_id" value="">
+    <label id="coding-explanation-depth" hidden>Explanation depth
+      <select name="explanation_depth">{% for value,label in coding_tools.explanation_depths.items() %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select>
+    </label>
     <label id="coding-hint-level">Hint depth <select name="hint_level"><option value="1">1 · Smallest hint</option><option value="2">2 · Stronger hint</option><option value="3">3 · Next step</option></select></label>
     <label class="coding-checkbox"><input type="checkbox" name="include_question"> Include the current visible question</label>
     <label id="coding-full-solution" class="coding-checkbox" hidden><input type="checkbox" name="full_solution"> I explicitly want a full practice solution</label>
     {% endif %}
     <button id="coding-helper-send" class="button" type="submit">Get help</button>
   </form>
+  <div class="coding-context-controls"><button id="coding-helper-reset" type="button" class="button button-secondary compact-button">Reset helper</button>
+  <span id="coding-context-status">Follow-ups stay on this question only; refresh clears them.</span></div>
   <p id="coding-helper-status" role="status" aria-live="polite"></p>
   <section id="coding-helper-answer-section" aria-labelledby="coding-helper-answer-title" hidden>
     <h3 id="coding-helper-answer-title">Your next step</h3>
-    <pre id="coding-helper-answer" class="coding-helper-answer"></pre>
+    <div id="coding-helper-answer" class="coding-helper-answer"></div>
     <button id="coding-helper-rebuild" class="button button-secondary compact-button" type="button"{% if coding_tools.policy != 'full' %} hidden{% endif %}>Try rebuilding from blank</button>
   </section>
   <details class="coding-operations"><summary>Operations Map <span>{{ operation_cards|length }} quick cards</span></summary>
     <p>Examples show expected behaviour; no code runs here. NumPy uses <code>import numpy as np</code>, Pandas <code>import pandas as pd</code>, and charts <code>import matplotlib.pyplot as plt</code>.</p>
     <label>Find an operation <input id="coding-map-search" type="search" placeholder="Search shape, missing values, groupby…"></label>
+    <label for="coding-map-category">Operation category</label><select id="coding-map-category"><option value="">All categories</option>{% for category,cards in operation_cards|groupby('category') %}<option value="{{ category }}">{{ category }}</option>{% endfor %}</select>
     <p id="coding-map-status" role="status" aria-live="polite"></p>
     {% for category,cards in operation_cards|groupby('category') %}
     <details class="coding-map-category" open><summary>{{ category }}</summary>
       {% for card in cards %}
-      <details class="coding-operation-card" data-search="{{ (category ~ ' ' ~ card.what ~ ' ' ~ card.why ~ ' ' ~ card.syntax)|lower }}"><summary>{{ card.what }}</summary>
+      <details class="coding-operation-card" data-category="{{ category }}" data-card-id="{{ card.id }}" data-card-name="{{ card.what }}" data-search="{{ (category ~ ' ' ~ card.what ~ ' ' ~ card.why ~ ' ' ~ card.syntax ~ ' ' ~ card.input ~ ' ' ~ card.output ~ ' ' ~ card.mistake)|lower }}"><summary>{{ card.what }}</summary>
         <dl>
           <dt>What</dt><dd>{{ card.what }}</dd>
           <dt>Why</dt><dd>{{ card.why }}</dd>
-          <dt>Syntax</dt><dd><pre>{{ card.syntax }}</pre></dd>
+          <dt>Syntax</dt><dd><pre>{{ card.syntax }}</pre><button type="button" class="coding-copy button button-secondary compact-button">Copy syntax</button></dd>
           <dt>Input</dt><dd>{{ card.input }}</dd>
-          <dt>Mini example</dt><dd><pre>{{ card.example }}</pre></dd>
+          <dt>Mini example</dt><dd><pre>{{ card.example }}</pre><button type="button" class="coding-copy button button-secondary compact-button">Copy example</button></dd>
           <dt>Expected output / behaviour</dt><dd>{{ card.output }}</dd>
           <dt>Common mistake</dt><dd>{{ card.mistake }}</dd>
         </dl>
+        <button type="button" class="coding-use-card button button-secondary compact-button">Learn this operation</button>
       </details>
       {% endfor %}
     </details>

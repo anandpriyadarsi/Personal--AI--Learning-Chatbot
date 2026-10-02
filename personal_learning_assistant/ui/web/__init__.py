@@ -29,6 +29,10 @@ def create_app(config: Mapping[str, Any] | None = None) -> Flask:
     if config:
         app.config.update(config)
 
+    # Process-local key: short-lived helper context becomes invalid on restart.
+    from secrets import token_bytes
+    from personal_learning_assistant.services.coding_helper_context import context_signer
+    app.extensions["coding_helper_signer"] = context_signer(token_bytes(32))
     app.register_blueprint(web_blueprint)
     from .assessment_tools import assessment_tools_blueprint
     app.register_blueprint(assessment_tools_blueprint)

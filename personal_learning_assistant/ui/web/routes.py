@@ -1752,7 +1752,7 @@ def assessment_session(session_id):
             "assessment_test_runner.html",
             active_page="assessments",
             view=view,
-            coding_tools=tool_options(view["session"]["mode"], current_app.config),
+            coding_tools=tool_options(view["session"], current_app.config),
             operation_cards=OPERATION_CARDS,
         )
     except Exception as error:

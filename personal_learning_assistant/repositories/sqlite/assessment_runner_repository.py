@@ -396,6 +396,8 @@ class SQLiteAssessmentRunnerRepository:
             (str(session_id),),
         ).fetchall()
         result = dict(header)
+        tool_context = self.get_coding_context(session_id, rows[0]["session_question_id"]) if rows else None
+        result["course_code"] = tool_context["course_code"] if tool_context else None
         result["questions"] = tuple(dict(row) for row in rows)
         return result
 
@@ -403,10 +405,13 @@ class SQLiteAssessmentRunnerRepository:
         """Read only the visible task and mode; never SELECT marking secrets."""
         row = self.connection.execute(
             "SELECT s.mode, s.status, s.expires_at, s.current_ordinal, "
-            "s.course_code_snapshot AS course, s.title_snapshot AS assessment_title, "
+            "CASE WHEN a.deleted_at IS NULL AND c.deleted_at IS NULL THEN c.code END AS course_code, "
+            "s.title_snapshot AS assessment_title, "
             "q.ordinal, q.question_text "
             "FROM assessment_test_sessions s "
             "JOIN assessment_test_session_questions q ON q.session_id=s.id "
+            "LEFT JOIN assessments a ON a.id=s.assessment_id "
+            "LEFT JOIN courses c ON c.id=a.course_id "
             "WHERE s.id=? AND q.id=?",
             (str(session_id), str(session_question_id)),
         ).fetchone()

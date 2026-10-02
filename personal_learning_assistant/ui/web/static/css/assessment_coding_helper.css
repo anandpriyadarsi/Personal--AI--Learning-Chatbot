@@ -29,3 +29,20 @@
 .coding-operation-card pre { margin: 0; }
 #coding-helper-status { font-size: .85rem; color: var(--accent); }
 @media (max-width: 768px) { .coding-helper-dialog { width: 100%; border-radius: 0; } }
+/* Structured text blocks never interpret provider markup. */
+.coding-mode-guidance { margin: 0; color: var(--text-muted); font-size: .82rem; line-height: 1.5; }
+.coding-context-controls { display: flex; align-items: center; flex-wrap: wrap; gap: .6rem; margin-top: 1rem; }
+#coding-context-status { flex: 1 1 12rem; color: var(--text-muted); font-size: .75rem; }
+.coding-helper-answer { white-space: normal; min-width: 0; }
+.coding-helper-answer p { white-space: pre-wrap; margin: .65rem 0; }
+.coding-helper-answer h4 { margin: 1rem 0 .4rem; color: var(--accent); }
+.coding-response-block { min-width: 0; margin: .8rem 0; padding: .7rem; border: 1px solid var(--border); border-radius: .5rem; }
+.coding-response-block > span { font-size: .72rem; color: var(--text-muted); }
+.coding-response-block pre { overflow-x: auto; white-space: pre; max-width: 100%; font-size: .8rem; line-height: 1.6; }
+.coding-helper-dialog .button { white-space: normal; }
+.coding-copy, .coding-use-card { margin-top: .45rem; }
+.coding-operations > label { margin: .6rem 0; }
+#coding-helper-form, .coding-code-inputs { min-width: 0; }
+
+.coding-helper-heading > div { min-width: 0; }
+#coding-helper-close { flex: 0 0 auto; width: auto; }

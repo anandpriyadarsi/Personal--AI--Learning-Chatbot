@@ -82,7 +82,15 @@ _GROUPS = {
         ("Inconsistent categories", "Map alternate spellings to one chosen label.", "s.replace(mapping)", "Text Series and verified mapping", "print(pd.Series(['M', 'male']).replace({'M':'male'}).tolist())", "Prints ['male', 'male']", "Keep the mapping explicit; do not guess ambiguous labels."),
         ("Outlier awareness", "Flag unusual values for investigation.", "q1=s.quantile(.25); q3=s.quantile(.75); iqr=q3-q1", "Numeric Series", "s = pd.Series([1,2,3,4,100]); q1=s.quantile(.25); q3=s.quantile(.75); print((s > q3+1.5*(q3-q1)).tolist())", "Prints [False, False, False, False, True]", "An outlier flag does not justify automatic deletion."),
         ("Validity filtering", "Select records that satisfy known domain rules.", "df.loc[df['age'].between(0, 120)]", "Table and justified bounds", "s = pd.Series([-1,20,130]); print(s.between(0,120).tolist())", "Prints [False, True, False]", "Keep an audit of removed rows; bounds depend on the problem."),
+        ("Z-score standardization", "Express distance from the mean in standard-deviation units.", "z = (x - x.mean()) / x.std(ddof=0)", "Numeric array with nonzero standard deviation", "x = np.array([2.,4.,6.]); z = (x-x.mean())/x.std(ddof=0); print(z.round(3).tolist())", "Prints [-1.225, 0.0, 1.225]", "Choose population ddof=0 or sample ddof=1 deliberately; constant columns cannot be standardized this way."),
+        ("Z-score outlier check", "Flag unusual distances for investigation, not automatic deletion.", "np.abs(z) > threshold", "Finite standardized scores and justified threshold", "z = np.array([-3.5,0.,2.,4.]); print((np.abs(z)>3).tolist())", "Prints [True, False, False, True]", "A threshold of 3 is a heuristic; skewed distributions need more care."),
         ("Check after cleaning", "Confirm shape, missingness and types after each step.", "clean.shape; clean.isna().sum(); clean.dtypes", "Original and cleaned DataFrames", "df = pd.DataFrame({'x':[1,None]}); clean = df.dropna(); print(len(df)-len(clean))", "Prints 1 removed row", "Always inspect what changed before overwriting your only copy."),
+    ],
+    "EDA": [
+        ("Inspect the dataset", "Start EDA with size, types and missingness before summaries.", "df.shape; df.dtypes; df.isna().sum()", "Raw DataFrame", "df = pd.DataFrame({'score':[2, None, 6]}); print(df.shape, df['score'].isna().sum())", "Prints (3, 1) 1", "A mean alone hides missing observations and distribution."),
+        ("Compare centre and spread", "Describe typical values and how dispersed they are.", "s.mean(); s.median(); s.std(ddof=1)", "Numeric Series", "s = pd.Series([2,4,6]); print(s.mean(), s.median(), s.std())", "Prints 4.0 4.0 2.0", "Pandas std uses sample ddof=1; NumPy defaults to population ddof=0."),
+        ("Category proportions", "Compare relative frequencies when totals differ.", "s.value_counts(normalize=True, dropna=False)", "Categorical Series", "s = pd.Series(['A','A','B','B']); print(s.value_counts(normalize=True).to_dict())", "Prints {'A': 0.5, 'B': 0.5}", "State the denominator and whether missing values are included."),
+        ("Compare groups", "Summarize group size and centre together.", "df.groupby('g')['x'].agg(['count', 'mean'])", "Group labels and numeric values", "df = pd.DataFrame({'g':['a','a','b'],'x':[2,4,8]}); print(df.groupby('g')['x'].mean().to_dict())", "Prints {'a': 3.0, 'b': 8.0}", "A small group's mean may be unstable; inspect its count and spread."),
     ],
     "Visualization": [
         ("Line plot", "Show change along an ordered axis such as time.", "plt.plot(x, y)", "Ordered x and numeric y", "plt.plot([1,2,3], [2,4,3]); plt.show()", "Displays a line through (1,2), (2,4), (3,3)", "Unsorted x values produce misleading connecting lines."),
@@ -101,3 +109,29 @@ OPERATION_CARDS = tuple(
     for category, rows in _GROUPS.items()
     for index, row in enumerate(rows, 1)
 )
+
+
+# Derive executable expectations from the hand-authored display contract; never
+# from executing the examples. Descriptive/graphical output has no exact string.
+for _card in OPERATION_CARDS:
+    _output = _card["output"]
+    if _output.startswith("Prints ") and _card["what"] != "Info":
+        _expected = _output[7:].split(";", 1)[0]
+        _expected = {"0, 1, 2 on separate lines": "0\n1\n2", "2 then 1": "2\n1",
+                     "1 removed row": "1"}.get(_expected, _expected)
+        _card["expected_stdout"] = _expected
+
+
+def recommend_cards(query, *, card_id="", limit=3):
+    """Small deterministic catalogue lookup. Never reads assessment metadata."""
+    import re
+    words = {word for word in re.findall(r"[a-z_]+", query.lower()) if len(word) > 2}
+    ranked = []
+    for position, card in enumerate(OPERATION_CARDS):
+        text = " ".join(card[key] for key in ("what", "why", "syntax", "mistake")).lower()
+        score = sum(word in text for word in words)
+        if card["id"] == card_id:
+            score += 1000
+        if score:
+            ranked.append((-score, position, card))
+    return [dict(card) for _, _, card in sorted(ranked)[:limit]]
