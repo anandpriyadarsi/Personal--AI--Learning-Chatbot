@@ -1,0 +1,31 @@
+/* Scoped tools preserve the runner's layout and normal document-flow navigation. */
+.exam-tools { display: flex; flex-wrap: wrap; gap: .65rem; align-items: center; margin: .85rem 0; }
+.exam-tools > span { color: var(--text-muted); font-size: .8rem; margin-right: auto; }
+.exam-tools .button { margin: 0; }
+.coding-helper-dialog { box-sizing: border-box; width: min(38rem, 100%); max-width: 100%; height: 100dvh; max-height: 100dvh; margin: 0 0 0 auto; padding: clamp(1rem, 3vw, 1.65rem); border: 1px solid var(--border); border-radius: 1rem 0 0 1rem; color: var(--text); background: var(--surface); overflow-y: auto; overscroll-behavior: contain; }
+.coding-helper-dialog::backdrop { background: rgba(0, 0, 0, .6); }
+.coding-helper-dialog [hidden] { display: none !important; }
+.coding-helper-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; }
+.coding-helper-heading h2 { margin: .2rem 0; font-size: 1.4rem; }
+.coding-helper-heading .button { margin: 0; }
+.coding-helper-intro, .coding-operations > p { color: var(--text-muted); line-height: 1.6; font-size: .85rem; }
+#coding-helper-form { display: grid; gap: .85rem; }
+.coding-helper-dialog label { display: grid; gap: .4rem; font-size: .85rem; }
+.coding-helper-dialog input:not([type=checkbox]), .coding-helper-dialog textarea, .coding-helper-dialog select { width: 100%; min-width: 0; }
+.coding-helper-dialog textarea { resize: vertical; }
+.coding-helper-dialog .coding-checkbox { display: flex; align-items: flex-start; gap: .6rem; }
+.coding-checkbox input { flex: 0 0 auto; margin-top: .2rem; }
+.coding-helper-dialog summary { padding: .65rem 0; cursor: pointer; }
+.coding-code-inputs label { margin-top: .7rem; }
+.coding-helper-answer, .coding-operation-card pre { white-space: pre-wrap; overflow-wrap: anywhere; max-width: 100%; font-size: .84rem; line-height: 1.65; }
+.coding-helper-answer { font-family: inherit; padding: 1rem; background: var(--surface-elevated); border: 1px solid var(--border); border-radius: .7rem; }
+.coding-operations { border-top: 1px solid var(--border); margin-top: 1.25rem; padding-top: .5rem; }
+.coding-operations > summary { font-weight: 750; }
+.coding-operations > summary span { color: var(--text-muted); font-size: .75rem; margin-left: .5rem; }
+.coding-map-category > summary { color: var(--accent); font-weight: 700; }
+.coding-operation-card { border-bottom: 1px solid var(--border); padding-left: .6rem; }
+.coding-operation-card dt { font-size: .72rem; color: var(--accent); font-weight: 750; margin-top: .8rem; }
+.coding-operation-card dd { margin: .25rem 0; line-height: 1.55; font-size: .85rem; }
+.coding-operation-card pre { margin: 0; }
+#coding-helper-status { font-size: .85rem; color: var(--accent); }
+@media (max-width: 768px) { .coding-helper-dialog { width: 100%; border-radius: 0; } }

@@ -1,0 +1,2 @@
+# Optional browser regression tooling only; not an application dependency.
+playwright==1.51.0

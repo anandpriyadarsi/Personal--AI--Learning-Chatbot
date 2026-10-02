@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from typing import Any
+import os
 
 from flask import Flask
 
@@ -21,10 +22,15 @@ def create_app(config: Mapping[str, Any] | None = None) -> Flask:
     app.config.from_mapping(
         TESTING=False,
         JSON_SORT_KEYS=False,
+        ASSESSMENT_COLAB_URL=os.environ.get("ANVAYA_COLAB_URL", ""),
+        ASSESSMENT_CODING_HELPER_ENABLED=os.environ.get("ANVAYA_CODING_HELPER_ENABLED", "true").lower() == "true",
+        ASSESSMENT_CODING_HELPER_EXAM_POLICY=os.environ.get("ANVAYA_CODING_HELPER_EXAM_POLICY", "disabled"),
     )
     if config:
         app.config.update(config)
 
     app.register_blueprint(web_blueprint)
+    from .assessment_tools import assessment_tools_blueprint
+    app.register_blueprint(assessment_tools_blueprint)
     register_error_handlers(app)
     return app

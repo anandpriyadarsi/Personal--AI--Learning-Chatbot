@@ -399,6 +399,19 @@ class SQLiteAssessmentRunnerRepository:
         result["questions"] = tuple(dict(row) for row in rows)
         return result
 
+    def get_coding_context(self, session_id: str, session_question_id: str):
+        """Read only the visible task and mode; never SELECT marking secrets."""
+        row = self.connection.execute(
+            "SELECT s.mode, s.status, s.expires_at, s.current_ordinal, "
+            "s.course_code_snapshot AS course, s.title_snapshot AS assessment_title, "
+            "q.ordinal, q.question_text "
+            "FROM assessment_test_sessions s "
+            "JOIN assessment_test_session_questions q ON q.session_id=s.id "
+            "WHERE s.id=? AND q.id=?",
+            (str(session_id), str(session_question_id)),
+        ).fetchone()
+        return self._dict(row)
+
     def get_private_question_snapshot(self, session_question_id: str):
         row = self.connection.execute(
             "SELECT q.*, r.state, r.response_json, r.focus_seconds "

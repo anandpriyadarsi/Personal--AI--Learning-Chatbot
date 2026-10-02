@@ -214,7 +214,8 @@
       setSaveState(action === "clear" ? "Clearing response…" : "Saving response…", true);
       const current = form.querySelector('[name="current_ordinal"]');
       const next = form.querySelector('[name="next_ordinal"]');
-      const result = await postJson(form.action, {
+      // Controls named "action" shadow the native form.action property.
+      const result = await postJson(form.getAttribute("action"), {
         action, response: responsePayload(), current_ordinal: current ? current.value : 1,
         next_ordinal: next ? next.value : 1, focus_seconds_delta: collectFocus()
       });

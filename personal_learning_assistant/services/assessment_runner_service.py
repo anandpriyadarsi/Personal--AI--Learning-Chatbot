@@ -554,6 +554,18 @@ class AssessmentRunnerService:
             ),
         }
 
+    def coding_context(self, session_id: str, session_question_id: str):
+        """Side-effect-free helper projection; no visit, heartbeat or expiry write."""
+        with self._repository(write=False) as repository:
+            context = repository.get_coding_context(session_id, session_question_id)
+        if context is None:
+            raise AssessmentRunnerNotFoundError("Question does not belong to this test session.")
+        if context["status"] != "active" or _parse_iso(context["expires_at"]) <= self._now():
+            raise AssessmentRunnerConflictError("This timed attempt has ended.")
+        if context["ordinal"] != context["current_ordinal"]:
+            raise AssessmentRunnerConflictError("Open the current question before requesting help.")
+        return {key: context[key] for key in ("mode", "course", "assessment_title", "question_text")}
+
     def _load_private_question(self, session_id: str, session_question_id: str):
         with self._repository(write=False) as repository:
             question = repository.get_private_question_snapshot(

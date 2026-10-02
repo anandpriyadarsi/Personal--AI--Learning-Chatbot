@@ -8,6 +8,7 @@ class Element {
   addEventListener(name, fn) { (this.listeners[name] ||= []).push(fn); }
   async emit(name, extra={}) { const e={preventDefault(){this.prevented=true},...extra}; for(const fn of this.listeners[name]||[]) await fn(e); return e; }
   setAttribute() {}
+  getAttribute(name) { return name === 'action' ? '/action' : null; }
 }
 const settle = async () => { for(let i=0;i<15;i++) await Promise.resolve(); };
 function harness(type='numerical', options={}) {
@@ -16,7 +17,8 @@ function harness(type='numerical', options={}) {
   const input=new Element({name:type==='long_subjective'?'answer_text':'answer_value',value:type==='true_false'?'True':'',type:type==='true_false'?'radio':'text'});
   const fillParts=(options.fillParts||[]).map(value=>new Element({name:'fill_parts',value,type:'text'}));
   const fieldset=new Element(), focus=new Element({type:'hidden'}), button=new Element({value:'save_next'});
-  const form=new Element({action:'/action'});
+  // Native HTML forms expose the named action controls through form.action.
+  const form=new Element({action:{toString:()=> '[object RadioNodeList]'}});
   form.querySelectorAll=(selector)=>selector==='input, textarea'?[...(fillParts.length?fillParts:[input])]:selector==='[data-fill-part]'?fillParts:selector.includes(':checked')?[]:[button];
   form.querySelector=(selector)=>selector==='fieldset'?fieldset:selector.includes(':checked')?null:input;
   const nav=new Element({href:'/next'}), submit=new Element(), retry=new Element(), status=new Element(), timer=new Element();

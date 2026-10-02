@@ -1735,6 +1735,8 @@ def assessment_test_start(assessment_id):
 
 @web_blueprint.get("/assessments/sessions/<session_id>")
 def assessment_session(session_id):
+    from personal_learning_assistant.services.assessment_coding_helper import tool_options
+    from personal_learning_assistant.services.coding_operations import OPERATION_CARDS
     try:
         ordinal = request.args.get("q", default=None, type=int)
         view = _assessment_runner_service().runner_view(
@@ -1750,6 +1752,8 @@ def assessment_session(session_id):
             "assessment_test_runner.html",
             active_page="assessments",
             view=view,
+            coding_tools=tool_options(view["session"]["mode"], current_app.config),
+            operation_cards=OPERATION_CARDS,
         )
     except Exception as error:
         return str(error), _assessment_runner_error_status(error)

@@ -4234,7 +4234,10 @@ body.sidebar-collapsed.notes-focus-page .content {
 
 
 /* Assessment Studio Phase C — timed CBT runner */
-.assessment-exam-body .app-shell { grid-template-columns: minmax(0, 1fr); }
+/* The hidden sidebar must not leave a zero-width track for app-main when
+   the saved desktop sidebar preference is restored by app.js. */
+.assessment-exam-body .app-shell,
+body.sidebar-collapsed.assessment-exam-body .app-shell { grid-template-columns: minmax(0, 1fr); }
 .assessment-exam-body .app-sidebar,
 .assessment-exam-body .topbar,
 .assessment-exam-body .app-footer { display: none; }

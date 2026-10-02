@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ view.session.title_snapshot }} · Test Runner · ANVAYA{% endblock %}
 {% block body_class %}assessment-exam-body{% endblock %}
-{% block page_scripts %}<link rel="stylesheet" href="{{ url_for('static', filename='css/assessment_runner_math.css') }}"><script defer src="{{ url_for('static', filename='js/assessment_math.js') }}"></script><script defer src="{{ url_for('static', filename='js/assessment_runner.js') }}"></script>{% endblock %}
+{% block page_scripts %}<link rel="stylesheet" href="{{ url_for('static', filename='css/assessment_runner_math.css') }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/assessment_coding_helper.css') }}"><script defer src="{{ url_for('static', filename='js/assessment_math.js') }}"></script><script defer src="{{ url_for('static', filename='js/assessment_runner.js') }}"></script><script defer src="{{ url_for('static', filename='js/assessment_coding_helper.js') }}"></script>{% endblock %}
 {% block content %}
 <div
   id="assessment-runner"
@@ -27,6 +27,12 @@
       <button id="assessment-save-retry" class="button button-secondary compact-button" type="button" hidden>Retry save</button>
     </div>
   </header>
+
+  <nav class="exam-tools" aria-label="Assessment Tools">
+    <span>Assessment Tools</span>
+    {% if coding_tools.policy != 'disabled' %}<button id="coding-helper-open" class="button button-secondary compact-button" type="button" aria-haspopup="dialog" aria-controls="coding-helper-dialog">Coding Helper</button>{% endif %}
+    <a class="button button-secondary compact-button" href="{{ coding_tools.colab_url }}" target="_blank" rel="noopener noreferrer">Open Google Colab <span class="visually-hidden">(new tab)</span></a>
+  </nav>
 
   <div class="exam-layout">
     <section class="exam-question-panel" aria-label="Current question">
@@ -206,4 +212,5 @@
     <button id="assessment-palette-open" class="exam-palette-open-tab" type="button" aria-controls="assessment-palette-panel" aria-expanded="false" hidden><span aria-hidden="true">←</span> Question palette</button>
   </div>
 </div>
+{% if coding_tools.policy != 'disabled' %}{% include '_assessment_coding_helper.html' %}{% endif %}
 {% endblock %}
