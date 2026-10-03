@@ -28,6 +28,7 @@ def live(tmp_path, browser, request):
     if getattr(request, "param", None) == "practice":
         with sqlite3.connect(path) as db:
             db.execute("UPDATE assessment_runtime_specs SET mode='practice'")
+            db.execute("UPDATE courses SET code='UC100N'")
     clock = Clock()
     service = _service(path, clock)
     sid = service.start("assessment-1", confirmed=True)["session_id"]
@@ -35,7 +36,7 @@ def live(tmp_path, browser, request):
     from personal_learning_assistant.domain.tutor_models import TutorProviderResponse
     class BrowserProvider:
         def complete(self, request):
-            return TutorProviderResponse("Use a Boolean mask. Predict the result, then try it. <img src=x onerror=alert(1)>", "fixture", "fixture")
+            return TutorProviderResponse("## Explanation\nUse a Boolean mask. Predict the result, then try it. <img src=x onerror=alert(1)>\n\n```python\nprint('<img src=x onerror=alert(1)>')\n```\n```output\n<img src=x onerror=alert(1)>\n```", "fixture", "fixture")
     app.config["CODING_HELPER_PROVIDER_FACTORY"] = BrowserProvider
     server = make_server("127.0.0.1", 0, app, threaded=True)
     thread = Thread(target=server.serve_forever, daemon=True)
@@ -140,7 +141,8 @@ def test_helper_and_colab_preserve_attempt_and_are_keyboard_accessible(live, wid
     page.get_by_role("button",name="Get help",exact=True).click()
     playwright.expect(page.locator("#coding-helper-answer")).to_contain_text("Use a Boolean mask")
     assert page.locator("#coding-helper-answer img").count() == 0
-    page.get_by_text("Operations Map", exact=False).first.click()
+    page.locator('.coding-operations > summary').click()
+    page.get_by_label("Operation category",exact=True).select_option("Pandas")
     page.get_by_label("Find an operation",exact=True).fill("groupby")
     assert page.locator(".coding-operation-card:visible").count() == 1
     assert page.get_by_role("dialog").bounding_box()["width"] <= width
@@ -160,3 +162,133 @@ def test_helper_and_colab_preserve_attempt_and_are_keyboard_accessible(live, wid
     with sqlite3.connect(path) as db:
         assert "\n".join(db.iterdump()) == before
     assert page.locator('input[value="B"]').is_checked()
+
+
+@pytest.mark.parametrize('live', ['practice'], indirect=True)
+@pytest.mark.parametrize('width,height', [(1920,1080),(1536,864),(1366,768),(1024,768),(768,768),(390,844)])
+def test_helper2_layout_modes_and_reset(live,width,height):
+    page,url,service,sid,*_=live
+    page.set_viewport_size({'width':width,'height':height})
+    page.goto(url)
+    original=page.locator('.exam-question-text').bounding_box()['width']
+    page.get_by_role('button',name='Coding Helper',exact=True).click()
+    assert page.locator('.exam-question-text').bounding_box()['width']==original
+    assert page.locator('#coding-helper-title').bounding_box()['height'] < 60
+    assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
+    for mode in ['hint','concept','operation','explain_code','debug','memory','pseudocode','rebuild','viva','predict','compare','check']:
+        page.locator('#coding-helper-action').select_option(mode)
+        assert page.locator('#coding-mode-guidance').inner_text().strip()
+    page.get_by_label('Your question',exact=True).fill('What does groupby do?')
+    page.get_by_role('button',name='Get help',exact=True).click()
+    playwright.expect(page.locator('#coding-helper-answer')).to_contain_text('Boolean mask')
+    page.get_by_role('button',name='Reset helper',exact=True).click()
+    assert not page.locator('#coding-helper-answer-section').is_visible()
+    assert page.get_by_label('Your question',exact=True).input_value()==''
+    page.keyboard.press('Escape')
+    assert page.locator('#coding-helper-open').evaluate('e => e === document.activeElement')
+    page.get_by_role('button',name='Save & Next',exact=True).scroll_into_view_if_needed()
+    page.get_by_role('button',name='Save & Next',exact=True).click(trial=True)
+
+
+@pytest.mark.parametrize('course', ['MA103N','CY100N','UC103N','DE100N'])
+def test_non_uc100n_has_no_tool_row_in_real_browser(live,course):
+    page,url,_,_,path,*_=live
+    with sqlite3.connect(path) as db: db.execute('UPDATE courses SET code=?',(course,))
+    page.goto(url+'?course_code=UC100N')
+    assert page.locator('.exam-tools').count()==0
+    assert page.locator('#coding-helper-dialog').count()==0
+    assert page.get_by_role('button',name='Save & Next',exact=True).is_visible()
+
+
+@pytest.mark.parametrize('live', ['practice'], indirect=True)
+def test_copy_card_context_reset_and_late_response(live):
+    page,url,*_=live
+    page.goto(url)
+    page.get_by_role('button',name='Coding Helper',exact=True).click()
+    page.locator('.coding-operations > summary').click()
+    page.get_by_label('Operation category',exact=True).select_option('Pandas')
+    page.get_by_label('Find an operation',exact=True).fill('groupby')
+    card=page.locator('.coding-operation-card:visible')
+    assert card.count()==1
+    card.locator('summary').click()
+    page.evaluate("Object.defineProperty(navigator,'clipboard',{value:{writeText:async text => {window.copied=text;}}})")
+    card.get_by_role('button',name='Copy syntax',exact=True).click()
+    assert page.evaluate('window.copied')=="df.groupby('group')['value'].sum()"
+    card.get_by_role('button',name='Learn this operation',exact=True).click()
+    assert page.locator('#coding-helper-action').input_value()=='memory'
+    assert page.get_by_label('Concept / operation',exact=True).input_value()=='Groupby'
+    sent=[]
+    page.on('request',lambda req:sent.append(req.post_data_json) if req.url.endswith('/coding-helper') else None)
+    page.get_by_role('button',name='Get help',exact=True).click()
+    playwright.expect(page.locator('#coding-helper-answer-section')).to_be_visible()
+    page.get_by_label('Your question',exact=True).fill('Why agg next?')
+    page.get_by_role('button',name='Get help',exact=True).click()
+    playwright.expect(page.locator('#coding-helper-answer-section')).to_be_visible()
+    assert sent[-1]['context_token']
+    page.get_by_role('button',name='Reset helper',exact=True).click()
+    page.get_by_label('Your question',exact=True).fill('New topic')
+    page.get_by_role('button',name='Get help',exact=True).click()
+    playwright.expect(page.locator('#coding-helper-answer-section')).to_be_visible()
+    assert sent[-1]['context_token']==''
+    # Controlled slow transport ignores abort to prove the stale-result guard.
+    page.evaluate("() => { window.fetch = () => new Promise(resolve => { window.releaseHelper = () => resolve({ok:true,json:async()=>({reply:'LATE REPLY',context_token:'late'})}); }); }")
+    page.get_by_role('button',name='Get help',exact=True).click()
+    page.get_by_role('button',name='Reset helper',exact=True).click()
+    page.evaluate('window.releaseHelper()')
+    assert not page.locator('#coding-helper-answer-section').is_visible()
+    assert 'LATE REPLY' not in page.locator('#coding-helper-answer').inner_text()
+    assert page.get_by_role('button',name='Get help',exact=True).is_enabled()
+
+
+@pytest.mark.parametrize('live', ['practice'], indirect=True)
+def test_helper_timeout_and_failed_copy_keep_inputs(live):
+    page,url,*_=live
+    page.goto(url)
+    page.get_by_role('button',name='Coding Helper',exact=True).click()
+    page.get_by_label('Your question',exact=True).fill('Keep my input')
+    page.evaluate("() => { window.fetch = () => Promise.reject(new DOMException('test timeout', 'AbortError')); }")
+    page.get_by_role('button',name='Get help',exact=True).click()
+    playwright.expect(page.locator('#coding-helper-status')).to_contain_text('timed out')
+    assert page.get_by_label('Your question',exact=True).input_value()=='Keep my input'
+    assert page.get_by_role('button',name='Get help',exact=True).is_enabled()
+    page.locator('.coding-operations > summary').click()
+    card=page.locator('.coding-operation-card').first
+    card.locator('summary').click()
+    page.evaluate("Object.defineProperty(navigator,'clipboard',{value:{writeText:async()=>{throw Error('denied')}}})")
+    card.get_by_role('button',name='Copy syntax',exact=True).click()
+    playwright.expect(page.locator('#coding-helper-status')).to_contain_text('Select the code')
+
+
+@pytest.mark.parametrize('live', ['practice'], indirect=True)
+@pytest.mark.parametrize('finish', ['reset','close'])
+def test_stale_error_never_overwrites_new_helper_status(live,finish):
+    page,url,*_=live
+    page.goto(url)
+    page.get_by_role('button',name='Coding Helper',exact=True).click()
+    page.get_by_label('Your question',exact=True).fill('A question')
+    page.evaluate("() => { window.fetch = () => new Promise((resolve,reject) => { window.rejectHelper = () => reject(Error('Reset by upstream proxy')); }); }")
+    page.get_by_role('button',name='Get help',exact=True).click()
+    if finish=='reset':
+        page.get_by_role('button',name='Reset helper',exact=True).click()
+    else:
+        page.get_by_role('button',name='Close Coding Helper',exact=True).click()
+    previous=page.locator('#coding-helper-status').text_content()
+    page.evaluate("async () => { window.rejectHelper(); await new Promise(resolve => setTimeout(resolve,0)); }")
+    assert page.locator('#coding-helper-status').text_content()==previous
+    assert not page.locator('#coding-helper-answer-section').is_visible()
+
+
+@pytest.mark.parametrize('live', ['practice'], indirect=True)
+def test_expired_context_notice_and_retry_clear_token(live):
+    page,url,*_=live
+    page.goto(url)
+    page.get_by_role('button',name='Coding Helper',exact=True).click()
+    page.get_by_label('Your question',exact=True).fill('A question')
+    page.get_by_role('button',name='Get help',exact=True).click()
+    playwright.expect(page.locator('#coding-helper-answer-section')).to_be_visible()
+    page.evaluate("() => { window.fetch = async (url,options) => { window.lastHelperPayload=JSON.parse(options.body); return {ok:false,json:async()=>({error:'Context expired; retry.',reset_context:true})}; }; }")
+    page.get_by_role('button',name='Get help',exact=True).click()
+    playwright.expect(page.locator('#coding-helper-status')).to_contain_text('Context expired; retry.')
+    assert page.get_by_role('button',name='Get help',exact=True).is_enabled()
+    page.get_by_role('button',name='Get help',exact=True).click()
+    assert page.evaluate('window.lastHelperPayload.context_token')==''

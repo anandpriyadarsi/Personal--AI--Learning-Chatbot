@@ -28,11 +28,13 @@
     </div>
   </header>
 
+  {% if coding_tools.coding_helper_available or coding_tools.colab_available %}
   <nav class="exam-tools" aria-label="Assessment Tools">
     <span>Assessment Tools</span>
-    {% if coding_tools.policy != 'disabled' %}<button id="coding-helper-open" class="button button-secondary compact-button" type="button" aria-haspopup="dialog" aria-controls="coding-helper-dialog">Coding Helper</button>{% endif %}
-    <a class="button button-secondary compact-button" href="{{ coding_tools.colab_url }}" target="_blank" rel="noopener noreferrer">Open Google Colab <span class="visually-hidden">(new tab)</span></a>
+    {% if coding_tools.coding_helper_available %}<button id="coding-helper-open" class="button button-secondary compact-button" type="button" aria-haspopup="dialog" aria-controls="coding-helper-dialog">Coding Helper</button>{% endif %}
+    {% if coding_tools.colab_available %}<a class="button button-secondary compact-button" href="{{ coding_tools.colab_url }}" target="_blank" rel="noopener noreferrer">Open Google Colab <span class="visually-hidden">(new tab)</span></a>{% endif %}
   </nav>
+  {% endif %}
 
   <div class="exam-layout">
     <section class="exam-question-panel" aria-label="Current question">
@@ -212,5 +214,5 @@
     <button id="assessment-palette-open" class="exam-palette-open-tab" type="button" aria-controls="assessment-palette-panel" aria-expanded="false" hidden><span aria-hidden="true">←</span> Question palette</button>
   </div>
 </div>
-{% if coding_tools.policy != 'disabled' %}{% include '_assessment_coding_helper.html' %}{% endif %}
+{% if coding_tools.coding_helper_available %}{% include '_assessment_coding_helper.html' %}{% endif %}
 {% endblock %}

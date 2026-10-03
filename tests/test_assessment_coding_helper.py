@@ -20,7 +20,10 @@ class Provider:
 def setup(tmp_path, mode="practice", **settings):
     path = _database(tmp_path)
     with sqlite3.connect(path) as db:
-        db.execute("UPDATE assessment_runtime_specs SET mode=?", (mode,))
+        db.execute("UPDATE assessment_runtime_specs SET mode=?", ("practice" if mode == "assignment" else mode,))
+        if mode == "assignment":
+            db.execute("UPDATE assessments SET assessment_type='assignment'")
+        db.execute("UPDATE courses SET code='UC100N', name='Data Science and AI'")
     clock = Clock()
     service = _service(path, clock)
     sid = service.start("assessment-1", confirmed=True)["session_id"]
@@ -169,7 +172,7 @@ def test_provider_failure_is_safe_and_map_remains_available(tmp_path):
 
 def test_operations_map_covers_requested_categories_and_complete_cards():
     from personal_learning_assistant.services.coding_operations import OPERATION_CARDS
-    assert {c["category"] for c in OPERATION_CARDS} == {"Python","NumPy","Pandas","Data cleaning","Visualization"}
+    assert {c["category"] for c in OPERATION_CARDS} == {"Python","NumPy","Pandas","Data cleaning","Visualization","EDA"}
     assert len(OPERATION_CARDS) >= 65
     assert len({c["id"] for c in OPERATION_CARDS}) == len(OPERATION_CARDS)
     for card in OPERATION_CARDS:
@@ -214,3 +217,29 @@ def test_windows_acceptance_fixture_is_disposable_and_route_scoped(tmp_path, mon
         assert result.status_code == 200
         assert "DEMO RESPONSE" in result.get_json()["reply"]
     assert dump(path) == before
+
+
+@pytest.mark.parametrize('course', ['UC100N', 'MA103N', 'CY100N', 'UC103N', 'DE100N', 'OTHER', 'uc100n'])
+@pytest.mark.parametrize('mode', ['practice', 'assignment'])
+def test_tools_authorized_only_by_persisted_course(tmp_path, course, mode):
+    client, _, provider, path, _, sid, qid = setup(tmp_path, mode=mode)
+    with sqlite3.connect(path) as db:
+        db.execute('UPDATE courses SET code=?', (course,))
+        db.execute("UPDATE assessments SET title='UC100N Python NumPy'")
+        db.execute("UPDATE assessment_test_sessions SET course_code_snapshot='UC100N'")
+    html = client.get(f'/assessments/sessions/{sid}?course_code=UC100N').get_data(as_text=True)
+    eligible = course == 'UC100N'
+    assert ('id="coding-helper-open"' in html) == eligible
+    assert ('colab.research.google.com' in html) == eligible
+    assert ('class="exam-tools"' in html) == eligible
+    response = client.post(endpoint(sid, qid), json={'action':'hint', 'topic':'loops', 'course_code':'UC100N', 'mode':'practice'})
+    assert response.status_code == (200 if eligible else 403)
+    assert bool(provider.requests) == eligible
+
+
+def test_deleted_course_cannot_use_tools(tmp_path):
+    client, _, provider, path, _, sid, qid = setup(tmp_path)
+    with sqlite3.connect(path) as db:
+        db.execute("UPDATE courses SET deleted_at='2026-10-02T00:00:00Z'")
+    assert client.post(endpoint(sid,qid),json={'action':'hint','topic':'loops'}).status_code == 403
+    assert not provider.requests
