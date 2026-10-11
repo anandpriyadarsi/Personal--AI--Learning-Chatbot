@@ -1,6 +1,7 @@
 import importlib.util
 import json
 from pathlib import Path
+import re
 import subprocess
 import sys
 
@@ -100,3 +101,16 @@ def test_summary_keeps_production_and_known_product_defects_separate(tmp_path):
     assert saved['GATE_A_LOCAL_PRODUCTION_AUTHORITY'] == 'BLOCKED'
     assert saved['known_product_behaviour']['A'] == 'FAIL'
     assert 'BLOCKED' in (tmp_path / 'VALIDATION_SUMMARY.md').read_text()
+
+
+def test_workflow_job_environment_uses_available_github_contexts():
+    import yaml
+    workflow = yaml.safe_load((ROOT / '.github/workflows/architecture-validation.yml').read_text(encoding='utf-8'))
+    # GitHub's job-level env is evaluated before a runner exists. Runtime
+    # paths must be initialized in steps, not in this restricted context.
+    available = {'github', 'needs', 'strategy', 'matrix', 'vars', 'secrets', 'inputs'}
+    for job in workflow['jobs'].values():
+        for value in job.get('env', {}).values():
+            for expression in re.findall(r'\$\{\{(.*?)\}\}', str(value)):
+                contexts = re.findall(r'\b([A-Za-z_]\w*)\.', expression)
+                assert set(contexts) <= available, expression

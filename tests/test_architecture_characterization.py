@@ -77,3 +77,43 @@ def test_characterizations_preserve_read_only_sql_and_report_filesystem_effects(
     assert evidence['topic']['scenario_A']['ledger_and_task_counts'] == {'assessment_recovery_recommendations': 0, 'planner_tasks': 0}
     assert evidence['planning']['scenario_B']['read_logical_dump_unchanged']
     assert all(row['status'] == 200 and not row['network_attempts'] for row in evidence['read_routes'])
+
+
+@pytest.mark.parametrize('probe', ['planning', 'topic'])
+def test_probe_closes_connections_before_temporary_directory_cleanup(tmp_path, probe):
+    # Emulate Windows' refusal to delete an open SQLite file even on Linux.
+    # Weak references retain no connection that CPython would normally release.
+    check = r'''
+import runpy, sqlite3, sys, tempfile, weakref
+refs = []
+connect = sqlite3.connect
+class TrackedConnection(sqlite3.Connection):
+    closed = False
+    def close(self):
+        self.closed = True
+        return super().close()
+def tracked(*args, **kwargs):
+    kwargs.setdefault('factory', TrackedConnection)
+    connection = connect(*args, **kwargs)
+    refs.append(weakref.ref(connection))
+    return connection
+sqlite3.connect = tracked
+TemporaryDirectory = tempfile.TemporaryDirectory
+class CheckedDirectory(TemporaryDirectory):
+    def __exit__(self, *args):
+        active = [r() for r in refs if r() is not None and not r().closed]
+        try:
+            assert not active, 'SQLite handles still open at directory cleanup'
+        finally:
+            for connection in active:
+                connection.close()
+            super().__exit__(*args)
+tempfile.TemporaryDirectory = CheckedDirectory
+script, repo, output = sys.argv[1:]
+sys.argv = [script, '--repo', repo, '--output', output]
+runpy.run_path(script, run_name='__main__')
+'''
+    script = ROOT / 'scripts/characterization' / (probe + '.py')
+    result = subprocess.run([sys.executable, '-c', check, str(script), str(ROOT), str(tmp_path / 'report.json')],
+                            capture_output=True, text=True, timeout=120)
+    assert result.returncode == 0, result.stdout + result.stderr

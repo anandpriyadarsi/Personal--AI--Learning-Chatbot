@@ -5,6 +5,7 @@ Run: PYTHONDONTWRITEBYTECODE=1 python reproduce_topic_contracts.py --repo /path/
 The current defect is asserted; this is characterization, not a repaired policy test.
 """
 from __future__ import annotations
+from contextlib import closing
 import hashlib
 import importlib.util
 import json
@@ -43,7 +44,7 @@ with tempfile.TemporaryDirectory(prefix='topic-audit-') as folder:
     assert rank['weighted_performance_percent'] == 100.0 and rank['band'] == 'strong'
     assert candidate['action_family'] == 'evidence_check'
     assert digest(path) == before
-    with sqlite3.connect(path) as db:
+    with closing(sqlite3.connect(path)) as db, db:
         counts = {table: db.execute('SELECT COUNT(*) FROM '+table).fetchone()[0]
                   for table in ('assessment_recovery_recommendations','planner_tasks')}
         assert counts == {'assessment_recovery_recommendations': 0, 'planner_tasks': 0}

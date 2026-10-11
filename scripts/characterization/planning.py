@@ -6,6 +6,7 @@ No existing database is read or modified. Migrations apply only to new temp DBs.
 Assertions describe the current defect; this is not a desired-behavior test suite.
 """
 import argparse
+from contextlib import closing
 import hashlib
 import json
 import os
@@ -29,7 +30,7 @@ from personal_learning_assistant.services.month_plan_import_service import build
 from personal_learning_assistant.repositories.sqlite.weekly_review_repository import SQLiteWeeklyReviewRepository
 
 def dump(path):
-    with sqlite3.connect(path.resolve().as_uri() + '?mode=ro', uri=True) as c:
+    with closing(sqlite3.connect(path.resolve().as_uri() + '?mode=ro', uri=True)) as c, c:
         return '\n'.join(c.iterdump())
 
 def task(c, ident, *, preferred=None, due=None, priority='P1', minutes=60):
@@ -40,7 +41,7 @@ with tempfile.TemporaryDirectory(prefix='anvaya-planning-audit-') as temp:
     root = Path(temp)
     db = root / 'scenario_b.db'
     apply_migrations(db)
-    with sqlite3.connect(db) as c:
+    with closing(sqlite3.connect(db)) as c, c:
         task(c, 'future', preferred='2026-10-30')
     service = build_daily_agenda_service(db)
     before = dump(db)
@@ -50,7 +51,7 @@ with tempfile.TemporaryDirectory(prefix='anvaya-planning-audit-') as temp:
     assert dump(db) == before
     service.generate_day('2026-10-01')
     saved = service.approve_day('2026-10-01')
-    with sqlite3.connect(db) as c:
+    with closing(sqlite3.connect(db)) as c, c:
         c.execute("UPDATE planner_tasks SET title='changed after approval', estimated_minutes=90 WHERE id='future'")
     current = service.preview_day('2026-10-01')
     assert current['existing']['items'][0]['title'] == 'future'
@@ -74,7 +75,7 @@ with tempfile.TemporaryDirectory(prefix='anvaya-planning-audit-') as temp:
     # Due marker is included as a fixed routine and then as a timed flexible task.
     db = root / 'due_and_rollover.db'
     apply_migrations(db)
-    with sqlite3.connect(db) as c:
+    with closing(sqlite3.connect(db)) as c, c:
         task(c, 'due', due='2026-10-12', priority='P0')
         task(c, 'p0-two', priority='P0')
         task(c, 'p0-three', priority='P0')
@@ -97,7 +98,7 @@ with tempfile.TemporaryDirectory(prefix='anvaya-planning-audit-') as temp:
     # COUNT is global to recurrence, but current implementation restarts on each window.
     db = root / 'calendar.db'
     apply_migrations(db)
-    with sqlite3.connect(db) as c:
+    with closing(sqlite3.connect(db)) as c, c:
         c.execute("INSERT INTO routine_templates (id,title,recurrence_rule,active_from,active_to,start_time,end_time,created_at,updated_at) VALUES ('count','COUNT three','RRULE:FREQ=DAILY;COUNT=3','2026-10-01','2026-10-31','21:45','21:55','x','x')")
         c.execute("INSERT INTO academic_events (id,event_kind,title,starts_at,ends_at,all_day,recurrence_rule,status,created_at,updated_at) VALUES ('recurring','class','Weekly class','2026-10-05T09:00:00','2026-10-05T10:00:00',0,'RRULE:FREQ=WEEKLY;BYDAY=MO;UNTIL=20261031','scheduled','x','x')")
     calendar = build_operational_calendar_service(db)
@@ -111,7 +112,7 @@ with tempfile.TemporaryDirectory(prefix='anvaya-planning-audit-') as temp:
 
     db = root / 'study_capacity.db'
     apply_migrations(db)
-    with sqlite3.connect(db) as c:
+    with closing(sqlite3.connect(db)) as c, c:
         c.execute("INSERT INTO study_plans (id,kind,horizon,starts_on,ends_on,requested_minutes,allocated_minutes,engine_name,engine_version,created_at,updated_at) VALUES ('plan','weekly','week','2026-10-12','2026-10-12',540,540,'fixture','1','x','x')")
         for n in range(1,4):
             c.execute("INSERT INTO study_plan_items (id,plan_id,plan_date,ordinal,minutes,action) VALUES (?,'plan','2026-10-12',?,180,'Legacy study')",('s'+str(n),n))
@@ -125,7 +126,7 @@ with tempfile.TemporaryDirectory(prefix='anvaya-planning-audit-') as temp:
     daily.approve_day('2026-10-12')
     study_item = next(r for r in saved['items'] if r['source_id']=='s1')
     daily.update_item('2026-10-12',study_item['id'],status='completed',actual_minutes=180)
-    with sqlite3.connect(db) as c:
+    with closing(sqlite3.connect(db)) as c, c:
         source_status = c.execute("SELECT status FROM study_plan_items WHERE id='s1'").fetchone()[0]
         engagement_count = c.execute('SELECT COUNT(*) FROM study_sessions').fetchone()[0]
     assert source_status=='planned' and engagement_count==0
@@ -135,14 +136,14 @@ with tempfile.TemporaryDirectory(prefix='anvaya-planning-audit-') as temp:
     # Changed revision repeats same ledger PK per plan/external ID (not per import).
     db = root / 'month_revision.db'
     apply_migrations(db)
-    with sqlite3.connect(db) as c:
+    with closing(sqlite3.connect(db)) as c, c:
         c.execute("INSERT INTO courses(id,code,name,status,created_at,updated_at) VALUES('c-ma','MA103N','Linear Algebra','active','x','x')")
     monthly = build_month_plan_import_service(db)
     payload = (repo / 'tests/fixtures/phase7_5/month_plan_minimal.yaml').read_bytes()
     preview = monthly.preview('original.yaml',payload)
     assert preview['valid']
     monthly.approve('original.yaml',payload,preview['source_sha256'])
-    with sqlite3.connect(db) as c:
+    with closing(sqlite3.connect(db)) as c, c:
         results['month_settings_projection_gap'] = {'preview_weekly_review_dates':preview['plan']['weekly_reviews'], 'persisted_weekly_review_rows':c.execute('SELECT COUNT(*) FROM weekly_reviews').fetchone()[0], 'preview_settings':preview['plan']['settings']}
     changed = payload.replace(b'Solve and explain one LU set.',b'Solve two LU sets independently.')
     assert changed != payload

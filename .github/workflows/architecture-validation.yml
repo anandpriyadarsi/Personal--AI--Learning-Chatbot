@@ -18,9 +18,6 @@ jobs:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 35
-    env:
-      PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/anvaya-chromium
-      ANVAYA_VALIDATION_OUTPUT: ${{ runner.temp }}/anvaya-architecture-results
     steps:
       - uses: actions/checkout@v4
         with:
@@ -33,6 +30,13 @@ jobs:
             requirements.txt
             requirements-dev.txt
             requirements-assessment-browser.txt
+      - name: Initialize disposable runner paths
+        shell: python
+        run: |
+          import os
+          with open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8') as stream:
+            for key, name in [('PLAYWRIGHT_BROWSERS_PATH', 'anvaya-chromium'), ('ANVAYA_VALIDATION_OUTPUT', 'anvaya-architecture-results')]:
+              stream.write(key + '=' + os.path.join(os.environ['RUNNER_TEMP'], name) + '\n')
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
