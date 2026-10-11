@@ -50,6 +50,11 @@ def _git(repo: Path, *args: str) -> str:
     return subprocess.check_output(['git', '-C', str(repo), *args], text=True).strip()
 
 
+def require_clean_source(repo: Path) -> None:
+    if _git(repo, 'status', '--porcelain=v1', '-uall'):
+        raise ValueError('Committed CI source checkout must be clean')
+
+
 def export_source(repo: Path, target: Path) -> dict:
     """Only Git's tracked/staged inventory; never copy untracked user files.
 
@@ -163,15 +168,19 @@ def run_command(name: str, command: list[str], source: Path, run: Path, env: dic
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--require-clean', action='store_true', help='Require a clean committed source tree (CI)')
     args = parser.parse_args(argv)
     run = prepare_output(args.output, ROOT)
     report = {'source': {}, 'categories': {}, 'GATE_A_DEV_PLATFORM': 'BLOCKED',
               'GATE_A_DEV_AUTOMATED': 'BLOCKED',
               'validation_scope': 'Single platform. Cross-platform acceptance is emitted by the CI aggregate job only after both matrix jobs pass.',
+              'require_clean_source': args.require_clean,
               'GATE_A_LOCAL_PRODUCTION_AUTHORITY': 'BLOCKED',
               'known_product_behaviour': {key: 'FAIL' for key in ['A', 'B', 'C', 'D', *['P%02d' % n for n in range(1, 9)]]}}
     source = run / 'source'
     try:
+        if args.require_clean:
+            require_clean_source(ROOT)
         report['source'] = export_source(ROOT, source)
         env = clean_environment(run, source)
         report['environment'] = {'python': sys.version, 'platform': platform.platform(),

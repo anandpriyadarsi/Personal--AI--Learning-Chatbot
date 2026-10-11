@@ -30,6 +30,8 @@ jobs:
             requirements.txt
             requirements-dev.txt
             requirements-assessment-browser.txt
+      - name: Check historical EOL differences and require pristine source
+        run: python scripts/architecture_checkout_eol.py --repo .
       - name: Initialize disposable runner paths
         shell: python
         run: |
@@ -52,7 +54,7 @@ jobs:
         shell: python
         run: |
           import os, subprocess, sys
-          sys.exit(subprocess.call([sys.executable, 'scripts/architecture_validation.py', '--output', os.environ['ANVAYA_VALIDATION_OUTPUT']]))
+          sys.exit(subprocess.call([sys.executable, 'scripts/architecture_validation.py', '--require-clean', '--output', os.environ['ANVAYA_VALIDATION_OUTPUT']]))
       - name: Preserve results, XML, logs, manifests and screenshots
         if: always()
         uses: actions/upload-artifact@v4

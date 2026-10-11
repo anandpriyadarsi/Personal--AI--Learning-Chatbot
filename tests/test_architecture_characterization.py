@@ -117,3 +117,37 @@ runpy.run_path(script, run_name='__main__')
     result = subprocess.run([sys.executable, '-c', check, str(script), str(ROOT), str(tmp_path / 'report.json')],
                             capture_output=True, text=True, timeout=120)
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+@pytest.mark.parametrize('path_type', ['PurePosixPath', 'PureWindowsPath'])
+def test_read_route_hash_inventory_uses_portable_relative_paths(tmp_path, path_type):
+    # Execute the actual child hash function with both pathlib path flavours.
+    # Only filesystem enumeration is supplied; hashing reads real fixture bytes.
+    import ast
+    import hashlib
+    import pathlib
+
+    script = ast.parse((ROOT / 'scripts/characterization/read_routes.py').read_text(encoding='utf-8'))
+    child = next(ast.literal_eval(n.value) for n in script.body
+                 if isinstance(n, ast.Assign) and any(isinstance(t, ast.Name) and t.id == 'child' for t in n.targets))
+    function = next(n for n in ast.parse(child).body if isinstance(n, ast.FunctionDef) and n.name == 'hashes')
+    fixture = tmp_path / 'learning_memory.json'
+    fixture.write_bytes(b'{"synthetic": true}')
+
+    class Entry:
+        def is_file(self):
+            return True
+
+        def relative_to(self, root):
+            return getattr(pathlib, path_type)('data', fixture.name)
+
+        def read_bytes(self):
+            return fixture.read_bytes()
+
+    class Root:
+        def rglob(self, pattern):
+            return [Entry()]
+
+    namespace = {'root': Root(), 'hashlib': hashlib}
+    exec(compile(ast.Module(body=[function], type_ignores=[]), '<actual probe hashes>', 'exec'), namespace)
+    assert namespace['hashes']() == {'data/learning_memory.json': hashlib.sha256(fixture.read_bytes()).hexdigest()}

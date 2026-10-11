@@ -71,6 +71,8 @@ def test_export_omits_personal_environment_and_rejects_source_symlinks(tmp_path)
         private.write_text('PRIVATE-MUST-NOT-BE-EXPORTED', encoding='utf-8')
     git('add', 'config.py', 'tests/fixtures/synthetic/obsidian_config.json')
     git('-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '-m', 'synthetic')
+    with pytest.raises(ValueError, match='clean'):
+        module.require_clean_source(source)
     target = tmp_path / 'export'
     manifest = module.export_source(source, target)
     assert (target / 'config.py').read_text() == 'VALUE = 1\n'

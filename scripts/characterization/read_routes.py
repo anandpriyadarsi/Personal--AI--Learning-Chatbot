@@ -11,7 +11,7 @@ route=sys.argv[1];seeded=sys.argv[2]=='seeded'
 if seeded:
  (root/'data').mkdir(exist_ok=True)
  (root/'data/courses.json').write_text(json.dumps({'version':1,'active_course_id':'ma103n','courses':[{'id':'ma103n','code':'MA103N','name':'Linear Algebra','status':'active','topics':[{'id':'rank','name':'Matrix Rank','status':'weak','confidence':1}]}],'document_links':{}}))
-def hashes():return {str(p.relative_to(root)):hashlib.sha256(p.read_bytes()).hexdigest() for p in root.rglob('*') if p.is_file() and '__pycache__' not in str(p)}
+def hashes():return {p.relative_to(root).as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in root.rglob('*') if p.is_file() and '__pycache__' not in str(p)}
 writes=[];network=[]
 def audit(event,args):
  if event=='socket.connect':network.append(str(args));raise RuntimeError('Network forbidden in probe')
