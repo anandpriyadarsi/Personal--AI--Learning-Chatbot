@@ -1,0 +1,44 @@
+[
+  {
+    "branch": "anvaya/library-read-model-phase-a",
+    "head": "94c75759e7489af302ba43df1e1e6e7b944520b1",
+    "behind_ahead": "4\t1",
+    "merge_base": "2d05bd06b1f176d06b617ebb626c91eaee10d03b"
+  },
+  {
+    "branch": "anvaya/operational-ux-integrations",
+    "head": "6f02b1eb9b3d8fb45f3fec0aa3ef062d81afab94",
+    "behind_ahead": "330\t39",
+    "merge_base": "f8590aca82b586e5e21b980f7e720040bb55b963"
+  },
+  {
+    "branch": "anvaya/tutor-2.0",
+    "head": "c4b2b9a9ec54d3c046c8be744a01c3e5d04e0711",
+    "behind_ahead": "330\t86",
+    "merge_base": "f8590aca82b586e5e21b980f7e720040bb55b963"
+  },
+  {
+    "branch": "anvaya/tutor-2.1-adaptive-intelligence",
+    "head": "76be911c01b5a6e526f4a38e0bc3722c8f8887f7",
+    "behind_ahead": "330\t151",
+    "merge_base": "f8590aca82b586e5e21b980f7e720040bb55b963"
+  },
+  {
+    "branch": "anvaya/tutor-2.2-student-model",
+    "head": "8c65f661c2a5c031a693c43836af5f6dae69bf77",
+    "behind_ahead": "330\t212",
+    "merge_base": "f8590aca82b586e5e21b980f7e720040bb55b963"
+  },
+  {
+    "branch": "anvaya/tutor-2.3-teaching-orchestration",
+    "head": "7fd24eb6695d7e1a904494756aa333fee274427b",
+    "behind_ahead": "198\t322",
+    "merge_base": "2b715cf7e3310df2cd3c409387b0562645dc6858"
+  },
+  {
+    "branch": "anvaya/assessment-uc100n-coding-helper-2",
+    "head": "9db42382ae617e6df52e31c9d9faa01bf517c871",
+    "behind_ahead": "1\t0",
+    "merge_base": "9db42382ae617e6df52e31c9d9faa01bf517c871"
+  }
+]

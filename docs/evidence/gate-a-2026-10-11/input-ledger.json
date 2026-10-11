@@ -1,0 +1,134 @@
+{
+  "authority": "ANVAYA_NEXT_WORK_MASTER_PROMPT(1).md; current execution overrides older audit stop instructions",
+  "baseline_main": "f859a3c7cdf44baadc17d9bd1a6c656530c1b5bf",
+  "inputs": {
+    "ANVAYA_Architecture_Audit_2026_10(1).zip": {
+      "bytes": 243370,
+      "sha256": "7d7ca8fbcf3e1dff35b88c63f6d53f07d9f3b0fe9313f0ba58dc2398862a254a"
+    },
+    "ANVAYA_NEXT_WORK_MASTER_PROMPT(1).md": {
+      "bytes": 25440,
+      "sha256": "74e87c20024e50045ff1662ceae51e0f953e3da8c62548de51423de7c6b3bf93"
+    },
+    "ANVAYA_PLANNING_ANALYSIS_IMPLEMENTATION_PLAN(1).md": {
+      "bytes": 27389,
+      "sha256": "8145413a828d2f78cf5f7583a3274ec5d5bebf14be6602f957582fa8800a135c"
+    },
+    "ANVAYA_WINDOWS_ARCHITECTURE_VALIDATION(1).md": {
+      "bytes": 26185,
+      "sha256": "e3849887be7147880208c4383b4e2077b4aa200652c66952dca64271dba25d6c"
+    }
+  },
+  "bundle_manifest_entries_verified": 48,
+  "bundle_manifest_sha256": "d4a2ca38c058c9c269e432b579bb859178d01e7a979441f1ddfbb86c7a853ac9",
+  "markdown_resources": {
+    "ANVAYA_ANALYSIS_2_0_DESIGN.md": {
+      "bytes": 15542,
+      "sha256": "a582e09d732951a5cca136a1a0b5370bdc87ea28bea0a5f661b7510cbb47d18a",
+      "role": "current execution/supporting architecture"
+    },
+    "ANVAYA_ARCHITECTURE_BASELINE_2026_10.md": {
+      "bytes": 37334,
+      "sha256": "fb4f210484f7dd286248007be25b849870c75daf876df31e4a2881a486539da9",
+      "role": "current execution/supporting architecture"
+    },
+    "ANVAYA_GATE_A_VALIDATION_REPORT.md": {
+      "bytes": 17640,
+      "sha256": "33f5204d1a60728497e9f9526cd1caa363c19100149f7f8c8f5a0e4ce6300151",
+      "role": "current execution/supporting architecture"
+    },
+    "ANVAYA_PLANNING_2_0_DESIGN.md": {
+      "bytes": 18113,
+      "sha256": "f625d4098aee0e0052ec7654a4037febdfc165f4d92eb6ea33ea92871b18433a",
+      "role": "current execution/supporting architecture"
+    },
+    "ANVAYA_PLANNING_ANALYSIS_IMPLEMENTATION_PLAN.md": {
+      "bytes": 27389,
+      "sha256": "8145413a828d2f78cf5f7583a3274ec5d5bebf14be6602f957582fa8800a135c",
+      "role": "current execution/supporting architecture"
+    },
+    "ANVAYA_PLANNING_LEARNING_AUDIT_RECONCILIATION.md": {
+      "bytes": 14626,
+      "sha256": "799e63a47ab55407cfbcf7d1b0cbb4152316e11eb87de72c166d602600c09eeb",
+      "role": "current execution/supporting architecture"
+    },
+    "ANVAYA_TOPIC_INTELLIGENCE_ARCHITECTURE_SPEC.md": {
+      "bytes": 18913,
+      "sha256": "0871dd61aae12880ba9ae028aa50ebbb03d0072a84ae343cee488ecb11e729ac",
+      "role": "current execution/supporting architecture"
+    },
+    "ANVAYA_WINDOWS_ARCHITECTURE_VALIDATION.md": {
+      "bytes": 26185,
+      "sha256": "e3849887be7147880208c4383b4e2077b4aa200652c66952dca64271dba25d6c",
+      "role": "current execution/supporting architecture"
+    },
+    "evidence/planning/PLANNING_FINDINGS.md": {
+      "bytes": 19326,
+      "sha256": "df86adc6835599cbea466ebb6f6bcbd4fc0fcb4929555dc26f4447a41af923a4",
+      "role": "current execution/supporting architecture"
+    },
+    "evidence/topic/TOPIC_EVIDENCE_FINDINGS.md": {
+      "bytes": 11127,
+      "sha256": "fe4199a1a2451b9554abd18da3ee5c2fc45132776f171108c65b0bd5e492b9f6",
+      "role": "current execution/supporting architecture"
+    },
+    "recovered/ANVAYA_PLANNING_AND_LEARNING_INTELLIGENCE_AUDIT.md": {
+      "bytes": 102137,
+      "sha256": "c06ca1f1364931b646ebeda4b269218420639221fda816edfd585334e6519bd1",
+      "role": "historical supporting report"
+    },
+    "recovered/ANVAYA_PLANNING_AND_LEARNING_INTELLIGENCE_IMPLEMENTATION_PLAN.md": {
+      "bytes": 48981,
+      "sha256": "87f4f71f81010c3ae3855541a29b865f4c2944a8bcc8d53e38d4fb90eb9c4061",
+      "role": "historical supporting report"
+    },
+    "recovered/ANVAYA_PLANNING_INTELLIGENCE_GATE_A_BASELINE_REPORT.md": {
+      "bytes": 85436,
+      "sha256": "328b08c9b8622eb66b7387ddbb19180924e8f6315d70d90e5ca51bb975320c12",
+      "role": "historical supporting report"
+    }
+  },
+  "duplicate_comparison": {
+    "plan": "separate attachment byte-identical to ZIP version",
+    "windows": "separate attachment byte-identical to ZIP version"
+  },
+  "baseline": {
+    "command": "python -m pytest -q --junitxml=../evidence_current/baseline-full.xml",
+    "exit_code": 1,
+    "passed": 1681,
+    "failed": 17,
+    "skipped_modules": [
+      "::tests.test_assessment_live_browser"
+    ],
+    "failure_ids": [
+      "tests.test_assessment_coding_helper_2::test_all_card_examples_compile_and_run_with_synthetic_data",
+      "tests.test_phase7_5_academic_agent_web::test_tutor_repository_lists_recent_sessions_newest_first",
+      "tests.test_phase7_5_academic_agent_web::test_tutor_repository_rejects_unbounded_session_limit",
+      "tests.test_phase7_5_academic_agent_web::test_workspace_lists_courses_sessions_and_provider_status",
+      "tests.test_phase7_5_academic_agent_web::test_workspace_unknown_course_is_safe_and_does_not_call_provider_complete",
+      "tests.test_phase7_5_academic_agent_web::test_create_session_defaults_to_source_only_and_reopens",
+      "tests.test_phase7_5_academic_agent_web::test_create_session_accepts_source_first_and_keeps_scope_immutable",
+      "tests.test_phase7_5_academic_agent_web::test_create_session_rejects_invalid_mode_policy_and_course",
+      "tests.test_phase7_5_academic_agent_web::test_session_view_missing_session_is_safe_404_boundary",
+      "tests.test_phase7_5_academic_agent_web::test_ask_persists_grounded_exchange_and_only_tutor_tables_change",
+      "tests.test_phase7_5_academic_agent_web::test_ask_rejects_blank_question_without_turns",
+      "tests.test_phase7_5_academic_agent_web::test_provider_unavailable_is_safe_and_does_not_persist_normal_turns",
+      "tests.test_phase7_5_academic_agent_web::test_provider_request_failure_is_safe_and_does_not_persist_normal_turns",
+      "tests.test_phase7_5_academic_agent_web::test_insufficient_evidence_persists_bounded_response_without_provider_call",
+      "tests.test_phase7_5_academic_agent_web::test_real_agent_get_does_not_change_production_database_or_retrieval_index",
+      "tests.test_phase7_5_academic_agent_web::test_real_session_get_is_read_only_when_a_session_exists",
+      "tests.test_phase7_5_anvaya_shell::test_existing_phase75_get_routes_keep_working"
+    ]
+  },
+  "reading_scope": "All current substantive architecture documents, supporting findings and recovered substantive sections; historical raw output/schema appendices consulted for contracts. Bundle scripts inspected before copying into isolated characterization. Evidence is dated, not authority to change production.",
+  "baseline_raw_evidence": {
+    "baseline-full.log.gz": {
+      "sha256": "28fddba3d640ab9f55ece130aed353b60a5e101680205a7e21ddf664c8ca6e8c",
+      "compression": "gzip mtime0; raw bytes preserved"
+    },
+    "baseline-full.xml.gz": {
+      "sha256": "9af2858b5f6f683e2b470c405a338897916fde86e1c56c82cdc3e2c9b4c39b32",
+      "compression": "gzip mtime0; raw bytes preserved"
+    }
+  }
+}
