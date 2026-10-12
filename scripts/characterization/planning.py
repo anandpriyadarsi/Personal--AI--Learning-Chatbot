@@ -58,7 +58,7 @@ with tempfile.TemporaryDirectory(prefix='anvaya-planning-audit-') as temp:
     assert current['tasks'][0]['title'] == 'changed after approval'
     results['scenario_B'] = {'preferred_day':'2026-10-30', 'preview_on':'2026-10-01', 'actual_placement': selected['starts_at'], 'read_logical_dump_unchanged': True, 'approved_title': current['existing']['items'][0]['title'], 'above_saved_preview_title': current['tasks'][0]['title']}
 
-    # Scenario C: real loaders, actual authority router, absent control file => legacy.
+    # B2 replaces the inverted C witness with desired no-initialization reads.
     import course_manager
     import learning_memory
     legacy = root / 'legacy' / 'data'
@@ -69,8 +69,8 @@ with tempfile.TemporaryDirectory(prefix='anvaya-planning-audit-') as temp:
     assert not legacy.exists()
     course_manager.load_course_data()
     learning_memory.load_memory()
-    assert (legacy / 'courses.json').exists() and (legacy / 'learning_memory.json').exists()
-    results['scenario_C'] = {p.name: {'created_by_read':True, 'bytes': p.stat().st_size, 'sha256':hashlib.sha256(p.read_bytes()).hexdigest()} for p in sorted(legacy.glob('*.json'))}
+    assert not legacy.exists()
+    results['scenario_C'] = {'created_by_read': False, 'missing_files_remain_missing': True}
 
     # Due marker is included as a fixed routine and then as a timed flexible task.
     db = root / 'due_and_rollover.db'

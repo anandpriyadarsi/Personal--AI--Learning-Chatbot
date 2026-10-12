@@ -2,11 +2,12 @@
 
 This module deliberately uses only the Python standard library so it works with
 the existing Windows command-line project.  Course data is stored in
-``data/courses.json`` and is created automatically on first use.
+``data/courses.json`` and is created only by explicit initialization or save commands.
 """
 
 import json
 import os
+from pathlib import Path
 import re
 from datetime import datetime
 
@@ -203,16 +204,23 @@ def ensure_courses_file():
 
 
 def load_course_data():
+    """Read existing course authority without initializing or repairing it."""
+    path = Path(COURSES_FILE).absolute()
+    if any(p.is_symlink() for p in (path, *path.parents)):
+        raise ValueError("Course read path must not contain symlinks")
     routed = maybe_load_sqlite_structured_store("courses", COURSES_FILE)
     if routed is not None:
         return routed
-    ensure_courses_file()
-
     try:
         with open(COURSES_FILE, "r", encoding="utf-8") as file:
-            return _normalise_data(json.load(file))
-    except (json.JSONDecodeError, OSError):
+            data = json.load(file)
+        if not isinstance(data, dict) or not isinstance(data.get("courses", []), list):
+            raise ValueError("Course authority must be a JSON object with a course list")
+        return _normalise_data(data)
+    except FileNotFoundError:
         return default_course_data()
+    except (json.JSONDecodeError, UnicodeDecodeError, OSError) as error:
+        raise ValueError("Existing course authority is unavailable; no repair performed") from error
 
 
 def save_course_data(data):

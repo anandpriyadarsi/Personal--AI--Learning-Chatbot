@@ -1,7 +1,9 @@
-"""Actual GET characterization on disposable exported source, no production data."""
+"""B2 desired GET acceptance on disposable source; replaces defect C witness."""
 import argparse,hashlib,json,os,subprocess,sys,tempfile
 from pathlib import Path
 p=argparse.ArgumentParser();p.add_argument('--repo',type=Path,required=True);p.add_argument('--output',type=Path,required=True);a=p.parse_args()
+sys.path.insert(0,str(a.repo.resolve()))
+from scripts.architecture_validation import export_source
 child=r'''
 import json,hashlib,sys,socket
 from pathlib import Path
@@ -33,12 +35,11 @@ results=[]
 for route in ['/planning','/analysis']:
  for state in ['empty','seeded']:
   with tempfile.TemporaryDirectory(prefix='anvaya-route-audit-') as tmp:
-   root=Path(tmp);archive=subprocess.check_output(['git','-C',str(a.repo.resolve()),'archive','HEAD'])
-   import io,tarfile
-   with tarfile.open(fileobj=io.BytesIO(archive)) as t:t.extractall(root,filter='data')
+   root=Path(tmp)/'source'
+   export_source(a.repo.resolve(),root)
    run=subprocess.run([sys.executable,'-c',child,route,state],cwd=root,capture_output=True,text=True,env={**os.environ,'PYTHONDONTWRITEBYTECODE':'1'})
    if run.returncode:raise RuntimeError(run.stderr)
    results.append(json.loads(run.stdout))
 assert all(r['status']==200 and not r['network_attempts'] for r in results)
-assert all('data/learning_memory.json' in r['created'] for r in results if r['state']=='seeded')
+assert all(not r['created'] and not r['changed'] and not r['writes'] for r in results)
 a.output.parent.mkdir(parents=True,exist_ok=True);a.output.write_text(json.dumps(results,indent=2));print(json.dumps(results,indent=2))

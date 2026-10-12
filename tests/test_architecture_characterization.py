@@ -1,4 +1,4 @@
-"""Reproduction PASS means the known defect is present, not product acceptance."""
+"""A/B/D/P reproduction remains; C is desired B2 read-safety acceptance."""
 import json
 from pathlib import Path
 import subprocess
@@ -29,7 +29,8 @@ def evidence(tmp_path_factory, record_testsuite_property):
     directory = tmp_path_factory.mktemp('characterization')
     reports = {}
     for finding, (owner, future_test) in OWNERS.items():
-        record_testsuite_property(finding, 'REPRODUCED; desired behaviour FAIL; owner ' + owner + '; ' + future_test)
+        status = 'DESIRED read safety PASS' if finding == 'C' else 'REPRODUCED; desired behaviour FAIL'
+        record_testsuite_property(finding, status + '; owner ' + owner + '; ' + future_test)
     for name in ['topic', 'planning', 'read_routes']:
         output = directory / (name + '.json')
         result = subprocess.run([sys.executable, str(ROOT / ('scripts/characterization/' + name + '.py')),
@@ -40,7 +41,7 @@ def evidence(tmp_path_factory, record_testsuite_property):
 
 
 @pytest.mark.known_defect
-@pytest.mark.parametrize('finding', list(OWNERS))
+@pytest.mark.parametrize('finding', [f for f in OWNERS if f != 'C'])
 def test_current_defect_reproduction(evidence, finding):
     topic, planning = evidence['topic'], evidence['planning']
     if finding == 'A':
@@ -48,8 +49,6 @@ def test_current_defect_reproduction(evidence, finding):
         assert topic['scenario_A']['recovery_candidate']['action_family'] == 'evidence_check'
     elif finding == 'B':
         assert planning['scenario_B']['actual_placement'][:10] < planning['scenario_B']['preferred_day']
-    elif finding == 'C':
-        assert all('data/learning_memory.json' in row['created'] for row in evidence['read_routes'] if row['state'] == 'seeded')
     elif finding == 'D':
         assert len(topic['scenario_D']['missing_mapping_snapshot_fields']) == 6
     elif finding == 'P01':
@@ -71,6 +70,12 @@ def test_current_defect_reproduction(evidence, finding):
     elif finding == 'P08':
         row = planning['study_capacity_and_completion']
         assert row['completed_agenda_source_status'] == 'planned' and row['engagement_rows'] == 0
+
+
+def test_get_missing_legacy_files_does_not_create_files(evidence):
+    # Retires the inverted C assertion only after B2 desired regressions passed.
+    assert all(not row['created'] and not row['changed'] and not row['writes']
+               for row in evidence['read_routes'])
 
 
 def test_characterizations_preserve_read_only_sql_and_report_filesystem_effects(evidence):
