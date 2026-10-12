@@ -44,6 +44,10 @@ Semantic fidelity remains `needs_review` on20 pages. Canonical course/topic mapp
 
 ## Validation
 
-Final local scoped suite:75 passed/0 failed/0 skipped, including all four external fixture cases. Focused regressions:101 passed/0 failed/0 skipped. Full unchanged V1:1771 passed/16 failed/0 skipped; V1.1:1791 passed/the identical16 failed/0 skipped. No missing cases/new skips/new failures. Full suite remains RED. An initial comparison showed one extra Assessment browser overflow failure while browser runs overlapped; the final sequential comparison passed with the identical baseline failures. Assessment code/tests were untouched; no assertion or failure was skipped or weakened.
+Final local scoped suite:76 passed/0 failed/0 skipped, including all four external fixture cases. Focused regressions:101 passed/0 failed/0 skipped. Full unchanged V1:1771 passed/16 failed/0 skipped; V1.1:1791 passed/the identical16 failed/0 skipped. No missing cases/new skips/new failures. Full suite remains RED. An initial comparison showed one extra Assessment browser overflow failure while browser runs overlapped; the final sequential comparison passed with the identical baseline failures. Assessment code/tests were untouched; no assertion or failure was skipped or weakened.
 
 See the recovery, automated-validation and optional Windows handoff reports. No manual Windows layout checklist is required; final CI gaps are reported honestly rather than delegated as screenshots.
+
+## Final Windows timing repair
+
+Documentation SHA2f11d0c passed Ubuntu but Windows failed the1024px Focus navigation test (70passed/1failed/4external skips). Original implementation SHA4298c5a passed both OSes. A deterministic delayed-reader initializer reproduced the immediate assertion reading static HTML before the deferred script restored Focus. Test-only repair uses bounded Playwright assertions for the same exact label and aria-pressed state after DOMContentLoaded; no product code or acceptance requirement changed. A new fail-first deferred-init regression raises scoped count to76, with zero failures/skips locally. Independent review confirmed the navigation-commit/deferred-script boundary and reviewed the test repair. Final pushed SHA/run conclusions are in the acceptance package.

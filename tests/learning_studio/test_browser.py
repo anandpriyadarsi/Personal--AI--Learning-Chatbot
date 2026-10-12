@@ -44,6 +44,13 @@ def no_overflow(page):
     assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth + 1')
 
 
+def assert_focus(page, enabled):
+    from playwright.sync_api import expect
+    page.wait_for_load_state('domcontentloaded')
+    expect(page.locator('#ls-focus')).to_have_text('Exit focus' if enabled else 'Focus Reading')
+    expect(page.locator('#ls-focus')).to_have_attribute('aria-pressed', str(enabled).lower())
+
+
 def test_desktop_width_focus_escape_logo_and_contents(browser, live):
     url, service = live
     page = browser.new_page(viewport={'width': 1440, 'height': 1000})
@@ -65,7 +72,7 @@ def test_desktop_width_focus_escape_logo_and_contents(browser, live):
     assert page.locator('#ls-contents-dialog').evaluate('(d) => d.open')
     page.keyboard.press('Escape')
     assert not page.locator('#ls-contents-dialog').evaluate('(d) => d.open')
-    assert page.locator('#ls-focus').inner_text() == 'Exit focus'
+    assert_focus(page, True)
     screenshot(page, 'desktop-focus.png')
     page.keyboard.press('Escape')
     assert page.locator('.topbar').is_visible() and page.locator('#app-sidebar').is_visible()
@@ -119,7 +126,7 @@ def test_browser_storage_failure_keyboard_access(browser, live):
     page.keyboard.press('Escape')
     assert page.locator('#ls-contents').evaluate('(b) => b === document.activeElement')
     page.locator('#ls-focus').focus(); page.keyboard.press('Enter')
-    assert page.locator('#ls-focus').get_attribute('aria-pressed') == 'true'
+    assert_focus(page, True)
     page.keyboard.press('Escape'); no_overflow(page); page.close()
 
 
@@ -133,14 +140,14 @@ def test_focused_view_contents_navigation_and_exit(browser,live,width):
     page.locator('.ls-dialog-views a').filter(has_text='Visualise').click()
     # Tabs hide in Focus Reading; navigate through actual source/page links instead
     # after asserting a stored internal URL and then using it.
-    assert page.locator('#ls-focus').inner_text()=='Exit focus'
+    assert_focus(page, True)
     page.click('#ls-contents')
     page.locator('#ls-contents-dialog a').first.click()
-    assert page.locator('#ls-focus').inner_text()=='Exit focus'
+    assert_focus(page, True)
     assert not page.locator('.topbar').is_visible()
     assert page.evaluate('document.documentElement.scrollWidth<=innerWidth+1')
     page.keyboard.press('Escape')
-    assert page.locator('#ls-focus').inner_text()=='Focus Reading'
+    assert_focus(page, False)
     page.reload()
     assert page.locator('.topbar').is_visible()
     page.close()
@@ -173,7 +180,8 @@ def test_external_recovered_pilot_real_browser(browser,real_live):
     assert page.locator('.ls-block-source').count()==20
     page.click('#ls-focus');screenshot(page,'v11-real-pilot-desktop-focus.png')
     page.click('#ls-contents');page.locator('.ls-dialog-views').get_by_role('link',name='Practice',exact=True).click()
-    assert page.locator('.ls-question').count()==31 and page.locator('#ls-focus').inner_text()=='Exit focus'
+    assert page.locator('.ls-question').count()==31
+    assert_focus(page, True)
     q=p['questions'][0];form=page.locator('.ls-question').first
     wrong=(q['correct_index']+1)%len(q['options'])
     form.locator(f'input[value="{wrong}"]').check();form.locator('button').click()
@@ -183,7 +191,8 @@ def test_external_recovered_pilot_real_browser(browser,real_live):
     page.click('#ls-contents');page.locator('.ls-dialog-views a').filter(has_text='My Weak Questions').click()
     assert 'recovered needs recheck' in page.locator('#ls-reading-column').inner_text()
     page.locator('.ls-related-lesson').first.click()
-    assert '#lesson-' in page.url and page.locator('#ls-focus').inner_text()=='Exit focus'
+    assert '#lesson-' in page.url
+    assert_focus(page, True)
     page.set_viewport_size({'width':390,'height':844})
     no_overflow(page);screenshot(page,'v11-real-pilot-mobile.png')
     page.click('#ls-contents');page.locator('.ls-dialog-views a').filter(has_text='Day-before-exam Revision').click()
@@ -199,9 +208,9 @@ def test_focus_url_fallback_without_storage(browser,live):
     page.goto(url+'/learning/modules/synthetic/1?view=learn')
     page.click('#ls-focus');page.click('#ls-contents')
     page.locator('.ls-dialog-views a').filter(has_text='Visualise').click()
-    assert page.locator('#ls-focus').get_attribute('aria-pressed')=='true'
+    assert_focus(page, True)
     page.keyboard.press('Escape');page.reload()
-    assert page.locator('#ls-focus').get_attribute('aria-pressed')=='false'
+    assert_focus(page, False)
     no_overflow(page);page.close()
 
 
@@ -213,7 +222,7 @@ def test_explicit_focus_exit_survives_browser_history(browser,live):
     page.locator('.ls-dialog-views a').filter(has_text='Visualise').click()
     page.click('#ls-focus')
     page.go_back()
-    assert page.locator('#ls-focus').get_attribute('aria-pressed')=='false'
+    assert_focus(page, False)
     assert page.locator('.topbar').is_visible()
     page.close()
 
@@ -228,4 +237,26 @@ def test_focus_exit_reload_preserves_saved_collapsed_navigation(browser,live):
     page.click('#nav-toggle')
     assert page.locator('#nav-toggle').get_attribute('aria-expanded')=='true'
     assert page.locator('#app-sidebar').evaluate('(s)=>!s.inert')
+    page.close()
+
+
+def test_focus_restoration_after_deferred_reader_initialization(browser, live):
+    from pathlib import Path
+    url, _ = live
+    page = browser.new_page(viewport={'width': 1024, 'height': 950})
+    page.goto(url + '/learning/modules/synthetic/1?view=learn')
+    page.click('#ls-focus')
+    script = Path('personal_learning_assistant/ui/web/static/js/learning_studio.js').read_text()
+    # Separate navigation commit/static DOM from the deferred reader initializer.
+    page.route('**/static/js/learning_studio.js', lambda route: route.fulfill(
+        content_type='application/javascript', body='window.resumeReader = () => {' + script + '};'))
+    page.click('#ls-contents')
+    page.locator('.ls-dialog-views').get_by_role('link', name='Visualise', exact=True).click()
+    page.wait_for_load_state('load')
+    assert page.locator('#ls-focus').inner_text() == 'Focus Reading'
+    assert page.evaluate('JSON.parse(sessionStorage.getItem("anvaya.learning.focus.v1")).enabled') is True
+    assert 'focus=1' in page.url
+    page.evaluate('setTimeout(window.resumeReader, 150)')
+    assert_focus(page, True)
+    assert not page.locator('.topbar').is_visible()
     page.close()

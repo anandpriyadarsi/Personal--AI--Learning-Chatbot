@@ -6,7 +6,7 @@ Source: current pushed V1 base9ed585c; implementation SHA4298c5ac65a6e3269c39c2a
 
 | Gate | Passed | Failed/errors | Skipped | Result |
 |---|---:|---:|---:|---|
-| Learning Studio +Chromium +bad V3 +recovered real candidate |75|0|0|PASS|
+| Learning Studio +Chromium +bad V3 +recovered real candidate |76|0|0|PASS|
 | Startup/course/Notes/Obsidian/Analysis/Assessment A–D focused |101|0|0|PASS|
 | Full unchanged V1 |1771|16|0|RED baseline|
 | Full V1.1 |1791|same16|0|RED whole suite|
@@ -22,8 +22,8 @@ Implementation run [38237955835](https://github.com/anandpriyadarsi/Personal--AI
 
 | OS | Isolated/focused expectation with no private attachments | Whole suite | Final-tip conclusion |
 |---|---|---|---|
-| ubuntu-latest |71 passed +4 explicitly external skips; focused101/0skips |Base/feature failure and skip sets compared |Pending observation in final evidence |
-| windows-latest |71 passed +4 explicitly external skips; focused101/0skips |Base/feature failure and skip sets compared |Pending observation in final evidence |
+| ubuntu-latest |72 passed +4 explicitly external skips; focused101/0skips |Base/feature failure and skip sets compared |Pending observation in final evidence |
+| windows-latest |72 passed +4 explicitly external skips; focused101/0skips |Base/feature failure and skip sets compared |Pending observation in final evidence |
 
 The four skips are damaged-V3 rejection, recovered import/evidence, recovered single-module mapping and real-pilot browser. Public CI does not contain third-party lecture content. Built-in checksum tampering, ZIP backslash/drive/absolute paths, symlink/bomb/path safety, stale sources, assets and desktop/mobile browser tests run on both OSes. Actual private-candidate import was executed locally; Windows actual-candidate coverage is NOT RUN on public CI. Manual screenshots are not a substitute for an incomplete CI gate.
 
@@ -44,3 +44,9 @@ git diff --check 9ed585ca8e1fbcfb6f5a7e0426d030560109115e HEAD
 For a local old-V1 comparison with the attachment, also set `ANVAYA_TEST_PILOT_ZIP` to the same **bad V3**; that legacy fixture name belongs only to the old baseline test. CI has none of these private fixture variables. PowerShell syntax is in the optional Windows handoff.
 
 Committed evidence: local75-case JUnit/count summary, focused101 summary, full delta, recovery checksum/reference/registry/DB record, protected tracked-file snapshot. Raw logs, fail-first records and real lecture screenshots are provided privately. `protected-snapshot.json` verifies unchanged tracked Tutor/Knowledge/Obsidian/Assessment/data files; recovery tests preserve both attachment bytes and disposable registry hashes. No production data was available or touched. Compile and whitespace checks pass.
+
+## Subsequent final-tip observation and test repair
+
+Run38238811688 on2f11d0c: Ubuntu success; Windows failed isolated Focus navigation at1024px before later steps (70passed/1failed/4external skips). Pinned Playwright returns after navigation commit; immediate inner_text can precede deferred JavaScript initialization. The delayed-init RED regression proves this race. Condition-based assertions retain the same text/ARIA requirements; latest local76 tests pass with no skips. New final-SHA CI follows the reviewed test-only repair.
+
+Completed implementation run38237955835 had Ubuntu baseline1769passed/17failed/1skip vs feature1786passed/17failed/4skips, zero new failures; Windows baseline1768passed/18failed/1skip vs feature1786passed/17failed/4skips, zero new failures. CI baseline blockers include the16 local legacy failures plus the unchanged Coding Helper synthetic-example environment case; Windows baseline additionally observed an existing browser layout failure. These OS results differ from local counts and are retained separately. A green workflow means scoped gates and regression delta passed; the raw whole suite remained RED.
