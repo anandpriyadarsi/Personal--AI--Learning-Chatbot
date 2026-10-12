@@ -1,0 +1,9 @@
+# Minimal deterministic reader/importer and browser validation environment.
+Flask==3.1.2
+mistune==3.3.4
+pypdf==6.18.0
+Pillow==12.3.0
+PyYAML==6.0.3
+python-dotenv==1.2.3
+pytest==9.1.1
+playwright==1.51.0

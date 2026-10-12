@@ -1,0 +1,45 @@
+name: Learning Studio isolated validation
+on:
+  push:
+    branches: ['feature/learning-studio-v1']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  isolated-gates:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      ANVAYA_BROWSER_TESTS: '1'
+      ANVAYA_BROWSER_ARTIFACTS: learning-studio-evidence/browser
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements-learning-studio.txt
+      - name: Install pinned validation dependencies
+        run: python -m pip install -r requirements-learning-studio.txt
+      - name: Install Chromium
+        run: python -m playwright install --with-deps chromium
+      - name: Isolated feature gates including desktop and mobile browser
+        run: python -m pytest -q tests/learning_studio --junitxml=learning-studio-evidence/isolated.xml
+      - name: Startup and authority-separation regressions
+        run: python -m pytest -q tests/test_phase7_5_web_foundation.py tests/test_phase7_5_courses_topics.py tests/test_main_startup_isolation.py tests/test_phase7_5_15_10_notes_obsidian_separation.py tests/test_phase7_5_15_14_focus_companion_analysis.py
+      - name: Run both full suites and compare failures against verified base
+        run: python scripts/learning_studio_regression_gate.py --output learning-studio-evidence/full-suite
+      - name: Compile feature code
+        run: python -m compileall -q personal_learning_assistant/learning_studio personal_learning_assistant/ui/web/learning_studio.py
+      - name: Check diff whitespace
+        run: git diff --check f859a3c7cdf44baadc17d9bd1a6c656530c1b5bf HEAD
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: learning-studio-${{ matrix.os }}
+          path: learning-studio-evidence/
