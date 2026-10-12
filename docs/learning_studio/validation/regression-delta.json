@@ -1,0 +1,40 @@
+{
+  "base_sha": "f859a3c7cdf44baadc17d9bd1a6c656530c1b5bf",
+  "feature_sha": "132444dd6e62f5845c871f57f3d3ed17a967bc48",
+  "baseline": {
+    "passed": 1716,
+    "failure": 16,
+    "error": 0,
+    "skipped": 0
+  },
+  "feature": {
+    "passed": 1771,
+    "failure": 16,
+    "error": 0,
+    "skipped": 0
+  },
+  "baseline_exit_code": 1,
+  "feature_exit_code": 1,
+  "new_failures": [],
+  "baseline_failures": [
+    "tests.test_phase7_5_academic_agent_web::test_ask_persists_grounded_exchange_and_only_tutor_tables_change",
+    "tests.test_phase7_5_academic_agent_web::test_ask_rejects_blank_question_without_turns",
+    "tests.test_phase7_5_academic_agent_web::test_create_session_accepts_source_first_and_keeps_scope_immutable",
+    "tests.test_phase7_5_academic_agent_web::test_create_session_defaults_to_source_only_and_reopens",
+    "tests.test_phase7_5_academic_agent_web::test_create_session_rejects_invalid_mode_policy_and_course",
+    "tests.test_phase7_5_academic_agent_web::test_insufficient_evidence_persists_bounded_response_without_provider_call",
+    "tests.test_phase7_5_academic_agent_web::test_provider_request_failure_is_safe_and_does_not_persist_normal_turns",
+    "tests.test_phase7_5_academic_agent_web::test_provider_unavailable_is_safe_and_does_not_persist_normal_turns",
+    "tests.test_phase7_5_academic_agent_web::test_real_agent_get_does_not_change_production_database_or_retrieval_index",
+    "tests.test_phase7_5_academic_agent_web::test_real_session_get_is_read_only_when_a_session_exists",
+    "tests.test_phase7_5_academic_agent_web::test_session_view_missing_session_is_safe_404_boundary",
+    "tests.test_phase7_5_academic_agent_web::test_tutor_repository_lists_recent_sessions_newest_first",
+    "tests.test_phase7_5_academic_agent_web::test_tutor_repository_rejects_unbounded_session_limit",
+    "tests.test_phase7_5_academic_agent_web::test_workspace_lists_courses_sessions_and_provider_status",
+    "tests.test_phase7_5_academic_agent_web::test_workspace_unknown_course_is_safe_and_does_not_call_provider_complete",
+    "tests.test_phase7_5_anvaya_shell::test_existing_phase75_get_routes_keep_working"
+  ],
+  "whole_suite_green": false,
+  "regression_delta_green": true,
+  "local_verified_sha": "bc611a1"
+}

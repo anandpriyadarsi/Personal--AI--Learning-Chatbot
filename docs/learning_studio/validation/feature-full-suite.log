@@ -1,0 +1,444 @@
+........................................................................ [  4%]
+........................................................................ [  8%]
+........................................................................ [ 12%]
+........................................................................ [ 16%]
+........................................................................ [ 20%]
+........................................................................ [ 24%]
+........................................................................ [ 28%]
+........................................................................ [ 32%]
+........................................................................ [ 36%]
+........................................................................ [ 40%]
+........................................................................ [ 44%]
+........................................................................ [ 48%]
+........................................................................ [ 52%]
+........................................................................ [ 56%]
+........................................................................ [ 60%]
+........................................................................ [ 64%]
+........................................................................ [ 68%]
+........................................................................ [ 72%]
+........................................................................ [ 76%]
+.....................................................FF.FFFFFFFFFFF..... [ 80%]
+..FF.......F............................................................ [ 84%]
+........................................................................ [ 88%]
+........................................................................ [ 92%]
+........................................................................ [ 96%]
+...........................................................              [100%]
+=================================== FAILURES ===================================
+___________ test_tutor_repository_lists_recent_sessions_newest_first ___________
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-2/test_tutor_repository_lists_re0')
+
+    def test_tutor_repository_lists_recent_sessions_newest_first(tmp_path):
+        from personal_learning_assistant.domain.tutor_models import TutorSessionSpec
+        from personal_learning_assistant.repositories.sqlite.tutor_repository import SQLiteTutorRepository
+        from personal_learning_assistant.services.tutor_session_service import TutorSessionService
+
+>       connection = open_database(copied_learning_database_path(tmp_path))
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_phase7_5_academic_agent_web.py:195:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-2/test_tutor_repository_lists_re0')
+
+    def copied_learning_database_path(tmp_path):
+        source = ROOT / "data" / "learning_assistant.db"
+>       assert source.is_file(), "production learning_assistant.db is required for Phase 7.5.9 tests"
+E       AssertionError: production learning_assistant.db is required for Phase 7.5.9 tests
+E       assert False
+E        +  where False = is_file()
+E        +    where is_file = PosixPath('/workspace/scratch/ef9debb53781/learning-studio/data/learning_assistant.db').is_file
+
+tests/test_phase7_5_academic_agent_web.py:20: AssertionError
+____________ test_tutor_repository_rejects_unbounded_session_limit _____________
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-2/test_tutor_repository_rejects_0')
+
+    def test_tutor_repository_rejects_unbounded_session_limit(tmp_path):
+        from personal_learning_assistant.repositories.sqlite.tutor_repository import SQLiteTutorRepository
+
+>       connection = open_database(copied_learning_database_path(tmp_path))
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_phase7_5_academic_agent_web.py:225:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-2/test_tutor_repository_rejects_0')
+
+    def copied_learning_database_path(tmp_path):
+        source = ROOT / "data" / "learning_assistant.db"
+>       assert source.is_file(), "production learning_assistant.db is required for Phase 7.5.9 tests"
+E       AssertionError: production learning_assistant.db is required for Phase 7.5.9 tests
+E       assert False
+E        +  where False = is_file()
+E        +    where is_file = PosixPath('/workspace/scratch/ef9debb53781/learning-studio/data/learning_assistant.db').is_file
+
+tests/test_phase7_5_academic_agent_web.py:20: AssertionError
+__________ test_workspace_lists_courses_sessions_and_provider_status ___________
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-2/test_workspace_lists_courses_s0')
+
+    def test_workspace_lists_courses_sessions_and_provider_status(tmp_path):
+>       service, _path, course, _provider, _retrieval = build_test_web_service(tmp_path)
+                                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_phase7_5_academic_agent_web.py:259:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_phase7_5_academic_agent_web.py:153: in build_test_web_service
+    database_path = copied_learning_database_path(tmp_path)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-2/test_workspace_lists_courses_s0')
+
+    def copied_learning_database_path(tmp_path):
+        source = ROOT / "data" / "learning_assistant.db"
+>       assert source.is_file(), "production learning_assistant.db is required for Phase 7.5.9 tests"
+E       AssertionError: production learning_assistant.db is required for Phase 7.5.9 tests
+E       assert False
+E        +  where False = is_file()
+E        +    where is_file = PosixPath('/workspace/scratch/ef9debb53781/learning-studio/data/learning_assistant.db').is_file
+
+tests/test_phase7_5_academic_agent_web.py:20: AssertionError
+__ test_workspace_unknown_course_is_safe_and_does_not_call_provider_complete ___
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-2/test_workspace_unknown_course_0')
+
+    def test_workspace_unknown_course_is_safe_and_does_not_call_provider_complete(tmp_path):
+        provider = FakeProvider(configured=True)
+>       service, _path, _course, provider, _retrieval = build_test_web_service(tmp_path, provider=provider)
+                                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_phase7_5_academic_agent_web.py:276:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_phase7_5_academic_agent_web.py:153: in build_test_web_service
+    database_path = copied_learning_database_path(tmp_path)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-2/test_workspace_unknown_course_0')
+
+    def copied_learning_database_path(tmp_path):
+        source = ROOT / "data" / "learning_assistant.db"
+>       assert source.is_file(), "production learning_assistant.db is required for Phase 7.5.9 tests"
+E       AssertionError: production learning_assistant.db is required for Phase 7.5.9 tests
+E       assert False
+E        +  where False = is_file()
+E        +    where is_file = PosixPath('/workspace/scratch/ef9debb53781/learning-studio/data/learning_assistant.db').is_file
+
+tests/test_phase7_5_academic_agent_web.py:20: AssertionError
+___________ test_create_session_defaults_to_source_only_and_reopens ____________
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-2/test_create_session_defaults_t0')
+
+    def test_create_session_defaults_to_source_only_and_reopens(tmp_path):
+>       service, _path, course, _provider, _retrieval = build_test_web_service(tmp_path)
+                                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_phase7_5_academic_agent_web.py:285:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_phase7_5_academic_agent_web.py:153: in build_test_web_service
+    database_path = copied_learning_database_path(tmp_path)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-2/test_create_session_defaults_t0')
+
+    def copied_learning_database_path(tmp_path):
+        source = ROOT / "data" / "learning_assistant.db"
+>       assert source.is_file(), "production learning_assistant.db is required for Phase 7.5.9 tests"
+E       AssertionError: production learning_assistant.db is required for Phase 7.5.9 tests
+E       assert False
+E        +  where False = is_file()
+E        +    where is_file = PosixPath('/workspace/scratch/ef9debb53781/learning-studio/data/learning_assistant.db').is_file
+
+tests/test_phase7_5_academic_agent_web.py:20: AssertionError
+______ test_create_session_accepts_source_first_and_keeps_scope_immutable ______
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-2/test_create_session_accepts_so0')
+
+    def test_create_session_accepts_source_first_and_keeps_scope_immutable(tmp_path):
+>       service, _path, course, _provider, _retrieval = build_test_web_service(tmp_path)
+                                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_phase7_5_academic_agent_web.py:297:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_phase7_5_academic_agent_web.py:153: in build_test_web_service
+    database_path = copied_learning_database_path(tmp_path)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-2/test_create_session_accepts_so0')
+
+    def copied_learning_database_path(tmp_path):
+        source = ROOT / "data" / "learning_assistant.db"
+>       assert source.is_file(), "production learning_assistant.db is required for Phase 7.5.9 tests"
+E       AssertionError: production learning_assistant.db is required for Phase 7.5.9 tests
+E       assert False
+E        +  where False = is_file()
+E        +    where is_file = PosixPath('/workspace/scratch/ef9debb53781/learning-studio/data/learning_assistant.db').is_file
+
+tests/test_phase7_5_academic_agent_web.py:20: AssertionError
+__________ test_create_session_rejects_invalid_mode_policy_and_course __________
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-2/test_create_session_rejects_in0')
+
+    def test_create_session_rejects_invalid_mode_policy_and_course(tmp_path):
+        from personal_learning_assistant.services.academic_agent_web_service import AcademicAgentWebValidationError
+
+>       service, _path, course, _provider, _retrieval = build_test_web_service(tmp_path)
+                                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_phase7_5_academic_agent_web.py:313:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_phase7_5_academic_agent_web.py:153: in build_test_web_service
+    database_path = copied_learning_database_path(tmp_path)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-2/test_create_session_rejects_in0')
+
+    def copied_learning_database_path(tmp_path):
+        source = ROOT / "data" / "learning_assistant.db"
+>       assert source.is_file(), "production learning_assistant.db is required for Phase 7.5.9 tests"
+E       AssertionError: production learning_assistant.db is required for Phase 7.5.9 tests
+E       assert False
+E        +  where False = is_file()
+E        +    where is_file = PosixPath('/workspace/scratch/ef9debb53781/learning-studio/data/learning_assistant.db').is_file
+
+tests/test_phase7_5_academic_agent_web.py:20: AssertionError
+____________ test_session_view_missing_session_is_safe_404_boundary ____________
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-2/test_session_view_missing_sess0')
+
+    def test_session_view_missing_session_is_safe_404_boundary(tmp_path):
+        from personal_learning_assistant.services.academic_agent_web_service import AcademicAgentWebNotFoundError
+
+>       service, _path, _course, _provider, _retrieval = build_test_web_service(tmp_path)
+                                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_phase7_5_academic_agent_web.py:325:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_phase7_5_academic_agent_web.py:153: in build_test_web_service
+    database_path = copied_learning_database_path(tmp_path)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-2/test_session_view_missing_sess0')
+
+    def copied_learning_database_path(tmp_path):
+        source = ROOT / "data" / "learning_assistant.db"
+>       assert source.is_file(), "production learning_assistant.db is required for Phase 7.5.9 tests"
+E       AssertionError: production learning_assistant.db is required for Phase 7.5.9 tests
+E       assert False
+E        +  where False = is_file()
+E        +    where is_file = PosixPath('/workspace/scratch/ef9debb53781/learning-studio/data/learning_assistant.db').is_file
+
+tests/test_phase7_5_academic_agent_web.py:20: AssertionError
+_______ test_ask_persists_grounded_exchange_and_only_tutor_tables_change _______
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-2/test_ask_persists_grounded_exc0')
+
+    def test_ask_persists_grounded_exchange_and_only_tutor_tables_change(tmp_path):
+        provider = FakeProvider(configured=True)
+>       base_path = copied_learning_database_path(tmp_path)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_phase7_5_academic_agent_web.py:332:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-2/test_ask_persists_grounded_exc0')
+
+    def copied_learning_database_path(tmp_path):
+        source = ROOT / "data" / "learning_assistant.db"
+>       assert source.is_file(), "production learning_assistant.db is required for Phase 7.5.9 tests"
+E       AssertionError: production learning_assistant.db is required for Phase 7.5.9 tests
+E       assert False
+E        +  where False = is_file()
+E        +    where is_file = PosixPath('/workspace/scratch/ef9debb53781/learning-studio/data/learning_assistant.db').is_file
+
+tests/test_phase7_5_academic_agent_web.py:20: AssertionError
+________________ test_ask_rejects_blank_question_without_turns _________________
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-2/test_ask_rejects_blank_questio0')
+
+    def test_ask_rejects_blank_question_without_turns(tmp_path):
+        from personal_learning_assistant.services.academic_agent_web_service import AcademicAgentWebValidationError
+
+>       service, path, course, _provider, _retrieval = build_test_web_service(tmp_path)
+                                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_phase7_5_academic_agent_web.py:369:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_phase7_5_academic_agent_web.py:153: in build_test_web_service
+    database_path = copied_learning_database_path(tmp_path)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-2/test_ask_rejects_blank_questio0')
+
+    def copied_learning_database_path(tmp_path):
+        source = ROOT / "data" / "learning_assistant.db"
+>       assert source.is_file(), "production learning_assistant.db is required for Phase 7.5.9 tests"
+E       AssertionError: production learning_assistant.db is required for Phase 7.5.9 tests
+E       assert False
+E        +  where False = is_file()
+E        +    where is_file = PosixPath('/workspace/scratch/ef9debb53781/learning-studio/data/learning_assistant.db').is_file
+
+tests/test_phase7_5_academic_agent_web.py:20: AssertionError
+_____ test_provider_unavailable_is_safe_and_does_not_persist_normal_turns ______
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-2/test_provider_unavailable_is_s0')
+
+    def test_provider_unavailable_is_safe_and_does_not_persist_normal_turns(tmp_path):
+        from personal_learning_assistant.services.academic_agent_web_service import AcademicAgentWebService, AcademicAgentWebUnavailableError
+        from personal_learning_assistant.tutor.provider import TutorProviderUnavailableError
+
+        class UnavailableProvider:
+            configured = False
+            def complete(self, request):
+                raise TutorProviderUnavailableError("SECRET-PROVIDER-DETAIL")
+
+>       path = copied_learning_database_path(tmp_path)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_phase7_5_academic_agent_web.py:391:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-2/test_provider_unavailable_is_s0')
+
+    def copied_learning_database_path(tmp_path):
+        source = ROOT / "data" / "learning_assistant.db"
+>       assert source.is_file(), "production learning_assistant.db is required for Phase 7.5.9 tests"
+E       AssertionError: production learning_assistant.db is required for Phase 7.5.9 tests
+E       assert False
+E        +  where False = is_file()
+E        +    where is_file = PosixPath('/workspace/scratch/ef9debb53781/learning-studio/data/learning_assistant.db').is_file
+
+tests/test_phase7_5_academic_agent_web.py:20: AssertionError
+___ test_provider_request_failure_is_safe_and_does_not_persist_normal_turns ____
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-2/test_provider_request_failure_0')
+
+    def test_provider_request_failure_is_safe_and_does_not_persist_normal_turns(tmp_path):
+        from personal_learning_assistant.services.academic_agent_web_service import AcademicAgentWebService, AcademicAgentWebUnavailableError
+        from personal_learning_assistant.tutor.http_provider import TutorProviderRequestError
+
+        class FailingProvider:
+            configured = True
+            def complete(self, request):
+                raise TutorProviderRequestError("SECRET-HTTP-DETAIL")
+
+>       path = copied_learning_database_path(tmp_path)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_phase7_5_academic_agent_web.py:418:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-2/test_provider_request_failure_0')
+
+    def copied_learning_database_path(tmp_path):
+        source = ROOT / "data" / "learning_assistant.db"
+>       assert source.is_file(), "production learning_assistant.db is required for Phase 7.5.9 tests"
+E       AssertionError: production learning_assistant.db is required for Phase 7.5.9 tests
+E       assert False
+E        +  where False = is_file()
+E        +    where is_file = PosixPath('/workspace/scratch/ef9debb53781/learning-studio/data/learning_assistant.db').is_file
+
+tests/test_phase7_5_academic_agent_web.py:20: AssertionError
+__ test_insufficient_evidence_persists_bounded_response_without_provider_call __
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-2/test_insufficient_evidence_per0')
+
+    def test_insufficient_evidence_persists_bounded_response_without_provider_call(tmp_path):
+        provider = FakeProvider(configured=True)
+>       service, _path, course, provider, _retrieval = build_test_web_service(tmp_path, provider=provider, hits=())
+                                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_phase7_5_academic_agent_web.py:438:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_phase7_5_academic_agent_web.py:153: in build_test_web_service
+    database_path = copied_learning_database_path(tmp_path)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-2/test_insufficient_evidence_per0')
+
+    def copied_learning_database_path(tmp_path):
+        source = ROOT / "data" / "learning_assistant.db"
+>       assert source.is_file(), "production learning_assistant.db is required for Phase 7.5.9 tests"
+E       AssertionError: production learning_assistant.db is required for Phase 7.5.9 tests
+E       assert False
+E        +  where False = is_file()
+E        +    where is_file = PosixPath('/workspace/scratch/ef9debb53781/learning-studio/data/learning_assistant.db').is_file
+
+tests/test_phase7_5_academic_agent_web.py:20: AssertionError
+__ test_real_agent_get_does_not_change_production_database_or_retrieval_index __
+
+    def test_real_agent_get_does_not_change_production_database_or_retrieval_index():
+        from personal_learning_assistant.ui.web import create_app
+
+        database = ROOT / "data" / "learning_assistant.db"
+        retrieval = ROOT / ".phase5_retrieval"
+>       assert database.is_file()
+E       AssertionError: assert False
+E        +  where False = is_file()
+E        +    where is_file = PosixPath('/workspace/scratch/ef9debb53781/learning-studio/data/learning_assistant.db').is_file
+
+tests/test_phase7_5_academic_agent_web.py:634: AssertionError
+___________ test_real_session_get_is_read_only_when_a_session_exists ___________
+
+    def test_real_session_get_is_read_only_when_a_session_exists():
+        from personal_learning_assistant.ui.web import create_app
+
+        database = ROOT / "data" / "learning_assistant.db"
+>       connection = sqlite3.connect("file:{}?mode=ro".format(str(database.resolve()).replace("\\", "/")), uri=True)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       sqlite3.OperationalError: unable to open database file
+
+tests/test_phase7_5_academic_agent_web.py:647: OperationalError
+________________ test_existing_phase75_get_routes_keep_working _________________
+
+    def test_existing_phase75_get_routes_keep_working():
+        client = _client()
+        for path in (
+            "/",
+            "/agent",
+            "/notes",
+            "/resources",
+            "/knowledge",
+            "/courses",
+            "/assessments",
+            "/calendar",
+            "/planning",
+            "/obsidian",
+        ):
+>           assert client.get(path).status_code == 200, path
+E           AssertionError: /agent
+E           assert 503 == 200
+E            +  where 503 = <WrapperTestResponse streamed [503 SERVICE UNAVAILABLE]>.status_code
+E            +    where <WrapperTestResponse streamed [503 SERVICE UNAVAILABLE]> = get('/agent')
+E            +      where get = <FlaskClient <Flask 'personal_learning_assistant.ui.web'>>.get
+
+tests/test_phase7_5_anvaya_shell.py:135: AssertionError
+------------------------------ Captured log call -------------------------------
+WARNING  personal_learning_assistant.ui.web:routes.py:632 Operational planner unavailable (OperationalPlannerWebUnavailableError).
+WARNING  personal_learning_assistant.ui.web:routes.py:4103 Academic Agent workspace unavailable (AcademicAgentWebUnavailableError).
+=========================== short test summary info ============================
+FAILED tests/test_phase7_5_academic_agent_web.py::test_tutor_repository_lists_recent_sessions_newest_first
+FAILED tests/test_phase7_5_academic_agent_web.py::test_tutor_repository_rejects_unbounded_session_limit
+FAILED tests/test_phase7_5_academic_agent_web.py::test_workspace_lists_courses_sessions_and_provider_status
+FAILED tests/test_phase7_5_academic_agent_web.py::test_workspace_unknown_course_is_safe_and_does_not_call_provider_complete
+FAILED tests/test_phase7_5_academic_agent_web.py::test_create_session_defaults_to_source_only_and_reopens
+FAILED tests/test_phase7_5_academic_agent_web.py::test_create_session_accepts_source_first_and_keeps_scope_immutable
+FAILED tests/test_phase7_5_academic_agent_web.py::test_create_session_rejects_invalid_mode_policy_and_course
+FAILED tests/test_phase7_5_academic_agent_web.py::test_session_view_missing_session_is_safe_404_boundary
+FAILED tests/test_phase7_5_academic_agent_web.py::test_ask_persists_grounded_exchange_and_only_tutor_tables_change
+FAILED tests/test_phase7_5_academic_agent_web.py::test_ask_rejects_blank_question_without_turns
+FAILED tests/test_phase7_5_academic_agent_web.py::test_provider_unavailable_is_safe_and_does_not_persist_normal_turns
+FAILED tests/test_phase7_5_academic_agent_web.py::test_provider_request_failure_is_safe_and_does_not_persist_normal_turns
+FAILED tests/test_phase7_5_academic_agent_web.py::test_insufficient_evidence_persists_bounded_response_without_provider_call
+FAILED tests/test_phase7_5_academic_agent_web.py::test_real_agent_get_does_not_change_production_database_or_retrieval_index
+FAILED tests/test_phase7_5_academic_agent_web.py::test_real_session_get_is_read_only_when_a_session_exists
+FAILED tests/test_phase7_5_anvaya_shell.py::test_existing_phase75_get_routes_keep_working
+16 failed, 1771 passed in 98.31s (0:01:38)
