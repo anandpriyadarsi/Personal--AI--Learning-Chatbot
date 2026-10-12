@@ -148,13 +148,13 @@ def clean_environment(directory: Path, source: Path) -> dict:
     return env
 
 
-def run_command(name: str, command: list[str], source: Path, run: Path, env: dict, *, xml=None) -> dict:
+def run_command(name: str, command: list[str], source: Path, run: Path, env: dict, *, xml=None, timeout=900) -> dict:
     log = run / (name + '.log')
     started = time.monotonic()
     try:
         with log.open('w', encoding='utf-8') as stream:
             process = subprocess.run(command, cwd=source, env=env, stdout=stream,
-                                     stderr=subprocess.STDOUT, timeout=900, check=False)
+                                     stderr=subprocess.STDOUT, timeout=timeout, check=False)
         code = process.returncode
     except (OSError, subprocess.TimeoutExpired) as error:
         with log.open('a', encoding='utf-8') as stream:
@@ -163,7 +163,7 @@ def run_command(name: str, command: list[str], source: Path, run: Path, env: dic
     result = test_status(code, xml) if xml else {'status': 'PASS' if code == 0 else 'FAIL', 'exit_code': code}
     result.update({'command': command, 'reproduce': subprocess.list2cmdline(command),
                    'cwd': str(source), 'environment_policy': 'clean_environment: runtime whitelist, provider credentials removed, loopback-only Python sockets',
-                   'seconds': round(time.monotonic() - started, 3), 'log': log.name})
+                   'seconds': round(time.monotonic() - started, 3), 'timeout_seconds': timeout, 'log': log.name})
     print(name + ': ' + result['status'], flush=True)
     return result
 
@@ -192,11 +192,14 @@ def main(argv=None) -> int:
         (run / 'source-manifest.json').write_text(json.dumps(report['source'], indent=2), encoding='utf-8')
         def command(name, args, **kwargs):
             report['categories'][name] = run_command(name, args, source, run, env, **kwargs)
-        def pytest(name, files=()):
+        def pytest(name, files=(), *, timeout=900):
             xml = run / (name + '.xml')
-            command(name, [sys.executable, '-m', 'pytest', '-q', *files, '--junitxml=' + str(xml)], xml=xml)
+            command(name, [sys.executable, '-m', 'pytest', '-q', *files, '--junitxml=' + str(xml)], xml=xml, timeout=timeout)
         # Full unchanged suite, including existing browser tests; no selection flags.
-        pytest('full_pytest')
+        # A complete Windows run reached 861s; a slower runner was killed at
+        # 900s before XML/failure details. Keep a finite full-suite budget with
+        # headroom, without changing selection, assertions or exit handling.
+        pytest('full_pytest', timeout=1800)
         pytest('focused', ['tests/test_phase7_5_progress_planning.py', 'tests/test_phase7_5_operational_planner_routes.py',
                           'tests/test_assessment_studio_phase_e.py', 'tests/test_assessment_studio_phase_f.py', 'tests/test_phase7_5_15_14_focus_companion_analysis.py'])
         order = ['tests/test_phase7_5_academic_agent_web.py', 'tests/test_phase7_5_anvaya_shell.py', 'tests/test_phase2_closure_architecture.py']

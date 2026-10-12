@@ -283,7 +283,10 @@ def test_route_probe_retains_detected_write_evidence(exported,tmp_path):
          '    from pathlib import Path\n    Path("forbidden-by-get.txt").write_text("synthetic")\n    brief = import_module("daily_academic_brief")')
     service.write_text(text)
     output=tmp_path/'failure.json'
-    result=subprocess.run([sys.executable,str(ROOT/'scripts/characterization/read_routes.py'),'--repo',str(source),'--output',str(output)],capture_output=True,text=True,timeout=60)
+    # The slow Windows suite was killed before these failures could be reported.
+    # Give the four-route subprocess headroom to complete its strict assertions;
+    # this is a process budget, not a response-time requirement.
+    result=subprocess.run([sys.executable,str(ROOT/'scripts/characterization/read_routes.py'),'--repo',str(source),'--output',str(output)],capture_output=True,text=True,timeout=300)
     assert result.returncode != 0
     assert output.exists(), 'Detected write evidence was lost before the assertion'
     rows=json.loads(output.read_text())
@@ -296,7 +299,7 @@ def test_route_probe_is_stable_with_git_auto_maintenance(exported,tmp_path):
     output=tmp_path/'routes.json'
     # Exercise real post-commit Git maintenance, not a mocked file write.
     environment={**os.environ,'GIT_CONFIG_COUNT':'1','GIT_CONFIG_KEY_0':'gc.auto','GIT_CONFIG_VALUE_0':'1'}
-    result=subprocess.run([sys.executable,str(ROOT/'scripts/characterization/read_routes.py'),'--repo',str(exported),'--output',str(output)],capture_output=True,text=True,timeout=90,env=environment)
+    result=subprocess.run([sys.executable,str(ROOT/'scripts/characterization/read_routes.py'),'--repo',str(exported),'--output',str(output)],capture_output=True,text=True,timeout=300,env=environment)
     assert result.returncode==0,result.stdout+result.stderr
     rows=json.loads(output.read_text())
     assert all(not r['created'] and not r['changed'] and not r['writes'] for r in rows)

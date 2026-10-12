@@ -116,3 +116,22 @@ def test_workflow_job_environment_uses_available_github_contexts():
             for expression in re.findall(r'\$\{\{(.*?)\}\}', str(value)):
                 contexts = re.findall(r'\b([A-Za-z_]\w*)\.', expression)
                 assert set(contexts) <= available, expression
+
+
+def test_command_can_finish_with_an_explicit_bounded_deadline(tmp_path):
+    module = harness()
+    result = module.run_command('bounded',
+        [sys.executable, '-c', 'import time; time.sleep(0.05); print("completed")'],
+        tmp_path, tmp_path, module.clean_environment(tmp_path, ROOT), timeout=2)
+    assert result['status'] == 'PASS' and result['exit_code'] == 0
+    assert 'completed' in (tmp_path / 'bounded.log').read_text()
+
+
+def test_expired_command_deadline_fails_and_retains_output(tmp_path):
+    module = harness()
+    result = module.run_command('expired',
+        [sys.executable, '-c', 'import time; print("started", flush=True); time.sleep(10)'],
+        tmp_path, tmp_path, module.clean_environment(tmp_path, ROOT), timeout=2)
+    assert result['status'] == 'FAIL' and result['exit_code'] == 124
+    log = (tmp_path / 'expired.log').read_text()
+    assert 'started' in log and 'TimeoutExpired' in log
