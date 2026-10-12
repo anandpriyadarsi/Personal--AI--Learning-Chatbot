@@ -125,16 +125,25 @@ class LearningStudioService:
         courses = copy.deepcopy(cat.get('courses', []))
         counts = {}
         result = {'courses': courses, 'available': cat.get('available', False), 'modules': [], 'total': 0,
-                  'unmapped_count': 0, 'staged': [], 'offset': offset, 'limit': limit}
+                  'unmapped_count': 0, 'unavailable_count': 0, 'staged': [], 'offset': offset, 'limit': limit}
         with self.store.connection() as con:
             if con is not None:
                 counts = {r['course_id']: r['n'] for r in con.execute('SELECT m.course_id,count(*) n FROM modules m JOIN active_modules a USING(module_id,revision) GROUP BY m.course_id')}
                 result['unmapped_count'] = counts.get(None, 0)
+                current_ids = {c['id'] for c in courses}
+                result['unavailable_count'] = sum(n for key,n in counts.items() if key is not None and key not in current_ids)
                 result['staged'] = [dict(r) for r in con.execute('SELECT module_id,revision,title FROM modules m WHERE NOT EXISTS(SELECT 1 FROM publications p WHERE p.module_id=m.module_id AND p.revision=m.revision) ORDER BY created_at DESC LIMIT 20')]
                 if course_id is not None:
-                    require(course_id == 'unmapped' or any(c['id'] == course_id for c in courses), 'Course not registered.', 404)
-                    clauses = ['m.course_id IS NULL'] if course_id == 'unmapped' else ['m.course_id=?']
-                    params = [] if course_id == 'unmapped' else [course_id]
+                    require(course_id in {'unmapped', 'unavailable'} or any(c['id'] == course_id for c in courses), 'Course not registered.', 404)
+                    if course_id == 'unmapped':
+                        clauses, params = ['m.course_id IS NULL'], []
+                    elif course_id == 'unavailable':
+                        ids = sorted(current_ids)
+                        clauses = ['m.course_id IS NOT NULL']
+                        params = ids
+                        if ids: clauses.append('m.course_id NOT IN (' + ','.join('?' for _ in ids) + ')')
+                    else:
+                        clauses, params = ['m.course_id=?'], [course_id]
                     if search:
                         # Casefold in Python happens only for bounded metadata, never full package bodies.
                         clauses.append("m.title LIKE ? ESCAPE '\\'")
@@ -191,7 +200,10 @@ class LearningStudioService:
                 wrong = [r for r in attempts if not r['correct']]
                 if wrong:
                     latest = attempts[-1]
+                    related = next((section['id'] for section in p['sections'] if
+                        set(q['pages']) & (set(section['pages']) | {page for block in section['blocks'] for page in block['pages']})), None)
                     result.append({'question_id': q['id'], 'prompt': q['prompt'], 'pages': q['pages'],
+                        'lesson_section_id': related, 'source_page': q['pages'][0],
                         'incorrect_count': len(wrong), 'last_incorrect': wrong[-1]['timestamp'],
                         'latest_selection': latest['selection'], 'latest_response': q['options'][latest['selection']],
                         'latest_correct': bool(latest['correct']), 'attempt_count': len(attempts),
@@ -231,3 +243,35 @@ class LearningStudioService:
         with self.store.connection() as con:
             rows = [] if con is None else [dict(r) for r in con.execute('SELECT event_id,module_id,revision,source_hash,question_id,question_revision,selection,correct,attempt_number,timestamp FROM attempts WHERE owner=? ORDER BY seq', (OWNER,))]
         return {'schema': 'anvaya.learning-evidence-export.v1', 'owner_scope': OWNER, 'events': rows}
+
+    def review_context(self, module_id, revision):
+        """Read-only, module/version-scoped handoff from already-graded events."""
+        p = self.module(module_id, revision)
+        self.source(module_id, revision)  # Verify the immutable source snapshot.
+        with self.store.connection() as con:
+            rows = con.execute('SELECT question_id,question_revision FROM attempts WHERE owner=? AND module_id=? AND revision=?',
+                               (OWNER,module_id,revision)).fetchall()
+        mapping_status = 'unmapped'
+        if p['mapping']:
+            try:
+                validate_mapping(p['mapping'],self.catalogue_loader())
+                mapping_status = 'reviewed_current_catalogue'
+            except PackageError:
+                mapping_status = 'needs_review'
+        questions = {q['id']:q for q in p['questions']}
+        missed = []
+        for item in self.weak(module_id,revision):
+            q = questions[item['question_id']]
+            lesson = item['lesson_section_id']
+            base = f'/learning/modules/{module_id}/{revision}'
+            missed.append({**item,'question_revision':q['revision'],
+                'lesson_url':base+('?view=learn#'+lesson if lesson else '?view=source#source-page-'+str(item['source_page'])),
+                'source_urls':[base+'?view=source#source-page-'+str(page) for page in item['pages']],
+                'question_url':base+'?view=practice#question-'+q['id']})
+        distinct = len({(r['question_id'],r['question_revision']) for r in rows})
+        return {'schema':'anvaya.learning-review-context.v1','authority':'low-stakes-practice',
+                'module_id':module_id,'module_revision':revision,'title':p['title'],
+                'source':p['source'],'mapping_snapshot':p['mapping'],'mapping_status':mapping_status,
+                'semantic_review_pages':sum(page['status']!='verified' for page in p['pages']),
+                'attempts':len(rows),'evidence_label':'No evidence' if not rows else ('Limited evidence' if distinct<5 else 'Low-stakes practice evidence'),
+                'missed_questions':missed,'automatic_tutor_consumption':False}

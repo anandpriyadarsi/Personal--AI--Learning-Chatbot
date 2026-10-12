@@ -67,6 +67,7 @@ def course(course_id):
     view = service().library(course_id=course_id, search=search, topic=topic, offset=offset)
     selected = next((c for c in view['courses'] if c['id'] == course_id), None)
     if course_id == 'unmapped': selected = {'id': 'unmapped', 'code': 'Unmapped', 'name': 'Needs mapping review', 'topics': []}
+    if course_id == 'unavailable': selected = {'id': 'unavailable', 'code': 'Course unavailable / needs review', 'name': 'Course unavailable / needs review', 'topics': []}
     if selected is None: raise PackageError('Course not registered.', 404)
     return render_template('learning_library.html', active_page='learning', library=view, course=selected, search=search, topic=topic)
 
@@ -74,6 +75,7 @@ def course(course_id):
 def module_view(module_id, revision, *, staged=False):
     from personal_learning_assistant.learning_studio.validation import require
     from personal_learning_assistant.learning_studio.rendering import markdown
+    from personal_learning_assistant.learning_studio.review_brief import format_review_brief
     view = request.args.get('view', 'overview')
     require(view in VIEWS, 'Unknown reader view.', 404)
     s = service()
@@ -83,7 +85,8 @@ def module_view(module_id, revision, *, staged=False):
     course = next((c for c in cat.get('courses', []) if mapping and c['id'] == mapping['course_id']), None)
     return render_template('learning_module.html', active_page='learning', module=p, view=view, staged=staged,
         course=course, markdown=markdown, weak=[] if staged else s.weak(module_id, revision),
-        csrf_token=current_app.extensions['learning_studio_csrf'])
+        csrf_token=current_app.extensions['learning_studio_csrf'],
+        review_brief='' if staged or view!='weak' else format_review_brief(s.review_context(module_id,revision)))
 
 
 @learning_blueprint.get('/learning/modules/<module_id>/<int:revision>')
@@ -171,4 +174,18 @@ def evidence():
 def export():
     response = jsonify(service().export())
     response.headers['Content-Disposition'] = 'attachment; filename=learning-evidence.json'
+    return response
+
+
+@learning_blueprint.get('/learning/modules/<module_id>/<int:revision>/review-context')
+def review_context(module_id, revision):
+    return jsonify(service().review_context(module_id, revision))
+
+
+@learning_blueprint.get('/learning/modules/<module_id>/<int:revision>/review-brief')
+def review_brief(module_id, revision):
+    from flask import Response
+    from personal_learning_assistant.learning_studio.review_brief import format_review_brief
+    response=Response(format_review_brief(service().review_context(module_id,revision)),mimetype='text/plain')
+    response.headers['Content-Disposition']='attachment; filename=learning-review-brief.txt'
     return response

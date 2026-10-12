@@ -14,5 +14,8 @@ class LocalRenderer(mistune.HTMLRenderer):
 
 
 def markdown(text):
-    render = mistune.create_markdown(renderer=LocalRenderer(escape=True), plugins=['table'])
+    from mistune.plugins.table import render_table
+    renderer = LocalRenderer(escape=True)
+    render = mistune.create_markdown(renderer=renderer, plugins=['table'])
+    renderer.register('table', lambda r, body: '<div class="ls-table-scroll" role="region" tabindex="0" aria-label="Authored comparison table">' + render_table(r, body) + '</div>')
     return Markup(render(str(text)))

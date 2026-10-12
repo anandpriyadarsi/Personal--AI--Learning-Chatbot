@@ -5,16 +5,17 @@
   const status = document.getElementById('ls-control-status');
   if (!focusButton || !dialog) return;
   let previous = null;
+  const preferenceKey = 'anvaya.learning.focus.v1';
   const sidebar = document.getElementById('app-sidebar');
   const toggle = document.getElementById('nav-toggle');
   function setFocus(enabled) {
-    if (enabled) {
+    if (enabled && !document.body.classList.contains('ls-focus')) {
       previous = {collapsed: document.body.classList.contains('sidebar-collapsed'), inert: sidebar.inert};
       document.body.classList.remove('nav-open');
       const backdrop = document.getElementById('nav-backdrop');
       if (backdrop) backdrop.hidden = true;
       sidebar.inert = true;
-    } else if (previous) {
+    } else if (!enabled && previous) {
       const desktop = window.innerWidth > 860;
       document.body.classList.toggle('sidebar-collapsed', desktop && previous.collapsed);
       sidebar.inert = desktop ? previous.collapsed : true;
@@ -25,6 +26,34 @@
     document.body.classList.toggle('ls-focus', enabled);
     focusButton.setAttribute('aria-pressed', String(enabled));
     focusButton.textContent = enabled ? 'Exit focus' : 'Focus Reading';
+    const collapsed = Boolean(previous && previous.collapsed);
+    try {
+      if (enabled) sessionStorage.setItem(preferenceKey, JSON.stringify({enabled: true, collapsed}));
+      else sessionStorage.removeItem(preferenceKey);
+    } catch (_error) { /* Reading preference is optional, never learning evidence. */ }
+    function decorate(url) {
+      if (enabled) { url.searchParams.set('focus', '1'); url.searchParams.set('nav', collapsed ? 'collapsed' : 'expanded'); }
+      else { url.searchParams.delete('focus'); url.searchParams.delete('nav'); }
+      return url;
+    }
+    try { history.replaceState(history.state, '', decorate(new URL(location.href))); } catch (_error) { /* URL fallback below still works. */ }
+    document.querySelectorAll('.ls-tabs a,.ls-source-chips a,#ls-contents-dialog a,.ls-related-lesson,.ls-practice-link').forEach(link => {
+      link.href = decorate(new URL(link.href, location.href)).href;
+    });
+  }
+  let remembered = null;
+  try {
+    const stored = sessionStorage.getItem(preferenceKey);
+    if (stored && stored.length < 150) {
+      const value = JSON.parse(stored);
+      if (value.enabled === true && typeof value.collapsed === 'boolean') remembered = value;
+    }
+  } catch (_error) { /* Storage denial degrades to bounded URL state. */ }
+  const params = new URLSearchParams(location.search);
+  if (params.get('focus') === '1') remembered = {enabled: true, collapsed: params.get('nav') === 'collapsed'};
+  if (remembered) {
+    document.body.classList.toggle('sidebar-collapsed', window.innerWidth > 860 && remembered.collapsed);
+    setFocus(true);
   }
   focusButton.addEventListener('click', () => setFocus(!document.body.classList.contains('ls-focus')));
   contentsButton.addEventListener('click', () => dialog.showModal());
@@ -43,6 +72,13 @@
       if (document.fullscreenElement) await document.exitFullscreen();
       else { setFocus(true); await document.documentElement.requestFullscreen(); }
     } catch (_error) { status.textContent = 'Fullscreen unavailable; Focus Reading still works.'; }
+  });
+  const copyBrief = document.getElementById('ls-copy-brief');
+  if (copyBrief) copyBrief.addEventListener('click', async () => {
+    const brief = document.getElementById('ls-review-brief');
+    const copyStatus = document.getElementById('ls-copy-status');
+    try { await navigator.clipboard.writeText(brief.value); copyStatus.textContent = 'Review brief copied. Paste it explicitly where needed.'; }
+    catch (_error) { brief.focus(); brief.select(); copyStatus.textContent = 'Clipboard unavailable. Selected text can be copied manually.'; }
   });
   const print = document.getElementById('ls-print');
   if (print) print.addEventListener('click', () => window.print());

@@ -121,3 +121,85 @@ def test_browser_storage_failure_keyboard_access(browser, live):
     page.locator('#ls-focus').focus(); page.keyboard.press('Enter')
     assert page.locator('#ls-focus').get_attribute('aria-pressed') == 'true'
     page.keyboard.press('Escape'); no_overflow(page); page.close()
+
+
+@pytest.mark.parametrize('width',[360,390,768,1024,1366,1920])
+def test_focused_view_contents_navigation_and_exit(browser,live,width):
+    url,_=live
+    page=browser.new_page(viewport={'width':width,'height':950})
+    page.goto(url+'/learning/modules/synthetic/1?view=learn')
+    page.click('#ls-focus')
+    page.click('#ls-contents')
+    page.locator('.ls-dialog-views a').filter(has_text='Visualise').click()
+    # Tabs hide in Focus Reading; navigate through actual source/page links instead
+    # after asserting a stored internal URL and then using it.
+    assert page.locator('#ls-focus').inner_text()=='Exit focus'
+    page.click('#ls-contents')
+    page.locator('#ls-contents-dialog a').first.click()
+    assert page.locator('#ls-focus').inner_text()=='Exit focus'
+    assert not page.locator('.topbar').is_visible()
+    assert page.evaluate('document.documentElement.scrollWidth<=innerWidth+1')
+    page.keyboard.press('Escape')
+    assert page.locator('#ls-focus').inner_text()=='Focus Reading'
+    page.reload()
+    assert page.locator('.topbar').is_visible()
+    page.close()
+
+
+@pytest.fixture
+def real_live(recovered_pilot):
+    service,p,source,assets=recovered_pilot
+    app=create_app({'TESTING':True,'LEARNING_STUDIO_SERVICE_FACTORY':lambda:service})
+    server=make_server('127.0.0.1',0,app)
+    thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
+    yield f'http://127.0.0.1:{server.server_port}',p,source
+    server.shutdown();thread.join(timeout=10);server.server_close()
+
+
+def test_external_recovered_pilot_real_browser(browser,real_live):
+    url,p,source=real_live
+    page=browser.new_page(viewport={'width':1440,'height':1000})
+    errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
+    base=url+f'/learning/modules/{p["module_id"]}/1'
+    page.goto(base+'?view=source')
+    assert page.locator('.ls-source-page').count()==20
+    for image in page.locator('.ls-source-page img').all():
+        image.scroll_into_view_if_needed()
+        image.evaluate('(i) => i.loading = "eager"')
+        page.wait_for_function('(src) => {const i=Array.from(document.images).find(i=>i.src===src);return i.complete&&i.naturalWidth>0}',arg=image.get_attribute('src') if image.get_attribute('src').startswith('http') else url+image.get_attribute('src'))
+    assert page.request.get(base+'/source.pdf').body()==source
+    page.goto(base+'?view=learn')
+    assert page.locator('.ls-lesson').count()==20
+    assert page.locator('.ls-block-source').count()==20
+    page.click('#ls-focus');screenshot(page,'v11-real-pilot-desktop-focus.png')
+    page.click('#ls-contents');page.locator('.ls-dialog-views').get_by_role('link',name='Practice',exact=True).click()
+    assert page.locator('.ls-question').count()==31 and page.locator('#ls-focus').inner_text()=='Exit focus'
+    q=p['questions'][0];form=page.locator('.ls-question').first
+    wrong=(q['correct_index']+1)%len(q['options'])
+    form.locator(f'input[value="{wrong}"]').check();form.locator('button').click()
+    page.wait_for_function('document.querySelector(".ls-feedback").textContent.includes("Incorrect")')
+    form.locator(f'input[value="{q["correct_index"]}"]').check();form.locator('button').click()
+    page.wait_for_function('document.querySelector(".ls-feedback").textContent.includes("Correct")')
+    page.click('#ls-contents');page.locator('.ls-dialog-views a').filter(has_text='My Weak Questions').click()
+    assert 'recovered needs recheck' in page.locator('#ls-reading-column').inner_text()
+    page.locator('.ls-related-lesson').first.click()
+    assert '#lesson-' in page.url and page.locator('#ls-focus').inner_text()=='Exit focus'
+    page.set_viewport_size({'width':390,'height':844})
+    no_overflow(page);screenshot(page,'v11-real-pilot-mobile.png')
+    page.click('#ls-contents');page.locator('.ls-dialog-views a').filter(has_text='Day-before-exam Revision').click()
+    page.emulate_media(media='print');assert not page.locator('.ls-reading-controls').is_visible()
+    assert not errors
+    page.close()
+
+
+def test_focus_url_fallback_without_storage(browser,live):
+    url,_=live
+    page=browser.new_page(viewport={'width':1440,'height':900})
+    page.add_init_script('for (const key of ["localStorage","sessionStorage"]) Object.defineProperty(window,key,{get(){throw new Error("denied")}})')
+    page.goto(url+'/learning/modules/synthetic/1?view=learn')
+    page.click('#ls-focus');page.click('#ls-contents')
+    page.locator('.ls-dialog-views a').filter(has_text='Visualise').click()
+    assert page.locator('#ls-focus').get_attribute('aria-pressed')=='true'
+    page.keyboard.press('Escape');page.reload()
+    assert page.locator('#ls-focus').get_attribute('aria-pressed')=='false'
+    no_overflow(page);page.close()

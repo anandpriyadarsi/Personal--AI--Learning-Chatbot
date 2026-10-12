@@ -14,6 +14,7 @@
 {% else %}
 {% for year, courses in library.courses|groupby('academic_year') %}<section><h2>{{ year }}</h2>{% for semester, members in courses|groupby('semester') %}<h3>{{ semester or 'Semester unspecified' }}</h3><div class="ls-card-grid">{% for c in members %}<a class="ls-card" href="{{ url_for('learning.course', course_id=c.id) }}"><span class="eyebrow">{{ c.code }}</span><h3>{{ c.name }}</h3><p>{{ c.module_count }} modules</p></a>{% endfor %}</div>{% endfor %}</section>{% else %}<p class="empty-state">No registered courses yet. Learning Studio never creates courses automatically.</p>{% endfor %}
 <a class="ls-card" href="{{ url_for('learning.course', course_id='unmapped') }}"><h2>Unmapped / needs review</h2><p>{{ library.unmapped_count }} modules · course hints require canonical review.</p></a>
+{% if library.unavailable_count %}<a class="ls-card" href="{{ url_for('learning.course', course_id='unavailable') }}"><h2>Course unavailable / needs review</h2><p>{{ library.unavailable_count }} historical modules. Their original mappings are preserved.</p></a>{% endif %}
 {% if library.staged %}<section><h2>Staged imports</h2><ul>{% for item in library.staged %}<li><a href="{{ url_for('learning.preview', module_id=item.module_id, revision=item.revision) }}">{{ item.title }} · revision {{ item.revision }}</a></li>{% endfor %}</ul></section>{% endif %}
 {% endif %}
 <p><a href="{{ url_for('learning.analysis') }}">Practice analysis</a></p>
