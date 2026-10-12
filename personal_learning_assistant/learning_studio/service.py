@@ -158,6 +158,7 @@ class LearningStudioService:
             for course in courses:
                 course['module_count'] = counts.get(course['id'], 0)
                 course['academic_year'] = course.get('academic_year') or 'Academic year unspecified'
+                course['semester'] = course.get('semester') or 'Semester unspecified'
         return result
 
     def attempt(self, module_id, payload):

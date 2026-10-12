@@ -203,3 +203,29 @@ def test_focus_url_fallback_without_storage(browser,live):
     page.keyboard.press('Escape');page.reload()
     assert page.locator('#ls-focus').get_attribute('aria-pressed')=='false'
     no_overflow(page);page.close()
+
+
+def test_explicit_focus_exit_survives_browser_history(browser,live):
+    url,_=live
+    page=browser.new_page(viewport={'width':1440,'height':900})
+    page.goto(url+'/learning/modules/synthetic/1?view=learn')
+    page.click('#ls-focus');page.click('#ls-contents')
+    page.locator('.ls-dialog-views a').filter(has_text='Visualise').click()
+    page.click('#ls-focus')
+    page.go_back()
+    assert page.locator('#ls-focus').get_attribute('aria-pressed')=='false'
+    assert page.locator('.topbar').is_visible()
+    page.close()
+
+
+def test_focus_exit_reload_preserves_saved_collapsed_navigation(browser,live):
+    url,_=live
+    page=browser.new_page(viewport={'width':1440,'height':900})
+    page.goto(url+'/learning/modules/synthetic/1?view=learn')
+    page.click('#nav-toggle');page.click('#ls-focus');page.click('#ls-focus');page.reload()
+    assert page.locator('body').evaluate('(b)=>b.classList.contains("sidebar-collapsed")')
+    assert page.locator('#nav-toggle').get_attribute('aria-expanded')=='false'
+    page.click('#nav-toggle')
+    assert page.locator('#nav-toggle').get_attribute('aria-expanded')=='true'
+    assert page.locator('#app-sidebar').evaluate('(s)=>!s.inert')
+    page.close()

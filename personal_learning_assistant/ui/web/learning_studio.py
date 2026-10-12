@@ -83,6 +83,8 @@ def module_view(module_id, revision, *, staged=False):
     cat = s.catalogue_loader()
     mapping = p['mapping']
     course = next((c for c in cat.get('courses', []) if mapping and c['id'] == mapping['course_id']), None)
+    if mapping and course is None:
+        course = {'id': 'unavailable', 'code': 'Course unavailable / needs review'}
     return render_template('learning_module.html', active_page='learning', module=p, view=view, staged=staged,
         course=course, markdown=markdown, weak=[] if staged else s.weak(module_id, revision),
         csrf_token=current_app.extensions['learning_studio_csrf'],

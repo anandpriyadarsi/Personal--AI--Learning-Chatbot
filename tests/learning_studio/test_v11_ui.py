@@ -44,3 +44,14 @@ def test_authored_markdown_table_has_accessible_scroll_boundary():
     from personal_learning_assistant.learning_studio.rendering import markdown
     rendered=str(markdown('| A | B |\n|---|---|\n|one|two|'))
     assert 'ls-table-scroll' in rendered and 'tabindex="0"' in rendered and '<table>' in rendered
+
+
+def test_removed_course_back_link_and_missing_optional_metadata(tmp_path):
+    s=service(tmp_path);publish(s,package(mapped=True))
+    s.catalogue_loader=lambda:{'available':True,'courses':[]}
+    app=create_app({'TESTING':True,'LEARNING_STUDIO_SERVICE_FACTORY':lambda:s})
+    html=app.test_client().get('/learning/modules/synthetic/1').data
+    assert b'/learning/courses/unavailable' in html
+    sparse=catalogue();sparse['courses'][0].pop('semester');sparse['courses'][1]['semester']='S1'
+    s.catalogue_loader=lambda:sparse
+    assert app.test_client().get('/learning').status_code==200

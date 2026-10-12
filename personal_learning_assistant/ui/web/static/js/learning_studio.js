@@ -28,8 +28,7 @@
     focusButton.textContent = enabled ? 'Exit focus' : 'Focus Reading';
     const collapsed = Boolean(previous && previous.collapsed);
     try {
-      if (enabled) sessionStorage.setItem(preferenceKey, JSON.stringify({enabled: true, collapsed}));
-      else sessionStorage.removeItem(preferenceKey);
+      sessionStorage.setItem(preferenceKey, JSON.stringify({enabled, collapsed}));
     } catch (_error) { /* Reading preference is optional, never learning evidence. */ }
     function decorate(url) {
       if (enabled) { url.searchParams.set('focus', '1'); url.searchParams.set('nav', collapsed ? 'collapsed' : 'expanded'); }
@@ -46,14 +45,14 @@
     const stored = sessionStorage.getItem(preferenceKey);
     if (stored && stored.length < 150) {
       const value = JSON.parse(stored);
-      if (value.enabled === true && typeof value.collapsed === 'boolean') remembered = value;
+      if (typeof value.enabled === 'boolean' && typeof value.collapsed === 'boolean') remembered = value;
     }
   } catch (_error) { /* Storage denial degrades to bounded URL state. */ }
   const params = new URLSearchParams(location.search);
-  if (params.get('focus') === '1') remembered = {enabled: true, collapsed: params.get('nav') === 'collapsed'};
+  if (!remembered && params.get('focus') === '1') remembered = {enabled: true, collapsed: params.get('nav') === 'collapsed'};
   if (remembered) {
-    document.body.classList.toggle('sidebar-collapsed', window.innerWidth > 860 && remembered.collapsed);
-    setFocus(true);
+    if (remembered.enabled) document.body.classList.toggle('sidebar-collapsed', window.innerWidth > 860 && remembered.collapsed);
+    setFocus(remembered.enabled);
   }
   focusButton.addEventListener('click', () => setFocus(!document.body.classList.contains('ls-focus')));
   contentsButton.addEventListener('click', () => dialog.showModal());
