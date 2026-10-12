@@ -15,7 +15,12 @@ from personal_learning_assistant.learning_studio.service import LearningStudioSe
 def archive(entries):
     output = io.BytesIO()
     with zipfile.ZipFile(output, 'w', zipfile.ZIP_DEFLATED) as z:
-        for name, data in entries: z.writestr(name, data)
+        for name, data in entries:
+            info = zipfile.ZipInfo(name)
+            # Preserve malicious raw names even when the host is Windows.
+            info.filename = name; info.orig_filename = name
+            info.compress_type = zipfile.ZIP_DEFLATED
+            z.writestr(info, data)
     return output.getvalue()
 
 
@@ -81,3 +86,14 @@ def test_corrupt_deflate_is_a_clean_validation_error():
     name_len, extra_len = struct.unpack_from('<HH', raw, 26)
     raw[30+name_len+extra_len] = 0xff
     with pytest.raises(PackageError): read_zip(bytes(raw))
+
+
+def test_original_archive_name_checked_before_platform_normalisation(monkeypatch):
+    raw = archive([('assets\\x.png', b'unsafe')])
+    original = zipfile.ZipInfo
+    class NormalizingZipInfo(original):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.filename = self.filename.replace('\\', '/')
+    monkeypatch.setattr(zipfile, 'ZipInfo', NormalizingZipInfo)
+    with pytest.raises(PackageError): read_zip(raw)

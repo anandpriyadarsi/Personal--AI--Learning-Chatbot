@@ -42,7 +42,7 @@ def read_zip(raw, *, pilot=False):
             names = set()
             result = {}
             for i in members:
-                name = i.filename
+                name = i.orig_filename
                 path = PurePosixPath(name)
                 require(not path.is_absolute() and '..' not in path.parts and '\\' not in name and ':' not in name and '\x00' not in name,
                         'Unsafe archive path.')
