@@ -7,11 +7,11 @@ Gate A1 implements test portability and development automation on `anvaya/gate-a
 | Gate | Status | Evidence/boundary |
 |---|---|---|
 | GATE_A_DEV_PLATFORM — local Linux | PASS | Clean disposable snapshot run `run-62m06053`: full 1763, focused 54, both orders 41 each, characterization 13, browser 39; all exit 0, no failures/errors/skips. Final reviewed rerun recorded below. |
-| GATE_A_DEV_AUTOMATED — Ubuntu + Windows | BLOCKED | Workflow is implemented; matching actual jobs and aggregate acceptance still required. Single-OS CLI results cannot unlock B1. |
+| GATE_A_DEV_AUTOMATED — Ubuntu + Windows | PASS | Hosted run38129594236 at710b249d: both platforms full1772/browser39 PASS; aggregate acceptance PASS. |
 | GATE_A_LOCAL_PRODUCTION_AUTHORITY | BLOCKED | Installed Windows launcher/interpreter/backend, closed stable schema/ledger and normalized/projection parity have not been observed. Synthetic migration checks are not production lineage. |
 | ASSESSMENT_PAUSE_RESUME_DESIGN | PASS | Concrete execution policy, timer, state machine, transactional races, API/UI, compatibility, tests and rollout in Assessment spec. Product implementation NOT RUN. |
 | ASSESSMENT_PAPER_SUBJECTIVE_DESIGN | PASS | Structured/free-text rubric handling, paper workspace, revisions, marking arithmetic and qualified evidence contracts in same spec. Product implementation NOT RUN. |
-| NEXT_SAFE_IMPLEMENTATION_GATE | BLOCKED | B1 only after actual complete cross-platform development acceptance; production-only unknowns then block migrations, not the no-migration read-only adapter. |
+| NEXT_SAFE_IMPLEMENTATION_GATE | PASS | Source-only B1 unlocked by hosted acceptance; tracked separately in B1 report. Full B/migrations remain gated. |
 
 A1 feature publishing provisions CI after local full validation and independent review. It does not certify cross-platform or production readiness in advance.
 
@@ -145,3 +145,5 @@ The child hash-function regression executes with both PurePosixPath and PureWind
 Continuation focused tests:29 PASS. Full local validation and independent review are recorded in the final handoff before feature publication. B1 remains gated on actual matching hosted Ubuntu/Windows PASS; local production authority remains BLOCKED.
 
 Continuation final Linux run `run-7sojvroq`: full1772 PASS (0 failures/errors/skips), focused54, fixture orders41each, characterization17, browser39, Node20 and all15 categories PASS. Independent review clean. Implementation/workflow/test bytes match the validated source fingerprint `5536c816a7b02c16a5aba9679399677bab55b64f362a763405a726a5cbf2e3e4`; subsequent edits only record evidence. Hosted confirmation pending publication.
+
+Hosted continuation final: run38129594236 at710b249d passed Ubuntu job114440968992, Windows job114440969208 and aggregate job114442427849. Both full1772/browser39; all categories PASS; source dirty=false. Aggregate acceptance DEV PASS / LOCAL PRODUCTION BLOCKED. Historical pending/failure entries remain a dated log.
