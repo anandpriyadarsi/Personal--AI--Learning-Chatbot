@@ -1,0 +1,157 @@
+{
+  "candidate_sha256": "e26d03de4a300dda0186ee005745d98afa41f0a23d12d6612965079e995f6923",
+  "original_bad_v3_sha256": "a49c7fcd16f129ccf62a3260fd0a914be3b278b32ee460cf8833bbdf531e9cdd",
+  "source_sha256": "75cd41956da56018967fea70ae5829803a9b54effa827e25883ac184bffcf411",
+  "bad_v3_rejection": "Pilot source hash mismatch.",
+  "original_pdf_bytes_preserved": true,
+  "page_count": 20,
+  "lesson_count": 20,
+  "question_count": 31,
+  "mapping": null,
+  "page_statuses": [
+    "needs_review",
+    "needs_review",
+    "needs_review",
+    "needs_review",
+    "needs_review",
+    "needs_review",
+    "needs_review",
+    "needs_review",
+    "needs_review",
+    "needs_review",
+    "needs_review",
+    "needs_review",
+    "needs_review",
+    "needs_review",
+    "needs_review",
+    "needs_review",
+    "needs_review",
+    "needs_review",
+    "needs_review",
+    "needs_review"
+  ],
+  "preview_sha256": {
+    "assets/source_slide_01.webp": "159f9f354f60ef0edaaec08952a66ef4c48e0de22f2ab0fe527875b1a95ad24c",
+    "assets/source_slide_02.webp": "34fe532ab9c7e7676a89a69e82f05a64aa6a2cbfc23b0ef995f67a3f2e66bff1",
+    "assets/source_slide_03.webp": "e16459f488874e9c1c214fd64c6c415b4ad42f0ad635680ef84b9bcc10518c46",
+    "assets/source_slide_04.webp": "e0199bdda7a1e0b03e01776428b509c86a7a9999a7e356333947737d54412f7f",
+    "assets/source_slide_05.webp": "193589f21099bba3cb1873e176f6b98f886db6f22cda8890d5e899b0214e8acf",
+    "assets/source_slide_06.webp": "ebd68e89c13bdd5334378d65db77b9db556f31a864bc3b1d2f342bd4601a0c21",
+    "assets/source_slide_07.webp": "35e0a57d1fb61f0dd3855e8c83ec10be1c14b444b9fb25fcbc20803b91730129",
+    "assets/source_slide_08.webp": "519b79dfc690d9190a03128d524d1c39ac4fefb4b9f6118273c6d5f86c6c1b70",
+    "assets/source_slide_09.webp": "8feea446ea82771fbb3eb802cc16bb7fb8ef42e4bc49924bc9035db218064317",
+    "assets/source_slide_10.webp": "e68312b6c9606d65b1a540eb88f6f788cab7e7c80503c843e0a769a5d9ed4f42",
+    "assets/source_slide_11.webp": "2c7dc5ee7b805657a5f6a57a25ececc153aff2617a77538dbe175e792cf4dc18",
+    "assets/source_slide_12.webp": "2ed010c490a0299c5ffeb84adf91a5e23b76f4fb5262138d89fac201a9066076",
+    "assets/source_slide_13.webp": "e1dbad2b2de320b3a78bb3e339c21936c0832b4f73998308527db67f74f8afe5",
+    "assets/source_slide_14.webp": "efe7c95dfa65e64024538adea105b5e40d9ffa31f68de89ed0eb3f309e6de4ef",
+    "assets/source_slide_15.webp": "74b4af79ce14411672600fd078be3c2023af0b81d2ff41215b21bf6bcc520f4b",
+    "assets/source_slide_16.webp": "14c1249d9d669c5074b3c52e2700317486960a3521f5860d1a13242f58db5446",
+    "assets/source_slide_17.webp": "f23a9ad2a5a32fc2dd997555bc08696c2aa3173548c2487ac8c6ea881aca7159",
+    "assets/source_slide_18.webp": "f678124aa9add32c19c31649453c7033c4e173e02171c44d2c0fa919cfdd8eb2",
+    "assets/source_slide_19.webp": "c42a3130b3ff67e61876b03d3e7d11174a123f5fec67961713fdfc4dff07bf58",
+    "assets/source_slide_20.webp": "48c98de3d0e569abf2ca0b6fc741fe0923553f14e07bd90ecda02b7d450dd1a8"
+  },
+  "question_page_references": {
+    "q-001": [
+      2
+    ],
+    "q-002": [
+      2
+    ],
+    "q-003": [
+      3
+    ],
+    "q-004": [
+      4
+    ],
+    "q-005": [
+      5
+    ],
+    "q-006": [
+      5
+    ],
+    "q-007": [
+      6
+    ],
+    "q-008": [
+      6
+    ],
+    "q-009": [
+      7
+    ],
+    "q-010": [
+      7
+    ],
+    "q-011": [
+      7
+    ],
+    "q-012": [
+      8
+    ],
+    "q-013": [
+      9
+    ],
+    "q-014": [
+      9
+    ],
+    "q-015": [
+      10
+    ],
+    "q-016": [
+      10
+    ],
+    "q-017": [
+      11
+    ],
+    "q-018": [
+      12
+    ],
+    "q-019": [
+      12
+    ],
+    "q-020": [
+      13
+    ],
+    "q-021": [
+      13
+    ],
+    "q-022": [
+      14
+    ],
+    "q-023": [
+      15
+    ],
+    "q-024": [
+      15
+    ],
+    "q-025": [
+      16
+    ],
+    "q-026": [
+      17
+    ],
+    "q-027": [
+      17
+    ],
+    "q-028": [
+      18
+    ],
+    "q-029": [
+      19
+    ],
+    "q-030": [
+      19
+    ],
+    "q-031": [
+      20
+    ]
+  },
+  "registry_sha256_before": "c7de24cbf699dea2b8464da51da9b1c3c741cf2c03c457742d16750053a67f7f",
+  "registry_sha256_after": "c7de24cbf699dea2b8464da51da9b1c3c741cf2c03c457742d16750053a67f7f",
+  "sqlite_integrity": "ok",
+  "foreign_key_errors": [],
+  "production_registry_used": false,
+  "semantic_verification": "pending",
+  "automatic_tutor_consumption": false
+}

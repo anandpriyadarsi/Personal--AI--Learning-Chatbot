@@ -15,3 +15,7 @@ GET /learning/evidence/export downloads append-only events (`anvaya.learning-evi
 Analysis: /analysis includes a link to /learning/analysis; evidence is read-only and never replaces official Assessment Studio scores, academic grades/progress or Tutor memory. All new persistence is inside the dedicated feature boundary.
 
 Tutor: /agent currently accepts course code but has no source/versioned LearningEvidenceSummary consumer. A course-only link cannot truthfully transfer the required evidence. The Review with ANVAYA Tutor affordance is disabled with an explanation. The documented summary contract is available; adding a reviewed consumer is a separate bounded task. No Tutor reasoning, prompts, orchestration, grading, production sessions or scenario gates were modified.
+
+## V1.1 manual review-context projection
+
+The versioned, source-verified `anvaya.learning-review-context.v1` producer and plain-text download are available at `/learning/modules/<id>/<revision>/review-context` and `/review-brief`. Weak Questions offers explicit clipboard/download controls. The context includes only that module revision's server-graded missed questions, historical lesson/question/source locators and current mapping review status. It excludes hidden keys/explanations and never calls Tutor. Clipboard failure selects the text for manual copying. See `ANVAYA_LEARNING_STUDIO_TUTOR_READONLY_HANDOFF_V1_2.md` for the unimplemented consumer acceptance contract.

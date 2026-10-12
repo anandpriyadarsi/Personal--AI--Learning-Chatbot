@@ -22,3 +22,7 @@ Rulings:
 - Legacy course/topic read models do not reliably expose stable topic IDs or academic year. Optional topic_id is only accepted if supplied by the actual catalogue; unknown year remains unspecified.
 - /agent cannot consume source-grounded LearningEvidenceSummary. Tutor action stays disabled with an explicit reason; no reasoning/orchestration changes were made.
 - Scratch expiry invalidated the initial worktree metadata. A dedicated checkout was rehydrated from the SAME verified base without changing feature content. The source snapshots, commits and full-suite comparison remain based on f859a3c7cdf44baadc17d9bd1a6c656530c1b5bf.
+
+## V1.1 independent review
+
+Read-only reviewer compared the V1.1 delta to pushed9ed585c. No critical source-validator, answer-key, cross-module or production/Tutor boundary defect found. Findings: explicit Focus exit/history precedence; missing-case/new-skip regression gate; erased-course Back link; mixed missing semester labels. Follow-up review found collapsed-sidebar reload consistency and external failure→skip acceptance. All six findings received fail-first tests and fixes. Reviewer confirmed no remaining important findings in the repairs; local final actual-browser feature suite75/0failed/0skipped. Reviewer's environment could not launch Chromium; primary harness ran actual browser cases, including history and collapsed reload. Full final delta has no new failures/missing cases/skips and retains the16 unchanged baseline failures.

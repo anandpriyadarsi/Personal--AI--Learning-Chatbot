@@ -10,3 +10,5 @@ Reuse the existing strict importer, derived store, append-only grading, seven vi
 4. Enable V1.1 Ubuntu/Windows workflow and V1-based full-suite comparison. Execute feature/browser/focused/full gates, independent review and repairs, scoped commits, push and exact remote-tree verification. Report actual source hashes, semantic flags, CI conclusions/skips and raw baseline failures.
 
 Pre-flight shared interfaces: converter feeds existing stage/source_loader; reader links consume attempted module/section IDs; brief consumes only graded events. No new academic authority or schema migration required.
+
+Executed: strict real recovery, remaining UX, manual brief, V1.1 CI, independent review and all repairs. Final local feature75/0failed/0skipped, focused101/0failed/0skipped, full V1 baseline1771pass/16fail vs feature1791pass/same16fail. Source semantics/mapping remain pending and automatic Tutor consumption remains disabled. Pushed code4298c5a with exact tree verification; documentation-tip CI observation follows final commit.
