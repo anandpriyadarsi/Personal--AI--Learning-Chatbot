@@ -40,6 +40,6 @@ for route in ['/planning','/analysis']:
    run=subprocess.run([sys.executable,'-c',child,route,state],cwd=root,capture_output=True,text=True,env={**os.environ,'PYTHONDONTWRITEBYTECODE':'1'})
    if run.returncode:raise RuntimeError(run.stderr)
    results.append(json.loads(run.stdout))
-assert all(r['status']==200 and not r['network_attempts'] for r in results)
-assert all(not r['created'] and not r['changed'] and not r['writes'] for r in results)
 a.output.parent.mkdir(parents=True,exist_ok=True);a.output.write_text(json.dumps(results,indent=2));print(json.dumps(results,indent=2))
+assert all(r['status']==200 and not r['network_attempts'] for r in results), json.dumps(results)
+assert all(not r['created'] and not r['changed'] and not r['writes'] for r in results), json.dumps(results)

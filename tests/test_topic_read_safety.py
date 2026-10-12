@@ -273,3 +273,30 @@ def test_dangling_authority_control_never_means_legacy(tmp_path):
     with pytest.raises(RuntimeError):
         router.maybe_load_sqlite_structured_store('learning_memory',root/'data/learning_memory.json')
     assert control.is_symlink() and not (root/'data').exists()
+
+
+def test_route_probe_retains_detected_write_evidence(exported,tmp_path):
+    import shutil
+    source=tmp_path/'source';shutil.copytree(exported,source)
+    service=source/'personal_learning_assistant/services/home_dashboard_service.py'
+    text=service.read_text().replace('    brief = import_module("daily_academic_brief")',
+         '    from pathlib import Path\n    Path("forbidden-by-get.txt").write_text("synthetic")\n    brief = import_module("daily_academic_brief")')
+    service.write_text(text)
+    output=tmp_path/'failure.json'
+    result=subprocess.run([sys.executable,str(ROOT/'scripts/characterization/read_routes.py'),'--repo',str(source),'--output',str(output)],capture_output=True,text=True,timeout=60)
+    assert result.returncode != 0
+    assert output.exists(), 'Detected write evidence was lost before the assertion'
+    rows=json.loads(output.read_text())
+    assert any('forbidden-by-get.txt' in row['created'] for row in rows)
+    assert 'forbidden-by-get.txt' in result.stdout
+
+
+def test_route_probe_is_stable_with_git_auto_maintenance(exported,tmp_path):
+    import os
+    output=tmp_path/'routes.json'
+    # Exercise real post-commit Git maintenance, not a mocked file write.
+    environment={**os.environ,'GIT_CONFIG_COUNT':'1','GIT_CONFIG_KEY_0':'gc.auto','GIT_CONFIG_VALUE_0':'1'}
+    result=subprocess.run([sys.executable,str(ROOT/'scripts/characterization/read_routes.py'),'--repo',str(exported),'--output',str(output)],capture_output=True,text=True,timeout=90,env=environment)
+    assert result.returncode==0,result.stdout+result.stderr
+    rows=json.loads(output.read_text())
+    assert all(not r['created'] and not r['changed'] and not r['writes'] for r in rows)

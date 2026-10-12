@@ -84,8 +84,11 @@ def export_source(repo: Path, target: Path) -> dict:
     subprocess.run(['git', 'init', str(target)], check=True, capture_output=True)
     info = target / '.git/info/attributes'
     info.write_text('backup.py -text\ndashboard.py -text\n', encoding='utf-8')
-    subprocess.run(['git', '-C', str(target), 'add', '.'], check=True, capture_output=True)
-    subprocess.run(['git', '-C', str(target), '-c', 'user.name=Synthetic validator',
+    # Auto-maintenance may outlive commit and mutate .git during read audits or
+    # Windows cleanup. Disable it only for this disposable snapshot preparation.
+    snapshot_git = ['git', '-C', str(target), '-c', 'gc.auto=0', '-c', 'maintenance.auto=false']
+    subprocess.run([*snapshot_git, 'add', '.'], check=True, capture_output=True)
+    subprocess.run([*snapshot_git, '-c', 'user.name=Synthetic validator',
                     '-c', 'user.email=synthetic@example.invalid', 'commit', '-m', 'Disposable source snapshot'], check=True, capture_output=True)
     return {'sha': _git(repo, 'rev-parse', 'HEAD'), 'branch': _git(repo, 'branch', '--show-current'),
             'dirty': bool(_git(repo, 'status', '--porcelain=v1', '-uall')),
