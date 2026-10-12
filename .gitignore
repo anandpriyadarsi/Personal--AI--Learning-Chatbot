@@ -79,3 +79,8 @@ data/anvaya_notes_assets/
 
 # Disposable local live-validation workspaces
 .live_validation/
+
+# Learning Studio derived artifacts and low-stakes private evidence
+data/learning_studio.sqlite3*
+.learning-studio-demo/
+learning-studio-evidence/

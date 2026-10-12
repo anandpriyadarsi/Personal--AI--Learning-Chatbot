@@ -35,6 +35,7 @@
 
         <div class="nav-section">
           <p class="nav-section-label">Learning</p>
+          <a class="nav-item{% if active_page == 'learning' %} is-active{% endif %}" href="{{ url_for('learning.library') }}"{% if active_page == 'learning' %} aria-current="page"{% endif %}>Learning Studio</a>
           <a class="nav-item{% if active_page == 'notes' %} is-active{% endif %}" href="{{ url_for('web.notes') }}"{% if active_page == 'notes' %} aria-current="page"{% endif %}>Notes</a>
           <a class="nav-item{% if active_page == 'resources' %} is-active{% endif %}" href="{{ url_for('web.resources') }}"{% if active_page == 'resources' %} aria-current="page"{% endif %}>Resources</a>
         </div>
