@@ -102,6 +102,10 @@ def make_demo(directory, *, pilot_zip=None):
     sources = RegisteredSources(registry_path, {'demo': root})
     s = LearningStudioService(root / 'learning_studio.sqlite3', source_loader=sources, catalogue_loader=synthetic_catalogue)
     s.stage(p, assets); s.publish(p['module_id'], p['module_revision'])
+    if pilot_zip:
+        # A recovered real lecture remains a single unmapped derived module.
+        # Never clone its content into fabricated demo course assignments.
+        return s
     import copy
     for i in range(6):
         for j in range(12):

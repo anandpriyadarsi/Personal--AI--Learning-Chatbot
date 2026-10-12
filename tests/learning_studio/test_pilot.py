@@ -41,9 +41,9 @@ def test_bomb_duplicate_symlink_and_duplicate_json_rejected():
     with pytest.raises(PackageError): decode_json(b'{"schema":"one","schema":"two"}')
 
 
-def test_actual_pilot_import_retains_twenty_pages(tmp_path):
-    path = os.environ.get('ANVAYA_TEST_PILOT_ZIP')
-    if not path: pytest.skip('Attached pilot ZIP is not supplied in this checkout; synthetic gates still run.')
+def test_external_bad_v3_source_is_rejected(tmp_path):
+    path = os.environ.get('ANVAYA_TEST_BAD_V3_ZIP')
+    if not path: pytest.skip('External bad V3 fixture missing; no real-source rejection is claimed.')
     with pytest.raises(PackageError, match='Pilot source hash mismatch'):
         convert_pilot(Path(path).read_bytes())
     # Verify the discrepancy independently of the converter.
