@@ -55,6 +55,17 @@ jobs:
         run: |
           import os, subprocess, sys
           sys.exit(subprocess.call([sys.executable, 'scripts/architecture_validation.py', '--require-clean', '--output', os.environ['ANVAYA_VALIDATION_OUTPUT']]))
+      - name: Exercise the minimal Windows identity command
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          $report = Join-Path $env:RUNNER_TEMP 'B3_DEFAULT_IDENTITY.json'
+          & .\scripts\b3_collect_authority.ps1 -Python (Get-Command python -ErrorAction Stop).Source -ToolsRef $env:GITHUB_SHA -Output $report
+          if ($LASTEXITCODE -ne 0) { throw 'Default collection failed' }
+          $identity = Get-Content -LiteralPath $report -Raw | ConvertFrom-Json
+          if ($identity.source_head -ne $env:GITHUB_SHA -or $identity.closed_schema_copy.reason_code -ne 'writers_not_attested' -or $identity.GATE_A_LOCAL_PRODUCTION_AUTHORITY -ne 'BLOCKED') {
+            throw 'Default collection violated the source/no-DB contract'
+          }
       - name: Preserve results, XML, logs, manifests and screenshots
         if: always()
         uses: actions/upload-artifact@v4
@@ -68,6 +79,7 @@ jobs:
             ${{ env.ANVAYA_VALIDATION_OUTPUT }}/run-*/source-manifest.json
             ${{ env.ANVAYA_VALIDATION_OUTPUT }}/run-*/fixtures/manifest.json
             ${{ env.ANVAYA_VALIDATION_OUTPUT }}/run-*/screenshots/*
+            ${{ runner.temp }}/B3_DEFAULT_IDENTITY.json
 
   acceptance:
     name: Cross-platform development acceptance

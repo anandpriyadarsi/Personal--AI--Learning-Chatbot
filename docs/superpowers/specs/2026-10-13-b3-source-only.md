@@ -1,0 +1,13 @@
+# B3 source-only design
+
+Execution authority: `ANVAYA_B3_NEXT_WORK_MASTER_PROMPT.md`, supplied 13 October 2026. The user explicitly authorizes the smallest safe design and implementation without another approval gate. Verified base: `e15c347e5a7bf58c7ec29708eee49b1fed13f712`.
+
+Add three bounded units; keep B1/B2 and all existing app consumers byte-identical.
+
+1. A frozen aggregate authority manifest and query-only SQLite inspector record the exact source ledger, required schema/FK structure, relationship anomalies, historical snapshot absence and nine compatibility projection states. Course/topic parity uses exact public IDs and explicit import-ledger links only; names never establish identity. Matching identities do not prove freshness. Existing projection format has no coupled source revision/fingerprint: report UNVERIFIABLE. A changed normalized revision newer than the projection can prove STALE, but an older timestamp cannot prove fresh. No second authority store or generated metadata.
+2. Strict frozen attribution records compose the unchanged B1 observations. Default historical mapping/independence remain unknown, grading and author confidence remain separate, each evaluation remains one observation. Explicit synthetic review inputs are pinned to the exact artifact digest and all observation IDs. The fixture-only composition is clearly marked; no production writer or eligibility/policy decision exists. Aware timestamps, tuple-only nested collections and finite separate confidence values are validated.
+3. Enhance the existing collector. Default does no DB connection/copy. Closed inspection copies the complete main/WAL/SHM set, rejects rollback journals and unsafe path components, verifies both source stability and copied bytes, reads only the private copy query-only in a transaction, checks integrity/FKs, and automatically disposes it. Report only known schema fields, counts, hashes and fixed reason codes. Malformed control, permissions or changing source fail closed without leaking exception text. Process enumeration is additional evidence, never proof of no hidden writers.
+
+B3-B remains BLOCKED without installed execution/schema/lineage evidence. Allocate no migration. No live binding, provider, Gate C policy, task creation, regrading, deployment or main merge. Preserve all fourteen migration checksums and full Assessment designs.
+
+Validation: fail-first behavior tests, real SQLite fixtures and full existing validator, hosted Ubuntu/Windows exact commit with aggregate acceptance, fresh independent whole-delta review, and a GitHub-backed handoff plus evidence archive.
