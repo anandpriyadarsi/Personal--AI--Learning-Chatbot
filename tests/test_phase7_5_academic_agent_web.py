@@ -4,7 +4,6 @@ import hashlib
 import itertools
 import os
 from pathlib import Path
-import shutil
 import sqlite3
 import subprocess
 import sys
@@ -15,12 +14,9 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def copied_learning_database_path(tmp_path):
-    source = ROOT / "data" / "learning_assistant.db"
-    assert source.is_file(), "production learning_assistant.db is required for Phase 7.5.9 tests"
-    target = tmp_path / "learning_assistant.db"
-    shutil.copy2(source, target)
-    return target
+def synthetic_learning_database_path(tmp_path):
+    from synthetic_academic import build_academic_database
+    return build_academic_database(tmp_path)
 
 
 def open_database(path):
@@ -150,7 +146,7 @@ def first_retrieval_hit(connection):
 def build_test_web_service(tmp_path, *, provider=None, hits=()):
     from personal_learning_assistant.services.academic_agent_web_service import AcademicAgentWebService
 
-    database_path = copied_learning_database_path(tmp_path)
+    database_path = synthetic_learning_database_path(tmp_path)
     connection = open_database(database_path)
     try:
         course = first_course(connection)
@@ -192,9 +188,8 @@ def test_tutor_repository_lists_recent_sessions_newest_first(tmp_path):
     from personal_learning_assistant.repositories.sqlite.tutor_repository import SQLiteTutorRepository
     from personal_learning_assistant.services.tutor_session_service import TutorSessionService
 
-    connection = open_database(copied_learning_database_path(tmp_path))
-    # This repository-ordering test must be isolated from Anand's real Tutor
-    # history copied with the production database fixture.
+    connection = open_database(synthetic_learning_database_path(tmp_path))
+    # Isolate ordering from the synthetic fixture's reopen session.
     connection.execute("DELETE FROM tutor_feedback")
     connection.execute("DELETE FROM tutor_evidence_links")
     connection.execute("DELETE FROM tutor_turns")
@@ -222,7 +217,7 @@ def test_tutor_repository_lists_recent_sessions_newest_first(tmp_path):
 def test_tutor_repository_rejects_unbounded_session_limit(tmp_path):
     from personal_learning_assistant.repositories.sqlite.tutor_repository import SQLiteTutorRepository
 
-    connection = open_database(copied_learning_database_path(tmp_path))
+    connection = open_database(synthetic_learning_database_path(tmp_path))
     repo = SQLiteTutorRepository(connection)
     with pytest.raises(ValueError, match="between 1 and 100"):
         repo.list_sessions(limit=101)
@@ -329,7 +324,7 @@ def test_session_view_missing_session_is_safe_404_boundary(tmp_path):
 
 def test_ask_persists_grounded_exchange_and_only_tutor_tables_change(tmp_path):
     provider = FakeProvider(configured=True)
-    base_path = copied_learning_database_path(tmp_path)
+    base_path = synthetic_learning_database_path(tmp_path)
     connection = open_database(base_path)
     course = first_course(connection)
     hit = first_retrieval_hit(connection)
@@ -388,7 +383,7 @@ def test_provider_unavailable_is_safe_and_does_not_persist_normal_turns(tmp_path
         def complete(self, request):
             raise TutorProviderUnavailableError("SECRET-PROVIDER-DETAIL")
 
-    path = copied_learning_database_path(tmp_path)
+    path = synthetic_learning_database_path(tmp_path)
     connection = open_database(path)
     course = first_course(connection)
     hit = first_retrieval_hit(connection)
@@ -415,7 +410,7 @@ def test_provider_request_failure_is_safe_and_does_not_persist_normal_turns(tmp_
         def complete(self, request):
             raise TutorProviderRequestError("SECRET-HTTP-DETAIL")
 
-    path = copied_learning_database_path(tmp_path)
+    path = synthetic_learning_database_path(tmp_path)
     connection = open_database(path)
     course = first_course(connection)
     hit = first_retrieval_hit(connection)
@@ -626,30 +621,33 @@ for name in (
     assert list(tmp_path.iterdir()) == []
 
 
-def test_real_agent_get_does_not_change_production_database_or_retrieval_index():
+def test_real_agent_get_does_not_change_production_database_or_retrieval_index(tmp_path):
     from personal_learning_assistant.ui.web import create_app
 
-    database = ROOT / "data" / "learning_assistant.db"
-    retrieval = ROOT / ".phase5_retrieval"
+    service, database, _course, provider, _retrieval = build_test_web_service(tmp_path)
+    retrieval = tmp_path / "retrieval"
+    retrieval.mkdir()
+    (retrieval / 'fixture-index.json').write_text('{"synthetic": true}', encoding='utf-8')
     assert database.is_file()
     db_before = file_hash(database)
     index_before = tree_hashes(retrieval)
-    response = create_app({"TESTING": True}).test_client().get("/agent")
+    response = create_app({"TESTING": True, "ACADEMIC_AGENT_WEB_SERVICE_FACTORY": lambda: service}).test_client().get("/agent")
     assert response.status_code == 200
     assert file_hash(database) == db_before
     assert tree_hashes(retrieval) == index_before
+    assert provider.calls == 0
 
 
-def test_real_session_get_is_read_only_when_a_session_exists():
+def test_real_session_get_is_read_only_when_a_session_exists(tmp_path):
     from personal_learning_assistant.ui.web import create_app
 
-    database = ROOT / "data" / "learning_assistant.db"
+    service, database, _course, provider, _retrieval = build_test_web_service(tmp_path)
     connection = sqlite3.connect("file:{}?mode=ro".format(str(database.resolve()).replace("\\", "/")), uri=True)
     row = connection.execute("SELECT id FROM tutor_sessions ORDER BY updated_at DESC,id DESC LIMIT 1").fetchone()
     connection.close()
-    if row is None:
-        pytest.skip("production database has no tutor session to reopen")
+    assert row is not None, "synthetic fixture must always exercise session reopen"
     before = file_hash(database)
-    response = create_app({"TESTING": True}).test_client().get("/agent/sessions/{}".format(row[0]))
+    response = create_app({"TESTING": True, "ACADEMIC_AGENT_WEB_SERVICE_FACTORY": lambda: service}).test_client().get("/agent/sessions/{}".format(row[0]))
     assert response.status_code == 200
     assert file_hash(database) == before
+    assert provider.calls == 0

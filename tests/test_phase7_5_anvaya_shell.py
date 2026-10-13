@@ -7,10 +7,10 @@ ROOT = Path(__file__).resolve().parents[1]
 WEB = ROOT / "personal_learning_assistant" / "ui" / "web"
 
 
-def _client():
+def _client(config=None):
     from personal_learning_assistant.ui.web import create_app
 
-    return create_app({"TESTING": True}).test_client()
+    return create_app({"TESTING": True, **(config or {})}).test_client()
 
 
 def test_home_renders_anvaya_identity_and_local_brand_assets():
@@ -118,8 +118,10 @@ def test_mobile_drawer_is_keyboard_accessible_and_dependency_free():
     assert '"anvaya.sidebar.collapsed"' in script
 
 
-def test_existing_phase75_get_routes_keep_working():
-    client = _client()
+def test_existing_phase75_get_routes_keep_working(tmp_path):
+    from test_phase7_5_academic_agent_web import build_test_web_service
+    service, _path, _course, _provider, _retrieval = build_test_web_service(tmp_path)
+    client = _client({"ACADEMIC_AGENT_WEB_SERVICE_FACTORY": lambda: service})
     for path in (
         "/",
         "/agent",

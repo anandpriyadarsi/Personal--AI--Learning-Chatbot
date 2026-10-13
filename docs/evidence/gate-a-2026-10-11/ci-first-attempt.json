@@ -1,0 +1,12 @@
+{
+  "source_sha": "95c1179ff36a78299939e573cda2411a3789f366",
+  "run_id": 38113670243,
+  "url": "https://github.com/anandpriyadarsi/Personal--AI--Learning-Chatbot/actions/runs/38113670243",
+  "status": "completed",
+  "conclusion": "failure",
+  "jobs": [],
+  "ubuntu_tests": "NOT RUN",
+  "windows_tests": "NOT RUN",
+  "annotation": "(Line:22,Col:33) and (Line:23,Col:33): Unrecognized named-value: runner in runner.temp",
+  "resolution": "Move path initialization to runner step using RUNNER_TEMP/GITHUB_ENV; general job-context regression RED/GREEN"
+}

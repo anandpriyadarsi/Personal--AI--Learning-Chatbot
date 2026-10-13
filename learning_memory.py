@@ -8,6 +8,7 @@ global weak topics, mastered topics, notes, or recent activity.
 
 import json
 import os
+from pathlib import Path
 from datetime import datetime
 
 from knowledge_paths import BASE_DIR
@@ -153,16 +154,23 @@ def ensure_memory_file():
 
 
 def load_memory():
+    """Read existing authority; only explicit ensure/save commands initialize it."""
+    path = Path(MEMORY_FILE).absolute()
+    if any(p.is_symlink() for p in (path, *path.parents)):
+        raise ValueError("Learning memory read path must not contain symlinks")
     routed = maybe_load_sqlite_structured_store("learning_memory", MEMORY_FILE)
     if routed is not None:
         return _normalise_memory(routed)
-    ensure_memory_file()
-
     try:
         with open(MEMORY_FILE, "r", encoding="utf-8") as file:
-            return _normalise_memory(json.load(file))
-    except (json.JSONDecodeError, OSError):
+            data = json.load(file)
+        if not isinstance(data, dict):
+            raise ValueError("Learning memory must be a JSON object")
+        return _normalise_memory(data)
+    except FileNotFoundError:
         return default_memory()
+    except (json.JSONDecodeError, UnicodeDecodeError, OSError) as error:
+        raise ValueError("Existing learning memory is unavailable; no repair performed") from error
 
 
 def save_memory(memory):
