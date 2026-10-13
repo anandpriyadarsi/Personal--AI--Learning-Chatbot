@@ -2,13 +2,13 @@
 
 Starting source: B1 `6d2c3a01d6deca5b64bfc19ce2041769a8b00929`. Dedicated branch: `anvaya/topic-intelligence-b2-read-safety`. Recover from GitHub at the exact final tested SHA in the evidence handoff; never apply old patches over that branch or mix equivalent patch/bundle inputs.
 
-Reviewed implementation `ce2a770d9358fad1e00b0032436a8f3f46da7ac6` passed [run38286115666](https://github.com/anandpriyadarsi/Personal--AI--Learning-Chatbot/actions/runs/38286115666) on Ubuntu and Windows plus aggregate: full1863, focused54, fixture orders41 each, characterization17, Chromium43, Node20; all15 categories and zero failures/errors/skips. Both source records are clean. The evidence-only report successor changes these three Markdown reports; its exact final SHA/run is independently verified before delivery and recorded in the archive. Missing attachments remain recoverable from this branch and its matching Actions acceptance. Main stays `f859a3c7cdf44baadc17d9bd1a6c656530c1b5bf`, unmerged.
+Final reviewed implementation `c44bfa1b80aea9db1c91ba0068a738903ec672e2` passed [run38293263879](https://github.com/anandpriyadarsi/Personal--AI--Learning-Chatbot/actions/runs/38293263879) on Ubuntu and Windows plus aggregate: full1865, focused54, fixture orders41 each, characterization17, Chromium43, Node20; all15 categories and zero failures/errors/skips. Both source records are clean. The evidence-only report successor changes these three Markdown reports; its exact final SHA/run is independently verified before delivery and recorded in the archive. Missing attachments remain recoverable from this branch and its matching Actions acceptance. Main stays `f859a3c7cdf44baadc17d9bd1a6c656530c1b5bf`, unmerged.
 
 | Gate | Boundary |
 |---|---|
 | GATE_A_DEV_AUTOMATED | PASS at reviewed B2 implementation SHA on Ubuntu/Windows and aggregate |
 | B1_SOURCE_ONLY_IMPLEMENTATION | PASS, unchanged closed-snapshot evidence adapter and45 regressions |
-| B2_SOURCE_ONLY_READ_SAFETY | PASS: local/hosted1863/43/all15; independent whole-delta169 and correction68 PASS |
+| B2_SOURCE_ONLY_READ_SAFETY | PASS: local/hosted1865/43/all15; independent whole-delta169, correction68 and deadline70 PASS |
 | GATE_A_LOCAL_PRODUCTION_AUTHORITY | BLOCKED: installed launcher/interpreter/backend/schema/projection lineage absent |
 | ASSESSMENT_PAUSE_RESUME_DESIGN | PASS, full existing design retained; AP1/AP2 implementation not done |
 | ASSESSMENT_PAPER_SUBJECTIVE_DESIGN | PASS, full existing design retained; PS1/PS2 implementation not done |
@@ -33,3 +33,5 @@ AP1/AP2 pause/resume remain separate feature branches after execution lineage is
 Continue only from this branch's actual final acceptance report. Do not merge main, deploy, alter production records or merge old Tutor/Library/Learning Studio branches. Missing attachments cannot block recovery: essential reports and source are committed on GitHub.
 
 CI resource follow-up: the first report-only tip5509380's Windows full suite timed out at900s; Ubuntu and all other Windows categories passed, aggregate FAIL. Generous finite deadlines now permit full1800s, two probe subprocesses300s and job45min, with other categories900s and unchanged correctness gates. Two additional real-process harness regressions make the full suite1865. New exact-source acceptance must be verified before final delivery; this follow-up does not change production/B/C/Assessment gate dependencies.
+
+That correction is now independently reviewed and hosted-accepted at c44bfa1: completed1865-case XML on both platforms, all15 categories and aggregate PASS. Both probes pass, including the102.783s Windows GC probe that exceeded its former90s budget. Original lost marker details are not claimed recovered. Gates above reflect this observed acceptance; the evidence-only successor tip is checked separately before delivery. A/B/D/P remain product defects, C desired read-safety acceptance passes. No full B/C/D/E/AP/PS/Tutor implementation was done.
