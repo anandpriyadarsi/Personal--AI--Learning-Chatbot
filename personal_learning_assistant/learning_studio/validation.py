@@ -77,7 +77,13 @@ def validate_mapping(mapping, catalogue):
         require(topic.get('id') == mapping['topic_id'], 'Topic ID does not match its registered course and name.')
 
 
-def validate_block(block, count, assets):
+def validate_block(block, count, assets, *, schema=SCHEMA):
+    if isinstance(block, dict) and isinstance(block.get("kind"), str) and block.get("kind") in {"graph", "activity"}:
+        from .content_blocks import V2, validate_extension
+        require(schema == V2, "Graph/activity blocks require learning-module.v2.")
+        locators(block.get("pages"), count)
+        validate_extension(block)
+        return
     shape(block, {'kind', 'pages'}, {'text', 'nodes', 'alt', 'headers', 'rows', 'asset', 'caption', 'answer'})
     locators(block['pages'], count)
     kind = block['kind']
@@ -112,7 +118,7 @@ def validate_package(package, catalogue, source, assets=None):
         raise PackageError('Package must be bounded JSON data.') from error
     require(len(encoded) <= MAX_JSON, 'Package JSON exceeds 2 MB.', 413)
     shape(package, {'schema', 'module_id', 'module_revision', 'title', 'unit', 'source', 'mapping', 'pages', 'sections', 'revision', 'questions'})
-    require(package['schema'] == SCHEMA, 'Unsupported learning-module schema.')
+    require(isinstance(package['schema'], str) and package['schema'] in {SCHEMA, 'anvaya.learning-module.v2'}, 'Unsupported learning-module schema.')
     identity(package['module_id']); integer(package['module_revision'], 1, 1000000)
     text(package['title'], 500); text(package['unit'], 200)
     validate_mapping(package['mapping'], catalogue)
@@ -150,8 +156,8 @@ def validate_package(package, catalogue, source, assets=None):
         shape(section, {'id', 'title', 'pages', 'blocks'})
         identity(section['id']); text(section['title'], 500); locators(section['pages'], count)
         require(section['id'] not in section_ids, 'Duplicate section ID.'); section_ids.add(section['id'])
-        for block in items(section['blocks'], 100, nonempty=True): validate_block(block, count, assets)
-    for block in items(package['revision'], 200, nonempty=True): validate_block(block, count, assets)
+        for block in items(section['blocks'], 100, nonempty=True): validate_block(block, count, assets, schema=package['schema'])
+    for block in items(package['revision'], 200, nonempty=True): validate_block(block, count, assets, schema=package['schema'])
     question_ids = set()
     for q in items(package['questions'], 500):
         shape(q, {'id', 'revision', 'kind', 'prompt', 'options', 'correct_index', 'explanation', 'pages', 'difficulty', 'low_stakes'})

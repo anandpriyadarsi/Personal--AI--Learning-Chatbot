@@ -74,7 +74,7 @@ def synthetic_package(raw):
     return p, assets
 
 
-def make_demo(directory, *, pilot_zip=None):
+def make_demo(directory, *, pilot_zip=None, quality_pilot=False):
     # Strict pilot validation happens first. Inconsistent attached data is never
     # silently rebound to a new source hash, even in a disposable demo.
     if pilot_zip:
@@ -102,6 +102,10 @@ def make_demo(directory, *, pilot_zip=None):
     sources = RegisteredSources(registry_path, {'demo': root})
     s = LearningStudioService(root / 'learning_studio.sqlite3', source_loader=sources, catalogue_loader=synthetic_catalogue)
     s.stage(p, assets); s.publish(p['module_id'], p['module_revision'])
+    if pilot_zip and quality_pilot:
+        from .pilot_quality import normalize_pilot
+        improved,_,improved_assets=normalize_pilot(Path(pilot_zip).read_bytes(),source_id='demo-source')
+        s.stage(improved,improved_assets);s.publish(improved['module_id'],improved['module_revision'])
     if pilot_zip:
         # A recovered real lecture remains a single unmapped derived module.
         # Never clone its content into fabricated demo course assignments.
@@ -120,11 +124,12 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--directory', required=True)
     parser.add_argument('--pilot-zip')
+    parser.add_argument('--quality-pilot',action='store_true',help='Publish additional V1.2 pilot revision with restored cards and active learning.')
     parser.add_argument('--port', type=int, default=5091)
     parser.add_argument('--prepare-only', action='store_true')
     args = parser.parse_args()
     try:
-        s = make_demo(args.directory, pilot_zip=args.pilot_zip)
+        s = make_demo(args.directory, pilot_zip=args.pilot_zip,quality_pilot=args.quality_pilot)
     except (PackageError, OSError) as error:
         parser.exit(1, f'Demo blocked: {error}\n')
     print(f'Disposable demo prepared: {s.store.path}\nURL: http://127.0.0.1:{args.port}/learning')

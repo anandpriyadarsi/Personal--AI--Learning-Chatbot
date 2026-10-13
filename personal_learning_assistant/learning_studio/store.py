@@ -2,8 +2,10 @@
 from contextlib import contextmanager
 from pathlib import Path
 import sqlite3
+import uuid
 from urllib.parse import quote
 from .validation import PackageError, require
+from .review_store import COVERAGE_DDL
 
 APPLICATION_ID = 0x414C5331
 DDL = '''
@@ -39,6 +41,36 @@ for _table in ('modules', 'assets', 'publications', 'attempts'):
         DDL += f"CREATE TRIGGER immutable_{_table}_{_operation.lower()} BEFORE {_operation} ON {_table} BEGIN SELECT RAISE(ABORT,'immutable history'); END;\n"
 
 
+V2_DDL = """
+CREATE TABLE reading_events(
+ seq INTEGER PRIMARY KEY, event_id TEXT UNIQUE NOT NULL, owner TEXT NOT NULL,
+ module_id TEXT NOT NULL, revision INTEGER NOT NULL, payload_json TEXT NOT NULL,
+ timestamp TEXT NOT NULL,
+ FOREIGN KEY(module_id,revision) REFERENCES publications(module_id,revision));
+CREATE INDEX reading_position ON reading_events(owner,module_id,revision,seq);
+CREATE TABLE engagement_events(
+ seq INTEGER PRIMARY KEY, event_id TEXT UNIQUE NOT NULL, owner TEXT NOT NULL,
+ module_id TEXT NOT NULL, revision INTEGER NOT NULL, payload_json TEXT NOT NULL,
+ timestamp TEXT NOT NULL,
+ FOREIGN KEY(module_id,revision) REFERENCES publications(module_id,revision));
+"""
+V2_DDL += COVERAGE_DDL
+for _table in ('reading_events', 'engagement_events'):
+    for _operation in ('UPDATE', 'DELETE'):
+        V2_DDL += f"CREATE TRIGGER immutable_{_table}_{_operation.lower()} BEFORE {_operation} ON {_table} BEGIN SELECT RAISE(ABORT,'immutable history'); END;\n"
+
+
+def execute_ddl(con, script):
+    """Execute complete SQLite statements without executescript's implicit commit."""
+    statement = ''
+    for line in script.splitlines(keepends=True):
+        statement += line
+        if sqlite3.complete_statement(statement):
+            con.execute(statement)
+            statement = ''
+    require(not statement.strip(), 'Incomplete feature migration.')
+
+
 class StudioStore:
     def __init__(self, path):
         self.path = Path(path).absolute()
@@ -62,17 +94,25 @@ class StudioStore:
         con.row_factory = sqlite3.Row
         try:
             con.execute('PRAGMA foreign_keys=ON')
+            if write: con.execute('BEGIN IMMEDIATE')
             app_id = con.execute('PRAGMA application_id').fetchone()[0]
             if app_id == 0 and write:
                 tables = con.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
                 require(not tables, 'Existing database is not a Learning Studio store.')
-                # One explicit migration, atomic and separate from the academic DB.
-                con.executescript('BEGIN IMMEDIATE;\n' + DDL +
-                                  f'PRAGMA application_id={APPLICATION_ID}; PRAGMA user_version=1; COMMIT;')
+                execute_ddl(con, DDL + V2_DDL)
+                con.execute(f'PRAGMA application_id={APPLICATION_ID}')
+                con.execute('PRAGMA user_version=2')
             require(con.execute('PRAGMA application_id').fetchone()[0] == APPLICATION_ID and
-                    con.execute('PRAGMA user_version').fetchone()[0] == 1,
+                    con.execute('PRAGMA user_version').fetchone()[0] in (1, 2),
                     'Unsupported or foreign Learning Studio database.')
-            if write: con.execute('BEGIN IMMEDIATE')
+            if write and con.execute('PRAGMA user_version').fetchone()[0] == 1:
+                # Hold the writer lock and recheck the version. A separate read connection
+                # backs up the committed V1 snapshot without backing up an open write txn.
+                backup = self.path.with_name(self.path.name + '.v1-backup-' + uuid.uuid4().hex + '.sqlite3')
+                with sqlite3.connect('file:' + quote(self.path.as_posix(), safe='/:') + '?mode=ro', uri=True) as source:
+                    with sqlite3.connect(backup) as target: source.backup(target)
+                execute_ddl(con, V2_DDL)
+                con.execute('PRAGMA user_version=2')
             yield con
             if write: con.commit()
         except BaseException:

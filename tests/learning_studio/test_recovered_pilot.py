@@ -42,9 +42,20 @@ def test_external_recovered_pilot_strict_import_and_durable_evidence(recovered_p
         response = client.get(base+'?view='+view)
         assert response.status_code == 200
         if view == 'practice': assert b'correct_index' not in response.data
-    source_html = client.get(base+'?view=source').data
-    for page in range(1,21): assert f'id="source-page-{page}"'.encode() in source_html
+    for page in range(1,21):
+        source_html=client.get(base+'?view=source&page='+str(page)).data
+        assert f'id="source-page-{page}"'.encode() in source_html
+        assert source_html.count(b'class="ls-source-page"')==1
     assert len(p['revision']) and 'correct_index' not in client.get(base+'/package').json['questions'][0]
+    from personal_learning_assistant.learning_studio.pilot_quality import normalize_pilot
+    new, _, new_assets=normalize_pilot(Path(os.environ['ANVAYA_TEST_RECOVERED_PILOT_ZIP']).read_bytes(),source_id=service.module(p['module_id'],1)['source']['source_id'])
+    service.stage(new,new_assets);service.publish(new['module_id'],2)
+    assert new['questions']==p['questions']
+    revised=base.rsplit('/',1)[0]+'/2'
+    assert client.get(revised+'?view=revision').data.count(b'Reveal recall answer')==12
+    for section in new['sections']:
+        response=client.get(revised+'?view=learn&section='+section['id'])
+        assert response.status_code==200 and response.data.count(b'class="ls-lesson"')==1
     q = p['questions'][0]
     def submit(event_id, selection):
         return client.post(base+'/attempts', json={'event_id': event_id,'module_revision':1,

@@ -5,6 +5,9 @@ from datetime import datetime, timezone
 import hashlib
 import json
 from .store import StudioStore
+from .progress import ProgressMixin
+from .review_store import ReviewStoreMixin
+from .mapping_review import MappingReviewMixin
 from .validation import PackageError, identity, integer, require, validate_mapping, validate_package
 
 OWNER = 'local-owner'  # Existing ANVAYA is a single-owner local app, not multiuser auth.
@@ -18,16 +21,19 @@ def canonical(data):
     return json.dumps(data, ensure_ascii=False, sort_keys=True, separators=(',', ':'), allow_nan=False)
 
 
-class LearningStudioService:
+class LearningStudioService(ProgressMixin, ReviewStoreMixin, MappingReviewMixin):
     def __init__(self, path, *, source_loader, catalogue_loader):
         self.store = StudioStore(path)
         self.source_loader = source_loader
         self.catalogue_loader = catalogue_loader
 
-    def stage(self, package, assets=None):
+    def stage(self, package, assets=None, coverage=None):
         require(isinstance(package, dict) and isinstance(package.get('source'), dict), 'Missing source/package.')
         raw = self.source_loader(package['source'].get('source_id'))
         p = validate_package(package, self.catalogue_loader(), raw, assets)
+        if coverage is not None:
+            from .coverage import validate_coverage
+            validate_coverage(coverage, p, raw, assets)
         encoded = canonical(p)
         digest = hashlib.sha256(encoded.encode()).hexdigest()
         with self.store.connection(write=True) as con:
@@ -60,6 +66,8 @@ class LearningStudioService:
                      mapping.get('course_id'), mapping.get('topic_name'), encoded, raw, now()))
                 for name, asset in (assets or {}).items():
                     con.execute('INSERT INTO assets VALUES(?,?,?,?)', (p['module_id'], p['module_revision'], name, asset))
+        if coverage is not None:
+            self.stage_coverage(p['module_id'], p['module_revision'], coverage)
         return {'module_id': p['module_id'], 'revision': p['module_revision'], 'state': 'staged',
                 'semantic_review_pages': sum(page['status'] != 'verified' for page in p['pages'])}
 
@@ -212,33 +220,8 @@ class LearningStudioService:
             return result
 
     def evidence(self):
-        summary = {'schema': 'anvaya.learning-evidence-summary.v1', 'authority': 'low-stakes-practice',
-                   'attempts': 0, 'ever_missed': 0, 'latest_correct': 0, 'reviewed_attempts': 0,
-                   'unmapped_attempts': 0, 'groups': [], 'trend': [], 'evidence_label': 'No evidence',
-                   'tutor_available': False, 'tutor_reason': 'Existing Tutor entry point does not consume this versioned evidence contract.'}
-        with self.store.connection() as con:
-            if con is None: return summary
-            rows = con.execute('SELECT a.*,m.course_id,m.topic_name FROM attempts a JOIN modules m USING(module_id,revision) WHERE owner=? ORDER BY seq', (OWNER,)).fetchall()
-            grouped = {}
-            trend = {}
-            questions = {}
-            for r in rows:
-                day = r['timestamp'][:10]
-                daily = trend.setdefault(day, {'day': day, 'attempts': 0, 'incorrect': 0})
-                daily['attempts'] += 1; daily['incorrect'] += not r['correct']
-                key = (r['course_id'], r['topic_name'])
-                group = grouped.setdefault(key, {'course_id': key[0], 'topic_name': key[1], 'attempts': 0, 'incorrect': 0})
-                group['attempts'] += 1; group['incorrect'] += not r['correct']
-                qkey = (r['module_id'], r['revision'], r['question_id'], r['question_revision'])
-                question = questions.setdefault(qkey, {'ever_wrong': False, 'latest_correct': False})
-                question['ever_wrong'] |= not r['correct']; question['latest_correct'] = bool(r['correct'])
-            summary.update(attempts=len(rows), groups=list(grouped.values()), trend=list(trend.values()),
-                ever_missed=sum(q['ever_wrong'] for q in questions.values()),
-                latest_correct=sum(q['latest_correct'] for q in questions.values()),
-                reviewed_attempts=sum(r['course_id'] is not None for r in rows),
-                unmapped_attempts=sum(r['course_id'] is None for r in rows),
-                evidence_label='Limited evidence' if len(questions) < 5 else 'Low-stakes practice evidence')
-            return summary
+        from .evidence import summarize
+        return summarize(self)
 
     def export(self):
         with self.store.connection() as con:

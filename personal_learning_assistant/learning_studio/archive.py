@@ -53,7 +53,7 @@ def read_zip(raw, *, pilot=False):
                 require(i.file_size <= 4_000_000 and i.file_size / max(1, i.compress_size) <= 150,
                         'Oversized or excessively compressed archive member.', 413)
                 if not pilot:
-                    require(name == 'module.json' or (name.startswith('assets/') and len(path.parts) == 2 and path.suffix in {'.webp', '.png', '.jpg', '.jpeg'}),
+                    require(name in {'module.json', 'coverage.json'} or (name.startswith('assets/') and len(path.parts) == 2 and path.suffix in {'.webp', '.png', '.jpg', '.jpeg'}),
                             'Canonical ZIP accepts module.json and owned raster assets only.')
                 # Do not trust declared uncompressed size: ZipFile.read can inflate
                 # much more before truncating to attacker-controlled file_size.
@@ -87,4 +87,16 @@ def decode_upload(raw, filename):
     require(str(filename).lower().endswith('.zip'), 'Choose a canonical JSON or ZIP package.')
     files = read_zip(raw)
     require('module.json' in files, 'Canonical ZIP requires module.json. Convert the proposed pilot first.')
+    require('coverage.json' not in files, 'Use the companion-aware bundle importer for coverage.json.')
     return decode_json(files.pop('module.json')), files
+
+
+def decode_bundle(raw, filename):
+    if str(filename).lower().endswith('.json'):
+        return decode_json(raw), {}, None
+    require(str(filename).lower().endswith('.zip'), 'Choose a canonical JSON or ZIP package.')
+    files = read_zip(raw)
+    require('module.json' in files, 'Canonical ZIP requires module.json. Convert the proposed pilot first.')
+    package = decode_json(files.pop('module.json'))
+    coverage = decode_json(files.pop('coverage.json')) if 'coverage.json' in files else None
+    return package, files, coverage

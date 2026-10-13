@@ -27,7 +27,7 @@
 </section>
 {% endif %}
 
-<section class="notice-panel"><h3>Learning Studio practice</h3><p>Read-only low-stakes evidence, including missed questions and recovered retries.</p><a href="{{ url_for('learning.analysis') }}">Open Learning Studio analysis</a></section>
+{% include 'learning_analysis_component.html' %}
 
 <section class="analysis-metric-grid" aria-label="Analysis summary">
   <article class="analysis-kpi">

@@ -156,6 +156,10 @@ def test_focused_view_contents_navigation_and_exit(browser,live,width):
 @pytest.fixture
 def real_live(recovered_pilot):
     service,p,source,assets=recovered_pilot
+    from pathlib import Path
+    from personal_learning_assistant.learning_studio.pilot_quality import normalize_pilot
+    improved,_,improved_assets=normalize_pilot(Path(os.environ['ANVAYA_TEST_RECOVERED_PILOT_ZIP']).read_bytes(),source_id=service.module(p['module_id'],1)['source']['source_id'])
+    service.stage(improved,improved_assets);service.publish(improved['module_id'],2)
     app=create_app({'TESTING':True,'LEARNING_STUDIO_SERVICE_FACTORY':lambda:service})
     server=make_server('127.0.0.1',0,app)
     thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
@@ -169,18 +173,25 @@ def test_external_recovered_pilot_real_browser(browser,real_live):
     errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
     base=url+f'/learning/modules/{p["module_id"]}/1'
     page.goto(base+'?view=source')
-    assert page.locator('.ls-source-page').count()==20
-    for image in page.locator('.ls-source-page img').all():
+    assert page.locator('.ls-source-page').count()==1
+    for number in range(1,21):
+        page.goto(base+'?view=source&page='+str(number))
+        assert page.locator('.ls-source-page').count()==1
+        image=page.locator('.ls-source-page img')
         image.scroll_into_view_if_needed()
         image.evaluate('(i) => i.loading = "eager"')
         page.wait_for_function('(src) => {const i=Array.from(document.images).find(i=>i.src===src);return i.complete&&i.naturalWidth>0}',arg=image.get_attribute('src') if image.get_attribute('src').startswith('http') else url+image.get_attribute('src'))
     assert page.request.get(base+'/source.pdf').body()==source
     page.goto(base+'?view=learn')
+    assert page.locator('.ls-lesson').count()==1
+    assert page.locator('.ls-block-source').count()==1
+    page.goto(base+'?view=learn&all=1')
     assert page.locator('.ls-lesson').count()==20
-    assert page.locator('.ls-block-source').count()==20
+    page.goto(base+'?view=learn')
     page.click('#ls-focus');screenshot(page,'v11-real-pilot-desktop-focus.png')
     page.click('#ls-contents');page.locator('.ls-dialog-views').get_by_role('link',name='Practice',exact=True).click()
-    assert page.locator('.ls-question').count()==31
+    assert page.locator('.ls-question').count()==1
+    assert 'Question 1 of 31' in page.locator('#ls-reading-column').inner_text()
     assert_focus(page, True)
     q=p['questions'][0];form=page.locator('.ls-question').first
     wrong=(q['correct_index']+1)%len(q['options'])
@@ -197,6 +208,30 @@ def test_external_recovered_pilot_real_browser(browser,real_live):
     no_overflow(page);screenshot(page,'v11-real-pilot-mobile.png')
     page.click('#ls-contents');page.locator('.ls-dialog-views a').filter(has_text='Day-before-exam Revision').click()
     page.emulate_media(media='print');assert not page.locator('.ls-reading-controls').is_visible()
+    page.emulate_media(media='screen')
+    improved=base.rsplit('/',1)[0]+'/2'
+    page.goto(improved+'?view=revision')
+    assert page.locator('.ls-block-recall').count()==12
+    page.locator('.ls-remembered').first.click()
+    page.wait_for_function('Array.from(document.querySelectorAll(".ls-engagement-status")).some(e=>e.textContent.includes("Self-report saved"))')
+    page.goto(improved+'?view=learn&section=lesson-06')
+    activity=page.locator('.ls-trusted-activity')
+    activity.locator('summary').click();assert not activity.locator('details').evaluate('(e)=>e.open')
+    activity.locator('select').select_option('jainism');activity.locator('textarea').fill('Jiva contrasts with anatta; Vedanta has different positions.')
+    activity.locator('summary').click();assert activity.locator('details').evaluate('(e)=>e.open')
+    page.locator('.ls-save-engagement').click()
+    page.wait_for_function('document.querySelector(".ls-engagement-status").textContent.includes("Self-report saved")')
+    page.reload()
+    from playwright.sync_api import expect
+    expect(page.locator('.ls-trusted-activity textarea')).to_have_value('Jiva contrasts with anatta; Vedanta has different positions.')
+    no_overflow(page);screenshot(page,'v12-real-activity-mobile.png')
+    page.goto(improved+'?view=learn&section=lesson-07')
+    no_overflow(page);screenshot(page,'v12-real-graph-mobile.png')
+    requests=[];page.on('request',lambda r:requests.append(r.url))
+    page.goto(improved+'?view=source&page=12')
+    page.locator('.ls-source-page img').evaluate('(i)=>i.loading="eager"')
+    expect(page.locator('.ls-source-page img')).to_be_visible()
+    assert len([u for u in requests if '/assets/' in u])==1
     assert not errors
     page.close()
 

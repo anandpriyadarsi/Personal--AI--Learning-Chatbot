@@ -74,19 +74,23 @@ def course(course_id):
 
 def module_view(module_id, revision, *, staged=False):
     from personal_learning_assistant.learning_studio.validation import require
-    from personal_learning_assistant.learning_studio.rendering import markdown
+    from personal_learning_assistant.learning_studio.rendering import markdown, trusted_graph, trusted_activity
     from personal_learning_assistant.learning_studio.review_brief import format_review_brief
     view = request.args.get('view', 'overview')
     require(view in VIEWS, 'Unknown reader view.', 404)
     s = service()
     p = s.module(module_id, revision, staged=staged)
+    from personal_learning_assistant.learning_studio.reader import select
+    weak=[] if staged else s.weak(module_id,revision)
+    reader=select(p,request.args,weak)
     cat = s.catalogue_loader()
     mapping = p['mapping']
     course = next((c for c in cat.get('courses', []) if mapping and c['id'] == mapping['course_id']), None)
     if mapping and course is None:
         course = {'id': 'unavailable', 'code': 'Course unavailable / needs review'}
     return render_template('learning_module.html', active_page='learning', module=p, view=view, staged=staged,
-        course=course, markdown=markdown, weak=[] if staged else s.weak(module_id, revision),
+        course=course, markdown=markdown, trusted_graph=trusted_graph, trusted_activity=trusted_activity, **reader,
+        reading_state=None if staged else s.reading_state(module_id,revision), weak=weak,
         csrf_token=current_app.extensions['learning_studio_csrf'],
         review_brief='' if staged or view!='weak' else format_review_brief(s.review_context(module_id,revision)))
 
@@ -126,12 +130,12 @@ def import_module():
     from personal_learning_assistant.learning_studio.validation import PackageError, require
     if request.method == 'GET':
         return render_template('learning_import.html', active_page='learning', csrf_token=current_app.extensions['learning_studio_csrf'])
-    from personal_learning_assistant.learning_studio.archive import decode_upload
+    from personal_learning_assistant.learning_studio.archive import decode_bundle
     upload = request.files.get('package')
     require(upload is not None, 'Choose an authored learning package.')
-    package, assets = decode_upload(upload.read(25_000_001), upload.filename)
+    package, assets, coverage = decode_bundle(upload.read(25_000_001), upload.filename)
     try:
-        result = service().stage(package, assets)
+        result = service().stage(package, assets, coverage)
     except PackageError: raise
     except Exception as error:
         current_app.logger.warning('Learning source/import unavailable (%s).', type(error).__name__)
@@ -191,3 +195,41 @@ def review_brief(module_id, revision):
     response=Response(format_review_brief(service().review_context(module_id,revision)),mimetype='text/plain')
     response.headers['Content-Disposition']='attachment; filename=learning-review-brief.txt'
     return response
+
+
+@learning_blueprint.route('/learning/modules/<module_id>/<int:revision>/progress', methods=['GET','POST'])
+def progress(module_id, revision):
+    if request.method == 'GET':
+        return jsonify(service().reading_state(module_id,revision))
+    request.max_content_length = 10000
+    return jsonify(service().record_progress(module_id,revision,request.get_json(silent=True)))
+
+
+@learning_blueprint.route('/learning/modules/<module_id>/<int:revision>/engagement',methods=['GET','POST'])
+def engagement(module_id, revision):
+    if request.method=='GET':return jsonify(service().engagement_state(module_id,revision,request.args.get('section','')))
+    request.max_content_length = 10000
+    return jsonify(service().record_engagement(module_id,revision,request.get_json(silent=True)))
+
+
+@learning_blueprint.post('/learning/tutor-review')
+def tutor_compatibility_review():
+    from personal_learning_assistant.learning_studio.tutor_bridge import prepare_review
+    request.max_content_length=10000
+    return jsonify(prepare_review(service(),request.get_json(silent=True),explicit_action=True)),409
+
+
+@learning_blueprint.get('/learning/modules/<module_id>/<int:revision>/coverage')
+def coverage_review(module_id,revision):
+    s=service()
+    return render_template('learning_coverage.html',active_page='learning',module=s.module(module_id,revision,staged=True),report=s.coverage_report(module_id,revision),staged=revision not in s.module(module_id,revision,staged=True)['history'])
+
+
+@learning_blueprint.route('/learning/modules/<module_id>/<int:revision>/mapping',methods=['GET','POST'])
+def mapping_review(module_id,revision):
+    s=service()
+    if request.method=='POST':
+        request.max_content_length=10000
+        result=s.confirm_mapping(module_id,revision,request.get_json(silent=True))
+        return jsonify(result)
+    return render_template('learning_mapping.html',active_page='learning',review=s.mapping_candidates(module_id,revision),csrf_token=current_app.extensions['learning_studio_csrf'])

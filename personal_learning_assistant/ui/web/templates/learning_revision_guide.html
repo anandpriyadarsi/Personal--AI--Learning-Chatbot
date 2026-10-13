@@ -1,0 +1,8 @@
+<section class="ls-revision-guide" aria-labelledby="ls-revision-guide-title">
+<h3 id="ls-revision-guide-title">A guided review</h3>
+<p>{{ revision_guide.selection_reason }}</p>
+{% if revision_guide.weak_pages %}<p>Pages linked to recorded misses: {{ refs(revision_guide.weak_pages) }}</p>{% endif %}
+{% if revision_guide.comparisons %}<h4>Compare concepts, then explain the difference</h4><ul>{% for comparison in revision_guide.comparisons %}<li><a href="{{ url_for('learning.preview' if staged else 'learning.module',module_id=module.module_id,revision=module.module_revision,view='learn',section=comparison.section_id) }}">{{ comparison.title }}</a> {{ refs(comparison.pages) }}</li>{% endfor %}</ul>{% endif %}
+{% if revision_guide.easy_to_forget %}<h4>Pause on details that are easy to mix up</h4><p>Try these prompts without looking. Selection follows source-linked misses when available, then author order.</p><ul>{% for card in revision_guide.easy_to_forget %}<li>{{ card.text }} {{ refs(card.pages) }}</li>{% endfor %}</ul>{% endif %}
+<details><summary>Finish with this checklist · self-report</summary><ul>{% for item in revision_guide.checklist %}<li><label><input type="checkbox"> {{ item }}</label></li>{% endfor %}</ul><p>Checking these items records no grade, correctness or mastery.</p></details>
+</section>

@@ -19,3 +19,46 @@ def markdown(text):
     render = mistune.create_markdown(renderer=renderer, plugins=['table'])
     renderer.register('table', lambda r, body: '<div class="ls-table-scroll" role="region" tabindex="0" aria-label="Authored comparison table">' + render_table(r, body) + '</div>')
     return Markup(render(str(text)))
+
+
+def trusted_graph(block):
+    """Accessible relational rendering from validated data; no imported SVG."""
+    from .content_blocks import validate_extension
+    validate_extension(block)
+    if block['kind'] != 'graph':
+        raise ValueError('Expected graph.')
+    labels = {node['id']: node['label'] for node in block['nodes']}
+    relationships = ''.join('<li><strong>' + html.escape(labels[e['from']]) + '</strong> <span>' + html.escape(e['label']) + '</span> → <strong>' + html.escape(labels[e['to']]) + '</strong></li>' for e in block['edges'])
+    # Locally generated fixed lanes keep edges outside node interiors.
+    import textwrap
+    positions = {node['id']: (190, 70 + index * 110) for index, node in enumerate(block['nodes'])}
+    height = 110 * len(positions) + 30
+    lines=[]
+    for index, edge in enumerate(block['edges']):
+        y1=positions[edge['from']][1]; y2=positions[edge['to']][1]
+        lane=390 + 130*index
+        lines.append('<path d="M 350 ' + str(y1) + ' H ' + str(lane) + ' V ' + str(y2) + ' H 350" fill="none" stroke="currentColor" stroke-width="2"/>')
+        lines.append(f'<polygon points="350,{y2} 360,{y2-5} 360,{y2+5}" fill="currentColor"/>')
+        for offset, line in enumerate(textwrap.wrap(edge['label'], 18)):
+            lines.append('<text x="' + str(lane+5) + '" y="' + str((y1+y2)//2 + offset*15) + '" fill="currentColor" font-size="12">' + html.escape(line) + '</text>')
+    nodes=[]
+    for node_id, (x,y) in positions.items():
+        label_lines=textwrap.wrap(labels[node_id], 40)
+        label=''.join('<tspan x="190" dy="' + ('0' if index==0 else '15') + '">' + html.escape(line) + '</tspan>' for index,line in enumerate(label_lines))
+        nodes.append('<g><rect x="30" y="' + str(y-32) + '" width="320" height="64" rx="8" fill="none" stroke="currentColor"/><text x="190" y="' + str(y-7*(len(label_lines)-1)) + '" text-anchor="middle" fill="currentColor" font-size="12">' + label + '</text></g>')
+    width=520 + 130*max(0,len(block['edges'])-1)
+    svg='<div class="ls-table-scroll"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + str(width) + ' ' + str(height) + '" width="' + str(width) + '" height="' + str(height) + '" aria-hidden="true" focusable="false">' + ''.join(lines+nodes) + '</svg></div>'
+    return Markup('<figure class="ls-relationship-graph"><figcaption>' + html.escape(block['alt']) + '</figcaption>' + svg + '<ul aria-label="Represented relationships">' + relationships + '</ul></figure>')
+
+
+
+def trusted_activity(block, widget_id):
+    """Ungraded response/reveal loop; no form action or grading keys."""
+    from .content_blocks import validate_extension
+    from .validation import identity
+    validate_extension(block); identity(widget_id)
+    if block['kind'] != 'activity':
+        raise ValueError('Expected activity.')
+    choices=''.join('<option value="' + html.escape(c['id']) + '">' + html.escape(c['label']) + '</option>' for c in block['choices'])
+    feedback=''.join('<dt>' + html.escape(c['label']) + '</dt><dd>' + html.escape(c['detail']) + '</dd>' for c in block['choices'])
+    return Markup('<section class="ls-trusted-activity" data-widget="' + html.escape(block['widget']) + '"><p>' + html.escape(block['prompt']) + '</p><p>Ungraded activity · response is not a correctness score.</p><label for="' + widget_id + '-choice">Choose a perspective</label><select required id="' + widget_id + '-choice"><option value="">Choose before revealing</option>' + choices + '</select><label for="' + widget_id + '-response">Your prediction or comparison</label><textarea required id="' + widget_id + '-response" maxlength="3000"></textarea><details><summary>Compare your response with the authored explanation</summary><dl>' + feedback + '</dl><p>' + html.escape(block['feedback']) + '</p></details></section>')

@@ -4,6 +4,27 @@
   const dialog = document.getElementById('ls-contents-dialog');
   const status = document.getElementById('ls-control-status');
   if (!focusButton || !dialog) return;
+  const column = document.getElementById('ls-reading-column');
+  const ids = JSON.parse(document.getElementById('ls-section-ids')?.textContent || '[]');
+  // Historical anchors still select the exact lesson/page/question, including old bookmarks.
+  function translateAnchor() {
+    const anchor = decodeURIComponent(location.hash.slice(1));
+    const url = new URL(location.href);
+    let changed = false;
+    if (ids.includes(anchor) && url.searchParams.get('section') !== anchor && url.searchParams.get('all') !== '1') {
+      url.searchParams.set('section', anchor); changed = true;
+    }
+    if (url.searchParams.get('view') === 'source' && /^source-page-\d+$/.test(anchor) && url.searchParams.get('page') !== anchor.slice(12)) {
+      url.searchParams.set('page', anchor.slice(12)); changed = true;
+    }
+    if (url.searchParams.get('view') === 'practice' && anchor.startsWith('question-') && url.searchParams.get('question') !== anchor.slice(9)) {
+      url.searchParams.set('question', anchor.slice(9)); changed = true;
+    }
+    if (changed) { location.replace(url.href); return true; }
+    return false;
+  }
+  if (translateAnchor()) return;
+  window.addEventListener('hashchange', translateAnchor);
   let previous = null;
   const preferenceKey = 'anvaya.learning.focus.v1';
   const sidebar = document.getElementById('app-sidebar');
@@ -36,7 +57,7 @@
       return url;
     }
     try { history.replaceState(history.state, '', decorate(new URL(location.href))); } catch (_error) { /* URL fallback below still works. */ }
-    document.querySelectorAll('.ls-tabs a,.ls-source-chips a,#ls-contents-dialog a,.ls-related-lesson,.ls-practice-link').forEach(link => {
+    document.querySelectorAll('.ls-tabs a,.ls-source-chips a,#ls-contents-dialog a,.ls-related-lesson,.ls-practice-link,.ls-lesson-navigation a,.ls-reader-content nav a,#ls-resume').forEach(link => {
       link.href = decorate(new URL(link.href, location.href)).href;
     });
   }
@@ -79,6 +100,79 @@
     try { await navigator.clipboard.writeText(brief.value); copyStatus.textContent = 'Review brief copied. Paste it explicitly where needed.'; }
     catch (_error) { brief.focus(); brief.select(); copyStatus.textContent = 'Clipboard unavailable. Selected text can be copied manually.'; }
   });
+  const readingStatus = document.getElementById('ls-reading-status');
+  const textSize = document.getElementById('ls-text-size');
+  let savedSize = 18;
+  async function savePosition(completed) {
+    if (!column?.dataset.progress || !['learn','visualise','source','revision','practice'].includes(column.dataset.view)) return;
+    const url = new URL(location.href);
+    const payload = {event_id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      section_id: column.dataset.section, view: column.dataset.view, text_size: savedSize};
+    if (typeof completed === 'boolean') payload.completed=completed;
+    if (column.dataset.view==='source') payload.page=Number(url.searchParams.get('page') || document.querySelector('.ls-source-page')?.id.slice(12));
+    if (column.dataset.view==='revision') payload.budget=url.searchParams.get('budget') || 'full';
+    const question = document.querySelector('.ls-question');
+    if (column.dataset.view === 'practice' && question) { payload.question_id=question.dataset.questionId; payload.practice_mode=url.searchParams.get('mode') || 'mixed'; }
+    try {
+      const response=await fetch(column.dataset.progress,{method:'POST',headers:{'Content-Type':'application/json','X-Learning-CSRF':column.dataset.csrf},body:JSON.stringify(payload)});
+      const result=await response.json();
+      readingStatus.textContent=response.ok ? 'Reading position saved · not mastery evidence.' : (result.error || 'Position not saved. Keep this page link.');
+      return response.ok;
+    } catch (_) { readingStatus.textContent='Position could not be saved. Keep this page link and retry.'; return false; }
+  }
+  async function initializePosition() {
+    if (!column?.dataset.progress) return;
+    try {
+      const response=await fetch(column.dataset.progress); const state=await response.json();
+      if ([18,20,24].includes(state.current?.text_size)) savedSize=state.current.text_size;
+    } catch (_) { /* Reading remains useful while storage is unavailable. */ }
+    textSize.value=String(savedSize);column.style.fontSize=`${savedSize}px`;
+    await savePosition();
+  }
+  textSize?.addEventListener('change',()=>{savedSize=Number(textSize.value);column.style.fontSize=`${savedSize}px`;savePosition();});
+  document.getElementById('ls-complete')?.addEventListener('click',()=>savePosition(true));
+  document.getElementById('ls-pause')?.addEventListener('click', async ()=>{
+    if (await savePosition()) { const url=new URL(location.href);url.search='';url.hash='';location.assign(url.href); }
+  });
+  initializePosition();
+  document.querySelectorAll('.ls-trusted-activity').forEach(widget=>{
+    const details=widget.querySelector('details'); const choice=widget.querySelector('select'); const response=widget.querySelector('textarea');
+    details.querySelector('summary').addEventListener('click',event=>{
+      if (!details.open && (!choice.value || !response.value.trim())) {
+        event.preventDefault(); (!choice.value ? choice : response).focus();
+        response.setCustomValidity('Choose a perspective and write your response before revealing.');response.reportValidity();
+      } else response.setCustomValidity('');
+    });
+    response.addEventListener('input',()=>response.setCustomValidity(''));
+  });
+  document.getElementById('ls-source-zoom')?.addEventListener('change',event=>{
+    const image=document.querySelector('.ls-source-page img');if(!image)return;
+    const fit=event.target.value==='fit';image.style.maxWidth=fit?'100%':'none';image.style.maxHeight=fit?'75vh':'none';
+    image.style.width=fit?'auto':`${image.naturalWidth*Number(event.target.value)/100}px`;
+  });
+  const engagementUrl=column?.dataset.progress?.replace(/progress$/, 'engagement');
+  async function saveEngagement(article,response,action) {
+    const result=article.querySelector('.ls-engagement-status');
+    if (!engagementUrl) {if(result)result.textContent='Preview reflection is not saved.';return;}
+    const payload={event_id:crypto.randomUUID(),section_id:article.dataset.engagementSection,block_index:Number(article.dataset.engagementIndex),block_scope:article.dataset.engagementScope,response,action};
+    try {
+      const res=await fetch(engagementUrl,{method:'POST',headers:{'Content-Type':'application/json','X-Learning-CSRF':column.dataset.csrf},body:JSON.stringify(payload)});
+      const data=await res.json();result.textContent=res.ok?'Self-report saved for revisiting · not a grade.':data.error;
+    } catch (_) {result.textContent='Reflection not saved. Keep your response and retry.';}
+  }
+  document.querySelectorAll('.ls-save-engagement').forEach(button=>button.addEventListener('click',()=>{
+    const article=button.closest('[data-engagement-index]');const widget=article.querySelector('.ls-trusted-activity');
+    const choice=widget.querySelector('select');const response=widget.querySelector('textarea');
+    if(!choice.value||!response.value.trim()){response.focus();return;}
+    saveEngagement(article,JSON.stringify({choice:choice.value,response:response.value}),'reflection');
+  }));
+  document.querySelectorAll('.ls-remembered').forEach(button=>button.addEventListener('click',()=>saveEngagement(button.closest('[data-engagement-index]'),button.dataset.response,'remembered')));
+  if(engagementUrl) fetch(engagementUrl+'?section='+encodeURIComponent(column.dataset.section)).then(r=>r.json()).then(events=>{
+    for(const event of events){const article=document.querySelector(`[data-engagement-index="${event.block_index}"]${event.block_scope==='revision' ? '' : `[data-engagement-section="${event.section_id}"]`}[data-engagement-scope="${event.block_scope || 'section'}"]`);if(!article)continue;
+      const status=article.querySelector('.ls-engagement-status');if(status)status.textContent='Saved self-report: '+(event.action==='remembered'?event.response:'reflection available for revisiting');
+      const widget=article.querySelector('.ls-trusted-activity');if(widget){try{const saved=JSON.parse(event.response);widget.querySelector('select').value=saved.choice;widget.querySelector('textarea').value=saved.response;}catch(_){}}
+    }
+  }).catch(()=>{});
   const print = document.getElementById('ls-print');
   if (print) print.addEventListener('click', () => window.print());
   document.querySelectorAll('.ls-question').forEach(form => {
@@ -105,6 +199,8 @@
         const result = await response.json();
         if (!response.ok) { feedback.textContent = result.error || 'Could not check answer.'; return; }
         feedback.textContent = `${result.correct ? 'Correct' : 'Incorrect'} · attempt ${result.attempt_number}. ${result.explanation}`;
+        form.querySelector('.ls-next-actions').hidden=result.correct;
+        if(!result.correct && result.attempt_number>1) feedback.textContent+=' Several attempts are recorded. Try the cited notes before another answer.';
         pending = null;
       } catch (_error) { feedback.textContent = 'Connection interrupted. Retry to submit the same event safely.'; }
       finally { button.disabled = false; }
