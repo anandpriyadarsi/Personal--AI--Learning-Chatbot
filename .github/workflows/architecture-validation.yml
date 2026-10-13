@@ -55,17 +55,23 @@ jobs:
         run: |
           import os, subprocess, sys
           sys.exit(subprocess.call([sys.executable, 'scripts/architecture_validation.py', '--require-clean', '--output', os.environ['ANVAYA_VALIDATION_OUTPUT']]))
-      - name: Exercise the minimal Windows identity command
+      - name: Exercise Windows identity collection under client-default Restricted policy
         if: runner.os == 'Windows'
-        shell: powershell
+        shell: python
         run: |
-          $report = Join-Path $env:RUNNER_TEMP 'B3_DEFAULT_IDENTITY.json'
-          & .\scripts\b3_collect_authority.ps1 -Python (Get-Command python -ErrorAction Stop).Source -ToolsRef $env:GITHUB_SHA -Output $report
-          if ($LASTEXITCODE -ne 0) { throw 'Default collection failed' }
-          $identity = Get-Content -LiteralPath $report -Raw | ConvertFrom-Json
-          if ($identity.source_head -ne $env:GITHUB_SHA -or $identity.closed_schema_copy.reason_code -ne 'writers_not_attested' -or $identity.GATE_A_LOCAL_PRODUCTION_AUTHORITY -ne 'BLOCKED') {
-            throw 'Default collection violated the source/no-DB contract'
-          }
+          import json, os, subprocess
+          from pathlib import Path
+          policy = ['powershell', '-NoProfile', '-Command', 'Get-ExecutionPolicy -List | ConvertTo-Json -Compress']
+          before = json.loads(subprocess.check_output(policy, text=True))
+          command = r"""$ErrorActionPreference='Stop'; if ((Get-ExecutionPolicy) -ne 'Restricted') { throw 'Restricted test precondition failed' }; $body=Get-Content -LiteralPath '.\scripts\b3_collect_authority.ps1' -Raw; & ([ScriptBlock]::Create($body)) -Python (Get-Command python -ErrorAction Stop).Source -ToolsRef $env:GITHUB_SHA -Output (Join-Path $env:RUNNER_TEMP 'B3_DEFAULT_IDENTITY.json')"""
+          subprocess.run(['powershell', '-NoProfile', '-ExecutionPolicy', 'Restricted', '-Command', command], check=True)
+          after = json.loads(subprocess.check_output(policy, text=True))
+          assert before == after, 'Persistent execution policy changed'
+          identity = json.loads((Path(os.environ['RUNNER_TEMP']) / 'B3_DEFAULT_IDENTITY.json').read_text(encoding='utf-8'))
+          assert identity['source_head'] == os.environ['GITHUB_SHA']
+          assert identity['closed_schema_copy']['reason_code'] == 'writers_not_attested'
+          assert identity['GATE_A_LOCAL_PRODUCTION_AUTHORITY'] == 'BLOCKED'
+          (Path(os.environ['RUNNER_TEMP']) / 'B3_POLICY_ACCEPTANCE.json').write_text(json.dumps({'source_sha':os.environ['GITHUB_SHA'], 'process_policy':'Restricted', 'persistent_policies_unchanged':True, 'default_no_db_access':True, 'status':'PASS'}, indent=2), encoding='utf-8')
       - name: Preserve results, XML, logs, manifests and screenshots
         if: always()
         uses: actions/upload-artifact@v4
@@ -80,6 +86,7 @@ jobs:
             ${{ env.ANVAYA_VALIDATION_OUTPUT }}/run-*/fixtures/manifest.json
             ${{ env.ANVAYA_VALIDATION_OUTPUT }}/run-*/screenshots/*
             ${{ runner.temp }}/B3_DEFAULT_IDENTITY.json
+            ${{ runner.temp }}/B3_POLICY_ACCEPTANCE.json
 
   acceptance:
     name: Cross-platform development acceptance
