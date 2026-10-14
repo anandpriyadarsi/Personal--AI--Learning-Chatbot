@@ -9,7 +9,7 @@ import subprocess
 import sys
 import tempfile
 import uuid
-BASE='775941c730e8160501c849bc4971e8eb178331d1'
+BASE='60875195f9b6c3145937c625f107244872d8891a'
 DEPENDENCIES={'flask':'Flask','mistune':'mistune','pypdf':'pypdf','PIL':'Pillow','yaml':'PyYAML','dotenv':'python-dotenv','pytest':'pytest','playwright':'playwright','numpy':'numpy'}
 FOCUSED=['tests/test_phase7_5_web_foundation.py','tests/test_phase7_5_courses_topics.py','tests/test_main_startup_isolation.py','tests/test_phase7_5_15_10_notes_obsidian_separation.py','tests/test_phase7_5_15_14_focus_companion_analysis.py',*[f'tests/test_assessment_studio_phase_{s}.py' for s in 'abcd']]
 

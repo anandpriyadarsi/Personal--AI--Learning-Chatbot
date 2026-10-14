@@ -83,6 +83,13 @@ def module_view(module_id, revision, *, staged=False):
     from personal_learning_assistant.learning_studio.reader import select
     weak=[] if staged else s.weak(module_id,revision)
     reader=select(p,request.args,weak)
+    if view=='revision' and not staged:
+        reader=select(p,request.args,weak,engagement=s.engagement_state(module_id,revision,reader['selected_section']['id']))
+    source_element=None
+    if request.args.get('element'):
+        report=s.coverage_report(module_id,revision)
+        source_element=next((e for e in (report or {}).get('inventory',[]) if e['id']==request.args['element'] and e['page']==reader['selected_page']['page']),None)
+        require(source_element is not None,'Requested source element is unavailable on this page.',404)
     cat = s.catalogue_loader()
     mapping = p['mapping']
     course = next((c for c in cat.get('courses', []) if mapping and c['id'] == mapping['course_id']), None)
@@ -90,6 +97,8 @@ def module_view(module_id, revision, *, staged=False):
         course = {'id': 'unavailable', 'code': 'Course unavailable / needs review'}
     return render_template('learning_module.html', active_page='learning', module=p, view=view, staged=staged,
         course=course, markdown=markdown, trusted_graph=trusted_graph, trusted_activity=trusted_activity, **reader,
+        practice_state={} if staged else s.practice_state(module_id,revision), source_element=source_element,
+        pending_question=request.args.get('question') or (reader['practice_questions'][0]['id'] if view=='practice' and reader['practice_questions'] else None),
         reading_state=None if staged else s.reading_state(module_id,revision), weak=weak,
         csrf_token=current_app.extensions['learning_studio_csrf'],
         review_brief='' if staged or view!='weak' else format_review_brief(s.review_context(module_id,revision)))
@@ -122,7 +131,9 @@ def attempt(module_id, revision):
     request.max_content_length = 20000
     payload = request.get_json(silent=True)
     require(isinstance(payload, dict) and payload.get('module_revision') == revision, 'Route and attempt revisions disagree.', 409)
-    return jsonify(service().attempt(module_id, payload))
+    s=service();result=s.attempt(module_id,payload);states=s.practice_state(module_id,revision)
+    return jsonify(dict(result,practice_state=states[payload['question_id']],
+                        practised_questions=sum(state['status']!='never_practised' for state in states.values()),total_questions=len(states)))
 
 
 @learning_blueprint.route('/learning/import', methods=['GET', 'POST'])
@@ -221,8 +232,10 @@ def tutor_compatibility_review():
 
 @learning_blueprint.get('/learning/modules/<module_id>/<int:revision>/coverage')
 def coverage_review(module_id,revision):
-    s=service()
-    return render_template('learning_coverage.html',active_page='learning',module=s.module(module_id,revision,staged=True),report=s.coverage_report(module_id,revision),staged=revision not in s.module(module_id,revision,staged=True)['history'])
+    s=service();p=s.module(module_id,revision,staged=True);report=s.coverage_report(module_id,revision)
+    from personal_learning_assistant.learning_studio.coverage_view import project_coverage
+    projection=project_coverage(p,report,request.args,catalogue=s.catalogue_loader()) if report else None
+    return render_template('learning_coverage.html',active_page='learning',module=p,report=report,coverage_view=projection,staged=revision not in p['history'])
 
 
 @learning_blueprint.route('/learning/modules/<module_id>/<int:revision>/mapping',methods=['GET','POST'])

@@ -59,7 +59,7 @@ def compare_results(base_rows, feature_rows):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--base', default='9ed585ca8e1fbcfb6f5a7e0426d030560109115e')
+    parser.add_argument('--base', default='60875195f9b6c3145937c625f107244872d8891a')
     parser.add_argument('--output', required=True)
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]

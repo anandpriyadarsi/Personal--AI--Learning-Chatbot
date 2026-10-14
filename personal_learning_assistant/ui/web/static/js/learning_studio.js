@@ -57,7 +57,7 @@
       return url;
     }
     try { history.replaceState(history.state, '', decorate(new URL(location.href))); } catch (_error) { /* URL fallback below still works. */ }
-    document.querySelectorAll('.ls-tabs a,.ls-source-chips a,#ls-contents-dialog a,.ls-related-lesson,.ls-practice-link,.ls-lesson-navigation a,.ls-reader-content nav a,#ls-resume').forEach(link => {
+    document.querySelectorAll('.ls-tabs a,.ls-lesson-rail a,.ls-source-chips a,#ls-contents-dialog a,.ls-related-lesson,.ls-practice-link,.ls-lesson-navigation a,.ls-reader-content nav a,#ls-resume,#ls-return-question,.ls-review-answer').forEach(link => {
       link.href = decorate(new URL(link.href, location.href)).href;
     });
   }
@@ -77,6 +77,17 @@
   }
   focusButton.addEventListener('click', () => setFocus(!document.body.classList.contains('ls-focus')));
   contentsButton.addEventListener('click', () => dialog.showModal());
+  document.getElementById('ls-close-rail')?.addEventListener('click',()=>{toggle.click();toggle.focus();});
+  document.addEventListener('keydown',event=>{
+    if(event.key!=='Tab'||innerWidth>860||!document.body.classList.contains('nav-open'))return;
+    const targets=Array.from(sidebar.querySelectorAll('a[href],button,summary,select,input,textarea')).filter(e=>e.getClientRects().length&&!e.disabled);
+    if(!targets.length)return;
+    const first=targets[0],last=targets[targets.length-1];
+    if(!sidebar.contains(document.activeElement)){event.preventDefault();(event.shiftKey?last:first).focus();}
+    else if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}
+    else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}
+  });
+  document.getElementById('nav-backdrop')?.addEventListener('click',()=>toggle.focus());
   const closeContents = () => { dialog.close(); contentsButton.focus(); };
   document.getElementById('ls-close-contents').addEventListener('click', closeContents);
   dialog.querySelectorAll('a').forEach(a => a.addEventListener('click', () => dialog.close()));
@@ -92,6 +103,10 @@
       if (document.fullscreenElement) await document.exitFullscreen();
       else { setFocus(true); await document.documentElement.requestFullscreen(); }
     } catch (_error) { status.textContent = 'Fullscreen unavailable; Focus Reading still works.'; }
+  });
+  document.addEventListener('fullscreenchange',()=>{
+    document.getElementById('ls-fullscreen').textContent=document.fullscreenElement?'Exit fullscreen':'Fullscreen';
+    status.textContent=document.fullscreenElement?'Fullscreen reading · Escape exits fullscreen.':'Fullscreen ended · Focus Reading remains available.';
   });
   const copyBrief = document.getElementById('ls-copy-brief');
   if (copyBrief) copyBrief.addEventListener('click', async () => {
@@ -109,6 +124,9 @@
     const payload = {event_id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`,
       section_id: column.dataset.section, view: column.dataset.view, text_size: savedSize};
     if (typeof completed === 'boolean') payload.completed=completed;
+    // Source/lesson remediation bookmarks retain the exact pending question.
+    const pendingQuestion=url.searchParams.get('question');
+    if(pendingQuestion)payload.question_id=pendingQuestion;
     if (column.dataset.view==='source') payload.page=Number(url.searchParams.get('page') || document.querySelector('.ls-source-page')?.id.slice(12));
     if (column.dataset.view==='revision') payload.budget=url.searchParams.get('budget') || 'full';
     const question = document.querySelector('.ls-question');
@@ -152,7 +170,7 @@
   });
   const engagementUrl=column?.dataset.progress?.replace(/progress$/, 'engagement');
   async function saveEngagement(article,response,action) {
-    const result=article.querySelector('.ls-engagement-status');
+    const result=article.querySelector('.ls-engagement-status,.ls-teachback-status');
     if (!engagementUrl) {if(result)result.textContent='Preview reflection is not saved.';return;}
     const payload={event_id:crypto.randomUUID(),section_id:article.dataset.engagementSection,block_index:Number(article.dataset.engagementIndex),block_scope:article.dataset.engagementScope,response,action};
     try {
@@ -166,10 +184,16 @@
     if(!choice.value||!response.value.trim()){response.focus();return;}
     saveEngagement(article,JSON.stringify({choice:choice.value,response:response.value}),'reflection');
   }));
+  document.querySelectorAll('.ls-save-teachback').forEach(button=>button.addEventListener('click',()=>{
+    const article=button.closest('[data-engagement-index]'),input=article.querySelector('.ls-teachback-input');
+    if(!input.value.trim()){input.focus();article.querySelector('.ls-teachback-status').textContent='Write your explanation before saving.';return;}
+    saveEngagement(article,input.value,'reflection');
+  }));
   document.querySelectorAll('.ls-remembered').forEach(button=>button.addEventListener('click',()=>saveEngagement(button.closest('[data-engagement-index]'),button.dataset.response,'remembered')));
   if(engagementUrl) fetch(engagementUrl+'?section='+encodeURIComponent(column.dataset.section)).then(r=>r.json()).then(events=>{
     for(const event of events){const article=document.querySelector(`[data-engagement-index="${event.block_index}"]${event.block_scope==='revision' ? '' : `[data-engagement-section="${event.section_id}"]`}[data-engagement-scope="${event.block_scope || 'section'}"]`);if(!article)continue;
-      const status=article.querySelector('.ls-engagement-status');if(status)status.textContent='Saved self-report: '+(event.action==='remembered'?event.response:'reflection available for revisiting');
+      const status=article.querySelector('.ls-engagement-status,.ls-teachback-status');if(status)status.textContent='Saved self-report: '+(event.action==='remembered'?event.response:'reflection available for revisiting');
+      const teachback=article.querySelector('.ls-teachback-input');if(teachback)teachback.value=event.response;
       const widget=article.querySelector('.ls-trusted-activity');if(widget){try{const saved=JSON.parse(event.response);widget.querySelector('select').value=saved.choice;widget.querySelector('textarea').value=saved.response;}catch(_){}}
     }
   }).catch(()=>{});
@@ -177,6 +201,13 @@
   if (print) print.addEventListener('click', () => window.print());
   document.querySelectorAll('.ls-question').forEach(form => {
     let pending = null;
+    const recheck=form.querySelector('.ls-deliberate-recheck');
+    recheck?.addEventListener('keydown',event=>{if(event.key===' '){event.preventDefault();recheck.click();}});
+    recheck?.addEventListener('click',event=>{
+      event.preventDefault();form.querySelectorAll('input[type=radio]').forEach(input=>{input.checked=false;});
+      pending=null;form.querySelector('.ls-feedback').textContent='Deliberate recheck: answer again from memory. No attempt is recorded until you submit.';
+      recheck.hidden=true;form.querySelector('input[type=radio]')?.focus();
+    });
     form.addEventListener('submit', async event => {
       event.preventDefault();
       const selected = form.querySelector('input:checked');
@@ -199,7 +230,15 @@
         const result = await response.json();
         if (!response.ok) { feedback.textContent = result.error || 'Could not check answer.'; return; }
         feedback.textContent = `${result.correct ? 'Correct' : 'Incorrect'} · attempt ${result.attempt_number}. ${result.explanation}`;
-        form.querySelector('.ls-next-actions').hidden=result.correct;
+        const progress=document.querySelector('.ls-practice-progress');
+        if(progress&&Number.isInteger(result.practised_questions))progress.textContent=`${result.practised_questions} of ${result.total_questions} distinct questions practised in this revision · retries remain recorded attempts.`;
+        const recovered=result.practice_state?.status==='recovered_needs_recheck';
+        const state=form.querySelector('.ls-question-state');
+        if(state&&result.practice_state)state.textContent=`${result.practice_state.status.replaceAll('_',' ')} · ${result.practice_state.attempt_count} recorded attempts. A correct retry is not proof of mastery.`;
+        form.querySelector('.ls-next-actions').hidden=result.correct&&!recovered;
+        form.querySelector('.ls-review-answer').hidden=result.correct;
+        recheck.hidden=!recovered;
+        if(recovered)feedback.textContent+=' Correct retry recorded; this item remains available for a deliberate recheck, not marked mastered.';
         if(!result.correct && result.attempt_number>1) feedback.textContent+=' Several attempts are recorded. Try the cited notes before another answer.';
         pending = null;
       } catch (_error) { feedback.textContent = 'Connection interrupted. Retry to submit the same event safely.'; }

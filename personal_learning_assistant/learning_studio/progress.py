@@ -28,6 +28,28 @@ class ProgressMixin:
                              ('local-owner',module_id,revision,section_id)).fetchall()
             return [json.loads(row['payload_json']) for row in rows]
 
+    def practice_state(self, module_id, revision):
+        """Key-free exact-version counts. Reveals and self-reports have no input here."""
+        module = self.module(module_id, revision)
+        with self.store.connection() as con:
+            rows = con.execute("""SELECT a.question_id,a.question_revision,a.correct,
+                counts.attempt_count,counts.incorrect_count FROM attempts a JOIN
+                (SELECT question_id,question_revision,max(seq) latest,count(*) attempt_count,
+                 sum(CASE WHEN correct=0 THEN 1 ELSE 0 END) incorrect_count
+                 FROM attempts WHERE owner=? AND module_id=? AND revision=?
+                 GROUP BY question_id,question_revision) counts ON a.seq=counts.latest""",
+                ('local-owner',module_id,revision)).fetchall()
+        recorded={(r['question_id'],r['question_revision']):r for r in rows}
+        result={}
+        for question in module['questions']:
+            row=recorded.get((question['id'],question['revision']))
+            status='never_practised' if row is None else ('needs_review' if not row['correct'] else
+                   'recovered_needs_recheck' if row['incorrect_count'] else 'checked_correct')
+            result[question['id']]={'question_revision':question['revision'],'status':status,
+                'attempt_count':row['attempt_count'] if row else 0,
+                'incorrect_count':row['incorrect_count'] if row else 0}
+        return result
+
     def _record_state(self, table, module_id, revision, payload):
         from .service import OWNER, canonical, now
         require(isinstance(payload, dict), 'Reader event must be an object.')
@@ -55,7 +77,7 @@ class ProgressMixin:
             blocks=module['revision'] if scope=='revision' else section['blocks']
             integer(payload['block_index'],0,len(blocks)-1)
             block=blocks[payload['block_index']]
-            require(block['kind'] in {'teaching','activity','recall'}, 'Block does not support engagement.')
+            require(block['kind'] in {'teaching','objectives','activity','recall'}, 'Block does not support engagement.')
             require(isinstance(payload['response'],str) and len(payload['response'])<=4000, 'Response exceeds limit.')
             require(isinstance(payload['action'],str) and payload['action'] in {'reflection','reveal','remembered'}, 'Unsupported engagement action.')
         encoded = canonical(payload)

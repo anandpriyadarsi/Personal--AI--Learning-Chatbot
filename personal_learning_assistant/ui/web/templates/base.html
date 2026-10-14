@@ -23,6 +23,7 @@
         <span class="brand-descriptor">Personal Learning Intelligence</span>
       </a>
 
+      {% block sidebar_contents %}
       <nav class="primary-nav" aria-label="Primary navigation">
         <div class="nav-section nav-section-home">
           <a class="nav-item{% if active_page == 'home' %} is-active{% endif %}" href="{{ url_for('web.home') }}"{% if active_page == 'home' %} aria-current="page"{% endif %}>Home</a>
@@ -61,6 +62,7 @@
         </details>
       </nav>
 
+      {% endblock %}
       <p class="sidebar-footer">Local-first · Private workspace</p>
     </aside>
 

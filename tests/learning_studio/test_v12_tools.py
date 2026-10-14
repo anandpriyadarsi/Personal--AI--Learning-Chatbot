@@ -28,7 +28,7 @@ def test_validation_health_requires_browser_even_for_feature():
     spec=importlib.util.spec_from_file_location('studio_validate',path)
     module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
     assert 'playwright' in module.DEPENDENCIES
-    assert module.BASE=='775941c730e8160501c849bc4971e8eb178331d1'
+    assert module.BASE=='60875195f9b6c3145937c625f107244872d8891a'
 
 
 def test_preflight_rejects_invalid_locator_and_stale_mapping():
