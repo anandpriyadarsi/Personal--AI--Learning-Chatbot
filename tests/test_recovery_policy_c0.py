@@ -135,7 +135,7 @@ def test_spaced_new_successes_override_existing_failure():
 def test_repeated_runs_deterministic_even_if_bundle_input_reordered():
     rows = [entry(i,days_ago=5-i) for i in range(5)]
     a=call(*rows)
-    b=call(*rows)
+    b=call(*reversed(rows))
     assert a==b
     assert len(a.fingerprint)==64 and a.fingerprint==b.fingerprint
 
@@ -167,3 +167,22 @@ def test_versioned_threshold_changes_affect_rehearsal_without_mutation():
     assert strict.state == 'no_evidence'
     assert original.fingerprint != strict.fingerprint
     assert not original.automatic_task_allowed and not strict.automatic_task_allowed
+
+
+def test_many_strong_scores_from_one_session_are_limited_not_stable():
+    d = call(*(entry(i,days_ago=i+1,score=.9,session='one') for i in range(6)))
+    assert d.state == 'limited_evidence' and not d.automatic_task_allowed
+
+
+def test_supporting_source_cannot_be_treated_as_assessment():
+    observed = entry(1)
+    altered = replace(observed, observation=replace(observed.observation, source_kind='self_reported_paper'))
+    d = call(altered)
+    assert d.state == 'no_evidence' and d.excluded[0][1] == 'unsupported_evidence_source'
+
+
+def test_teacher_confirmed_null_grading_confidence_is_not_averaged_or_invented():
+    observed = entry(1)
+    teacher = replace(observed, observation=replace(observed.observation, evaluator_type='teacher',
+                                                   evaluation_status='confirmed',grading_confidence=None))
+    assert call(teacher).state == 'watch'

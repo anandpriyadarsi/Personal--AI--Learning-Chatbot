@@ -86,6 +86,8 @@ def _eligibility(entry, *, start, end, policy):
     forbidden |= set(entry.warnings) - {'mapping_snapshot_unknown', 'independence_unknown'}
     if forbidden:
         return 'source_excluded'
+    if e.source_kind != 'assessment_evaluation':
+        return 'unsupported_evidence_source'
     if e.mode != 'exam' or e.session_status not in ('submitted', 'expired'):
         return 'not_terminal_independent_exam'
     if e.session_evaluation_status != 'confirmed' or e.evaluation_status not in ('auto_confirmed', 'confirmed'):
@@ -182,7 +184,10 @@ def simulate_recovery(bundle: B3AttributionBundle, *, as_of: datetime,
     elif override: state, reasons = 'improving', ['recent_spaced_success_override']
     elif trigger: state, reasons = 'recovery_candidate', ['synthetic_policy_threshold_met']
     elif poor: state, reasons = 'watch', ['thresholds_not_all_met']
-    elif len(first) < policy.min_negative_questions: state, reasons = 'limited_evidence', ['insufficient_breadth_for_stability']
+    elif (len(first) < policy.min_negative_questions or
+          len({r[1] for r in first}) < policy.min_negative_sessions or
+          len({r[5] for r in first}) < policy.min_negative_dates):
+        state, reasons = 'limited_evidence', ['insufficient_breadth_for_stability']
     else: state, reasons = 'stable', ['no_qualifying_poor_results']
     if state == 'recovery_candidate':
         reasons.append('simulation_only_not_authorized_to_create_task')
