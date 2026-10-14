@@ -1,5 +1,7 @@
 # Next Work: genuine lineage review, then conditional B3-B
 
+Accepted executable baseline: `63c5a636f4e737c204a791360e2bc715c9ac945f`, [both-platform run](https://github.com/anandpriyadarsi/Personal--AI--Learning-Chatbot/actions/runs/38525732263). Its documentation-only descendant is the delivered feature tip; verify the latest exact-source Actions acceptance before continuing.
+
 Recover current `anvaya/topic-intelligence-b3-attribution-authority` from GitHub. Read its implementation/validation/authority contract, minimal Windows handoff and Gate C readiness. Verify current main and feature SHA, clean worktrees, exact hosted Ubuntu/Windows/aggregate acceptance and all fourteen migration checksums. Source-only B3-A is already implemented; do not redo the architecture audit, authority DTOs, attribution composition or safe collector.
 
 First review any supplied redacted installed-authority JSON. Without genuine evidence, keep LOCAL WINDOWS PRODUCTION AUTHORITY and B3-B BLOCKED. UI screenshots and synthetic0014 fixtures are not substitutes. Default collector identity is safe without DB access; the one optional closed-writer invocation can collect identity plus stable private copied schema in one report. Never ask for a DB/vault/secrets/private source archive or a new Windows test environment.

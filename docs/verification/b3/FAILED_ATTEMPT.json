@@ -1,0 +1,106 @@
+{
+  "source_sha": "8b4d62913e8e92728efc2fb33bafc6e9be5421fa",
+  "run_id": 38407985532,
+  "attempt": 1,
+  "accepted": false,
+  "full_suite_no_xml_due_timeout": true,
+  "categories": {
+    "full_pytest": {
+      "status": "FAIL",
+      "exit_code": 124,
+      "tests": 0,
+      "failures": [],
+      "errors": [],
+      "skips": [],
+      "command": [
+        "C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\python.EXE",
+        "-m",
+        "pytest",
+        "-q",
+        "--junitxml=D:\\a\\_temp\\anvaya-architecture-results\\run-s3q04f4u\\full_pytest.xml"
+      ],
+      "reproduce": "C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\python.EXE -m pytest -q --junitxml=D:\\a\\_temp\\anvaya-architecture-results\\run-s3q04f4u\\full_pytest.xml",
+      "cwd": "D:\\a\\_temp\\anvaya-architecture-results\\run-s3q04f4u\\source",
+      "environment_policy": "clean_environment: runtime whitelist, provider credentials removed, loopback-only Python sockets",
+      "seconds": 1800.031,
+      "timeout_seconds": 1800,
+      "log": "full_pytest.log"
+    },
+    "characterization": {
+      "status": "FAIL",
+      "exit_code": 1,
+      "tests": 17,
+      "failures": [],
+      "errors": [
+        {
+          "id": "tests.test_architecture_characterization::test_current_defect_reproduction[A]",
+          "message": "failed on setup with \"subprocess.TimeoutExpired: Command '['C:\\\\hostedtoolcache\\\\windows\\\\Python\\\\3.12.10\\\\x64\\\\python.EXE', 'D:\\\\a\\\\_temp\\\\anvaya-architecture-results\\\\run-s3q04f4u\\\\source\\\\scripts\\\\characterization\\\\read_routes.py', '--repo', 'D:\\\\a\\\\_temp\\\\anvaya-architecture-results\\\\run-s3q04f4u\\\\source', '--output', 'C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-unknown\\\\pytest-4\\\\characterization0\\\\read_routes.json']' timed out after 120 seconds\""
+        },
+        {
+          "id": "tests.test_architecture_characterization::test_current_defect_reproduction[B]",
+          "message": "failed on setup with \"subprocess.TimeoutExpired: Command '['C:\\\\hostedtoolcache\\\\windows\\\\Python\\\\3.12.10\\\\x64\\\\python.EXE', 'D:\\\\a\\\\_temp\\\\anvaya-architecture-results\\\\run-s3q04f4u\\\\source\\\\scripts\\\\characterization\\\\read_routes.py', '--repo', 'D:\\\\a\\\\_temp\\\\anvaya-architecture-results\\\\run-s3q04f4u\\\\source', '--output', 'C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-unknown\\\\pytest-4\\\\characterization0\\\\read_routes.json']' timed out after 120 seconds\""
+        },
+        {
+          "id": "tests.test_architecture_characterization::test_current_defect_reproduction[D]",
+          "message": "failed on setup with \"subprocess.TimeoutExpired: Command '['C:\\\\hostedtoolcache\\\\windows\\\\Python\\\\3.12.10\\\\x64\\\\python.EXE', 'D:\\\\a\\\\_temp\\\\anvaya-architecture-results\\\\run-s3q04f4u\\\\source\\\\scripts\\\\characterization\\\\read_routes.py', '--repo', 'D:\\\\a\\\\_temp\\\\anvaya-architecture-results\\\\run-s3q04f4u\\\\source', '--output', 'C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-unknown\\\\pytest-4\\\\characterization0\\\\read_routes.json']' timed out after 120 seconds\""
+        },
+        {
+          "id": "tests.test_architecture_characterization::test_current_defect_reproduction[P01]",
+          "message": "failed on setup with \"subprocess.TimeoutExpired: Command '['C:\\\\hostedtoolcache\\\\windows\\\\Python\\\\3.12.10\\\\x64\\\\python.EXE', 'D:\\\\a\\\\_temp\\\\anvaya-architecture-results\\\\run-s3q04f4u\\\\source\\\\scripts\\\\characterization\\\\read_routes.py', '--repo', 'D:\\\\a\\\\_temp\\\\anvaya-architecture-results\\\\run-s3q04f4u\\\\source', '--output', 'C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-unknown\\\\pytest-4\\\\characterization0\\\\read_routes.json']' timed out after 120 seconds\""
+        },
+        {
+          "id": "tests.test_architecture_characterization::test_current_defect_reproduction[P02]",
+          "message": "failed on setup with \"subprocess.TimeoutExpired: Command '['C:\\\\hostedtoolcache\\\\windows\\\\Python\\\\3.12.10\\\\x64\\\\python.EXE', 'D:\\\\a\\\\_temp\\\\anvaya-architecture-results\\\\run-s3q04f4u\\\\source\\\\scripts\\\\characterization\\\\read_routes.py', '--repo', 'D:\\\\a\\\\_temp\\\\anvaya-architecture-results\\\\run-s3q04f4u\\\\source', '--output', 'C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-unknown\\\\pytest-4\\\\characterization0\\\\read_routes.json']' timed out after 120 seconds\""
+        },
+        {
+          "id": "tests.test_architecture_characterization::test_current_defect_reproduction[P03]",
+          "message": "failed on setup with \"subprocess.TimeoutExpired: Command '['C:\\\\hostedtoolcache\\\\windows\\\\Python\\\\3.12.10\\\\x64\\\\python.EXE', 'D:\\\\a\\\\_temp\\\\anvaya-architecture-results\\\\run-s3q04f4u\\\\source\\\\scripts\\\\characterization\\\\read_routes.py', '--repo', 'D:\\\\a\\\\_temp\\\\anvaya-architecture-results\\\\run-s3q04f4u\\\\source', '--output', 'C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-unknown\\\\pytest-4\\\\characterization0\\\\read_routes.json']' timed out after 120 seconds\""
+        },
+        {
+          "id": "tests.test_architecture_characterization::test_current_defect_reproduction[P04]",
+          "message": "failed on setup with \"subprocess.TimeoutExpired: Command '['C:\\\\hostedtoolcache\\\\windows\\\\Python\\\\3.12.10\\\\x64\\\\python.EXE', 'D:\\\\a\\\\_temp\\\\anvaya-architecture-results\\\\run-s3q04f4u\\\\source\\\\scripts\\\\characterization\\\\read_routes.py', '--repo', 'D:\\\\a\\\\_temp\\\\anvaya-architecture-results\\\\run-s3q04f4u\\\\source', '--output', 'C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-unknown\\\\pytest-4\\\\characterization0\\\\read_routes.json']' timed out after 120 seconds\""
+        },
+        {
+          "id": "tests.test_architecture_characterization::test_current_defect_reproduction[P05]",
+          "message": "failed on setup with \"subprocess.TimeoutExpired: Command '['C:\\\\hostedtoolcache\\\\windows\\\\Python\\\\3.12.10\\\\x64\\\\python.EXE', 'D:\\\\a\\\\_temp\\\\anvaya-architecture-results\\\\run-s3q04f4u\\\\source\\\\scripts\\\\characterization\\\\read_routes.py', '--repo', 'D:\\\\a\\\\_temp\\\\anvaya-architecture-results\\\\run-s3q04f4u\\\\source', '--output', 'C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-unknown\\\\pytest-4\\\\characterization0\\\\read_routes.json']' timed out after 120 seconds\""
+        },
+        {
+          "id": "tests.test_architecture_characterization::test_current_defect_reproduction[P06]",
+          "message": "failed on setup with \"subprocess.TimeoutExpired: Command '['C:\\\\hostedtoolcache\\\\windows\\\\Python\\\\3.12.10\\\\x64\\\\python.EXE', 'D:\\\\a\\\\_temp\\\\anvaya-architecture-results\\\\run-s3q04f4u\\\\source\\\\scripts\\\\characterization\\\\read_routes.py', '--repo', 'D:\\\\a\\\\_temp\\\\anvaya-architecture-results\\\\run-s3q04f4u\\\\source', '--output', 'C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-unknown\\\\pytest-4\\\\characterization0\\\\read_routes.json']' timed out after 120 seconds\""
+        },
+        {
+          "id": "tests.test_architecture_characterization::test_current_defect_reproduction[P07]",
+          "message": "failed on setup with \"subprocess.TimeoutExpired: Command '['C:\\\\hostedtoolcache\\\\windows\\\\Python\\\\3.12.10\\\\x64\\\\python.EXE', 'D:\\\\a\\\\_temp\\\\anvaya-architecture-results\\\\run-s3q04f4u\\\\source\\\\scripts\\\\characterization\\\\read_routes.py', '--repo', 'D:\\\\a\\\\_temp\\\\anvaya-architecture-results\\\\run-s3q04f4u\\\\source', '--output', 'C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-unknown\\\\pytest-4\\\\characterization0\\\\read_routes.json']' timed out after 120 seconds\""
+        },
+        {
+          "id": "tests.test_architecture_characterization::test_current_defect_reproduction[P08]",
+          "message": "failed on setup with \"subprocess.TimeoutExpired: Command '['C:\\\\hostedtoolcache\\\\windows\\\\Python\\\\3.12.10\\\\x64\\\\python.EXE', 'D:\\\\a\\\\_temp\\\\anvaya-architecture-results\\\\run-s3q04f4u\\\\source\\\\scripts\\\\characterization\\\\read_routes.py', '--repo', 'D:\\\\a\\\\_temp\\\\anvaya-architecture-results\\\\run-s3q04f4u\\\\source', '--output', 'C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-unknown\\\\pytest-4\\\\characterization0\\\\read_routes.json']' timed out after 120 seconds\""
+        },
+        {
+          "id": "tests.test_architecture_characterization::test_get_missing_legacy_files_does_not_create_files",
+          "message": "failed on setup with \"subprocess.TimeoutExpired: Command '['C:\\\\hostedtoolcache\\\\windows\\\\Python\\\\3.12.10\\\\x64\\\\python.EXE', 'D:\\\\a\\\\_temp\\\\anvaya-architecture-results\\\\run-s3q04f4u\\\\source\\\\scripts\\\\characterization\\\\read_routes.py', '--repo', 'D:\\\\a\\\\_temp\\\\anvaya-architecture-results\\\\run-s3q04f4u\\\\source', '--output', 'C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-unknown\\\\pytest-4\\\\characterization0\\\\read_routes.json']' timed out after 120 seconds\""
+        },
+        {
+          "id": "tests.test_architecture_characterization::test_characterizations_preserve_read_only_sql_and_report_filesystem_effects",
+          "message": "failed on setup with \"subprocess.TimeoutExpired: Command '['C:\\\\hostedtoolcache\\\\windows\\\\Python\\\\3.12.10\\\\x64\\\\python.EXE', 'D:\\\\a\\\\_temp\\\\anvaya-architecture-results\\\\run-s3q04f4u\\\\source\\\\scripts\\\\characterization\\\\read_routes.py', '--repo', 'D:\\\\a\\\\_temp\\\\anvaya-architecture-results\\\\run-s3q04f4u\\\\source', '--output', 'C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-unknown\\\\pytest-4\\\\characterization0\\\\read_routes.json']' timed out after 120 seconds\""
+        }
+      ],
+      "skips": [],
+      "command": [
+        "C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\python.EXE",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_architecture_characterization.py",
+        "--junitxml=D:\\a\\_temp\\anvaya-architecture-results\\run-s3q04f4u\\characterization.xml"
+      ],
+      "reproduce": "C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\python.EXE -m pytest -q tests/test_architecture_characterization.py --junitxml=D:\\a\\_temp\\anvaya-architecture-results\\run-s3q04f4u\\characterization.xml",
+      "cwd": "D:\\a\\_temp\\anvaya-architecture-results\\run-s3q04f4u\\source",
+      "environment_policy": "clean_environment: runtime whitelist, provider credentials removed, loopback-only Python sockets",
+      "seconds": 138.563,
+      "timeout_seconds": 900,
+      "log": "characterization.log"
+    }
+  },
+  "diagnosis": "Read-routes child exceeded120s; full parent suite exceeded1800s. No assertion failures in preserved characterization XML. Restricted-policy step not reached. Unchanged-source retry passed. Resource cause not established; do not claim timeout itself fixed."
+}

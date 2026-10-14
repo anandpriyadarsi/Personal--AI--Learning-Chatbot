@@ -16,4 +16,4 @@ The optional phase checks Windows process evidence, rejects invalid controls/uns
 
 Share **only the redacted JSON**, never a DB/WAL/SHM, vault, learner responses, secrets, private paths or source archive. The source-schema PASS and projection key counts do not certify production authority; absent freshness metadata is UNVERIFIABLE. The reviewer must establish actual launcher/interpreter/checkout and installed ownership/transaction lineage before B3-B.
 
-The source-only helper and default PowerShell path are covered by automated disposable tests and the Windows CI step. Actual-user smoke testing belongs to a later authorized release, not every development iteration.
+The source-only helper and default PowerShell path are covered by automated disposable tests and [native Windows Restricted-policy acceptance](https://github.com/anandpriyadarsi/Personal--AI--Learning-Chatbot/actions/runs/38525732263). The pinned ed2bf73 collector/wrapper bytes are unchanged in the accepted revision 63c5a636f4e737c204a791360e2bc715c9ac945f. Actual-user smoke testing belongs to a later authorized release, not every development iteration.
