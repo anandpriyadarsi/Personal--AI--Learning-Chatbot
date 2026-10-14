@@ -186,3 +186,39 @@ def test_teacher_confirmed_null_grading_confidence_is_not_averaged_or_invented()
     teacher = replace(observed, observation=replace(observed.observation, evaluator_type='teacher',
                                                    evaluation_status='confirmed',grading_confidence=None))
     assert call(teacher).state == 'watch'
+
+
+def test_duplicate_evaluation_identity_with_distinct_questions_is_rejected():
+    source = entry(1)
+    forged = entry(2)
+    altered = replace(forged.observation, evidence_id=source.observation.evidence_id)
+    forged = replace(forged, observation=altered, identity=ObservationIdentity.from_evidence(altered))
+    with pytest.raises(ValueError, match='duplicate.*evaluation'):
+        call(source, forged)
+
+
+def test_overmaximum_marks_are_not_silently_clamped_into_strong_results():
+    source = entry(1, score=1)
+    forged = replace(source, observation=replace(source.observation, awarded_marks_milli=2000))
+    decision = call(forged)
+    assert decision.state == 'no_evidence'
+    assert decision.excluded == (('e1', 'invalid_marks'),)
+
+
+def test_stale_successes_do_not_claim_recent_recovery():
+    # Two-spaced sessions after historical poor attempts, but all successes are >7 days old.
+    negatives = [entry(i, days_ago=26-i, score=.2) for i in range(5)]
+    successes = [entry(10,days_ago=17,score=1,session='new1'),
+                 entry(11,days_ago=16,score=1,session='new1'),
+                 entry(12,days_ago=15,score=1,session='new2')]
+    decision = call(*(negatives + successes))
+    assert decision.state != 'improving'
+    assert not decision.success_override
+
+
+def test_extreme_as_of_fails_cleanly_instead_of_underflowing():
+    from datetime import timezone
+    extreme = datetime.min.replace(tzinfo=timezone.utc)
+    scope = replace(bundle(), as_of_utc=extreme)
+    with pytest.raises(ValueError, match='window'):
+        simulate_recovery(scope, as_of=extreme)

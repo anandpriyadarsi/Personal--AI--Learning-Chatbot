@@ -94,7 +94,8 @@ def _eligibility(entry, *, start, end, policy):
         return 'unconfirmed_grade'
     if e.outcome == 'unanswered' or e.awarded_marks_milli is None:
         return 'unanswered_or_ungraded'
-    if type(e.awarded_marks_milli) is not int or type(e.max_marks_milli) is not int or e.max_marks_milli <= 0:
+    if (type(e.awarded_marks_milli) is not int or type(e.max_marks_milli) is not int
+            or e.max_marks_milli <= 0 or e.awarded_marks_milli > e.max_marks_milli):
         return 'invalid_marks'
     if e.evaluator_type not in ('deterministic', 'teacher', 'human'):
         return 'not_independently_graded'
@@ -137,8 +138,19 @@ def simulate_recovery(bundle: B3AttributionBundle, *, as_of: datetime,
         zone = ZoneInfo(timezone_name)
     except (ZoneInfoNotFoundError, ValueError) as exc:
         raise ValueError('Unknown IANA timezone') from exc
-    start = now - timedelta(days=policy.window_days)
-    recent = now - timedelta(days=policy.recent_days)
+    try:
+        start = now - timedelta(days=policy.window_days)
+        recent = now - timedelta(days=policy.recent_days)
+    except OverflowError as exc:
+        raise ValueError('Invalid policy window at as_of boundary') from exc
+    # Each evaluation is one source observation. Duplicate source IDs cannot
+    # manufacture new question identities or artificial independent sessions.
+    seen_evaluations = set()
+    for entry in bundle.evidence:
+        evaluation_id = entry.identity.evaluation_id
+        if evaluation_id in seen_evaluations:
+            raise ValueError('duplicate evaluation identity in recovery input')
+        seen_evaluations.add(evaluation_id)
     excluded = []
     qualifying = []
     for entry in bundle.evidence:
@@ -171,7 +183,8 @@ def simulate_recovery(bundle: B3AttributionBundle, *, as_of: datetime,
     override = False
     if poor:
         latest_poor = max(r[0] for r in poor)
-        success = [r for r in first if r[0] > latest_poor and r[6] >= policy.success_ratio]
+        success = [r for r in first if r[0] > latest_poor and r[0] >= recent
+                   and r[6] >= policy.success_ratio]
         sessions = {}
         for row in success:
             sessions.setdefault(row[1], row[0])
