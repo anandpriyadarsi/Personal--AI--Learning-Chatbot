@@ -184,3 +184,55 @@ def test_mutable_reference_scalar_and_public_output_fields_are_rejected(tmp_path
         replace(composed, evidence=list(composed.evidence))
     with pytest.raises(TypeError):
         replace(composed.evidence[0], warnings=[])
+
+
+def test_empty_topics_keep_exact_scope_and_distinct_fingerprints(tmp_path):
+    path = _database(tmp_path)
+    for identifier in ('empty-a','empty-b'):
+        update(path, "INSERT INTO topics(id,course_id,name,normalized_name,status,created_at,updated_at) VALUES(?, 'course-ma',?,?,'not_started',?,?)", (identifier,identifier,identifier,'2026-10-01','2026-10-01'))
+    first = api().compose_attribution(read(path,'empty-a'))
+    second = api().compose_attribution(read(path,'empty-b'))
+    assert first.evidence == second.evidence == ()
+    assert first.artifact_sha256 == second.artifact_sha256
+    assert first.fingerprint != second.fingerprint
+    assert first.topic.topic_id == 'empty-a' and second.topic.topic_id == 'empty-b'
+    assert first.topic.course_id == second.topic.course_id == 'course-ma'
+
+
+def test_stored_manual_status_and_confidence_remain_separate_from_attribution(tmp_path):
+    path = _database(tmp_path)
+    update(path,"UPDATE topics SET status='mastered',confidence=5 WHERE id='topic-lu'")
+    bundle = read(path)
+    result = api().compose_attribution(bundle)
+    assert result.topic == bundle.topic
+    assert result.topic.stored_status == 'mastered' and result.topic.self_reported_confidence == 5
+    assert result.evidence[0].mapping.confidence is None
+    assert not any(x.automatic_eligible for x in result.evidence)
+
+
+@pytest.mark.parametrize('field', ['course_id','topic_id'])
+def test_composition_refuses_unflagged_observation_scope_mismatch(tmp_path, field):
+    bundle = read(_database(tmp_path))
+    with pytest.raises(ValueError, match='scope'):
+        api().compose_attribution(replace(bundle,topic=replace(bundle.topic,**{field:'other'})))
+
+
+@pytest.mark.parametrize('field', ['course_id','topic_id'])
+def test_public_bundle_refuses_unflagged_observation_scope_mismatch(tmp_path, field):
+    composed = api().compose_attribution(read(_database(tmp_path)))
+    with pytest.raises(ValueError, match='scope'):
+        replace(composed,topic=replace(composed.topic,**{field:'other'}))
+
+
+def test_flagged_cross_course_observation_is_preserved_without_rebinding(tmp_path):
+    path = _database(tmp_path)
+    update(path,"INSERT INTO courses(id,code,name,created_at,updated_at) VALUES('other','OTHER','Other',?,?)",('2026-10-01','2026-10-01'))
+    update(path,"UPDATE assessments SET course_id='other' WHERE id='a1'")
+    bundle = read(path)
+    composed = api().compose_attribution(bundle)
+    assert composed.topic == bundle.topic and composed.topic.course_id == 'course-ma'
+    assert tuple(x.observation for x in composed.evidence) == bundle.evidence
+    first = composed.evidence[0]
+    assert first.identity.course_id == 'other'
+    assert 'cross_course_source' in first.observation.exclusion_reasons
+    assert 'cross_course_source' in first.warnings and not first.automatic_eligible

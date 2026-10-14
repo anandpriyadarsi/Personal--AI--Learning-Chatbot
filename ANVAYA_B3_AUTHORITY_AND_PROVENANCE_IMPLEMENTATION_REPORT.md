@@ -12,11 +12,11 @@ Starting main: `e15c347e5a7bf58c7ec29708eee49b1fed13f712`, PR8 merged B1/B2. Ded
 | scripts/architecture_local_collector.py | Enhanced existing collector, no DB default, strict redacted backend checks, complete main/WAL/SHM copy verification, private query-only inspection/disposal and aggregate B3 report |
 | scripts/b3_collect_authority.ps1 | Runs tools from a source-only archive outside the installed tree, using the existing interpreter; optional explicit closed-writer attestation |
 | .github/workflows/architecture-validation.yml | Unchanged full Ubuntu/Windows validator plus actual Windows PowerShell identity collection and redacted output artifact |
-| tests/test_b3_authority.py, test_b3_attribution.py, test_b3_collector.py |96 new cases including adversarial review regressions and actual default CLI |
+| tests/test_b3_authority.py, test_b3_attribution.py, test_b3_collector.py |103 new cases including adversarial review regressions and actual default CLI |
 
 Package paths above are relative to personal_learning_assistant. All functions are disconnected from production routes/services. B1 remains the explicitly attested closed sidecar-free immutable reader; B2's live WAL-aware query-only boundary is unchanged. Neither is promoted into a new live B3 path.
 
-One evaluation remains one observation; bridge IDs/content equivalence stay separate. Mapping review/calibration, grading, authoring and self-confidence stay separate. New composition never regrades, computes mastery/recovery, mutates a mapping, creates a task or infers exam independence. Exact current mapping/package fields do not acquire historical trust.
+One evaluation remains one observation; bridge IDs/content equivalence stay separate. Mapping review/calibration, grading, authoring and self-confidence stay separate. New composition never regrades, computes mastery/recovery, mutates a mapping, creates a task or infers exam independence. Exact current mapping/package fields do not acquire historical trust. The output retains exact top-level TopicIdentity, stored manual status and student self-confidence even when evidence is empty; fingerprint scope includes that identity without turning it into performance evidence. Unflagged course/topic mismatches are rejected; original B1 cross_course_source records remain visible and are never rebound.
 
 ## Safety and limitations
 
@@ -26,7 +26,7 @@ The inspector's PASS schema scope is its required columns/FK adapter, not every 
 
 ## Review and validation
 
-Base local full1865/Chromium43/Node20/all15 categories PASS. B3 fail-first runs: authority23 FAIL before module; attribution30 FAIL before module; collector16 FAIL/two already passing; invalid-control copy and actual CLI missing-field regressions FAIL before implementation. Four independent Important findings were reproduced and fixed: incomplete FK verification, mutable nested B1 provenance, promoted-control null coercion and TEMP table shadowing. Final focused145 PASS includes96 B3 +45 unchanged B1 +four unchanged original collector cases. No Critical finding; closure is supported by RED/GREEN records and the full validation report.
+Base local full1865/Chromium43/Node20/all15 categories PASS. B3 fail-first runs: authority23 FAIL before module; attribution30 FAIL before module; collector16 FAIL/two already passing; invalid-control copy and actual CLI missing-field regressions FAIL before implementation. Four independent Important findings were reproduced and fixed: incomplete FK verification, mutable nested B1 provenance, promoted-control null coercion and TEMP table shadowing. Supplemental scope fix focused152 PASS includes103 B3 +45 unchanged B1 +four unchanged original collector cases. No Critical finding; closure is supported by RED/GREEN records and the full validation report.
 
 PowerShell7.4.13 tools-only default command executed successfully on a disposable source snapshot; exact Windows PowerShell acceptance is provided by hosted CI. The first full B3 attempt found43 setup errors from a missing ephemeral Chromium executable, with zero assertion failures; retained as failed evidence, followed by a fresh runtime installation and complete rerun.
 

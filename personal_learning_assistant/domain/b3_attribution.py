@@ -248,6 +248,7 @@ class AttributedEvidence:
 
 @dataclass(frozen=True)
 class B3AttributionBundle:
+    topic: TopicIdentity
     evidence: tuple[AttributedEvidence, ...]
     as_of_utc: datetime
     timezone: str
@@ -256,8 +257,21 @@ class B3AttributionBundle:
     contract_version: str = 'anvaya.b3-attribution.v1'
 
     def __post_init__(self):
+        if type(self.topic) is not TopicIdentity:
+            raise TypeError('Strict immutable B1 topic identity required')
+        _deep_immutable(self.topic)
+        _text(self.topic.course_id,'course identity')
+        _text(self.topic.topic_id,'topic identity')
         if type(self.evidence) is not tuple or any(type(e) is not AttributedEvidence for e in self.evidence):
             raise TypeError('Immutable attributed evidence tuple required')
+        for evidence in self.evidence:
+            if evidence.identity.topic_id != self.topic.topic_id:
+                raise ValueError('Exact observation topic scope required')
+            if evidence.identity.course_id != self.topic.course_id and not (
+                'cross_course_source' in evidence.observation.exclusion_reasons
+                and 'cross_course_source' in evidence.warnings
+            ):
+                raise ValueError('Unflagged observation course scope mismatch')
         object.__setattr__(self,'as_of_utc',_utc(self.as_of_utc))
         _text(self.timezone,'timezone')
         for digest in (self.artifact_sha256,self.fingerprint):
@@ -312,7 +326,7 @@ def compose_reviewed_fixture(bundle: TopicEvidenceBundle, *, reviews: tuple[Synt
         result.append(AttributedEvidence(source, ObservationIdentity.from_evidence(source), mapping, independence,
             review.authoring_confidence if review else None, 'synthetic_reviewed_fixture' if review else 'historical_unavailable',
             review.snapshot_at if review else None, tuple(sorted(warnings))))
-    payload = {'evidence': [asdict(x) for x in result], 'as_of': as_of, 'timezone': bundle.timezone, 'contract':'anvaya.b3-attribution.v1'}
+    payload = {'topic': asdict(bundle.topic), 'evidence': [asdict(x) for x in result], 'as_of': as_of, 'timezone': bundle.timezone, 'contract':'anvaya.b3-attribution.v1'}
     fingerprint = hashlib.sha256(json.dumps(payload, sort_keys=True, ensure_ascii=False,
         default=lambda x: x.isoformat(), allow_nan=False).encode()).hexdigest()
-    return B3AttributionBundle(tuple(result), as_of, bundle.timezone, bundle.snapshot_sha256, fingerprint)
+    return B3AttributionBundle(bundle.topic, tuple(result), as_of, bundle.timezone, bundle.snapshot_sha256, fingerprint)
