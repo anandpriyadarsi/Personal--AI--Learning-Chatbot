@@ -29,15 +29,17 @@ def select(module,args,weak,engagement=None):
     budget=args.get('budget','full');require(budget in {'5','15','full'},'Unknown revision budget.',404)
     revision=module['revision']
     # Quick recall is an explicit subset; full companion remains one action away.
-    cards=[b for b in revision if b['kind']=='recall']
-    quick=(cards or revision)[:4 if budget=='5' else 12]
     from .revision import guided_revision
     guide=guided_revision(module,weak,budget,engagement=engagement)
     from .rendering import authored_headings
     outline=[dict(h,anchor=f"ls-block-{module['sections'][0]['id']}-{i}-heading-{h['index']}") for i,b in enumerate(revision) if b['kind']!='recall' and 'text' in b for h in authored_headings(b['text'])]
-    return {'revision_outline':outline[:100], 'revision_outline_total':len(outline), 'revision_guide':guide,'selected_section':selected,'section_index':module['sections'].index(selected),
+    related=next((q for q in module['questions'] if set(q['pages'])&set(selected['pages'])),None)
+    related={k:v for k,v in related.items() if k not in {'correct_index','explanation'}} if related else None
+    indexed=[{'index':i,'block':b,'reason':''} for i,b in enumerate(revision)] if budget=='full' else guide['items']
+    page_lessons={page['page']:next((s['id'] for s in module['sections'] if page['page'] in s['pages']),selected['id']) for page in module['pages']}
+    return {'page_lessons':page_lessons,'related_question':related,'revision_items':indexed,'revision_outline':outline[:100], 'revision_outline_total':len(outline), 'revision_guide':guide,'selected_section':selected,'section_index':module['sections'].index(selected),
             'visible_sections':module['sections'] if args.get('all')=='1' else [selected],
             'selected_page':selected_page,'visible_pages':module['pages'] if args.get('pages')=='all' else [selected_page],
             'practice_questions':questions if args.get('questions')=='all' else questions[index:index+1],
             'question_lessons':{q['id']:next((section['id'] for section in module['sections'] if set(section['pages'])&set(q['pages'])),selected['id']) for q in module['questions']},'question_index':index,'question_total':len(questions),'question_choices':questions,'practice_mode':mode,
-            'revision_blocks':revision if budget=='full' else (guide['cards'] or quick),'revision_budget':budget}
+            'revision_blocks':[item['block'] for item in indexed],'revision_budget':budget}

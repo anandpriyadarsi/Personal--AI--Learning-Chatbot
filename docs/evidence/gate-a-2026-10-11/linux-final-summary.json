@@ -1,0 +1,316 @@
+{
+  "categories": {
+    "full_pytest": {
+      "status": "PASS",
+      "exit_code": 0,
+      "tests": 1767,
+      "failures": [],
+      "errors": [],
+      "skips": [],
+      "command": [
+        "/workspace/scratch/d0cf2cf43224/gate-a/../.venv/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "--junitxml=/workspace/scratch/d0cf2cf43224/validation-runs/run-wcqyvz0j/full_pytest.xml"
+      ],
+      "reproduce": "/workspace/scratch/d0cf2cf43224/gate-a/../.venv/bin/python -m pytest -q --junitxml=/workspace/scratch/d0cf2cf43224/validation-runs/run-wcqyvz0j/full_pytest.xml",
+      "cwd": "/workspace/scratch/d0cf2cf43224/validation-runs/run-wcqyvz0j/source",
+      "environment_policy": "clean_environment: runtime whitelist, provider credentials removed, loopback-only Python sockets",
+      "seconds": 112.213,
+      "log": "full_pytest.log"
+    },
+    "focused": {
+      "status": "PASS",
+      "exit_code": 0,
+      "tests": 54,
+      "failures": [],
+      "errors": [],
+      "skips": [],
+      "command": [
+        "/workspace/scratch/d0cf2cf43224/gate-a/../.venv/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_phase7_5_progress_planning.py",
+        "tests/test_phase7_5_operational_planner_routes.py",
+        "tests/test_assessment_studio_phase_e.py",
+        "tests/test_assessment_studio_phase_f.py",
+        "tests/test_phase7_5_15_14_focus_companion_analysis.py",
+        "--junitxml=/workspace/scratch/d0cf2cf43224/validation-runs/run-wcqyvz0j/focused.xml"
+      ],
+      "reproduce": "/workspace/scratch/d0cf2cf43224/gate-a/../.venv/bin/python -m pytest -q tests/test_phase7_5_progress_planning.py tests/test_phase7_5_operational_planner_routes.py tests/test_assessment_studio_phase_e.py tests/test_assessment_studio_phase_f.py tests/test_phase7_5_15_14_focus_companion_analysis.py --junitxml=/workspace/scratch/d0cf2cf43224/validation-runs/run-wcqyvz0j/focused.xml",
+      "cwd": "/workspace/scratch/d0cf2cf43224/validation-runs/run-wcqyvz0j/source",
+      "environment_policy": "clean_environment: runtime whitelist, provider credentials removed, loopback-only Python sockets",
+      "seconds": 3.031,
+      "log": "focused.log"
+    },
+    "fixture_order_agent_first": {
+      "status": "PASS",
+      "exit_code": 0,
+      "tests": 41,
+      "failures": [],
+      "errors": [],
+      "skips": [],
+      "command": [
+        "/workspace/scratch/d0cf2cf43224/gate-a/../.venv/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_phase7_5_academic_agent_web.py",
+        "tests/test_phase7_5_anvaya_shell.py",
+        "tests/test_phase2_closure_architecture.py",
+        "--junitxml=/workspace/scratch/d0cf2cf43224/validation-runs/run-wcqyvz0j/fixture_order_agent_first.xml"
+      ],
+      "reproduce": "/workspace/scratch/d0cf2cf43224/gate-a/../.venv/bin/python -m pytest -q tests/test_phase7_5_academic_agent_web.py tests/test_phase7_5_anvaya_shell.py tests/test_phase2_closure_architecture.py --junitxml=/workspace/scratch/d0cf2cf43224/validation-runs/run-wcqyvz0j/fixture_order_agent_first.xml",
+      "cwd": "/workspace/scratch/d0cf2cf43224/validation-runs/run-wcqyvz0j/source",
+      "environment_policy": "clean_environment: runtime whitelist, provider credentials removed, loopback-only Python sockets",
+      "seconds": 2.07,
+      "log": "fixture_order_agent_first.log"
+    },
+    "fixture_order_phase2_first": {
+      "status": "PASS",
+      "exit_code": 0,
+      "tests": 41,
+      "failures": [],
+      "errors": [],
+      "skips": [],
+      "command": [
+        "/workspace/scratch/d0cf2cf43224/gate-a/../.venv/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_phase2_closure_architecture.py",
+        "tests/test_phase7_5_anvaya_shell.py",
+        "tests/test_phase7_5_academic_agent_web.py",
+        "--junitxml=/workspace/scratch/d0cf2cf43224/validation-runs/run-wcqyvz0j/fixture_order_phase2_first.xml"
+      ],
+      "reproduce": "/workspace/scratch/d0cf2cf43224/gate-a/../.venv/bin/python -m pytest -q tests/test_phase2_closure_architecture.py tests/test_phase7_5_anvaya_shell.py tests/test_phase7_5_academic_agent_web.py --junitxml=/workspace/scratch/d0cf2cf43224/validation-runs/run-wcqyvz0j/fixture_order_phase2_first.xml",
+      "cwd": "/workspace/scratch/d0cf2cf43224/validation-runs/run-wcqyvz0j/source",
+      "environment_policy": "clean_environment: runtime whitelist, provider credentials removed, loopback-only Python sockets",
+      "seconds": 2.271,
+      "log": "fixture_order_phase2_first.log"
+    },
+    "characterization": {
+      "status": "PASS",
+      "exit_code": 0,
+      "tests": 15,
+      "failures": [],
+      "errors": [],
+      "skips": [],
+      "command": [
+        "/workspace/scratch/d0cf2cf43224/gate-a/../.venv/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_architecture_characterization.py",
+        "--junitxml=/workspace/scratch/d0cf2cf43224/validation-runs/run-wcqyvz0j/characterization.xml"
+      ],
+      "reproduce": "/workspace/scratch/d0cf2cf43224/gate-a/../.venv/bin/python -m pytest -q tests/test_architecture_characterization.py --junitxml=/workspace/scratch/d0cf2cf43224/validation-runs/run-wcqyvz0j/characterization.xml",
+      "cwd": "/workspace/scratch/d0cf2cf43224/validation-runs/run-wcqyvz0j/source",
+      "environment_policy": "clean_environment: runtime whitelist, provider credentials removed, loopback-only Python sockets",
+      "seconds": 4.578,
+      "log": "characterization.log"
+    },
+    "headless_browser": {
+      "status": "PASS",
+      "exit_code": 0,
+      "tests": 39,
+      "failures": [],
+      "errors": [],
+      "skips": [],
+      "command": [
+        "/workspace/scratch/d0cf2cf43224/gate-a/../.venv/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_assessment_live_browser.py",
+        "tests/test_architecture_live_browser.py",
+        "--junitxml=/workspace/scratch/d0cf2cf43224/validation-runs/run-wcqyvz0j/headless_browser.xml"
+      ],
+      "reproduce": "/workspace/scratch/d0cf2cf43224/gate-a/../.venv/bin/python -m pytest -q tests/test_assessment_live_browser.py tests/test_architecture_live_browser.py --junitxml=/workspace/scratch/d0cf2cf43224/validation-runs/run-wcqyvz0j/headless_browser.xml",
+      "cwd": "/workspace/scratch/d0cf2cf43224/validation-runs/run-wcqyvz0j/source",
+      "environment_policy": "clean_environment: runtime whitelist, provider credentials removed, loopback-only Python sockets",
+      "seconds": 51.875,
+      "log": "headless_browser.log"
+    },
+    "node": {
+      "status": "PASS",
+      "exit_code": 0,
+      "command": [
+        "node",
+        "--test",
+        "tests/js/assessment_coding_helper.test.cjs",
+        "tests/js/assessment_math.test.cjs",
+        "tests/js/assessment_runner.test.cjs"
+      ],
+      "reproduce": "node --test tests/js/assessment_coding_helper.test.cjs tests/js/assessment_math.test.cjs tests/js/assessment_runner.test.cjs",
+      "cwd": "/workspace/scratch/d0cf2cf43224/validation-runs/run-wcqyvz0j/source",
+      "environment_policy": "clean_environment: runtime whitelist, provider credentials removed, loopback-only Python sockets",
+      "seconds": 0.164,
+      "log": "node.log"
+    },
+    "pip_check": {
+      "status": "PASS",
+      "exit_code": 0,
+      "command": [
+        "/workspace/scratch/d0cf2cf43224/gate-a/../.venv/bin/python",
+        "-m",
+        "pip",
+        "check"
+      ],
+      "reproduce": "/workspace/scratch/d0cf2cf43224/gate-a/../.venv/bin/python -m pip check",
+      "cwd": "/workspace/scratch/d0cf2cf43224/validation-runs/run-wcqyvz0j/source",
+      "environment_policy": "clean_environment: runtime whitelist, provider credentials removed, loopback-only Python sockets",
+      "seconds": 0.315,
+      "log": "pip_check.log"
+    },
+    "pip_freeze": {
+      "status": "PASS",
+      "exit_code": 0,
+      "command": [
+        "/workspace/scratch/d0cf2cf43224/gate-a/../.venv/bin/python",
+        "-m",
+        "pip",
+        "freeze"
+      ],
+      "reproduce": "/workspace/scratch/d0cf2cf43224/gate-a/../.venv/bin/python -m pip freeze",
+      "cwd": "/workspace/scratch/d0cf2cf43224/validation-runs/run-wcqyvz0j/source",
+      "environment_policy": "clean_environment: runtime whitelist, provider credentials removed, loopback-only Python sockets",
+      "seconds": 0.215,
+      "log": "pip_freeze.log"
+    },
+    "compile": {
+      "status": "PASS",
+      "exit_code": 0,
+      "command": [
+        "/workspace/scratch/d0cf2cf43224/gate-a/../.venv/bin/python",
+        "-m",
+        "compileall",
+        "-q",
+        "personal_learning_assistant",
+        "tests",
+        "scripts"
+      ],
+      "reproduce": "/workspace/scratch/d0cf2cf43224/gate-a/../.venv/bin/python -m compileall -q personal_learning_assistant tests scripts",
+      "cwd": "/workspace/scratch/d0cf2cf43224/validation-runs/run-wcqyvz0j/source",
+      "environment_policy": "clean_environment: runtime whitelist, provider credentials removed, loopback-only Python sockets",
+      "seconds": 0.666,
+      "log": "compile.log"
+    },
+    "migration_fixture": {
+      "status": "PASS",
+      "exit_code": 0,
+      "command": [
+        "/workspace/scratch/d0cf2cf43224/gate-a/../.venv/bin/python",
+        "scripts/architecture_validation_fixture.py",
+        "--output",
+        "/workspace/scratch/d0cf2cf43224/validation-runs/run-wcqyvz0j/fixtures"
+      ],
+      "reproduce": "/workspace/scratch/d0cf2cf43224/gate-a/../.venv/bin/python scripts/architecture_validation_fixture.py --output /workspace/scratch/d0cf2cf43224/validation-runs/run-wcqyvz0j/fixtures",
+      "cwd": "/workspace/scratch/d0cf2cf43224/validation-runs/run-wcqyvz0j/source",
+      "environment_policy": "clean_environment: runtime whitelist, provider credentials removed, loopback-only Python sockets",
+      "seconds": 0.215,
+      "log": "migration_fixture.log"
+    },
+    "source_diff_check": {
+      "status": "PASS",
+      "exit_code": 0,
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "reproduce": "git diff --check",
+      "cwd": "/workspace/scratch/d0cf2cf43224/validation-runs/run-wcqyvz0j/source",
+      "environment_policy": "clean_environment: runtime whitelist, provider credentials removed, loopback-only Python sockets",
+      "seconds": 0.004,
+      "log": "source_diff_check.log"
+    },
+    "source_cached_diff_check": {
+      "status": "PASS",
+      "exit_code": 0,
+      "command": [
+        "git",
+        "diff",
+        "--cached",
+        "--check"
+      ],
+      "reproduce": "git diff --cached --check",
+      "cwd": "/workspace/scratch/d0cf2cf43224/validation-runs/run-wcqyvz0j/source",
+      "environment_policy": "clean_environment: runtime whitelist, provider credentials removed, loopback-only Python sockets",
+      "seconds": 0.004,
+      "log": "source_cached_diff_check.log"
+    },
+    "feature_diff_check": {
+      "status": "PASS",
+      "exit_code": 0,
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "reproduce": "git diff --check",
+      "cwd": "/workspace/scratch/d0cf2cf43224/gate-a",
+      "environment_policy": "clean_environment: runtime whitelist, provider credentials removed, loopback-only Python sockets",
+      "seconds": 0.004,
+      "log": "feature_diff_check.log"
+    },
+    "feature_cached_diff_check": {
+      "status": "PASS",
+      "exit_code": 0,
+      "command": [
+        "git",
+        "diff",
+        "--cached",
+        "--check"
+      ],
+      "reproduce": "git diff --cached --check",
+      "cwd": "/workspace/scratch/d0cf2cf43224/gate-a",
+      "environment_policy": "clean_environment: runtime whitelist, provider credentials removed, loopback-only Python sockets",
+      "seconds": 0.004,
+      "log": "feature_cached_diff_check.log"
+    }
+  },
+  "GATE_A_DEV_PLATFORM": "PASS",
+  "GATE_A_DEV_AUTOMATED": "BLOCKED",
+  "validation_scope": "Single platform. Cross-platform acceptance is emitted by the CI aggregate job only after both matrix jobs pass.",
+  "GATE_A_LOCAL_PRODUCTION_AUTHORITY": "BLOCKED",
+  "known_product_behaviour": {
+    "A": "FAIL",
+    "B": "FAIL",
+    "C": "FAIL",
+    "D": "FAIL",
+    "P01": "FAIL",
+    "P02": "FAIL",
+    "P03": "FAIL",
+    "P04": "FAIL",
+    "P05": "FAIL",
+    "P06": "FAIL",
+    "P07": "FAIL",
+    "P08": "FAIL"
+  },
+  "environment": {
+    "python": "3.12.14 (main, Aug 25 2026, 14:00:49) [Clang 22.1.3 ]",
+    "platform": "Linux-6.18.44-x86_64-with-glibc2.39",
+    "sqlite": "3.53.1",
+    "node": "v24.19.0",
+    "packages": {
+      "Flask": "3.1.2",
+      "pytest": "9.1.1",
+      "numpy": "2.4.6",
+      "pandas": "2.3.3",
+      "matplotlib": "3.10.9",
+      "playwright": "1.51.0",
+      "tzdata": "2026.2"
+    }
+  },
+  "source": {
+    "sha": "95c1179ff36a78299939e573cda2411a3789f366",
+    "branch": "anvaya/gate-a-automated-validation",
+    "dirty": true,
+    "snapshot_sha": "b7f231dc94e3c9d8153f79729698b7fc2615f751",
+    "snapshot_fingerprint": "5a4416ab6de6d59ff23ab73a7bdd55ffbb94b2969ebf013e699958aa3ddc0a41"
+  },
+  "evidence_note": "Clean disposable source snapshot after all code/test/workflow repairs. Final summary/report/review metadata updated afterward; implementation bytes unchanged. Cross-platform acceptance still awaits actual jobs."
+}

@@ -45,10 +45,9 @@ class LegacyJsonCourseRepository:
 
         Existing JSON remains the structured authority throughout Phase 2.
         """
-        if not self.path.exists():
-            return deepcopy(
-                course_manager.default_course_data()
-            )
+        path = self.path.absolute()
+        if any(p.is_symlink() for p in (path, *path.parents)):
+            raise ValueError("Course read path must not contain symlinks")
 
         try:
             with self.path.open(
@@ -56,10 +55,15 @@ class LegacyJsonCourseRepository:
                 encoding="utf-8",
             ) as file:
                 raw = json.load(file)
-        except (json.JSONDecodeError, OSError):
+        except FileNotFoundError:
             return deepcopy(
                 course_manager.default_course_data()
             )
+        except (json.JSONDecodeError, UnicodeDecodeError, OSError) as error:
+            raise ValueError("Existing course authority is unavailable; no repair performed") from error
+
+        if not isinstance(raw, dict) or not isinstance(raw.get("courses", []), list):
+            raise ValueError("Course authority must be a JSON object with a course list")
 
         return deepcopy(
             course_manager._normalise_data(raw)

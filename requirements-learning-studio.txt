@@ -9,3 +9,5 @@ pytest==9.1.1
 playwright==1.51.0
 # Required by the existing full-suite retrieval fixtures.
 numpy==2.4.6
+# Merged-main characterization and full-regression environment.
+-r requirements-dev.txt

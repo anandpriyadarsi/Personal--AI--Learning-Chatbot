@@ -12,8 +12,21 @@ def guided_revision(module, weak, budget='full', engagement=None):
         if event.get('block_scope')=='revision' and type(event.get('block_index')) is int:
             reports.setdefault(event['block_index'],event)
     revisit={i for i,event in reports.items() if event.get('action')=='remembered' and event.get('response')=='revisit'}
-    ordered=sorted(cards,key=lambda item:(item[0] not in revisit,not bool(misses.intersection(item[1]['pages']))))
+    unreviewed={p['page'] for p in module.get('pages',[]) if p['status']!='verified'}
+    traps={page for s in module['sections'] for b in s['blocks'] if b['kind']=='misconception' for page in b['pages']}
+    ordered=sorted(cards,key=lambda item:(item[0] not in revisit,not bool(misses.intersection(item[1]['pages'])),
+                                        not bool(traps.intersection(item[1]['pages'])),not bool(unreviewed.intersection(item[1]['pages']))))
     selected=cards if budget=='full' else ordered[:4 if budget=='5' else 12]
+    def priority(index,card):
+        reasons=[]
+        if index in revisit:reasons.append('You explicitly marked this card for revisiting (self-report).')
+        if misses.intersection(card['pages']):reasons.append('Cited pages are linked to recorded graded misses.')
+        if traps.intersection(card['pages']):reasons.append('Cited pages include an authored misconception; this is not an exam prediction.')
+        if unreviewed.intersection(card['pages']):reasons.append('Original-page fidelity still needs author review; compare the source.')
+        return ' '.join(reasons) or 'Authored order; no recorded risk signal for this card.'
+    revision_pages={page for b in module['revision'] for page in b['pages']}
+    all_pages={p['page'] for p in module.get('pages',[])}
+    selected_pages={page for _,b in selected for page in b['pages']}
     queue=[];seen=set();versions={q['id']:q['revision'] for q in module.get('questions',[])}
     for question in weak:
         qid=question.get('question_id');qrev=question.get('question_revision',versions.get(qid,1))
@@ -31,7 +44,19 @@ def guided_revision(module, weak, budget='full', engagement=None):
     comparisons=[{'section_id':s['id'],'title':s['title'],'pages':s['pages']} for s in module['sections'] if any(b['kind'] in {'table','graph'} for b in s['blocks'])]
     comparisons.sort(key=lambda s:not bool(misses.intersection(s['pages'])))
     reason=('Recall cards touching pages with recorded misses come first after cards explicitly marked revisit. A correct retry remains recovered and needs recheck; repeated retries do not create independent evidence.' if misses else 'No recorded misses in this revision. Explicit revisit cards come first in quick modes, then authored order; this is a suggested review sequence, not a diagnosis of weakness.')
-    return deepcopy({'cards':[b for _,b in selected],'weak_pages':sorted(misses),'selection_reason':reason,
+    reason+=' Authored misconceptions and pages needing fidelity review break ties; these are review cues, not certified weaknesses.'
+    return deepcopy({'cards':[b for _,b in selected],
+                     'items':[{'index':i,'block':b,'reason':priority(i,b)} for i,b in selected],
+                     'omitted_blocks':len(module['revision'])-len(selected) if budget!='full' else 0,
+                     'quick_unavailable':budget!='full' and not cards,
+                     'coverage':{'revision_pages':sorted(revision_pages),
+                         'missing_revision_pages':sorted(all_pages-revision_pages),
+                         'selected_pages':sorted(selected_pages if budget!='full' else revision_pages),
+                         'omitted_quick_pages':sorted(all_pages-selected_pages) if budget!='full' else [],
+                         'unreviewed_pages':sorted(unreviewed),
+                         'lesson_pages':sorted({page for s in module['sections'] for page in s['pages']}),
+                         'semantic_certification':False},
+                     'weak_pages':sorted(misses),'selection_reason':reason,
                      'queue':queue[:100],'queue_total':len(queue),'queue_truncated':len(queue)>100,
                      'comparisons':comparisons[:3 if budget!='full' else 20],
                      'easy_to_forget':[b for _,b in ordered[:3]],'is_subset':budget!='full',

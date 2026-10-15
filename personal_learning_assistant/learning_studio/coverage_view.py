@@ -33,6 +33,12 @@ def project_coverage(module, report, args, catalogue=None):
             mapping_status='reviewed_current_catalogue'
         except PackageError:
             pass  # Historical mapping is retained; only this current read model changes.
-    return deepcopy({'entries':entries,'counts':counts,'filters':{'page':page,'state':state,'issue':issue,'severity':severity},
+    return deepcopy({'entries':entries,'counts':counts,
+                     'availability':{'original_pages':module['source']['page_count'],
+                         'preview_pages':sum(bool(p.get('preview')) for p in module['pages']),
+                         'text_pages':sum(bool(p['text'].strip()) for p in module['pages']),
+                         'author_verified_pages':sum(p['status']=='verified' for p in module['pages']),
+                         'semantic_certification':False},
+                     'filters':{'page':page,'state':state,'issue':issue,'severity':severity},
                      'axes':{'source_fidelity':report['review']['status'],'instructor_intent':'not recorded',
                              'external_authenticity':report['external_facts']['status'],'academic_mapping':mapping_status}})

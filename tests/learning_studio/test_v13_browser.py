@@ -88,8 +88,8 @@ def test_contextual_sidebar_exact_source_mistake_recheck_and_exam_modes(browser,
     page.locator('.ls-remembered[data-response="revisit"]').nth(5).click();expect(page.locator('.ls-block-recall').nth(5).locator('.ls-engagement-status')).to_contain_text('Self-report saved')
     page.goto(base+'?view=revision&section=lesson-20&budget=5');expect(page.locator('.ls-block-recall')).to_have_count(4);expect(page.locator('.ls-block-recall').first).to_contain_text('distinction 6');expect(page.locator('.ls-recheck-queue')).to_contain_text('q31')
     page.goto(base+'?view=revision&budget=15');expect(page.locator('.ls-block-recall')).to_have_count(12)
-    page.goto(base+'?view=revision&budget=full');expect(page.locator('.ls-block-teaching')).to_contain_text('list members 20');expect(page.locator('.ls-block-recall')).to_have_count(12)
-    page.emulate_media(media='print');assert not page.locator('#app-sidebar').is_visible();expect(page.locator('.ls-block-teaching')).to_contain_text('list members 20');page.emulate_media(media='screen')
+    page.goto(base+'?view=revision&budget=full');expect(page.locator('.ls-revision > .ls-block-teaching')).to_contain_text('list members 20');expect(page.locator('.ls-block-recall')).to_have_count(12)
+    page.emulate_media(media='print');assert not page.locator('#app-sidebar').is_visible();expect(page.locator('.ls-revision > .ls-block-teaching')).to_contain_text('list members 20');page.emulate_media(media='screen')
     page.click('#ls-focus');expect(page.locator('#app-sidebar')).not_to_be_visible();page.click('#ls-contents');page.keyboard.press('Escape');expect(page.locator('#ls-focus')).to_have_text('Exit focus');page.keyboard.press('Escape');expect(page.locator('#ls-focus')).to_have_text('Focus Reading')
     no_overflow(page);screenshot(page,f'v13-exam-full-{width}.png');page.close()
 

@@ -3,7 +3,7 @@
 The router is intentionally small and side-effect controlled:
 
 * missing/legacy/dual_read authority keeps the existing JSON code path;
-* sqlite authority opens only an already-existing database in read/write mode;
+* sqlite reads open existing databases read-only/query-only; commands use rw;
 * no database or authority-control file is created by a read;
 * exact legacy-shaped compatibility projections live inside SQLite app_settings;
 * the Phase-5 ``courses.json.document_links`` sub-domain remains legacy-owned.
@@ -91,21 +91,27 @@ def current_structured_backend(path: PathLike) -> str:
     return read_authority_control(control).storage_backend
 
 
-def _open_existing_database(path: Path) -> sqlite3.Connection:
-    if not path.exists() or not path.is_file() or path.is_symlink():
+def _open_existing_database(path: Path, *, read_only: bool = False) -> sqlite3.Connection:
+    if (not path.exists() or not path.is_file() or path.is_symlink() or
+            (read_only and any(parent.is_symlink() for parent in path.absolute().parents))):
         raise StructuredDatabaseUnavailableError(
             "SQLite authority is active but the structured database does not exist as a regular file: {}"
             .format(path)
         )
-    # mode=rw prevents sqlite3.connect from silently creating a replacement DB.
-    uri = "file:{}?mode=rw".format(quote(str(path.resolve()).replace("\\", "/"), safe="/:"))
+    # Never use immutable on a live runtime: ro sees committed WAL state.
+    # Both modes prevent silently creating a replacement authoritative database.
+    mode = "ro" if read_only else "rw"
+    uri = "file:{}".format(quote(str(path.resolve()).replace("\\", "/"), safe="/:"))
+    uri += "?mode=ro" if read_only else "?mode=rw"
     try:
         connection = sqlite3.connect(uri, uri=True, isolation_level=None)
     except sqlite3.Error as error:
         raise StructuredDatabaseUnavailableError(
-            "unable to open the authoritative SQLite database in rw mode: {}".format(error)
+            "unable to open the authoritative SQLite database in {} mode: {}".format(mode, error)
         ) from error
     connection.row_factory = sqlite3.Row
+    if read_only:
+        connection.execute("PRAGMA query_only = ON")
     connection.execute("PRAGMA foreign_keys = ON")
     connection.execute("PRAGMA busy_timeout = 5000")
     return connection
@@ -151,7 +157,12 @@ def maybe_load_sqlite_structured_store(
     if store_name not in STRUCTURED_STORE_NAMES:
         raise ValueError("unknown structured store: {}".format(store_name))
     path = _store_path(store_path)
+    absolute = path.absolute()
+    if any(p.is_symlink() for p in (absolute, *absolute.parents)):
+        raise StructuredDatabaseUnavailableError("Structured read path must not contain symlinks")
     control = infer_authority_control_path(path)
+    if control.is_symlink():
+        raise StructuredDatabaseUnavailableError("Structured read control must not be a symlink")
     state = read_authority_control(control)
     if state.storage_backend != BACKEND_SQLITE:
         return None
@@ -160,7 +171,7 @@ def maybe_load_sqlite_structured_store(
         SQLiteCompatibilityProjectionRepository,
     )
 
-    connection = _open_existing_database(database_path_for_store(path))
+    connection = _open_existing_database(database_path_for_store(path), read_only=True)
     try:
         repository = SQLiteCompatibilityProjectionRepository(
             connection,

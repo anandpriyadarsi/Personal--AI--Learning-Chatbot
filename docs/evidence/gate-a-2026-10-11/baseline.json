@@ -1,0 +1,114 @@
+[
+  {
+    "command": [
+      "pwd"
+    ],
+    "exit": 0,
+    "stdout": "/workspace/scratch/d0cf2cf43224/anvaya\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "git",
+      "worktree",
+      "list",
+      "--porcelain"
+    ],
+    "exit": 0,
+    "stdout": "worktree /workspace/scratch/d0cf2cf43224/anvaya\nHEAD f859a3c7cdf44baadc17d9bd1a6c656530c1b5bf\nbranch refs/heads/main\n\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "git",
+      "branch",
+      "--show-current"
+    ],
+    "exit": 0,
+    "stdout": "main\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "git",
+      "rev-parse",
+      "HEAD"
+    ],
+    "exit": 0,
+    "stdout": "f859a3c7cdf44baadc17d9bd1a6c656530c1b5bf\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "git",
+      "status",
+      "--porcelain=v1",
+      "-uall"
+    ],
+    "exit": 0,
+    "stdout": " M backup.py\n M dashboard.py\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "git",
+      "fetch",
+      "origin"
+    ],
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "git",
+      "rev-parse",
+      "origin/main"
+    ],
+    "exit": 0,
+    "stdout": "f859a3c7cdf44baadc17d9bd1a6c656530c1b5bf\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "git",
+      "log",
+      "-10",
+      "--oneline"
+    ],
+    "exit": 0,
+    "stdout": "f859a3c Merge UC100N Coding Helper 2\n9db4238 Improve UC100N Assessment Coding Helper\n5916483 Repair Assessment Runner UX and add coding tools\nb8ce54d Repair Assessment Runner actions and question palette\n2d05bd0 Assessment Studio: add source-backed canonical topic catalogues (#6)\na96cb01 Merge assessment math typesetting polish\nbee767e ci: remove temporary math typesetting validation workflow\n5432927 ci: validate assessment math typesetting polish\n2c79bb6 test: lock matrix delimiter and display-sum typography\nddddfca docs: require indexed basis symbols and display-style sums\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "git",
+      "branch",
+      "-avv"
+    ],
+    "exit": 0,
+    "stdout": "* main                                                                         f859a3c [origin/main] Merge UC100N Coding Helper 2\n  remotes/origin/HEAD                                                          -> origin/main\n  remotes/origin/anvaya/assessment-live-ux-coding-helper                       5916483 Repair Assessment Runner UX and add coding tools\n  remotes/origin/anvaya/assessment-uc100n-coding-helper-2                      9db4238 Improve UC100N Assessment Coding Helper\n  remotes/origin/anvaya/library-read-model-phase-a                             94c7575 Add read-only Learning Library projection\n  remotes/origin/anvaya/operational-ux-integrations                            6f02b1e fix: preserve Tutor evidence and grounded-send affordances\n  remotes/origin/anvaya/tutor-2.0                                              c4b2b9a test: cover Tutor mathematical self-check protocol\n  remotes/origin/anvaya/tutor-2.1-adaptive-intelligence                        76be911 docs: record Tutor 2.1 live-validation fixes\n  remotes/origin/anvaya/tutor-2.2-student-model                                8c65f66 test: diagnose Tutor protected-state mutations by gate stage\n  remotes/origin/anvaya/tutor-2.3-teaching-orchestration                       7fd24eb merge: reconcile Notes Studio 2.0 into Tutor 2.3\n  remotes/origin/main                                                          f859a3c Merge UC100N Coding Helper 2\n  remotes/origin/phase7.5.14/tutor-2.0                                         f8590ac test: add Phase 7.5.12.3 live UX gate\n  remotes/origin/phase7.5.15.10/notes-obsidian-separation                      efd5bbb docs: close Notes and Obsidian separation correction\n  remotes/origin/phase7.5.15.11/inline-note-media                              f371dcd docs: remove trailing whitespace from inline media spec\n  remotes/origin/phase7.5.15.12/card-template-gallery                          05e220d docs: close Notes card template gallery phase\n  remotes/origin/phase7.5.15.13/card-polish-media-delete                       e8630bb fix: ignore transient SQLite sidecars while protecting live WAL\n  remotes/origin/phase7.5.15.14/focus-companion-analysis                       2ed5ee5 Finalize phase 7.5.15.14 verification report\n  remotes/origin/phase7.5.assessment-evaluation-input-ux                       21f0555 ci: remove temporary assessment UX validation workflow\n  remotes/origin/phase7.5.assessment-math-results-formatting                   65371bb ci: remove temporary math formatting validation workflow\n  remotes/origin/phase7.5.assessment-math-typesetting-polish                   bee767e ci: remove temporary math typesetting validation workflow\n  remotes/origin/phase7.5.assessment-runner-ux/action-palette                  46b00a6 ci: remove temporary Assessment Runner validation workflow\n  remotes/origin/phase7.5.assessment-runner-ux/math-fillup                     4fc1880 docs: finalize Assessment Runner math fill-up UX\n  remotes/origin/phase7.5.assessment-runner-ux/math-fillup-final-validation    a0eadae test: use parsed LaTeX matrix string form\n  remotes/origin/phase7.5.assessment-runner-ux/math-fillup-validation          5a35d8b docs: complete Assessment Runner math fill-up UX\n  remotes/origin/phase7.5.assessment-runner-ux/math-fillup-validation-v2       49063d2 fix: preserve x as a mathematical variable\n  remotes/origin/phase7.5.assessment-studio-a/baseline-validation              f1d7dae ci: reproduce baseline suite environment\n  remotes/origin/phase7.5.assessment-studio-a/foundation                       a365ac8 test: include Phase A report in gate scope\n  remotes/origin/phase7.5.assessment-studio-a/validation                       2bca7b0 test: allow Phase A implementation report in gate\n  remotes/origin/phase7.5.assessment-studio-b/package-import-review            3722946 feat: add Assessment Studio Phase B package import review\n  remotes/origin/phase7.5.assessment-studio-b/validation                       ebd7b8f docs: record Assessment Studio Phase B implementation\n  remotes/origin/phase7.5.assessment-studio-c/timed-test-runner                50cfe50 feat: add Assessment Studio Phase C timed test runner\n  remotes/origin/phase7.5.assessment-studio-c/validation                       972e36c docs: record Assessment Studio Phase C implementation\n  remotes/origin/phase7.5.assessment-studio-d/evaluation-engine                af72d70 feat: add Assessment Studio Phase D evaluation engine\n  remotes/origin/phase7.5.assessment-studio-d/validation                       b50a555 docs: record Assessment Studio Phase D implementation\n  remotes/origin/phase7.5.assessment-studio-e/assessment-intelligence          3039976 feat: add Assessment Studio Phase E intelligence\n  remotes/origin/phase7.5.assessment-studio-e/validation                       f72dfbf docs: record Assessment Studio Phase E implementation\n  remotes/origin/phase7.5.assessment-studio-f/adaptive-academic-loop           21a5e6f feat: add Assessment Studio Phase F adaptive academic loop\n  remotes/origin/phase7.5.assessment-studio-f/validation                       19e8ef4 docs: record Assessment Studio Phase F implementation\n  remotes/origin/phase7.5.assessment-studio-ux/alex-authoring-workspace        99e9b7c feat: redesign Assessment Studio Alex authoring workspace\n  remotes/origin/phase7.5.assessment-studio-ux/blind-review                    8534c27 feat: add spoiler-safe Assessment Studio blind review\n  remotes/origin/phase7.5.assessment-studio-ux/blind-review-validation         fc714a0 docs: record Assessment Studio blind review implementation\n  remotes/origin/phase7.5.assessment-studio-ux/ma103n-topic-catalogue          ec49228 docs: document MA103N canonical topic catalogue expansion\n  remotes/origin/phase7.5.assessment-studio-ux/next-level                      ae1fab7 docs: record verified GitHub publication trees\n  remotes/origin/phase7.5.assessment-studio-ux/revision-upload                 3b87d23 feat: upload revised packages from blind preflight\n  remotes/origin/phase7.5.assessment-studio-ux/revision-upload-validation      c07e8da ci: validate Assessment Studio revision upload\n  remotes/origin/phase7.5.assessment-studio-ux/simplified-authoring            c01e39d feat: simplify Assessment Studio authoring workflow\n  remotes/origin/phase7.5.assessment-studio-ux/simplified-authoring-validation ec49228 docs: document MA103N canonical topic catalogue expansion\n  remotes/origin/phase7.5.assessment-studio-ux/topic-gap-approval              914bdaf test topic-gap approval without weakening content review\n  remotes/origin/phase7.5.assessment-studio-ux/validation                      1752bb0 docs: record Assessment Studio authoring UX implementation\n  remotes/origin/phase7.5.assessment-studio/canonical-topic-catalogues         3af6911 chore: remove temporary catalogue validation workflow\n  remotes/origin/phase7.5.assessment-studio/canonical-topic-catalogues-v2      2110e47 chore: remove temporary catalogue validation workflow\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "git",
+      "diff",
+      "--check"
+    ],
+    "exit": 0,
+    "stdout": "",
+    "stderr": "warning: in the working copy of 'backup.py', CRLF will be replaced by LF the next time Git touches it\nwarning: in the working copy of 'dashboard.py', CRLF will be replaced by LF the next time Git touches it\n"
+  },
+  {
+    "command": [
+      "git",
+      "diff",
+      "--cached",
+      "--check"
+    ],
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  }
+]

@@ -9,9 +9,11 @@ import subprocess
 import sys
 import tempfile
 import uuid
-BASE='60875195f9b6c3145937c625f107244872d8891a'
+BASE='6e520035b6b9ccf8e14c176b35b43e384c95d103'
 DEPENDENCIES={'flask':'Flask','mistune':'mistune','pypdf':'pypdf','PIL':'Pillow','yaml':'PyYAML','dotenv':'python-dotenv','pytest':'pytest','playwright':'playwright','numpy':'numpy'}
 FOCUSED=['tests/test_phase7_5_web_foundation.py','tests/test_phase7_5_courses_topics.py','tests/test_main_startup_isolation.py','tests/test_phase7_5_15_10_notes_obsidian_separation.py','tests/test_phase7_5_15_14_focus_companion_analysis.py',*[f'tests/test_assessment_studio_phase_{s}.py' for s in 'abcd']]
+FOCUSED += ['tests/test_architecture_characterization.py','tests/test_topic_evidence_repository.py',
+            'tests/test_topic_read_safety.py','tests/test_topic_read_safety_browser.py']
 
 
 def health():

@@ -1,0 +1,95 @@
+name: ANVAYA synthetic architecture validation
+
+on:
+  push:
+    branches: ['anvaya/**', 'phase7.5.**']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  development:
+    name: Synthetic development (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+            requirements-assessment-browser.txt
+      - name: Check historical EOL differences and require pristine source
+        run: python scripts/architecture_checkout_eol.py --repo .
+      - name: Initialize disposable runner paths
+        shell: python
+        run: |
+          import os
+          with open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8') as stream:
+            for key, name in [('PLAYWRIGHT_BROWSERS_PATH', 'anvaya-chromium'), ('ANVAYA_VALIDATION_OUTPUT', 'anvaya-architecture-results')]:
+              stream.write(key + '=' + os.path.join(os.environ['RUNNER_TEMP'], name) + '\n')
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install tracked test dependencies
+        run: python -m pip install -r requirements.txt -r requirements-dev.txt -r requirements-assessment-browser.txt
+      - name: Fresh Linux browser installation
+        if: runner.os == 'Linux'
+        run: python -m playwright install --with-deps chromium
+      - name: Fresh Windows browser installation
+        if: runner.os == 'Windows'
+        run: python -m playwright install chromium
+      - name: Full validator (no deselections)
+        shell: python
+        run: |
+          import os, subprocess, sys
+          sys.exit(subprocess.call([sys.executable, 'scripts/architecture_validation.py', '--require-clean', '--output', os.environ['ANVAYA_VALIDATION_OUTPUT']]))
+      - name: Preserve results, XML, logs, manifests and screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: architecture-${{ matrix.os }}-${{ github.sha }}
+          if-no-files-found: warn
+          path: |
+            ${{ env.ANVAYA_VALIDATION_OUTPUT }}/run-*/VALIDATION_SUMMARY.*
+            ${{ env.ANVAYA_VALIDATION_OUTPUT }}/run-*/*.xml
+            ${{ env.ANVAYA_VALIDATION_OUTPUT }}/run-*/*.log
+            ${{ env.ANVAYA_VALIDATION_OUTPUT }}/run-*/source-manifest.json
+            ${{ env.ANVAYA_VALIDATION_OUTPUT }}/run-*/fixtures/manifest.json
+            ${{ env.ANVAYA_VALIDATION_OUTPUT }}/run-*/screenshots/*
+
+  acceptance:
+    name: Cross-platform development acceptance
+    needs: development
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Record aggregate gate for this exact source SHA
+        shell: python
+        env:
+          MATRIX_RESULT: ${{ needs.development.result }}
+        run: |
+          import json, os
+          from pathlib import Path
+          result = 'PASS' if os.environ['MATRIX_RESULT'] == 'success' else 'FAIL'
+          report = {'source_sha': os.environ['GITHUB_SHA'], 'required_platforms': ['ubuntu-latest', 'windows-latest'], 'matrix_result': os.environ['MATRIX_RESULT'], 'GATE_A_DEV_AUTOMATED': result, 'GATE_A_LOCAL_PRODUCTION_AUTHORITY': 'BLOCKED'}
+          Path('CROSS_PLATFORM_ACCEPTANCE.json').write_text(json.dumps(report, indent=2), encoding='utf-8')
+          Path('CROSS_PLATFORM_ACCEPTANCE.md').write_text(f"Source: {report['source_sha']}\n\nUbuntu + Windows development: {result}\n\nLocal production authority: BLOCKED\n", encoding='utf-8')
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cross-platform-acceptance-${{ github.sha }}
+          path: CROSS_PLATFORM_ACCEPTANCE.*
+      - name: Require both platform jobs
+        if: needs.development.result != 'success'
+        run: exit 1

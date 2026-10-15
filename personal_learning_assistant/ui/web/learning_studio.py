@@ -92,11 +92,19 @@ def module_view(module_id, revision, *, staged=False):
         require(source_element is not None,'Requested source element is unavailable on this page.',404)
     cat = s.catalogue_loader()
     mapping = p['mapping']
+    mapping_current=False
+    if mapping:
+        from personal_learning_assistant.learning_studio.validation import PackageError, validate_mapping
+        try:
+            validate_mapping(mapping,cat)
+            mapping_current=True
+        except PackageError:
+            pass  # Preserve the immutable historical mapping; never promote stale names.
     course = next((c for c in cat.get('courses', []) if mapping and c['id'] == mapping['course_id']), None)
     if mapping and course is None:
         course = {'id': 'unavailable', 'code': 'Course unavailable / needs review'}
     return render_template('learning_module.html', active_page='learning', module=p, view=view, staged=staged,
-        course=course, markdown=markdown, trusted_graph=trusted_graph, trusted_activity=trusted_activity, **reader,
+        course=course, mapping_current=mapping_current, markdown=markdown, trusted_graph=trusted_graph, trusted_activity=trusted_activity, **reader,
         practice_state={} if staged else s.practice_state(module_id,revision), source_element=source_element,
         pending_question=request.args.get('question') or (reader['practice_questions'][0]['id'] if view=='practice' and reader['practice_questions'] else None),
         reading_state=None if staged else s.reading_state(module_id,revision), weak=weak,

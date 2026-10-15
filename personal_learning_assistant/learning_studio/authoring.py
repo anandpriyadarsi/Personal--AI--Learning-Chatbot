@@ -76,6 +76,8 @@ def preflight(package, source, assets, catalogue, *, source_id, coverage=None):
     except PackageError as exc:
         if not errors:error('package',str(exc))
     if errors:return {'valid':False,'errors':errors}
+    from .diagnostics import quality_diagnostics
+    warnings.extend(quality_diagnostics(valid))
     if not any(b['kind']=='recall' for b in valid['revision']):
         warning('revision','recall-subset-unavailable','No authored recall cards for the quick review subset.',
                 'Author source-linked prompts and answers in a new immutable revision; full notes remain available.')
@@ -90,8 +92,9 @@ def preflight(package, source, assets, catalogue, *, source_id, coverage=None):
         question.pop('correct_index');question.pop('explanation')
     assert all('correct_index' not in q and 'explanation' not in q for q in public['questions'])
     fidelity='verified' if all(p['status']=='verified' for p in valid['pages']) else 'needs_review'
-    return {'valid':True,'errors':[], 'warnings':warnings,'module_id':valid['module_id'],'revision':valid['module_revision'],
+    return {'valid':True,'errors':[], 'warnings':warnings[:100],'module_id':valid['module_id'],'revision':valid['module_revision'],
         'source_sha256':manifest['sha256'],'pages':len(valid['pages']),'questions':len(valid['questions']),
+        'warnings_total':len(warnings),'warnings_truncated':len(warnings)>100,
         'private_key_projection':'excluded','mapping':'reviewed-current' if valid['mapping'] else 'unmapped',
         'semantic_review':fidelity,
         'review_axes':{'source_identity':'validated','source_fidelity':'author-reported '+fidelity,

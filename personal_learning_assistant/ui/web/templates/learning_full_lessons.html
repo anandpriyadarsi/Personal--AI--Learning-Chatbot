@@ -1,0 +1,8 @@
+<section class="ls-full-lessons" aria-labelledby="ls-full-lessons-title">
+<h3 id="ls-full-lessons-title">Complete lesson concepts alongside the full companion</h3>
+<p>Every authored lesson is available here in source order, including definitions, examples, assumptions and traps when supplied. Open a lesson for detail. Printing includes them all. This preserves authored content and does not fill missing source material or certify its accuracy.</p>
+{% for section in module.sections %}<details id="revision-lesson-{{ section.id }}"><summary>{{ loop.index }}. {{ section.title }}</summary>
+<p><a class="ls-related-lesson" href="{{ url_for('learning.preview' if staged else 'learning.module',module_id=module.module_id,revision=module.module_revision,view='learn',section=section.id,question=pending_question) }}">Read this exact lesson</a></p>
+{% for b in section.blocks %}{% if b.kind!='source' %}{{ block(b,section.id,loop.index0,'section','ls-supplement-block-',false) }}{% endif %}{% endfor %}
+</details>{% endfor %}
+</section>
