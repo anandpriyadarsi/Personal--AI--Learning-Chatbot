@@ -36,5 +36,9 @@ def create_app(config: Mapping[str, Any] | None = None) -> Flask:
     app.register_blueprint(web_blueprint)
     from .assessment_tools import assessment_tools_blueprint
     app.register_blueprint(assessment_tools_blueprint)
+    from secrets import token_urlsafe
+    app.extensions['learning_studio_csrf'] = token_urlsafe(32)
+    from .learning_studio import learning_blueprint
+    app.register_blueprint(learning_blueprint)
     register_error_handlers(app)
     return app

@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Learning Studio · ANVAYA{% endblock %}
+{% block body_class %}learning-page{% endblock %}
+{% block page_scripts %}<link rel="stylesheet" href="{{ url_for('static', filename='css/learning_studio.css') }}">{% endblock %}
+{% block content %}
+<div class="ls-library-head"><div><p class="eyebrow">Source → understanding → recall</p><h1>{{ course.name if course else 'Learning Studio' }}</h1><p>Read lecture material, practise concepts, and return to the original source.</p></div><a href="{{ url_for('learning.import_module') }}">Import authored module</a></div>
+<nav aria-label="Learning breadcrumb"><a href="{{ url_for('learning.library') }}">Learning Studio</a>{% if course %} / {{ course.code }}{% endif %}</nav>
+{% if not library.available %}<p class="notice-panel">Registered courses are unavailable. Your academic data was not changed.</p>{% endif %}
+{% if course %}
+<form class="ls-filters" method="get"><label>Search modules<input type="search" name="q" value="{{ search }}" maxlength="200"></label><label>Canonical topic<select name="topic"><option value="">All topics</option>{% for t in course.topics %}<option value="{{ t.name }}"{% if topic == t.name %} selected{% endif %}>{{ t.name }}</option>{% endfor %}</select></label><button type="submit">Filter</button></form>
+<p>{{ library.total }} modules · showing up to {{ library.limit }}</p>
+{% for unit, rows in library.modules|groupby('unit') %}<section><h2>{{ unit }}</h2><div class="ls-card-grid">{% for item in rows %}<a class="ls-card" href="{{ url_for('learning.module', module_id=item.module_id, revision=item.revision) }}"><span class="eyebrow">{{ item.topic_name or 'Unmapped / needs review' }}</span><h3>{{ item.title }}</h3><small>Revision {{ item.revision }} · {{ item.created_at[:10] }}</small></a>{% endfor %}</div></section>{% else %}<p class="empty-state">No modules match. Import an authored package to begin.</p>{% endfor %}
+<nav class="ls-pagination" aria-label="Module pages">{% if library.offset %}<a href="{{ url_for('learning.course', course_id=course.id, q=search, topic=topic, offset=[0,library.offset-library.limit]|max) }}">Previous</a>{% endif %}{% if library.offset+library.limit < library.total %}<a href="{{ url_for('learning.course', course_id=course.id, q=search, topic=topic, offset=library.offset+library.limit) }}">Next</a>{% endif %}</nav>
+{% else %}
+{% for year, courses in library.courses|groupby('academic_year') %}<section><h2>{{ year }}</h2>{% for semester, members in courses|groupby('semester') %}<h3>{{ semester or 'Semester unspecified' }}</h3><div class="ls-card-grid">{% for c in members %}<a class="ls-card" href="{{ url_for('learning.course', course_id=c.id) }}"><span class="eyebrow">{{ c.code }}</span><h3>{{ c.name }}</h3><p>{{ c.module_count }} modules</p></a>{% endfor %}</div>{% endfor %}</section>{% else %}<p class="empty-state">No registered courses yet. Learning Studio never creates courses automatically.</p>{% endfor %}
+<a class="ls-card" href="{{ url_for('learning.course', course_id='unmapped') }}"><h2>Unmapped / needs review</h2><p>{{ library.unmapped_count }} modules · course hints require canonical review.</p></a>
+{% if library.unavailable_count %}<a class="ls-card" href="{{ url_for('learning.course', course_id='unavailable') }}"><h2>Course unavailable / needs review</h2><p>{{ library.unavailable_count }} historical modules. Their original mappings are preserved.</p></a>{% endif %}
+{% if library.staged %}<section><h2>Staged imports</h2><ul>{% for item in library.staged %}<li><a href="{{ url_for('learning.preview', module_id=item.module_id, revision=item.revision) }}">{{ item.title }} · revision {{ item.revision }}</a></li>{% endfor %}</ul></section>{% endif %}
+{% endif %}
+<p><a href="{{ url_for('learning.analysis') }}">Practice analysis</a></p>
+{% endblock %}

@@ -955,7 +955,10 @@ def analysis():
             )
         ],
     }
-    return render_template("analysis.html", active_page="analysis", analysis=view)
+    from personal_learning_assistant.learning_studio.analysis_view import component
+    from .learning_studio import service as learning_service
+    return render_template("analysis.html", active_page="analysis", analysis=view,
+                           learning_evidence=component(learning_service()))
 
 
 @web_blueprint.get("/courses")

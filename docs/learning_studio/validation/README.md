@@ -1,0 +1,1 @@
+Validation log copies retain all output lines; trailing whitespace is normalised for Git hygiene. original-log-hashes.json records the original raw output hashes. isolated.xml is the actual executed JUnit report. Screenshots are unedited real-browser captures. The raw whole suite remains red for the documented baseline-only production Tutor fixture failures.

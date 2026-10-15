@@ -23,6 +23,7 @@
         <span class="brand-descriptor">Personal Learning Intelligence</span>
       </a>
 
+      {% block sidebar_contents %}
       <nav class="primary-nav" aria-label="Primary navigation">
         <div class="nav-section nav-section-home">
           <a class="nav-item{% if active_page == 'home' %} is-active{% endif %}" href="{{ url_for('web.home') }}"{% if active_page == 'home' %} aria-current="page"{% endif %}>Home</a>
@@ -35,6 +36,7 @@
 
         <div class="nav-section">
           <p class="nav-section-label">Learning</p>
+          <a class="nav-item{% if active_page == 'learning' %} is-active{% endif %}" href="{{ url_for('learning.library') }}"{% if active_page == 'learning' %} aria-current="page"{% endif %}>Learning Studio</a>
           <a class="nav-item{% if active_page == 'notes' %} is-active{% endif %}" href="{{ url_for('web.notes') }}"{% if active_page == 'notes' %} aria-current="page"{% endif %}>Notes</a>
           <a class="nav-item{% if active_page == 'resources' %} is-active{% endif %}" href="{{ url_for('web.resources') }}"{% if active_page == 'resources' %} aria-current="page"{% endif %}>Resources</a>
         </div>
@@ -60,6 +62,7 @@
         </details>
       </nav>
 
+      {% endblock %}
       <p class="sidebar-footer">Local-first · Private workspace</p>
     </aside>
 

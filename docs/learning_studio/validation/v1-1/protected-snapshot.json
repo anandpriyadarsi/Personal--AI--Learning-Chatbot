@@ -1,0 +1,12 @@
+{
+  "base_sha": "9ed585ca8e1fbcfb6f5a7e0426d030560109115e",
+  "checked_protected_tracked_files": 228,
+  "changed_protected_files": [],
+  "comparison": "Git clean-filter canonical blob identity; existing CRLF PowerShell checkouts retained",
+  "production_academic_database_present": false,
+  "production_academic_database_created": false,
+  "original_attachments_rechecked": "recovery.json",
+  "main_sha": "f859a3c7cdf44baadc17d9bd1a6c656530c1b5bf",
+  "v1_sha": "9ed585ca8e1fbcfb6f5a7e0426d030560109115e",
+  "merge_performed": false
+}

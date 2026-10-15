@@ -1,0 +1,15 @@
+<section class="notice-panel" aria-labelledby="learning-signals-title">
+  <h3 id="learning-signals-title">Learning Studio practice</h3>
+  <p>{{ learning_evidence.evidence_label }}. Low-stakes self-checks, separate from official grades and mastery.</p>
+  {% for signal in learning_evidence.signals %}
+  <article>
+    <h4>{{ signal.title }}</h4>
+    <p>{{ signal.evidence_label }} · {{ signal.mapping_status|replace('_', ' ') }}{% if not signal.unavailable %} · {{ signal.unverified_pages }} pages awaiting semantic review{% endif %}</p>
+    <p>{{ signal.reason }}</p>
+    {% if not signal.unavailable %}<p>{{ signal.currently_wrong }} currently wrong · {{ signal.recovered }} recovered, needing recheck</p>
+    <p><a href="{{ signal.review_url }}">Review lesson</a> · <a href="{{ signal.recheck_url }}">Recheck</a> · <a href="{{ signal.revision_url }}">Open revision</a></p>{% endif %}
+  </article>
+  {% else %}<p>{{ learning_evidence.message }}</p>{% endfor %}
+  {% if learning_evidence.truncated %}<p>Showing recent lecture signals. Full history remains available below.</p>{% endif %}
+  <a href="{{ url_for('learning.analysis') }}">Open Learning Studio analysis</a>
+</section>

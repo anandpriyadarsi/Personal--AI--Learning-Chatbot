@@ -1,0 +1,2059 @@
+{
+  "schema": "anvaya.learning-module.v1",
+  "module_id": "synthetic-reader",
+  "module_revision": 1,
+  "title": "Synthetic Learning Studio demonstration: compare, understand and recall",
+  "unit": "Reader demonstration",
+  "source": {
+    "source_id": "demo-source",
+    "sha256": "64b3c5ad852a070b57bf61a9233cb2052855603b2de72246b995ff3b632ef1f0",
+    "filename": "synthetic-source.pdf",
+    "media_type": "application/pdf",
+    "page_count": 20
+  },
+  "mapping": null,
+  "pages": [
+    {
+      "page": 1,
+      "status": "needs_review",
+      "text": "Synthetic source page 1. Demonstration only. No academic evidence.",
+      "review_flags": [
+        "Synthetic preview is illustrative, not an exact PDF rendering."
+      ]
+    },
+    {
+      "page": 2,
+      "status": "needs_review",
+      "text": "Synthetic source page 2. Demonstration only. No academic evidence.",
+      "review_flags": [
+        "Synthetic preview is illustrative, not an exact PDF rendering."
+      ]
+    },
+    {
+      "page": 3,
+      "status": "needs_review",
+      "text": "Synthetic source page 3. Demonstration only. No academic evidence.",
+      "review_flags": [
+        "Synthetic preview is illustrative, not an exact PDF rendering."
+      ]
+    },
+    {
+      "page": 4,
+      "status": "needs_review",
+      "text": "Synthetic source page 4. Demonstration only. No academic evidence.",
+      "review_flags": [
+        "Synthetic preview is illustrative, not an exact PDF rendering."
+      ]
+    },
+    {
+      "page": 5,
+      "status": "needs_review",
+      "text": "Synthetic source page 5. Demonstration only. No academic evidence.",
+      "review_flags": [
+        "Synthetic preview is illustrative, not an exact PDF rendering."
+      ]
+    },
+    {
+      "page": 6,
+      "status": "needs_review",
+      "text": "Synthetic source page 6. Demonstration only. No academic evidence.",
+      "review_flags": [
+        "Synthetic preview is illustrative, not an exact PDF rendering."
+      ]
+    },
+    {
+      "page": 7,
+      "status": "needs_review",
+      "text": "Synthetic source page 7. Demonstration only. No academic evidence.",
+      "review_flags": [
+        "Synthetic preview is illustrative, not an exact PDF rendering."
+      ]
+    },
+    {
+      "page": 8,
+      "status": "needs_review",
+      "text": "Synthetic source page 8. Demonstration only. No academic evidence.",
+      "review_flags": [
+        "Synthetic preview is illustrative, not an exact PDF rendering."
+      ]
+    },
+    {
+      "page": 9,
+      "status": "needs_review",
+      "text": "Synthetic source page 9. Demonstration only. No academic evidence.",
+      "review_flags": [
+        "Synthetic preview is illustrative, not an exact PDF rendering."
+      ]
+    },
+    {
+      "page": 10,
+      "status": "needs_review",
+      "text": "Synthetic source page 10. Demonstration only. No academic evidence.",
+      "review_flags": [
+        "Synthetic preview is illustrative, not an exact PDF rendering."
+      ]
+    },
+    {
+      "page": 11,
+      "status": "needs_review",
+      "text": "Synthetic source page 11. Demonstration only. No academic evidence.",
+      "review_flags": [
+        "Synthetic preview is illustrative, not an exact PDF rendering."
+      ]
+    },
+    {
+      "page": 12,
+      "status": "needs_review",
+      "text": "Synthetic source page 12. Demonstration only. No academic evidence.",
+      "review_flags": [
+        "Synthetic preview is illustrative, not an exact PDF rendering."
+      ]
+    },
+    {
+      "page": 13,
+      "status": "needs_review",
+      "text": "Synthetic source page 13. Demonstration only. No academic evidence.",
+      "review_flags": [
+        "Synthetic preview is illustrative, not an exact PDF rendering."
+      ]
+    },
+    {
+      "page": 14,
+      "status": "needs_review",
+      "text": "Synthetic source page 14. Demonstration only. No academic evidence.",
+      "review_flags": [
+        "Synthetic preview is illustrative, not an exact PDF rendering."
+      ]
+    },
+    {
+      "page": 15,
+      "status": "needs_review",
+      "text": "Synthetic source page 15. Demonstration only. No academic evidence.",
+      "review_flags": [
+        "Synthetic preview is illustrative, not an exact PDF rendering."
+      ]
+    },
+    {
+      "page": 16,
+      "status": "needs_review",
+      "text": "Synthetic source page 16. Demonstration only. No academic evidence.",
+      "review_flags": [
+        "Synthetic preview is illustrative, not an exact PDF rendering."
+      ]
+    },
+    {
+      "page": 17,
+      "status": "needs_review",
+      "text": "Synthetic source page 17. Demonstration only. No academic evidence.",
+      "review_flags": [
+        "Synthetic preview is illustrative, not an exact PDF rendering."
+      ]
+    },
+    {
+      "page": 18,
+      "status": "needs_review",
+      "text": "Synthetic source page 18. Demonstration only. No academic evidence.",
+      "review_flags": [
+        "Synthetic preview is illustrative, not an exact PDF rendering."
+      ]
+    },
+    {
+      "page": 19,
+      "status": "needs_review",
+      "text": "Synthetic source page 19. Demonstration only. No academic evidence.",
+      "review_flags": [
+        "Synthetic preview is illustrative, not an exact PDF rendering."
+      ]
+    },
+    {
+      "page": 20,
+      "status": "needs_review",
+      "text": "Synthetic source page 20. Demonstration only. No academic evidence.",
+      "review_flags": [
+        "Synthetic preview is illustrative, not an exact PDF rendering."
+      ]
+    }
+  ],
+  "sections": [
+    {
+      "id": "section-1",
+      "title": "Concept 1: source-grounded synthetic lesson",
+      "pages": [
+        1
+      ],
+      "blocks": [
+        {
+          "kind": "source",
+          "text": "Synthetic source page 1. Demonstration only. No academic evidence.",
+          "pages": [
+            1
+          ]
+        },
+        {
+          "kind": "teaching",
+          "text": "**Try it:** compare two cases, explain the difference, then recall from memory.",
+          "pages": [
+            1
+          ]
+        },
+        {
+          "kind": "mindmap",
+          "nodes": [
+            "Understand",
+            "Source",
+            "Comparison",
+            "Recall"
+          ],
+          "alt": "Understanding connects source, comparison and recall.",
+          "pages": [
+            1
+          ]
+        },
+        {
+          "kind": "flowchart",
+          "nodes": [
+            "Observe",
+            "Compare",
+            "Recall",
+            "Check"
+          ],
+          "alt": "Observe, compare, recall, then check.",
+          "pages": [
+            1
+          ]
+        },
+        {
+          "kind": "table",
+          "headers": [
+            "Case",
+            "Distinction"
+          ],
+          "rows": [
+            [
+              "A",
+              "First case"
+            ],
+            [
+              "B",
+              "Second case"
+            ]
+          ],
+          "pages": [
+            1
+          ]
+        },
+        {
+          "kind": "example",
+          "text": "Formula example: z = (x − μ) / σ. The formula is teaching content in a synthetic fixture.",
+          "pages": [
+            1
+          ]
+        }
+      ]
+    },
+    {
+      "id": "section-2",
+      "title": "Concept 2: source-grounded synthetic lesson",
+      "pages": [
+        2
+      ],
+      "blocks": [
+        {
+          "kind": "source",
+          "text": "Synthetic source page 2. Demonstration only. No academic evidence.",
+          "pages": [
+            2
+          ]
+        },
+        {
+          "kind": "teaching",
+          "text": "**Try it:** compare two cases, explain the difference, then recall from memory.",
+          "pages": [
+            2
+          ]
+        },
+        {
+          "kind": "mindmap",
+          "nodes": [
+            "Understand",
+            "Source",
+            "Comparison",
+            "Recall"
+          ],
+          "alt": "Understanding connects source, comparison and recall.",
+          "pages": [
+            2
+          ]
+        },
+        {
+          "kind": "flowchart",
+          "nodes": [
+            "Observe",
+            "Compare",
+            "Recall",
+            "Check"
+          ],
+          "alt": "Observe, compare, recall, then check.",
+          "pages": [
+            2
+          ]
+        },
+        {
+          "kind": "table",
+          "headers": [
+            "Case",
+            "Distinction"
+          ],
+          "rows": [
+            [
+              "A",
+              "First case"
+            ],
+            [
+              "B",
+              "Second case"
+            ]
+          ],
+          "pages": [
+            2
+          ]
+        },
+        {
+          "kind": "example",
+          "text": "Formula example: z = (x − μ) / σ. The formula is teaching content in a synthetic fixture.",
+          "pages": [
+            2
+          ]
+        }
+      ]
+    },
+    {
+      "id": "section-3",
+      "title": "Concept 3: source-grounded synthetic lesson",
+      "pages": [
+        3
+      ],
+      "blocks": [
+        {
+          "kind": "source",
+          "text": "Synthetic source page 3. Demonstration only. No academic evidence.",
+          "pages": [
+            3
+          ]
+        },
+        {
+          "kind": "teaching",
+          "text": "**Try it:** compare two cases, explain the difference, then recall from memory.",
+          "pages": [
+            3
+          ]
+        },
+        {
+          "kind": "mindmap",
+          "nodes": [
+            "Understand",
+            "Source",
+            "Comparison",
+            "Recall"
+          ],
+          "alt": "Understanding connects source, comparison and recall.",
+          "pages": [
+            3
+          ]
+        },
+        {
+          "kind": "flowchart",
+          "nodes": [
+            "Observe",
+            "Compare",
+            "Recall",
+            "Check"
+          ],
+          "alt": "Observe, compare, recall, then check.",
+          "pages": [
+            3
+          ]
+        },
+        {
+          "kind": "table",
+          "headers": [
+            "Case",
+            "Distinction"
+          ],
+          "rows": [
+            [
+              "A",
+              "First case"
+            ],
+            [
+              "B",
+              "Second case"
+            ]
+          ],
+          "pages": [
+            3
+          ]
+        },
+        {
+          "kind": "example",
+          "text": "Formula example: z = (x − μ) / σ. The formula is teaching content in a synthetic fixture.",
+          "pages": [
+            3
+          ]
+        }
+      ]
+    },
+    {
+      "id": "section-4",
+      "title": "Concept 4: source-grounded synthetic lesson",
+      "pages": [
+        4
+      ],
+      "blocks": [
+        {
+          "kind": "source",
+          "text": "Synthetic source page 4. Demonstration only. No academic evidence.",
+          "pages": [
+            4
+          ]
+        },
+        {
+          "kind": "teaching",
+          "text": "**Try it:** compare two cases, explain the difference, then recall from memory.",
+          "pages": [
+            4
+          ]
+        },
+        {
+          "kind": "mindmap",
+          "nodes": [
+            "Understand",
+            "Source",
+            "Comparison",
+            "Recall"
+          ],
+          "alt": "Understanding connects source, comparison and recall.",
+          "pages": [
+            4
+          ]
+        },
+        {
+          "kind": "flowchart",
+          "nodes": [
+            "Observe",
+            "Compare",
+            "Recall",
+            "Check"
+          ],
+          "alt": "Observe, compare, recall, then check.",
+          "pages": [
+            4
+          ]
+        },
+        {
+          "kind": "table",
+          "headers": [
+            "Case",
+            "Distinction"
+          ],
+          "rows": [
+            [
+              "A",
+              "First case"
+            ],
+            [
+              "B",
+              "Second case"
+            ]
+          ],
+          "pages": [
+            4
+          ]
+        },
+        {
+          "kind": "example",
+          "text": "Formula example: z = (x − μ) / σ. The formula is teaching content in a synthetic fixture.",
+          "pages": [
+            4
+          ]
+        }
+      ]
+    },
+    {
+      "id": "section-5",
+      "title": "Concept 5: source-grounded synthetic lesson",
+      "pages": [
+        5
+      ],
+      "blocks": [
+        {
+          "kind": "source",
+          "text": "Synthetic source page 5. Demonstration only. No academic evidence.",
+          "pages": [
+            5
+          ]
+        },
+        {
+          "kind": "teaching",
+          "text": "**Try it:** compare two cases, explain the difference, then recall from memory.",
+          "pages": [
+            5
+          ]
+        },
+        {
+          "kind": "mindmap",
+          "nodes": [
+            "Understand",
+            "Source",
+            "Comparison",
+            "Recall"
+          ],
+          "alt": "Understanding connects source, comparison and recall.",
+          "pages": [
+            5
+          ]
+        },
+        {
+          "kind": "flowchart",
+          "nodes": [
+            "Observe",
+            "Compare",
+            "Recall",
+            "Check"
+          ],
+          "alt": "Observe, compare, recall, then check.",
+          "pages": [
+            5
+          ]
+        },
+        {
+          "kind": "table",
+          "headers": [
+            "Case",
+            "Distinction"
+          ],
+          "rows": [
+            [
+              "A",
+              "First case"
+            ],
+            [
+              "B",
+              "Second case"
+            ]
+          ],
+          "pages": [
+            5
+          ]
+        },
+        {
+          "kind": "example",
+          "text": "Formula example: z = (x − μ) / σ. The formula is teaching content in a synthetic fixture.",
+          "pages": [
+            5
+          ]
+        }
+      ]
+    },
+    {
+      "id": "section-6",
+      "title": "Concept 6: source-grounded synthetic lesson",
+      "pages": [
+        6
+      ],
+      "blocks": [
+        {
+          "kind": "source",
+          "text": "Synthetic source page 6. Demonstration only. No academic evidence.",
+          "pages": [
+            6
+          ]
+        },
+        {
+          "kind": "teaching",
+          "text": "**Try it:** compare two cases, explain the difference, then recall from memory.",
+          "pages": [
+            6
+          ]
+        },
+        {
+          "kind": "mindmap",
+          "nodes": [
+            "Understand",
+            "Source",
+            "Comparison",
+            "Recall"
+          ],
+          "alt": "Understanding connects source, comparison and recall.",
+          "pages": [
+            6
+          ]
+        },
+        {
+          "kind": "flowchart",
+          "nodes": [
+            "Observe",
+            "Compare",
+            "Recall",
+            "Check"
+          ],
+          "alt": "Observe, compare, recall, then check.",
+          "pages": [
+            6
+          ]
+        },
+        {
+          "kind": "table",
+          "headers": [
+            "Case",
+            "Distinction"
+          ],
+          "rows": [
+            [
+              "A",
+              "First case"
+            ],
+            [
+              "B",
+              "Second case"
+            ]
+          ],
+          "pages": [
+            6
+          ]
+        },
+        {
+          "kind": "example",
+          "text": "Formula example: z = (x − μ) / σ. The formula is teaching content in a synthetic fixture.",
+          "pages": [
+            6
+          ]
+        }
+      ]
+    },
+    {
+      "id": "section-7",
+      "title": "Concept 7: source-grounded synthetic lesson",
+      "pages": [
+        7
+      ],
+      "blocks": [
+        {
+          "kind": "source",
+          "text": "Synthetic source page 7. Demonstration only. No academic evidence.",
+          "pages": [
+            7
+          ]
+        },
+        {
+          "kind": "teaching",
+          "text": "**Try it:** compare two cases, explain the difference, then recall from memory.",
+          "pages": [
+            7
+          ]
+        },
+        {
+          "kind": "mindmap",
+          "nodes": [
+            "Understand",
+            "Source",
+            "Comparison",
+            "Recall"
+          ],
+          "alt": "Understanding connects source, comparison and recall.",
+          "pages": [
+            7
+          ]
+        },
+        {
+          "kind": "flowchart",
+          "nodes": [
+            "Observe",
+            "Compare",
+            "Recall",
+            "Check"
+          ],
+          "alt": "Observe, compare, recall, then check.",
+          "pages": [
+            7
+          ]
+        },
+        {
+          "kind": "table",
+          "headers": [
+            "Case",
+            "Distinction"
+          ],
+          "rows": [
+            [
+              "A",
+              "First case"
+            ],
+            [
+              "B",
+              "Second case"
+            ]
+          ],
+          "pages": [
+            7
+          ]
+        },
+        {
+          "kind": "example",
+          "text": "Formula example: z = (x − μ) / σ. The formula is teaching content in a synthetic fixture.",
+          "pages": [
+            7
+          ]
+        }
+      ]
+    },
+    {
+      "id": "section-8",
+      "title": "Concept 8: source-grounded synthetic lesson",
+      "pages": [
+        8
+      ],
+      "blocks": [
+        {
+          "kind": "source",
+          "text": "Synthetic source page 8. Demonstration only. No academic evidence.",
+          "pages": [
+            8
+          ]
+        },
+        {
+          "kind": "teaching",
+          "text": "**Try it:** compare two cases, explain the difference, then recall from memory.",
+          "pages": [
+            8
+          ]
+        },
+        {
+          "kind": "mindmap",
+          "nodes": [
+            "Understand",
+            "Source",
+            "Comparison",
+            "Recall"
+          ],
+          "alt": "Understanding connects source, comparison and recall.",
+          "pages": [
+            8
+          ]
+        },
+        {
+          "kind": "flowchart",
+          "nodes": [
+            "Observe",
+            "Compare",
+            "Recall",
+            "Check"
+          ],
+          "alt": "Observe, compare, recall, then check.",
+          "pages": [
+            8
+          ]
+        },
+        {
+          "kind": "table",
+          "headers": [
+            "Case",
+            "Distinction"
+          ],
+          "rows": [
+            [
+              "A",
+              "First case"
+            ],
+            [
+              "B",
+              "Second case"
+            ]
+          ],
+          "pages": [
+            8
+          ]
+        },
+        {
+          "kind": "example",
+          "text": "Formula example: z = (x − μ) / σ. The formula is teaching content in a synthetic fixture.",
+          "pages": [
+            8
+          ]
+        }
+      ]
+    },
+    {
+      "id": "section-9",
+      "title": "Concept 9: source-grounded synthetic lesson",
+      "pages": [
+        9
+      ],
+      "blocks": [
+        {
+          "kind": "source",
+          "text": "Synthetic source page 9. Demonstration only. No academic evidence.",
+          "pages": [
+            9
+          ]
+        },
+        {
+          "kind": "teaching",
+          "text": "**Try it:** compare two cases, explain the difference, then recall from memory.",
+          "pages": [
+            9
+          ]
+        },
+        {
+          "kind": "mindmap",
+          "nodes": [
+            "Understand",
+            "Source",
+            "Comparison",
+            "Recall"
+          ],
+          "alt": "Understanding connects source, comparison and recall.",
+          "pages": [
+            9
+          ]
+        },
+        {
+          "kind": "flowchart",
+          "nodes": [
+            "Observe",
+            "Compare",
+            "Recall",
+            "Check"
+          ],
+          "alt": "Observe, compare, recall, then check.",
+          "pages": [
+            9
+          ]
+        },
+        {
+          "kind": "table",
+          "headers": [
+            "Case",
+            "Distinction"
+          ],
+          "rows": [
+            [
+              "A",
+              "First case"
+            ],
+            [
+              "B",
+              "Second case"
+            ]
+          ],
+          "pages": [
+            9
+          ]
+        },
+        {
+          "kind": "example",
+          "text": "Formula example: z = (x − μ) / σ. The formula is teaching content in a synthetic fixture.",
+          "pages": [
+            9
+          ]
+        }
+      ]
+    },
+    {
+      "id": "section-10",
+      "title": "Concept 10: source-grounded synthetic lesson",
+      "pages": [
+        10
+      ],
+      "blocks": [
+        {
+          "kind": "source",
+          "text": "Synthetic source page 10. Demonstration only. No academic evidence.",
+          "pages": [
+            10
+          ]
+        },
+        {
+          "kind": "teaching",
+          "text": "**Try it:** compare two cases, explain the difference, then recall from memory.",
+          "pages": [
+            10
+          ]
+        },
+        {
+          "kind": "mindmap",
+          "nodes": [
+            "Understand",
+            "Source",
+            "Comparison",
+            "Recall"
+          ],
+          "alt": "Understanding connects source, comparison and recall.",
+          "pages": [
+            10
+          ]
+        },
+        {
+          "kind": "flowchart",
+          "nodes": [
+            "Observe",
+            "Compare",
+            "Recall",
+            "Check"
+          ],
+          "alt": "Observe, compare, recall, then check.",
+          "pages": [
+            10
+          ]
+        },
+        {
+          "kind": "table",
+          "headers": [
+            "Case",
+            "Distinction"
+          ],
+          "rows": [
+            [
+              "A",
+              "First case"
+            ],
+            [
+              "B",
+              "Second case"
+            ]
+          ],
+          "pages": [
+            10
+          ]
+        },
+        {
+          "kind": "example",
+          "text": "Formula example: z = (x − μ) / σ. The formula is teaching content in a synthetic fixture.",
+          "pages": [
+            10
+          ]
+        }
+      ]
+    },
+    {
+      "id": "section-11",
+      "title": "Concept 11: source-grounded synthetic lesson",
+      "pages": [
+        11
+      ],
+      "blocks": [
+        {
+          "kind": "source",
+          "text": "Synthetic source page 11. Demonstration only. No academic evidence.",
+          "pages": [
+            11
+          ]
+        },
+        {
+          "kind": "teaching",
+          "text": "**Try it:** compare two cases, explain the difference, then recall from memory.",
+          "pages": [
+            11
+          ]
+        },
+        {
+          "kind": "mindmap",
+          "nodes": [
+            "Understand",
+            "Source",
+            "Comparison",
+            "Recall"
+          ],
+          "alt": "Understanding connects source, comparison and recall.",
+          "pages": [
+            11
+          ]
+        },
+        {
+          "kind": "flowchart",
+          "nodes": [
+            "Observe",
+            "Compare",
+            "Recall",
+            "Check"
+          ],
+          "alt": "Observe, compare, recall, then check.",
+          "pages": [
+            11
+          ]
+        },
+        {
+          "kind": "table",
+          "headers": [
+            "Case",
+            "Distinction"
+          ],
+          "rows": [
+            [
+              "A",
+              "First case"
+            ],
+            [
+              "B",
+              "Second case"
+            ]
+          ],
+          "pages": [
+            11
+          ]
+        },
+        {
+          "kind": "example",
+          "text": "Formula example: z = (x − μ) / σ. The formula is teaching content in a synthetic fixture.",
+          "pages": [
+            11
+          ]
+        }
+      ]
+    },
+    {
+      "id": "section-12",
+      "title": "Concept 12: source-grounded synthetic lesson",
+      "pages": [
+        12
+      ],
+      "blocks": [
+        {
+          "kind": "source",
+          "text": "Synthetic source page 12. Demonstration only. No academic evidence.",
+          "pages": [
+            12
+          ]
+        },
+        {
+          "kind": "teaching",
+          "text": "**Try it:** compare two cases, explain the difference, then recall from memory.",
+          "pages": [
+            12
+          ]
+        },
+        {
+          "kind": "mindmap",
+          "nodes": [
+            "Understand",
+            "Source",
+            "Comparison",
+            "Recall"
+          ],
+          "alt": "Understanding connects source, comparison and recall.",
+          "pages": [
+            12
+          ]
+        },
+        {
+          "kind": "flowchart",
+          "nodes": [
+            "Observe",
+            "Compare",
+            "Recall",
+            "Check"
+          ],
+          "alt": "Observe, compare, recall, then check.",
+          "pages": [
+            12
+          ]
+        },
+        {
+          "kind": "table",
+          "headers": [
+            "Case",
+            "Distinction"
+          ],
+          "rows": [
+            [
+              "A",
+              "First case"
+            ],
+            [
+              "B",
+              "Second case"
+            ]
+          ],
+          "pages": [
+            12
+          ]
+        },
+        {
+          "kind": "example",
+          "text": "Formula example: z = (x − μ) / σ. The formula is teaching content in a synthetic fixture.",
+          "pages": [
+            12
+          ]
+        }
+      ]
+    },
+    {
+      "id": "section-13",
+      "title": "Concept 13: source-grounded synthetic lesson",
+      "pages": [
+        13
+      ],
+      "blocks": [
+        {
+          "kind": "source",
+          "text": "Synthetic source page 13. Demonstration only. No academic evidence.",
+          "pages": [
+            13
+          ]
+        },
+        {
+          "kind": "teaching",
+          "text": "**Try it:** compare two cases, explain the difference, then recall from memory.",
+          "pages": [
+            13
+          ]
+        },
+        {
+          "kind": "mindmap",
+          "nodes": [
+            "Understand",
+            "Source",
+            "Comparison",
+            "Recall"
+          ],
+          "alt": "Understanding connects source, comparison and recall.",
+          "pages": [
+            13
+          ]
+        },
+        {
+          "kind": "flowchart",
+          "nodes": [
+            "Observe",
+            "Compare",
+            "Recall",
+            "Check"
+          ],
+          "alt": "Observe, compare, recall, then check.",
+          "pages": [
+            13
+          ]
+        },
+        {
+          "kind": "table",
+          "headers": [
+            "Case",
+            "Distinction"
+          ],
+          "rows": [
+            [
+              "A",
+              "First case"
+            ],
+            [
+              "B",
+              "Second case"
+            ]
+          ],
+          "pages": [
+            13
+          ]
+        },
+        {
+          "kind": "example",
+          "text": "Formula example: z = (x − μ) / σ. The formula is teaching content in a synthetic fixture.",
+          "pages": [
+            13
+          ]
+        }
+      ]
+    },
+    {
+      "id": "section-14",
+      "title": "Concept 14: source-grounded synthetic lesson",
+      "pages": [
+        14
+      ],
+      "blocks": [
+        {
+          "kind": "source",
+          "text": "Synthetic source page 14. Demonstration only. No academic evidence.",
+          "pages": [
+            14
+          ]
+        },
+        {
+          "kind": "teaching",
+          "text": "**Try it:** compare two cases, explain the difference, then recall from memory.",
+          "pages": [
+            14
+          ]
+        },
+        {
+          "kind": "mindmap",
+          "nodes": [
+            "Understand",
+            "Source",
+            "Comparison",
+            "Recall"
+          ],
+          "alt": "Understanding connects source, comparison and recall.",
+          "pages": [
+            14
+          ]
+        },
+        {
+          "kind": "flowchart",
+          "nodes": [
+            "Observe",
+            "Compare",
+            "Recall",
+            "Check"
+          ],
+          "alt": "Observe, compare, recall, then check.",
+          "pages": [
+            14
+          ]
+        },
+        {
+          "kind": "table",
+          "headers": [
+            "Case",
+            "Distinction"
+          ],
+          "rows": [
+            [
+              "A",
+              "First case"
+            ],
+            [
+              "B",
+              "Second case"
+            ]
+          ],
+          "pages": [
+            14
+          ]
+        },
+        {
+          "kind": "example",
+          "text": "Formula example: z = (x − μ) / σ. The formula is teaching content in a synthetic fixture.",
+          "pages": [
+            14
+          ]
+        }
+      ]
+    },
+    {
+      "id": "section-15",
+      "title": "Concept 15: source-grounded synthetic lesson",
+      "pages": [
+        15
+      ],
+      "blocks": [
+        {
+          "kind": "source",
+          "text": "Synthetic source page 15. Demonstration only. No academic evidence.",
+          "pages": [
+            15
+          ]
+        },
+        {
+          "kind": "teaching",
+          "text": "**Try it:** compare two cases, explain the difference, then recall from memory.",
+          "pages": [
+            15
+          ]
+        },
+        {
+          "kind": "mindmap",
+          "nodes": [
+            "Understand",
+            "Source",
+            "Comparison",
+            "Recall"
+          ],
+          "alt": "Understanding connects source, comparison and recall.",
+          "pages": [
+            15
+          ]
+        },
+        {
+          "kind": "flowchart",
+          "nodes": [
+            "Observe",
+            "Compare",
+            "Recall",
+            "Check"
+          ],
+          "alt": "Observe, compare, recall, then check.",
+          "pages": [
+            15
+          ]
+        },
+        {
+          "kind": "table",
+          "headers": [
+            "Case",
+            "Distinction"
+          ],
+          "rows": [
+            [
+              "A",
+              "First case"
+            ],
+            [
+              "B",
+              "Second case"
+            ]
+          ],
+          "pages": [
+            15
+          ]
+        },
+        {
+          "kind": "example",
+          "text": "Formula example: z = (x − μ) / σ. The formula is teaching content in a synthetic fixture.",
+          "pages": [
+            15
+          ]
+        }
+      ]
+    },
+    {
+      "id": "section-16",
+      "title": "Concept 16: source-grounded synthetic lesson",
+      "pages": [
+        16
+      ],
+      "blocks": [
+        {
+          "kind": "source",
+          "text": "Synthetic source page 16. Demonstration only. No academic evidence.",
+          "pages": [
+            16
+          ]
+        },
+        {
+          "kind": "teaching",
+          "text": "**Try it:** compare two cases, explain the difference, then recall from memory.",
+          "pages": [
+            16
+          ]
+        },
+        {
+          "kind": "mindmap",
+          "nodes": [
+            "Understand",
+            "Source",
+            "Comparison",
+            "Recall"
+          ],
+          "alt": "Understanding connects source, comparison and recall.",
+          "pages": [
+            16
+          ]
+        },
+        {
+          "kind": "flowchart",
+          "nodes": [
+            "Observe",
+            "Compare",
+            "Recall",
+            "Check"
+          ],
+          "alt": "Observe, compare, recall, then check.",
+          "pages": [
+            16
+          ]
+        },
+        {
+          "kind": "table",
+          "headers": [
+            "Case",
+            "Distinction"
+          ],
+          "rows": [
+            [
+              "A",
+              "First case"
+            ],
+            [
+              "B",
+              "Second case"
+            ]
+          ],
+          "pages": [
+            16
+          ]
+        },
+        {
+          "kind": "example",
+          "text": "Formula example: z = (x − μ) / σ. The formula is teaching content in a synthetic fixture.",
+          "pages": [
+            16
+          ]
+        }
+      ]
+    },
+    {
+      "id": "section-17",
+      "title": "Concept 17: source-grounded synthetic lesson",
+      "pages": [
+        17
+      ],
+      "blocks": [
+        {
+          "kind": "source",
+          "text": "Synthetic source page 17. Demonstration only. No academic evidence.",
+          "pages": [
+            17
+          ]
+        },
+        {
+          "kind": "teaching",
+          "text": "**Try it:** compare two cases, explain the difference, then recall from memory.",
+          "pages": [
+            17
+          ]
+        },
+        {
+          "kind": "mindmap",
+          "nodes": [
+            "Understand",
+            "Source",
+            "Comparison",
+            "Recall"
+          ],
+          "alt": "Understanding connects source, comparison and recall.",
+          "pages": [
+            17
+          ]
+        },
+        {
+          "kind": "flowchart",
+          "nodes": [
+            "Observe",
+            "Compare",
+            "Recall",
+            "Check"
+          ],
+          "alt": "Observe, compare, recall, then check.",
+          "pages": [
+            17
+          ]
+        },
+        {
+          "kind": "table",
+          "headers": [
+            "Case",
+            "Distinction"
+          ],
+          "rows": [
+            [
+              "A",
+              "First case"
+            ],
+            [
+              "B",
+              "Second case"
+            ]
+          ],
+          "pages": [
+            17
+          ]
+        },
+        {
+          "kind": "example",
+          "text": "Formula example: z = (x − μ) / σ. The formula is teaching content in a synthetic fixture.",
+          "pages": [
+            17
+          ]
+        }
+      ]
+    },
+    {
+      "id": "section-18",
+      "title": "Concept 18: source-grounded synthetic lesson",
+      "pages": [
+        18
+      ],
+      "blocks": [
+        {
+          "kind": "source",
+          "text": "Synthetic source page 18. Demonstration only. No academic evidence.",
+          "pages": [
+            18
+          ]
+        },
+        {
+          "kind": "teaching",
+          "text": "**Try it:** compare two cases, explain the difference, then recall from memory.",
+          "pages": [
+            18
+          ]
+        },
+        {
+          "kind": "mindmap",
+          "nodes": [
+            "Understand",
+            "Source",
+            "Comparison",
+            "Recall"
+          ],
+          "alt": "Understanding connects source, comparison and recall.",
+          "pages": [
+            18
+          ]
+        },
+        {
+          "kind": "flowchart",
+          "nodes": [
+            "Observe",
+            "Compare",
+            "Recall",
+            "Check"
+          ],
+          "alt": "Observe, compare, recall, then check.",
+          "pages": [
+            18
+          ]
+        },
+        {
+          "kind": "table",
+          "headers": [
+            "Case",
+            "Distinction"
+          ],
+          "rows": [
+            [
+              "A",
+              "First case"
+            ],
+            [
+              "B",
+              "Second case"
+            ]
+          ],
+          "pages": [
+            18
+          ]
+        },
+        {
+          "kind": "example",
+          "text": "Formula example: z = (x − μ) / σ. The formula is teaching content in a synthetic fixture.",
+          "pages": [
+            18
+          ]
+        }
+      ]
+    },
+    {
+      "id": "section-19",
+      "title": "Concept 19: source-grounded synthetic lesson",
+      "pages": [
+        19
+      ],
+      "blocks": [
+        {
+          "kind": "source",
+          "text": "Synthetic source page 19. Demonstration only. No academic evidence.",
+          "pages": [
+            19
+          ]
+        },
+        {
+          "kind": "teaching",
+          "text": "**Try it:** compare two cases, explain the difference, then recall from memory.",
+          "pages": [
+            19
+          ]
+        },
+        {
+          "kind": "mindmap",
+          "nodes": [
+            "Understand",
+            "Source",
+            "Comparison",
+            "Recall"
+          ],
+          "alt": "Understanding connects source, comparison and recall.",
+          "pages": [
+            19
+          ]
+        },
+        {
+          "kind": "flowchart",
+          "nodes": [
+            "Observe",
+            "Compare",
+            "Recall",
+            "Check"
+          ],
+          "alt": "Observe, compare, recall, then check.",
+          "pages": [
+            19
+          ]
+        },
+        {
+          "kind": "table",
+          "headers": [
+            "Case",
+            "Distinction"
+          ],
+          "rows": [
+            [
+              "A",
+              "First case"
+            ],
+            [
+              "B",
+              "Second case"
+            ]
+          ],
+          "pages": [
+            19
+          ]
+        },
+        {
+          "kind": "example",
+          "text": "Formula example: z = (x − μ) / σ. The formula is teaching content in a synthetic fixture.",
+          "pages": [
+            19
+          ]
+        }
+      ]
+    },
+    {
+      "id": "section-20",
+      "title": "Concept 20: source-grounded synthetic lesson",
+      "pages": [
+        20
+      ],
+      "blocks": [
+        {
+          "kind": "source",
+          "text": "Synthetic source page 20. Demonstration only. No academic evidence.",
+          "pages": [
+            20
+          ]
+        },
+        {
+          "kind": "teaching",
+          "text": "**Try it:** compare two cases, explain the difference, then recall from memory.",
+          "pages": [
+            20
+          ]
+        },
+        {
+          "kind": "mindmap",
+          "nodes": [
+            "Understand",
+            "Source",
+            "Comparison",
+            "Recall"
+          ],
+          "alt": "Understanding connects source, comparison and recall.",
+          "pages": [
+            20
+          ]
+        },
+        {
+          "kind": "flowchart",
+          "nodes": [
+            "Observe",
+            "Compare",
+            "Recall",
+            "Check"
+          ],
+          "alt": "Observe, compare, recall, then check.",
+          "pages": [
+            20
+          ]
+        },
+        {
+          "kind": "table",
+          "headers": [
+            "Case",
+            "Distinction"
+          ],
+          "rows": [
+            [
+              "A",
+              "First case"
+            ],
+            [
+              "B",
+              "Second case"
+            ]
+          ],
+          "pages": [
+            20
+          ]
+        },
+        {
+          "kind": "example",
+          "text": "Formula example: z = (x − μ) / σ. The formula is teaching content in a synthetic fixture.",
+          "pages": [
+            20
+          ]
+        }
+      ]
+    }
+  ],
+  "revision": [
+    {
+      "kind": "teaching",
+      "text": "## Revision checklist\n- Compare cases.\n- Recall without looking.\n- Recheck missed questions.\n\n**Memory trap:** a corrected retry does not erase an earlier mistake.",
+      "pages": [
+        1,
+        20
+      ]
+    },
+    {
+      "kind": "recall",
+      "text": "What happens to an earlier wrong answer after retrying correctly?",
+      "answer": "It remains in server history and appears as recovered, needing recheck.",
+      "pages": [
+        1
+      ]
+    }
+  ],
+  "questions": [
+    {
+      "id": "q-1",
+      "revision": 1,
+      "kind": "mcq",
+      "prompt": "Synthetic recall 1: what comes after compare?",
+      "options": [
+        "Guess",
+        "Recall"
+      ],
+      "correct_index": 1,
+      "explanation": "The teaching workflow says compare, then recall.",
+      "pages": [
+        1
+      ],
+      "difficulty": "easy",
+      "low_stakes": true
+    },
+    {
+      "id": "q-2",
+      "revision": 1,
+      "kind": "mcq",
+      "prompt": "Synthetic recall 2: what comes after compare?",
+      "options": [
+        "Guess",
+        "Recall"
+      ],
+      "correct_index": 1,
+      "explanation": "The teaching workflow says compare, then recall.",
+      "pages": [
+        2
+      ],
+      "difficulty": "easy",
+      "low_stakes": true
+    },
+    {
+      "id": "q-3",
+      "revision": 1,
+      "kind": "mcq",
+      "prompt": "Synthetic recall 3: what comes after compare?",
+      "options": [
+        "Guess",
+        "Recall"
+      ],
+      "correct_index": 1,
+      "explanation": "The teaching workflow says compare, then recall.",
+      "pages": [
+        3
+      ],
+      "difficulty": "easy",
+      "low_stakes": true
+    },
+    {
+      "id": "q-4",
+      "revision": 1,
+      "kind": "mcq",
+      "prompt": "Synthetic recall 4: what comes after compare?",
+      "options": [
+        "Guess",
+        "Recall"
+      ],
+      "correct_index": 1,
+      "explanation": "The teaching workflow says compare, then recall.",
+      "pages": [
+        4
+      ],
+      "difficulty": "easy",
+      "low_stakes": true
+    },
+    {
+      "id": "q-5",
+      "revision": 1,
+      "kind": "mcq",
+      "prompt": "Synthetic recall 5: what comes after compare?",
+      "options": [
+        "Guess",
+        "Recall"
+      ],
+      "correct_index": 1,
+      "explanation": "The teaching workflow says compare, then recall.",
+      "pages": [
+        5
+      ],
+      "difficulty": "easy",
+      "low_stakes": true
+    },
+    {
+      "id": "q-6",
+      "revision": 1,
+      "kind": "mcq",
+      "prompt": "Synthetic recall 6: what comes after compare?",
+      "options": [
+        "Guess",
+        "Recall"
+      ],
+      "correct_index": 1,
+      "explanation": "The teaching workflow says compare, then recall.",
+      "pages": [
+        6
+      ],
+      "difficulty": "easy",
+      "low_stakes": true
+    },
+    {
+      "id": "q-7",
+      "revision": 1,
+      "kind": "mcq",
+      "prompt": "Synthetic recall 7: what comes after compare?",
+      "options": [
+        "Guess",
+        "Recall"
+      ],
+      "correct_index": 1,
+      "explanation": "The teaching workflow says compare, then recall.",
+      "pages": [
+        7
+      ],
+      "difficulty": "easy",
+      "low_stakes": true
+    },
+    {
+      "id": "q-8",
+      "revision": 1,
+      "kind": "mcq",
+      "prompt": "Synthetic recall 8: what comes after compare?",
+      "options": [
+        "Guess",
+        "Recall"
+      ],
+      "correct_index": 1,
+      "explanation": "The teaching workflow says compare, then recall.",
+      "pages": [
+        8
+      ],
+      "difficulty": "easy",
+      "low_stakes": true
+    },
+    {
+      "id": "q-9",
+      "revision": 1,
+      "kind": "mcq",
+      "prompt": "Synthetic recall 9: what comes after compare?",
+      "options": [
+        "Guess",
+        "Recall"
+      ],
+      "correct_index": 1,
+      "explanation": "The teaching workflow says compare, then recall.",
+      "pages": [
+        9
+      ],
+      "difficulty": "easy",
+      "low_stakes": true
+    },
+    {
+      "id": "q-10",
+      "revision": 1,
+      "kind": "mcq",
+      "prompt": "Synthetic recall 10: what comes after compare?",
+      "options": [
+        "Guess",
+        "Recall"
+      ],
+      "correct_index": 1,
+      "explanation": "The teaching workflow says compare, then recall.",
+      "pages": [
+        10
+      ],
+      "difficulty": "easy",
+      "low_stakes": true
+    },
+    {
+      "id": "q-11",
+      "revision": 1,
+      "kind": "mcq",
+      "prompt": "Synthetic recall 11: what comes after compare?",
+      "options": [
+        "Guess",
+        "Recall"
+      ],
+      "correct_index": 1,
+      "explanation": "The teaching workflow says compare, then recall.",
+      "pages": [
+        11
+      ],
+      "difficulty": "easy",
+      "low_stakes": true
+    },
+    {
+      "id": "q-12",
+      "revision": 1,
+      "kind": "mcq",
+      "prompt": "Synthetic recall 12: what comes after compare?",
+      "options": [
+        "Guess",
+        "Recall"
+      ],
+      "correct_index": 1,
+      "explanation": "The teaching workflow says compare, then recall.",
+      "pages": [
+        12
+      ],
+      "difficulty": "easy",
+      "low_stakes": true
+    },
+    {
+      "id": "q-13",
+      "revision": 1,
+      "kind": "mcq",
+      "prompt": "Synthetic recall 13: what comes after compare?",
+      "options": [
+        "Guess",
+        "Recall"
+      ],
+      "correct_index": 1,
+      "explanation": "The teaching workflow says compare, then recall.",
+      "pages": [
+        13
+      ],
+      "difficulty": "easy",
+      "low_stakes": true
+    },
+    {
+      "id": "q-14",
+      "revision": 1,
+      "kind": "mcq",
+      "prompt": "Synthetic recall 14: what comes after compare?",
+      "options": [
+        "Guess",
+        "Recall"
+      ],
+      "correct_index": 1,
+      "explanation": "The teaching workflow says compare, then recall.",
+      "pages": [
+        14
+      ],
+      "difficulty": "easy",
+      "low_stakes": true
+    },
+    {
+      "id": "q-15",
+      "revision": 1,
+      "kind": "mcq",
+      "prompt": "Synthetic recall 15: what comes after compare?",
+      "options": [
+        "Guess",
+        "Recall"
+      ],
+      "correct_index": 1,
+      "explanation": "The teaching workflow says compare, then recall.",
+      "pages": [
+        15
+      ],
+      "difficulty": "easy",
+      "low_stakes": true
+    },
+    {
+      "id": "q-16",
+      "revision": 1,
+      "kind": "mcq",
+      "prompt": "Synthetic recall 16: what comes after compare?",
+      "options": [
+        "Guess",
+        "Recall"
+      ],
+      "correct_index": 1,
+      "explanation": "The teaching workflow says compare, then recall.",
+      "pages": [
+        16
+      ],
+      "difficulty": "easy",
+      "low_stakes": true
+    },
+    {
+      "id": "q-17",
+      "revision": 1,
+      "kind": "mcq",
+      "prompt": "Synthetic recall 17: what comes after compare?",
+      "options": [
+        "Guess",
+        "Recall"
+      ],
+      "correct_index": 1,
+      "explanation": "The teaching workflow says compare, then recall.",
+      "pages": [
+        17
+      ],
+      "difficulty": "easy",
+      "low_stakes": true
+    },
+    {
+      "id": "q-18",
+      "revision": 1,
+      "kind": "mcq",
+      "prompt": "Synthetic recall 18: what comes after compare?",
+      "options": [
+        "Guess",
+        "Recall"
+      ],
+      "correct_index": 1,
+      "explanation": "The teaching workflow says compare, then recall.",
+      "pages": [
+        18
+      ],
+      "difficulty": "easy",
+      "low_stakes": true
+    },
+    {
+      "id": "q-19",
+      "revision": 1,
+      "kind": "mcq",
+      "prompt": "Synthetic recall 19: what comes after compare?",
+      "options": [
+        "Guess",
+        "Recall"
+      ],
+      "correct_index": 1,
+      "explanation": "The teaching workflow says compare, then recall.",
+      "pages": [
+        19
+      ],
+      "difficulty": "easy",
+      "low_stakes": true
+    },
+    {
+      "id": "q-20",
+      "revision": 1,
+      "kind": "mcq",
+      "prompt": "Synthetic recall 20: what comes after compare?",
+      "options": [
+        "Guess",
+        "Recall"
+      ],
+      "correct_index": 1,
+      "explanation": "The teaching workflow says compare, then recall.",
+      "pages": [
+        20
+      ],
+      "difficulty": "easy",
+      "low_stakes": true
+    }
+  ]
+}
