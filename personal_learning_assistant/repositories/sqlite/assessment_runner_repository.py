@@ -8,6 +8,7 @@ import uuid
 from typing import Any
 
 from personal_learning_assistant.repositories.sqlite.connection import transaction
+from personal_learning_assistant.repositories.sqlite.assessment_execution_repository import has_extended_attempt
 
 
 _REQUIRED_TABLES = {
@@ -154,7 +155,14 @@ class SQLiteAssessmentRunnerRepository:
         ).fetchall()
         return tuple(dict(row) for row in rows)
 
+    def _reject_extended_attempt(self, session_id):
+        if has_extended_attempt(self.connection, session_id):
+            raise AssessmentRunnerRepositoryConflictError(
+                "Use the candidate workspace for this extended attempt."
+            )
+
     def _expire_if_due(self, session_id: str, now: str) -> bool:
+        self._reject_extended_attempt(session_id)
         row = self.connection.execute(
             "SELECT status, expires_at FROM assessment_test_sessions WHERE id=?",
             (str(session_id),),
@@ -249,6 +257,11 @@ class SQLiteAssessmentRunnerRepository:
         expires_at: str,
     ):
         with transaction(self.connection, immediate=True):
+            for active in self.connection.execute(
+                "SELECT id FROM assessment_test_sessions WHERE assessment_id=? AND status='active'",
+                (str(assessment_id),),
+            ).fetchall():
+                self._reject_extended_attempt(active["id"])
             self._expire_assessment_sessions(str(assessment_id), str(started_at))
             existing = self.connection.execute(
                 "SELECT id FROM assessment_test_sessions "
@@ -403,6 +416,7 @@ class SQLiteAssessmentRunnerRepository:
 
     def get_coding_context(self, session_id: str, session_question_id: str):
         """Read only the visible task and mode; never SELECT marking secrets."""
+        self._reject_extended_attempt(session_id)
         row = self.connection.execute(
             "SELECT s.mode, s.status, s.expires_at, s.current_ordinal, "
             "CASE WHEN a.deleted_at IS NULL AND c.deleted_at IS NULL THEN c.code END AS course_code, "
