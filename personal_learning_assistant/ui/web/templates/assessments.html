@@ -5,6 +5,20 @@
   <div><p class="eyebrow">Your assessment workspace</p><h2 id="assessments-title">Assessment Studio</h2><p>Prepare, test, understand, improve.</p></div>
   <a class="button" href="{{ url_for('web.assessment_import') }}">Create with Alex <span aria-hidden="true">↗</span></a>
 </header>
+<section class="assessment-mode-preview" aria-labelledby="assessment-modes-heading">
+  <div class="assessment-mode-preview-copy">
+    <p class="eyebrow">New Assessment Studio preview</p>
+    <h3 id="assessment-modes-heading">Pause practice &amp; handwritten self-check</h3>
+    <p>Explore an online test with Pause/Resume, or solve a subjective paper and review it step by step. The preview uses sample questions in a separate, disposable database.</p>
+    <p class="assessment-mode-preview-note"><strong>Your normal assessments are unchanged.</strong> Live assessment storage is still disabled until the optional migration and data-authority verification are approved. Self-entered marks are not official grades.</p>
+  </div>
+  <div class="assessment-mode-preview-actions">
+    <a class="button" href="http://127.0.0.1:8766/" target="_blank" rel="noopener noreferrer">Open local demo ↗</a>
+    <a class="button button-secondary" href="{{ url_for('web.assessment_tests') }}">Assessment library</a>
+    <p>Start the demo first in PowerShell:</p>
+    <code>python scripts/assessment_execution_fixture.py --port 8766</code>
+  </div>
+</section>
 {% if workspace.available %}
   {% if workspace.continuation %}{% set next = workspace.continuation %}
   <section class="assessment-continue" aria-labelledby="continue-title">
