@@ -36,11 +36,11 @@ def inspect_paper_import(connection: sqlite3.Connection, assessment_id: str) -> 
     try:
         batch = connection.execute(
             "SELECT id,package_id,package_revision,status,approved_at,assessment_id,"
-            "course_id,mode,source_sha256 FROM main.assessment_import_batches "
+            "course_id,mode,source_sha256,total_marks_milli FROM main.assessment_import_batches "
             "WHERE assessment_id=?", (assessment_id,)
         ).fetchall()
         canonical = connection.execute(
-            "SELECT id,question_text,max_marks_milli FROM main.questions "
+            "SELECT id,question_text,max_marks_milli,import_batch_id FROM main.questions "
             "WHERE assessment_id=? AND deleted_at IS NULL ORDER BY ordinal,id",
             (assessment_id,)
         ).fetchall()
@@ -50,7 +50,7 @@ def inspect_paper_import(connection: sqlite3.Connection, assessment_id: str) -> 
             "WHERE assessment_id=?", (assessment_id,)
         ).fetchall()
         owner = connection.execute(
-            "SELECT course_id FROM main.assessments WHERE id=? AND deleted_at IS NULL",
+            "SELECT course_id,max_points_milli FROM main.assessments WHERE id=? AND deleted_at IS NULL",
             (assessment_id,)
         ).fetchall()
         if len(batch) != 1 or batch[0][3] != "approved" or not batch[0][4]:
@@ -63,6 +63,13 @@ def inspect_paper_import(connection: sqlite3.Connection, assessment_id: str) -> 
             return _result(reasons, question_count)
         approved = batch[0]
         spec = runtime[0]
+        # Allocation must agree across the approved batch, canonical assessment,
+        # and the complete immutable question lineage. A silent aggregate mark
+        # change would mislead handwritten self-evaluation even if each rubric
+        # remained individually parseable.
+        if (approved[9] != owner[0][1]
+                or approved[9] != sum(row[2] for row in canonical)):
+            reasons.append("approved_total_marks_mismatch")
         if (approved[5] != assessment_id or approved[6] != owner[0][0]
                 or approved[7] != "practice" or spec[1] != "practice"
                 or spec[0] != "external_package"
@@ -90,10 +97,11 @@ def inspect_paper_import(connection: sqlite3.Connection, assessment_id: str) -> 
                 or set(specs_by_id) != ids):
             reasons.append("question_lineage_incomplete")
         else:
-            for qid, text, maximum in canonical:
+            for qid, text, maximum, import_batch_id in canonical:
                 old = staged_by_id[qid]
                 new = specs_by_id[qid]
-                if (old[1] != text or old[2] != maximum
+                if (import_batch_id != approved[0]
+                        or old[1] != text or old[2] != maximum
                         or old[3] not in SUBJECTIVE or new[1] != old[3]
                         or old[4] != new[2] or old[5] != new[3]
                         or old[6] != 0 or old[7] != 0
