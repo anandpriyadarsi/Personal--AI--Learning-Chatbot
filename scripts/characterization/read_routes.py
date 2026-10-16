@@ -31,15 +31,21 @@ app=create_app({'TESTING':True})
 with app.test_client() as client:r=client.get(route)
 after=hashes();print(json.dumps({'route':route,'state':sys.argv[2],'status':r.status_code,'created':sorted(set(after)-set(before)),'changed':sorted(k for k in before if before[k]!=after.get(k)),'writes':writes,'network_attempts':network}))
 '''
+# Every GET is checked against an immediate before/after digest.  Reusing
+# one disposable source avoids four expensive Git snapshots on Windows while
+# keeping empty and seeded states distinct and failing on any GET mutation.
 results=[]
-for route in ['/planning','/analysis']:
+with tempfile.TemporaryDirectory(prefix='anvaya-route-audit-') as tmp:
+ root=Path(tmp)/'source'
+ export_source(a.repo.resolve(),root)
  for state in ['empty','seeded']:
-  with tempfile.TemporaryDirectory(prefix='anvaya-route-audit-') as tmp:
-   root=Path(tmp)/'source'
-   export_source(a.repo.resolve(),root)
+  for route in ['/planning','/analysis']:
    run=subprocess.run([sys.executable,'-c',child,route,state],cwd=root,capture_output=True,text=True,env={**os.environ,'PYTHONDONTWRITEBYTECODE':'1'})
-   if run.returncode:raise RuntimeError(run.stderr)
-   results.append(json.loads(run.stdout))
+   if run.returncode:raise RuntimeError('Read-safety probe '+state+' '+route+': '+run.stderr)
+   result=json.loads(run.stdout)
+   results.append(result)
+   if result['status']!=200 or result['created'] or result['changed'] or result['writes'] or result['network_attempts']:
+    raise AssertionError('Read-only route probe failed: '+json.dumps(result))
 a.output.parent.mkdir(parents=True,exist_ok=True);a.output.write_text(json.dumps(results,indent=2));print(json.dumps(results,indent=2))
 assert all(r['status']==200 and not r['network_attempts'] for r in results), json.dumps(results)
 assert all(not r['created'] and not r['changed'] and not r['writes'] for r in results), json.dumps(results)
