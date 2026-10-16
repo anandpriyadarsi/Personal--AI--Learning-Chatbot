@@ -8,16 +8,29 @@ from urllib.parse import quote
 
 
 def has_extended_attempt(connection, session_id):
-    present = connection.execute(
-        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='assessment_candidate_execution'"
-    ).fetchone()
-    return bool(
-        present
-        and connection.execute(
-            "SELECT 1 FROM assessment_candidate_execution WHERE session_id=?",
-            (str(session_id),),
+    # Both the older isolated candidate and the explicitly migrated production
+    # extension are protected from legacy submit/expire mutations.
+    for table in ("assessment_candidate_execution", "assessment_extended_execution"):
+        present = connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (table,)
         ).fetchone()
-    )
+        if present and connection.execute(
+            "SELECT 1 FROM " + table + " WHERE session_id=?", (str(session_id),)
+        ).fetchone():
+            return True
+    return False
+
+
+class _ScopedConnection:
+    """Present stable internal candidate SQL over distinct production tables."""
+    def __init__(self, raw):
+        self.raw = raw
+
+    def execute(self, sql, *args):
+        return self.raw.execute(sql.replace("assessment_candidate_", "assessment_extended_"), *args)
+
+    def __getattr__(self, key):
+        return getattr(self.raw, key)
 
 
 class AssessmentExecutionRepository:
@@ -36,9 +49,8 @@ class AssessmentExecutionRepository:
         db.row_factory = sqlite3.Row
         try:
             db.execute("PRAGMA foreign_keys=ON")
-            scope = db.execute(
-                "SELECT scope FROM assessment_candidate_scope"
-            ).fetchall()
+            table = "assessment_extended_scope" if self.production else "assessment_candidate_scope"
+            scope = db.execute("SELECT scope FROM " + table).fetchall()
             expected = "local-self-study-v1" if self.production else "disposable-synthetic-only"
             if len(scope) != 1 or scope[0][0] != expected:
                 raise ValueError("Assessment execution store scope is unavailable.")
@@ -47,7 +59,7 @@ class AssessmentExecutionRepository:
             else:
                 db.execute("BEGIN")
             try:
-                yield db
+                yield _ScopedConnection(db) if self.production else db
                 if write:
                     db.commit()
                 else:
