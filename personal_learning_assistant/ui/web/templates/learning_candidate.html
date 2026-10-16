@@ -1,0 +1,9 @@
+<section class="ls-candidate" id="ls-correction-candidate"><h2>Create a correction candidate</h2>
+<p>Compare the exact element and teaching location first. This stages new teaching text for review, preserving original source bytes, keys and previous evidence. It does not publish or certify the candidate. Structured figures, recall answers and questions use the existing canonical package import.</p>
+<form method="post" action="{{ url_for('learning.correction_candidate',module_id=module.module_id,revision=module.module_revision) }}">
+<input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="target_revision" value="{{ next_revision }}">
+<label for="ls-candidate-target">Teaching location to correct</label><select id="ls-candidate-target" name="target" required><option value="">Choose the reviewed block</option>{% for section in module.sections %}{% for b in section.blocks %}{% if b.kind in ['teaching','definition','example','misconception','objectives'] %}<option value="{{ section.id }}:{{ loop.index0 }}">{{ section.title }} · block {{ loop.index }} · {{ b.kind }} · p{{ b.pages|join(', ') }}</option>{% endif %}{% endfor %}{% endfor %}</select>
+<label for="ls-candidate-text">Complete replacement explanation · plain text or Markdown</label><textarea id="ls-candidate-text" name="text" rows="7" maxlength="30000" required></textarea>
+<label for="ls-candidate-reason">Exact source issue and reason for this correction</label><textarea id="ls-candidate-reason" name="reason" rows="3" maxlength="2000" required></textarea>
+<button type="submit">Stage candidate revision {{ next_revision }} for review</button></form>
+<p>Changed-page fidelity and coverage review remain pending. Existing revision {{ module.module_revision }} stays available. A conflicting candidate is rejected; reload to review the latest revision.</p></section>

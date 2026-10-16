@@ -1,6 +1,7 @@
 """Read-only package preflight. No registry/store initialization or checksum repairs."""
 import copy
 import hashlib
+from .source_features import pdf_features
 from .validation import PackageError, validate_package, locators, validate_mapping, validate_block, shape
 
 
@@ -78,6 +79,22 @@ def preflight(package, source, assets, catalogue, *, source_id, coverage=None):
     if errors:return {'valid':False,'errors':errors}
     from .diagnostics import quality_diagnostics
     warnings.extend(quality_diagnostics(valid))
+    try:
+        features=pdf_features(source)
+    except PackageError as exc:
+        error('source.material',str(exc),
+              'Inspect or obtain a valid immutable original PDF; never mark uninspectable visual resources as verified.')
+        return {'valid':False,'errors':errors}
+    for page in features['pages']:
+        if page['raster_resources'] or page['form_resources'] or not page['text_available']:
+            warning(f"pages[{page['page']-1}]",'pdf-material-review',
+                f"Page {page['page']}: {page['raster_resources']} direct raster and {page['form_resources']} form resources; text {'present' if page['text_available'] else 'absent'}. Resource presence is not visual coverage.",
+                'Compare this original page and inventory relevant figure/formula relationships. Nested drawings, OCR and speaker notes remain unsupported / needs review.')
+    from .coverage import normalized
+    for index,question in enumerate(valid['questions']):
+        if len({normalized(option) for option in question['options']})!=len(question['options']):
+            warning(f'questions[{index}]','ambiguous-options','Choices become indistinguishable after whitespace/case normalization; the original key has not been changed.',
+                'Review this exact question and cited source privately. Correct changed choices only through a new authored question revision.')
     if not any(b['kind']=='recall' for b in valid['revision']):
         warning('revision','recall-subset-unavailable','No authored recall cards for the quick review subset.',
                 'Author source-linked prompts and answers in a new immutable revision; full notes remain available.')
@@ -100,4 +117,5 @@ def preflight(package, source, assets, catalogue, *, source_id, coverage=None):
         'review_axes':{'source_identity':'validated','source_fidelity':'author-reported '+fidelity,
             'instructor_intent':'not certified','external_authenticity':'not certified',
             'canonical_mapping':'reviewed-current' if valid['mapping'] else 'unmapped'},
+        'source_material':features,
         'coverage':'validated' if coverage is not None else 'not supplied; semantic coverage unresolved'}

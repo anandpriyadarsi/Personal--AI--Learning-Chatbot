@@ -1,7 +1,7 @@
 name: Learning Studio isolated validation
 on:
   push:
-    branches: ['feature/learning-studio-v1', 'feature/learning-studio-v1-1', 'feature/learning-studio-v1-2', 'feature/learning-studio-v1-3', 'feature/learning-studio-v1-4-integration-2026-10-15']
+    branches: ['feature/learning-studio-v1', 'feature/learning-studio-v1-1', 'feature/learning-studio-v1-2', 'feature/learning-studio-v1-3', 'feature/learning-studio-v1-4-integration-2026-10-15', 'feature/learning-studio-v1-5-source-quality-rechecks', 'feature/learning-studio-v1-6-complete-revision-queue']
   workflow_dispatch:
 permissions:
   contents: read
@@ -14,7 +14,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     env:
       ANVAYA_BROWSER_TESTS: '1'
-      ANVAYA_STUDIO_BASE_SHA: ${{ github.ref_name == 'feature/learning-studio-v1-4-integration-2026-10-15' && '6e520035b6b9ccf8e14c176b35b43e384c95d103' || github.ref_name == 'feature/learning-studio-v1-3' && '60875195f9b6c3145937c625f107244872d8891a' || github.ref_name == 'feature/learning-studio-v1-2' && '775941c730e8160501c849bc4971e8eb178331d1' || github.ref_name == 'feature/learning-studio-v1-1' && '9ed585ca8e1fbcfb6f5a7e0426d030560109115e' || 'f859a3c7cdf44baadc17d9bd1a6c656530c1b5bf' }}
+      ANVAYA_STUDIO_BASE_SHA: ${{ github.ref_name == 'feature/learning-studio-v1-6-complete-revision-queue' && 'aebd8a8828cd4fa452128343882a44b9025aea0d' || github.ref_name == 'feature/learning-studio-v1-5-source-quality-rechecks' && 'aebd8a8828cd4fa452128343882a44b9025aea0d' || github.ref_name == 'feature/learning-studio-v1-4-integration-2026-10-15' && '6e520035b6b9ccf8e14c176b35b43e384c95d103' || github.ref_name == 'feature/learning-studio-v1-3' && '60875195f9b6c3145937c625f107244872d8891a' || github.ref_name == 'feature/learning-studio-v1-2' && '775941c730e8160501c849bc4971e8eb178331d1' || github.ref_name == 'feature/learning-studio-v1-1' && '9ed585ca8e1fbcfb6f5a7e0426d030560109115e' || 'f859a3c7cdf44baadc17d9bd1a6c656530c1b5bf' }}
       ANVAYA_BROWSER_ARTIFACTS: learning-studio-evidence/browser
     steps:
       - uses: actions/checkout@v4

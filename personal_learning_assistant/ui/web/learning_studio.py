@@ -85,6 +85,11 @@ def module_view(module_id, revision, *, staged=False):
     reader=select(p,request.args,weak)
     if view=='revision' and not staged:
         reader=select(p,request.args,weak,engagement=s.engagement_state(module_id,revision,reader['selected_section']['id']))
+    quality_questions={}
+    if view=='practice' and not staged:
+        from personal_learning_assistant.learning_studio.quality import quality_report
+        quality_questions={q['question_id']:q for q in quality_report(s,module_id,revision,
+            question_ids=[q['id'] for q in reader['practice_questions']])['questions']}
     source_element=None
     if request.args.get('element'):
         report=s.coverage_report(module_id,revision)
@@ -105,7 +110,7 @@ def module_view(module_id, revision, *, staged=False):
         course = {'id': 'unavailable', 'code': 'Course unavailable / needs review'}
     return render_template('learning_module.html', active_page='learning', module=p, view=view, staged=staged,
         course=course, mapping_current=mapping_current, markdown=markdown, trusted_graph=trusted_graph, trusted_activity=trusted_activity, **reader,
-        practice_state={} if staged else s.practice_state(module_id,revision), source_element=source_element,
+        practice_state={} if staged else s.practice_state(module_id,revision), source_element=source_element,quality_questions=quality_questions,
         pending_question=request.args.get('question') or (reader['practice_questions'][0]['id'] if view=='practice' and reader['practice_questions'] else None),
         reading_state=None if staged else s.reading_state(module_id,revision), weak=weak,
         csrf_token=current_app.extensions['learning_studio_csrf'],
@@ -195,6 +200,39 @@ def evidence():
     return jsonify(service().evidence())
 
 
+@learning_blueprint.get('/learning/modules/<module_id>/<int:revision>/quality')
+def learning_quality(module_id,revision):
+    from personal_learning_assistant.learning_studio.quality import quality_report
+    from personal_learning_assistant.learning_studio.validation import require
+
+    allowed={'format','status','page','offset','limit'}
+    require(not set(request.args)-allowed and all(len(request.args.getlist(key))==1 for key in request.args)
+            and request.args.get('format','json') in {'json','html'},
+            'Only bounded queue filters are allowed; evidence time and identity are server-owned.')
+
+    def bounded_query_number(key, default, lower, upper):
+        raw=request.args.get(key)
+        if raw is None or raw=='':return default
+        require(len(raw)<=7 and raw.isascii() and raw.isdecimal(),
+                'Invalid revision queue pagination or source page.')
+        number=int(raw)
+        require(lower<=number<=upper,'Revision queue filter is out of range.')
+        return number
+
+    result=quality_report(service(),module_id,revision,
+        status=request.args.get('status','all'),
+        page=bounded_query_number('page',None,1,500),
+        offset=bounded_query_number('offset',0,0,1000000),
+        limit=bounded_query_number('limit',100,1,100))
+    response=(render_template('learning_quality.html',active_page='learning',quality=result)
+        if request.args.get('format')=='html' else jsonify(result))
+    if isinstance(response,str):
+        from flask import make_response
+        response=make_response(response)
+    response.headers['Cache-Control']='no-store'
+    return response
+
+
 @learning_blueprint.get('/learning/evidence/export')
 def export():
     response = jsonify(service().export())
@@ -243,7 +281,26 @@ def coverage_review(module_id,revision):
     s=service();p=s.module(module_id,revision,staged=True);report=s.coverage_report(module_id,revision)
     from personal_learning_assistant.learning_studio.coverage_view import project_coverage
     projection=project_coverage(p,report,request.args,catalogue=s.catalogue_loader()) if report else None
-    return render_template('learning_coverage.html',active_page='learning',module=p,report=report,coverage_view=projection,staged=revision not in p['history'])
+    with s.store.connection() as con:
+        next_revision=con.execute('SELECT max(revision)+1 FROM modules WHERE module_id=?',(module_id,)).fetchone()[0]
+    return render_template('learning_coverage.html',active_page='learning',module=p,report=report,coverage_view=projection,staged=revision not in p['history'],
+        next_revision=next_revision,csrf_token=current_app.extensions['learning_studio_csrf'])
+
+
+@learning_blueprint.post('/learning/modules/<module_id>/<int:revision>/coverage/candidate')
+def correction_candidate(module_id,revision):
+    from personal_learning_assistant.learning_studio.validation import PackageError
+    request.max_content_length=40000
+    payload=request.get_json(silent=True) if request.is_json else request.form.to_dict()
+    if not request.is_json:
+        payload.pop('csrf_token',None);target=payload.pop('target','')
+        try:
+            section,index=target.rsplit(':',1)
+            payload.update(section_id=section,block_index=int(index),target_revision=int(payload['target_revision']))
+        except (ValueError,KeyError):raise PackageError('Select an authored teaching block and a new revision.')
+    result=service().create_candidate(module_id,revision,payload)
+    if request.is_json:return jsonify(result),201
+    return redirect(url_for('learning.preview',module_id=module_id,revision=result['revision'],view='learn',section=payload['section_id']))
 
 
 @learning_blueprint.route('/learning/modules/<module_id>/<int:revision>/mapping',methods=['GET','POST'])

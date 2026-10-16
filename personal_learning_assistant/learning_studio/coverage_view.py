@@ -33,7 +33,16 @@ def project_coverage(module, report, args, catalogue=None):
             mapping_status='reviewed_current_catalogue'
         except PackageError:
             pass  # Historical mapping is retained; only this current read model changes.
-    return deepcopy({'entries':entries,'counts':counts,
+    visual=sum(e['kind'] in {'diagram_relationship','table_relationship','qualitative_scale'} and
+        any(c['element_id']==e['id'] and c['state']=='mapped' for c in report['coverage']) for e in report['inventory'])
+    dimensions={
+        'mechanically_present':{'status':f"{len(report['inventory'])} inventoried locations",'certified':False},
+        'source_visually_checked':{'status':f'{visual} element preview records' if visual else 'not recorded','certified':False},
+        'source_faithfully_interpreted':{'status':report['review']['status']+'; recorded assertion only','certified':False},
+        'instructor_intent_reviewed':{'status':'not recorded','certified':False},
+        'external_claim_checked':{'status':report['external_facts']['status'],'certified':False},
+        'canonical_topic_mapping_reviewed':{'status':mapping_status,'certified':False}}
+    return deepcopy({'entries':entries,'counts':counts,'review_dimensions':dimensions,
                      'availability':{'original_pages':module['source']['page_count'],
                          'preview_pages':sum(bool(p.get('preview')) for p in module['pages']),
                          'text_pages':sum(bool(p['text'].strip()) for p in module['pages']),
