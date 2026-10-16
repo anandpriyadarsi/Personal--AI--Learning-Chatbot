@@ -108,3 +108,54 @@ def test_paper_preflight_rejects_mutated_total_or_lost_import_ownership(tmp_path
     assert result["production_admission"] == "BLOCKED"
     assert expected in result["issues"]
     assert "solution" not in json.dumps(result)
+
+
+def test_imported_structured_rubric_uses_authored_id_not_generated_sqlite_id(tmp_path):
+    from personal_learning_assistant.services.assessment_package_service import AssessmentPackageService
+    path = _database(tmp_path)
+    paper = _subjective_package()
+    paper["assessment"]["mode"] = "practice"
+    paper["questions"][0]["rubric"] = json.dumps({
+        "schema": "anvaya.subjective-rubric",
+        "version": 1,
+        "question_id": "s1",
+        "total_marks_milli": 3000,
+        "grading_increment_milli": 500,
+        "steps": [{
+            "id": "reasoning",
+            "label": "Correct reasoning",
+            "expected_work": "Explain factorization and forward substitution",
+            "max_marks_milli": 3000,
+            "prerequisites": [],
+            "award_when": ["Correct method"],
+            "do_not_award_when": ["Unsupported conclusion"],
+            "allowed_awards_milli": [0, 1500, 3000],
+            "alternative_group": None,
+        }],
+        "common_mistakes": ["Skipping the triangular solve"],
+        "review_required": False,
+    })
+    service = AssessmentPackageService(path)
+    batch = service.stage_upload("structured-paper.json", _raw(paper))
+    aid = service.approve(batch["id"])
+    with sqlite3.connect(path) as db:
+        authored, canonical = db.execute(
+            "SELECT s.package_question_id, s.question_id FROM assessment_question_specs s "
+            "JOIN questions q ON q.id=s.question_id "
+            "WHERE q.assessment_id=? ORDER BY q.ordinal LIMIT 1", (aid,)
+        ).fetchone()
+    assert authored == "s1" and canonical != authored
+    assert inspect(path, aid)["structural_status"] == "PASS"
+
+
+def test_detached_structured_source_id_fails_closed(tmp_path):
+    path, aid = approved_paper(tmp_path)
+    with sqlite3.connect(path) as db:
+        db.execute(
+            "UPDATE assessment_question_specs SET package_question_id='forged' "
+            "WHERE question_id=(SELECT id FROM questions WHERE assessment_id=? LIMIT 1)",
+            (aid,)
+        )
+    result = inspect(path, aid)
+    assert result["structural_status"] == "BLOCKED"
+    assert "subjective_snapshot_or_rubric_mismatch" in result["issues"]
