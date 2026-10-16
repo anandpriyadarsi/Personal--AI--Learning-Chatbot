@@ -130,6 +130,13 @@ class AssessmentExecutionService:
             )
         return status, used, current, anomaly
 
+    @staticmethod
+    def _authored_rubric_id(meta, question):
+        """Frozen package question identity, never derived from a display label."""
+        return meta.get("authored_question_ids", {}).get(
+            question["id"], question["question_id"]
+        )
+
     def adopt(self, sid, *, kind="online_timed", reviewed_fixture=False):
         """Explicit adoption in the disposable store; cannot grant production approval."""
         if kind not in {"online_timed", "paper_subjective"}:
@@ -155,6 +162,7 @@ class AssessmentExecutionService:
             ]
             if not questions:
                 raise ValueError("Empty assessment.")
+            authored_question_ids = {}
             if kind == "paper_subjective":
                 if (
                     h["mode"] != "practice"
@@ -168,8 +176,17 @@ class AssessmentExecutionService:
                 ):
                     raise ValueError("Reviewed all-subjective practice is required.")
                 for q in questions:
+                    identity = db.execute(
+                        "SELECT package_question_id FROM assessment_question_specs "
+                        "WHERE question_id=?", (q["question_id"],)
+                    ).fetchone()
+                    if identity is None or not identity[0]:
+                        raise ValueError("Reviewed package question identity unavailable.")
+                    # The author knows the stable package ID; canonical SQLite
+                    # IDs are allocated only when the package is approved.
+                    authored_question_ids[q["id"]] = identity[0]
                     parse_rubric(
-                        q["rubric_text"], q["question_id"], q["max_marks_milli"]
+                        q["rubric_text"], identity[0], q["max_marks_milli"]
                     )
             started = timestamp(
                 datetime.fromisoformat(h["started_at"].replace("Z", "+00:00"))
@@ -205,6 +222,7 @@ class AssessmentExecutionService:
                 pause_allowed=h["mode"] == "practice",
                 clock_anomaly=False,
                 snapshot_sha256=digest(snapshot),
+                authored_question_ids=authored_question_ids,
                 paper={},
                 package_identity=dict(
                     authority="synthetic_review_only",
@@ -526,7 +544,7 @@ class AssessmentExecutionService:
                     result["guide"] = dict(
                         solution=q["solution_text"],
                         rubric=parse_rubric(
-                            q["rubric_text"], q["question_id"], q["max_marks_milli"]
+                            q["rubric_text"], self._authored_rubric_id(m, q), q["max_marks_milli"]
                         ),
                         rubric_sha256=p["rubric_sha256"],
                         reviewer_status="synthetic_review_only",
@@ -544,7 +562,7 @@ class AssessmentExecutionService:
                     if not isinstance(step_reasons, dict):
                         raise ValueError("Invalid criterion reasons.")
                     rubric = parse_rubric(
-                        q["rubric_text"], q["question_id"], q["max_marks_milli"]
+                        q["rubric_text"], self._authored_rubric_id(m, q), q["max_marks_milli"]
                     )
                     step_ids = {step["id"] for step in rubric.get("steps", [])}
                     if set(step_reasons) - step_ids:
@@ -563,7 +581,7 @@ class AssessmentExecutionService:
                                 "Reveal the reviewed guide before marking."
                             )
                         rubric = parse_rubric(
-                            q["rubric_text"], q["question_id"], q["max_marks_milli"]
+                            q["rubric_text"], self._authored_rubric_id(m, q), q["max_marks_milli"]
                         )
                         awards = {
                             k: payload[k] for k in ("marks", "steps") if k in payload
@@ -729,7 +747,7 @@ class AssessmentExecutionService:
                 q["id"]: dict(
                     solution=q["solution_text"],
                     rubric=parse_rubric(
-                        q["rubric_text"], q["question_id"], q["max_marks_milli"]
+                        q["rubric_text"], self._authored_rubric_id(m, q), q["max_marks_milli"]
                     ),
                     rubric_sha256=digest(q["rubric_text"]),
                     reviewer_status="synthetic_review_only",
