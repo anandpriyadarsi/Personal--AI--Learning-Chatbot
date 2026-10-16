@@ -42,6 +42,8 @@ nav.study-palette .palette-question.is-current{border-color:var(--accent);backgr
 .palette-pause:hover{background:#1e4c46}
 .layout{grid-template-columns:minmax(220px,250px) minmax(0,1fr)}
 @media(max-width:768px){
+ .layout{grid-template-columns:minmax(0,1fr)}
+ .paper,.question,.study-palette{min-width:0}
  .study-palette{position:static;padding:15px;display:block}
  .palette-items{grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;margin:12px 0}
  nav.study-palette .palette-question{min-height:48px;font-size:14px}
