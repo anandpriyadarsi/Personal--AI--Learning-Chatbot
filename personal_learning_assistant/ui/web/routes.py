@@ -330,6 +330,7 @@ def _assessment_paused_resume_actions():
     """
     if current_app.config.get("ASSESSMENT_EXTENDED_ENABLED") is not True:
         return []
+    import sqlite3
     try:
         from secrets import token_urlsafe
         signer = current_app.extensions["assessment_extended_mutation_signer"]
