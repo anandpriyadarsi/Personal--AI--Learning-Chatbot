@@ -26,19 +26,19 @@
 {% if not library.available %}<p class="notice-panel">The existing course catalogue is currently unavailable. ANVAYA has not changed your academic records.</p>{% endif %}
 
 {% for year, courses in library.courses|groupby('academic_year') %}
-<section class="ls-subject-group" aria-label="Subjects for {{ year }}">
-  <div class="ls-section-heading"><div><p class="ls-workspace-overline">Academic year</p><h2>{{ year }}</h2></div><span>{{ courses|length }} courses</span></div>
+{% set displayed_year = 'First Year' if year == 'Academic year unspecified' else year %}
+<section class="ls-subject-group" aria-label="Subjects for {{ displayed_year }}">
+  <div class="ls-section-heading ls-subject-heading"><div><p class="ls-workspace-overline">Academic year</p><h2>{{ displayed_year }}</h2></div><span>{{ courses|length }} courses</span></div>
   {% for semester, members in courses|groupby('semester') %}
-  <h3 class="ls-semester-label">{{ semester or 'Semester unspecified' }}</h3>
+  <h3 class="ls-semester-label">{{ 'Semester 1' if year == 'Academic year unspecified' and (not semester or semester == 'Semester unspecified') else (semester or 'Semester unspecified') }}</h3>
   <div class="ls-subject-grid">
     {% for c in members %}
     {% set p=templates[c.id] %}
     <a class="ls-card ls-subject-card{% if p.chemistry %} ls-subject-chemistry{% endif %}" href="{{ url_for('learning.course',course_id=c.id) }}">
       <div class="ls-subject-card-top"><span class="ls-subject-code">{{ c.code }}</span><span class="ls-subject-arrow" aria-hidden="true">↗</span></div>
       <h4>{{ p.title }}</h4>
-      <p>{{ p.description }}</p>
-      <div class="ls-subject-tags">{% for item in p.pathways %}<span>{{ item }}</span>{% endfor %}</div>
-      <div class="ls-subject-footer"><span>{{ c.module_count }} authored {{ 'module' if c.module_count == 1 else 'modules' }}</span><strong>Open workspace <span aria-hidden="true">→</span></strong></div>
+      <p class="ls-subject-summary">{{ p.eyebrow }}</p>
+      <div class="ls-subject-footer"><span>{{ c.module_count }} {{ 'module' if c.module_count == 1 else 'modules' }}</span><strong>Explore <span aria-hidden="true">→</span></strong></div>
     </a>
     {% endfor %}
   </div>
