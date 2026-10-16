@@ -323,6 +323,30 @@ def _assessment_extended_service():
     return AssessmentExecutionService(config.DATABASE_PATH, production=True)
 
 
+def _assessment_paused_resume_actions():
+    """Signed, user-initiated POST controls for existing paused attempts.
+
+    No GET writes, automatic resumes, grade changes or solution disclosure.
+    """
+    if current_app.config.get("ASSESSMENT_EXTENDED_ENABLED") is not True:
+        return []
+    try:
+        from secrets import token_urlsafe
+        signer = current_app.extensions["assessment_extended_mutation_signer"]
+        sessions = _assessment_extended_service().paused_sessions(limit=6)
+        return [
+            {
+                **item,
+                "mutation_token": signer.dumps({"session_id": item["session_id"]}),
+                "request_id": token_urlsafe(18),
+            }
+            for item in sessions
+        ]
+    except (ValueError, LookupError, OSError, KeyError, sqlite3.Error) as exc:
+        current_app.logger.warning("Paused Assessment sessions unavailable (%s).", type(exc).__name__)
+        return []
+
+
 def _is_extended_session(session_id):
     from personal_learning_assistant.repositories.sqlite.assessment_execution_repository import has_extended_attempt
     with _assessment_runner_service()._repository(write=False) as repository:
@@ -997,6 +1021,7 @@ def assessments():
         studio=_safe_assessment_studio(),
         workspace=_safe_assessment_workspace(),
         assessment_extended_enabled=current_app.config.get("ASSESSMENT_EXTENDED_ENABLED") is True,
+        paused_assessment_attempts=_assessment_paused_resume_actions(),
     )
 
 
