@@ -66,8 +66,8 @@ def bounded(value, limit=2000):
 
 
 class AssessmentExecutionService:
-    def __init__(self, path, *, now_fn=None):
-        self.repository = AssessmentExecutionRepository(path)
+    def __init__(self, path, *, now_fn=None, production=False):
+        self.repository = AssessmentExecutionRepository(path, production=production)
         self.now_fn = now_fn or (lambda: datetime.now(timezone.utc))
 
     def _load(self, db, sid):
@@ -137,7 +137,8 @@ class AssessmentExecutionService:
             question["id"], question["question_id"]
         )
 
-    def adopt(self, sid, *, kind="online_timed", reviewed_fixture=False):
+    def adopt(self, sid, *, kind="online_timed", reviewed_fixture=False,
+              self_review_acknowledged=False):
         """Explicit adoption in the disposable store; cannot grant production approval."""
         if kind not in {"online_timed", "paper_subjective"}:
             raise ValueError("Invalid attempt kind.")
@@ -163,10 +164,13 @@ class AssessmentExecutionService:
             if not questions:
                 raise ValueError("Empty assessment.")
             authored_question_ids = {}
+            if self.repository.production and h["mode"] != "practice":
+                raise ValueError("Local extended attempts are practice only.")
             if kind == "paper_subjective":
                 if (
                     h["mode"] != "practice"
-                    or reviewed_fixture is not True
+                    or (not self.repository.production and reviewed_fixture is not True)
+                    or (self.repository.production and self_review_acknowledged is not True)
                     or any(
                         q["question_type"]
                         not in {"short_subjective", "long_subjective"}
@@ -175,6 +179,13 @@ class AssessmentExecutionService:
                     )
                 ):
                     raise ValueError("Reviewed all-subjective practice is required.")
+                if self.repository.production:
+                    from personal_learning_assistant.services.assessment_paper_admission import inspect_paper_import
+                    admission = inspect_paper_import(
+                        db, h["assessment_id"], _trusted_write_transaction=True
+                    )
+                    if admission["structural_status"] != "PASS":
+                        raise ValueError("Approved package and exact paper rubric lineage required.")
                 for q in questions:
                     identity = db.execute(
                         "SELECT package_question_id FROM assessment_question_specs "
@@ -225,7 +236,7 @@ class AssessmentExecutionService:
                 authored_question_ids=authored_question_ids,
                 paper={},
                 package_identity=dict(
-                    authority="synthetic_review_only",
+                    authority=("user_private_self_check" if self.repository.production else "synthetic_review_only"),
                     production_authority="BLOCKED",
                     snapshot_sha256=digest(snapshot),
                 ),
@@ -547,7 +558,7 @@ class AssessmentExecutionService:
                             q["rubric_text"], self._authored_rubric_id(m, q), q["max_marks_milli"]
                         ),
                         rubric_sha256=p["rubric_sha256"],
-                        reviewer_status="synthetic_review_only",
+                        reviewer_status=("student_self_review_unverified" if self.repository.production else "synthetic_review_only"),
                     )
                 elif command == "self_save":
                     if h["status"] == "active":
@@ -750,7 +761,7 @@ class AssessmentExecutionService:
                         q["rubric_text"], self._authored_rubric_id(m, q), q["max_marks_milli"]
                     ),
                     rubric_sha256=digest(q["rubric_text"]),
-                    reviewer_status="synthetic_review_only",
+                    reviewer_status=("student_self_review_unverified" if self.repository.production else "synthetic_review_only"),
                 )
                 for q in questions
                 if m["paper"].get(q["id"], {}).get("revealed_at")
