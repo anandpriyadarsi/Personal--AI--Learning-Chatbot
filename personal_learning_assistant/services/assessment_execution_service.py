@@ -182,7 +182,7 @@ class AssessmentExecutionService:
                 if self.repository.production:
                     from personal_learning_assistant.services.assessment_paper_admission import inspect_paper_import
                     admission = inspect_paper_import(
-                        db, h["assessment_id"], _trusted_write_transaction=True
+                        db.raw, h["assessment_id"], _trusted_write_transaction=True
                     )
                     if admission["structural_status"] != "PASS":
                         raise ValueError("Approved package and exact paper rubric lineage required.")
