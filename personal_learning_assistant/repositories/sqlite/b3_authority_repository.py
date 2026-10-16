@@ -113,7 +113,14 @@ ANOMALY_QUERIES = {
     'session_topic_course_conflicts': 'SELECT count(*) FROM main.assessment_test_session_questions x JOIN main.assessment_test_sessions s ON s.id=x.session_id JOIN main.assessments a ON a.id=s.assessment_id JOIN main.topics t ON t.id=x.topic_id WHERE a.course_id<>t.course_id',
     'session_question_assessment_conflicts': 'SELECT count(*) FROM main.assessment_test_session_questions x JOIN main.assessment_test_sessions s ON s.id=x.session_id JOIN main.questions q ON q.id=x.question_id WHERE s.assessment_id<>q.assessment_id',
     'evaluation_reference_conflicts': 'SELECT count(*) FROM main.assessment_response_evaluations e JOIN main.assessment_test_session_questions q ON q.id=e.session_question_id JOIN main.assessment_session_evaluations s ON s.id=e.session_evaluation_id JOIN main.assessment_test_responses r ON r.id=e.response_id WHERE e.question_id<>q.question_id OR s.session_id<>q.session_id OR r.session_question_id<>q.id',
-    'attempt_bridge_conflicts': 'SELECT count(*) FROM main.assessment_response_evaluations e LEFT JOIN main.question_attempts a ON a.id=e.question_attempt_id WHERE e.question_attempt_id IS NOT NULL AND (a.id IS NULL OR a.question_id<>e.question_id OR a.evaluation_ref IS NULL OR a.evaluation_ref<>e.id)',
+    # Historical bare IDs and the Assessment Evaluation writer's immutable
+    # namespaced refs identify the *same* response evaluation. Never accept an
+    # arbitrary suffix, a different namespace, or a different evaluation ID.
+    'attempt_bridge_conflicts': "SELECT count(*) FROM main.assessment_response_evaluations e "
+        "LEFT JOIN main.question_attempts a ON a.id=e.question_attempt_id "
+        "WHERE e.question_attempt_id IS NOT NULL AND "
+        "(a.id IS NULL OR a.question_id<>e.question_id OR a.evaluation_ref IS NULL "
+        "OR a.evaluation_ref NOT IN (e.id, 'assessment_response_evaluation:' || e.id))",
     'mistake_bridge_conflicts': 'SELECT count(*) FROM main.assessment_evaluation_mistakes m JOIN main.assessment_response_evaluations e ON e.id=m.response_evaluation_id LEFT JOIN main.mistake_events x ON x.id=m.mistake_event_id WHERE m.mistake_event_id IS NOT NULL AND (x.id IS NULL OR x.attempt_id IS NULL OR e.question_attempt_id IS NULL OR x.attempt_id<>e.question_attempt_id)',
     'import_topic_course_conflicts': 'SELECT count(*) FROM main.assessment_import_questions q JOIN main.assessment_import_batches b ON b.id=q.batch_id JOIN main.topics t ON t.id=q.selected_topic_id WHERE t.course_id<>b.course_id',
 }
