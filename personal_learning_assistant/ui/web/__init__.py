@@ -25,6 +25,7 @@ def create_app(config: Mapping[str, Any] | None = None) -> Flask:
         ASSESSMENT_COLAB_URL=os.environ.get("ANVAYA_COLAB_URL", ""),
         ASSESSMENT_CODING_HELPER_ENABLED=os.environ.get("ANVAYA_CODING_HELPER_ENABLED", "true").lower() == "true",
         ASSESSMENT_CODING_HELPER_EXAM_POLICY=os.environ.get("ANVAYA_CODING_HELPER_EXAM_POLICY", "disabled"),
+        ASSESSMENT_EXTENDED_ENABLED=os.environ.get("ANVAYA_ASSESSMENT_EXTENDED", "false").strip().lower() == "true",
     )
     if config:
         app.config.update(config)
@@ -36,5 +37,19 @@ def create_app(config: Mapping[str, Any] | None = None) -> Flask:
     app.register_blueprint(web_blueprint)
     from .assessment_tools import assessment_tools_blueprint
     app.register_blueprint(assessment_tools_blueprint)
+    if app.config.get("ASSESSMENT_EXTENDED_ENABLED") is True:
+        import config as installed_config
+        from secrets import token_bytes
+        from personal_learning_assistant.services.assessment_execution_service import AssessmentExecutionService
+        from .assessment_execution_candidate import create_production_blueprint
+
+        def extended_service():
+            configured = app.config.get("ASSESSMENT_EXTENDED_SERVICE_FACTORY")
+            return (configured() if callable(configured)
+                    else AssessmentExecutionService(installed_config.DATABASE_PATH, production=True))
+
+        app.register_blueprint(create_production_blueprint(
+            extended_service, secret_key=token_bytes(32)
+        ))
     register_error_handlers(app)
     return app
