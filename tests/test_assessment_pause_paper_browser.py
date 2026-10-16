@@ -273,3 +273,42 @@ def test_no_javascript_paper_review_amendment(chromium, live):
     expect(page.locator(".review-final")).to_contain_text("version 2")
     assert len(s.review_history(ids["paper"])) == 2
     context.close()
+
+
+def test_dark_palette_has_single_pause_and_saves_current_answer(chromium, live):
+    base, service, ids, clock = live
+    context = chromium.new_context(viewport={"width": 1366, "height": 860})
+    page = context.new_page()
+    page.goto(base + "/assessments/candidate/sessions/" + ids["online"])
+    palette = page.get_by_role("navigation", name="Question palette")
+    assert palette.get_by_role("button", name="Pause", exact=True).count() == 1
+    assert page.locator(".question button[name='command'][value='pause']").count() == 0
+    assert page.evaluate("getComputedStyle(document.documentElement).colorScheme") == "dark"
+    assert page.evaluate("getComputedStyle(document.body).backgroundColor") == "rgb(11, 15, 20)"
+    page.locator('input[value="B"]').check()
+    palette.get_by_role("button", name="Pause", exact=True).click()
+    expect(page.locator("#state-banner")).to_contain_text("Paused — answers saved")
+    saved = service.state(ids["online"])
+    assert saved["status"] == "paused"
+    assert saved["questions"][0]["response"]["selected_option_ids"] == ["B"]
+    frozen = saved["remaining_ms"]
+    clock.advance(7200)
+    page.reload()
+    assert service.state(ids["online"])["remaining_ms"] == frozen
+    palette.get_by_role("button", name="Resume", exact=True).click()
+    expect(page.locator("#state-banner")).to_contain_text("Solving in progress")
+    expect(page.locator('input[value="B"]')).to_be_checked()
+    context.close()
+
+
+def test_paper_pause_is_only_in_palette(chromium, live):
+    base, service, ids, _ = live
+    context = chromium.new_context()
+    page = context.new_page()
+    page.goto(base + "/assessments/candidate/sessions/" + ids["paper"])
+    palette = page.get_by_role("navigation", name="Question palette")
+    assert palette.get_by_role("button", name="Pause", exact=True).count() == 1
+    assert page.locator("#state-banner").get_by_role("button", name="Pause").count() == 0
+    palette.get_by_role("button", name="Pause", exact=True).click()
+    assert service.state(ids["paper"])["status"] == "paused"
+    context.close()
