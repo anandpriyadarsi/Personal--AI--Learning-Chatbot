@@ -9,8 +9,12 @@ from flask import Blueprint, Flask, abort, jsonify, redirect, render_template, r
 from itsdangerous import URLSafeSerializer, BadSignature
 
 
-def create_candidate_app(service, *, secret_key):
-    """The original disposable development app; never opens installed data."""
+def create_candidate_app(service, *, secret_key, landing_sessions=None):
+    """Standalone disposable demo with a discoverable, read-only landing page.
+
+    Session identifiers come from the trusted synthetic fixture, never an
+    installed ANVAYA database. The production blueprint has no root route.
+    """
     root = Path(__file__).resolve().parent
     app = Flask(
         __name__,
@@ -18,7 +22,23 @@ def create_candidate_app(service, *, secret_key):
         static_folder=str(root / "static"),
     )
     app.config.update(MAX_CONTENT_LENGTH=150000)
-    return _create_routes(app, service, secret_key=secret_key, production=False)
+    _create_routes(app, service, secret_key=secret_key, production=False)
+    visible = {
+        label: str(session)
+        for label, session in (landing_sessions or {}).items()
+        if label in {"online", "paper"}
+        and isinstance(session, str)
+        and 0 < len(session) <= 100
+    }
+
+    @app.get("/")
+    def preview_home():
+        return render_template(
+            "assessment_execution_preview_index.html",
+            sessions=visible,
+        )
+
+    return app
 
 
 class _ServiceProxy:

@@ -227,6 +227,7 @@ def main():
         )
         service, ids, key = create_fixture(directory)
     print("Synthetic preview only. Production activation is BLOCKED.", flush=True)
+    print(f"Open the demo homepage: http://127.0.0.1:{args.port}/", flush=True)
     for kind, sid in ids.items():
         print(
             f"{kind}: http://127.0.0.1:{args.port}/assessments/candidate/sessions/{sid}",
@@ -240,7 +241,7 @@ def main():
         + '"',
         flush=True,
     )
-    create_candidate_app(service, secret_key=key).run(
+    create_candidate_app(service, secret_key=key, landing_sessions=ids).run(
         host="127.0.0.1", port=args.port, debug=False, use_reloader=False
     )
 

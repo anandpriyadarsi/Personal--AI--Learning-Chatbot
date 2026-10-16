@@ -27,7 +27,12 @@ def test_new_routes_are_not_mounted_in_normal_app():
     from personal_learning_assistant.ui.web import create_app
 
     app = create_app({"TESTING": True})
-    assert not any("candidate" in str(rule) for rule in app.url_map.iter_rules())
+    # Learning Studio legitimately has a /learning/.../coverage/candidate
+    # route. Only the standalone Assessment fixture URL must be absent here.
+    assert not any(
+        str(rule).startswith("/assessments/candidate/")
+        for rule in app.url_map.iter_rules()
+    )
 
 
 def test_same_origin_token_and_private_projection(tmp_path):
@@ -212,3 +217,49 @@ def test_native_criterion_reasons_do_not_become_step_awards(tmp_path):
     assert item["awarded_marks_milli"] == 3000 and item["step_reasons"] == {
         "forward": "Checked substitution"
     }
+
+
+def test_synthetic_preview_root_is_discoverable_and_does_not_write(tmp_path):
+    """The fixture server / route is a chooser, not a missing-page 404.
+
+    Only the two disposable session IDs are linked. Reading the chooser must
+    not alter either academic fixtures or submission/grade state.
+    """
+    from scripts.assessment_execution_fixture import create_fixture
+    from personal_learning_assistant.ui.web.assessment_execution_candidate import create_candidate_app
+
+    service, ids, key = create_fixture(tmp_path / "fixture")
+    with sqlite3.connect(service.repository.path) as db:
+        before = list(db.iterdump())
+
+    app = create_candidate_app(service, secret_key=key, landing_sessions=ids)
+    client = app.test_client()
+    home = client.get("/")
+    assert home.status_code == 200
+    assert home.headers["Cache-Control"] == "no-store"
+    assert "Choose how you want to practise" in home.get_data(as_text=True)
+    assert "Synthetic learning demo" in home.get_data(as_text=True)
+    for kind in ("online", "paper"):
+        address = "/assessments/candidate/sessions/" + ids[kind]
+        assert address in home.get_data(as_text=True)
+        assert client.get(address).status_code == 200
+    assert "/assessments/extended/sessions/" not in home.get_data(as_text=True)
+
+    with sqlite3.connect(service.repository.path) as db:
+        assert list(db.iterdump()) == before
+
+
+def test_main_assessment_page_displays_preview_with_feature_disabled():
+    """Display the demo invitation without opening installed extended storage."""
+    from personal_learning_assistant.ui.web import create_app
+    app = create_app({"TESTING": True, "ASSESSMENT_EXTENDED_ENABLED": False})
+    client = app.test_client()
+    page = client.get("/assessments")
+    assert page.status_code == 200
+    body = page.get_data(as_text=True)
+    assert "Pause practice" in body
+    assert "handwritten self-check" in body
+    assert "http://127.0.0.1:8766/" in body
+    assert "python scripts/assessment_execution_fixture.py --port 8766" in body
+    assert "Your normal assessments are unchanged" in body
+    assert client.get("/assessments/extended/sessions/does-not-exist").status_code == 404

@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Assessment Studio · Demo modes · ANVAYA</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/assessment_execution_candidate.css') }}">
+</head>
+<body>
+<main class="preview-home">
+  <header>
+    <div class="brand">ANVAYA <span>ASSESSMENT STUDIO</span></div>
+    <span class="preview">Synthetic learning demo · no personal records</span>
+  </header>
+  <div class="top">
+    <div>
+      <p class="eyebrow">PREVIEW WORKSPACE</p>
+      <h1>Choose how you want to practise</h1>
+      <p class="muted">These sample attempts run in a separate disposable database. They do not change your installed ANVAYA assessments, grades, Tutor, Topic Intelligence, or Learning Studio.</p>
+    </div>
+  </div>
+  <div class="preview-home-grid">
+    <article class="preview-home-card">
+      <p class="eyebrow">MODE 01 · ONLINE PRACTICE</p>
+      <h2>Pause &amp; resume your test</h2>
+      <p>Try a timed question, save your answer, pause the active-time clock and resume the same attempt.</p>
+      {% if sessions.get('online') %}
+      <a class="preview-home-action" href="{{ url_for('workspace', sid=sessions.online) }}">Open online practice →</a>
+      {% else %}
+      <p class="muted">No sample online session was provided.</p>
+      {% endif %}
+    </article>
+    <article class="preview-home-card">
+      <p class="eyebrow">MODE 02 · HANDWRITTEN PRACTICE</p>
+      <h2>Solve on paper, then self-check</h2>
+      <p>Work through a subjective paper, reveal the example marking rubric and record your own criterion-by-criterion marks.</p>
+      {% if sessions.get('paper') %}
+      <a class="preview-home-action" href="{{ url_for('workspace', sid=sessions.paper) }}">Open handwritten self-check →</a>
+      {% else %}
+      <p class="muted">No sample paper session was provided.</p>
+      {% endif %}
+    </article>
+  </div>
+  <section class="notice" role="note">
+    <strong>Demo status — not an official evaluation</strong>
+    <p>These attempts are synthetic. Self-entered marks are not verified grades or automatic academic intelligence evidence. The installed ANVAYA feature remains disabled unless a separate database migration and activation are explicitly verified.</p>
+  </section>
+</main>
+</body>
+</html>

@@ -108,3 +108,15 @@
   .assessment-page .evaluation-grid { grid-template-columns: 1fr; }
   .assessment-page .evaluation-card-header { align-items: flex-start; flex-direction: column; }
 }
+
+/* Visible, explicitly synthetic feature preview in the real Assessment overview. */
+.assessment-mode-preview{display:flex;align-items:center;justify-content:space-between;gap:1.5rem;margin:0 0 1.7rem;padding:1.45rem 1.65rem;border:1px solid var(--border);border-radius:.85rem;background:var(--surface)}
+.assessment-mode-preview-copy{max-width:65ch;min-width:0}
+.assessment-mode-preview h3{font-size:1.18rem;line-height:1.4;margin:.25rem 0 .6rem}
+.assessment-mode-preview-copy>p:not(.eyebrow){font-size:.89rem;line-height:1.65;color:var(--text-muted);margin:.5rem 0}
+.assessment-mode-preview-copy strong{color:var(--text)}
+.assessment-mode-preview-actions{display:flex;flex-direction:column;align-items:stretch;gap:.6rem;min-width:min(100%,17rem)}
+.assessment-mode-preview-actions .button{justify-content:center;text-align:center}
+.assessment-mode-preview-actions p{font-size:.78rem;color:var(--text-muted);margin:.4rem 0 0}
+.assessment-mode-preview-actions code{display:block;font-size:.72rem;overflow-wrap:anywhere;word-break:break-word;white-space:normal;line-height:1.5;padding:.5rem .65rem;border:1px solid var(--border);border-radius:.4rem}
+@media(max-width:820px){.assessment-mode-preview{flex-direction:column;align-items:stretch;padding:1.1rem}.assessment-mode-preview-actions{max-width:none;min-width:0}}
