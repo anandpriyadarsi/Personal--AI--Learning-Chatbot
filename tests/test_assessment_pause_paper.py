@@ -519,3 +519,61 @@ def test_step_error_reasons_are_bounded_and_preserved(tmp_path):
             steps={"factor": "1", "forward": "1", "back": "1"},
             step_reasons={"unknown": "Forged step"},
         )
+
+
+def test_structured_imported_paper_uses_original_author_id_across_self_review(tmp_path):
+    """Reviewed package IDs are fixed before approval; canonical IDs are generated
+    later and must not silently replace the rubric's authored identity.
+    """
+    from pathlib import Path
+    from personal_learning_assistant.services.assessment_execution_service import AssessmentExecutionService
+    path = _database(tmp_path)
+    with sqlite3.connect(path) as db:
+        rows = db.execute(
+            "SELECT q.id,q.max_marks_milli FROM questions q ORDER BY ordinal"
+        ).fetchall()
+        for index, (canonical, maximum) in enumerate(rows):
+            authored = "package-" + canonical
+            rubric = "Reviewer method and intermediate-work criteria."
+            if index == 0:
+                rubric = json.dumps({
+                    "schema": "anvaya.subjective-rubric", "version": 1,
+                    "question_id": authored, "total_marks_milli": maximum,
+                    "grading_increment_milli": 500,
+                    "steps": [{
+                        "id": "method", "label": "Method",
+                        "expected_work": "Use the correct lower triangular factor",
+                        "max_marks_milli": maximum, "prerequisites": [],
+                        "award_when": ["Correct method"],
+                        "do_not_award_when": ["Incorrect method"],
+                        "allowed_awards_milli": [0, maximum],
+                        "alternative_group": None
+                    }],
+                    "common_mistakes": ["Confusing L and U"],
+                    "review_required": False
+                })
+            db.execute(
+                "UPDATE assessment_question_specs SET question_type='long_subjective', "
+                "package_question_id=?,solution_text='Reviewed method',rubric_text=? "
+                "WHERE question_id=?", (authored, rubric, canonical)
+            )
+        db.execute("UPDATE assessment_runtime_specs SET mode='practice'")
+    clock = Clock()
+    sid = _service(path, clock).start("assessment-1", confirmed=True)["session_id"]
+    with sqlite3.connect(path) as db:
+        db.executescript(
+            (Path(__file__).resolve().parents[1] / "scripts/fixtures/assessment_execution_candidate.sql").read_text()
+        )
+    service = AssessmentExecutionService(path, now_fn=clock)
+    service.adopt(sid, kind="paper_subjective", reviewed_fixture=True)
+    command(service, sid, "finish_solving")
+    q = question(service, sid)
+    guide = command(service, sid, "reveal", question_id=q["session_question_id"])["guide"]
+    assert guide["rubric"]["question_id"] == "package-" + q["question_id"]
+    result = command(
+        service, sid, "self_save",
+        question_id=q["session_question_id"],
+        steps={"method": "1.0"}
+    )
+    assert result["state"]["review"]["items"][q["session_question_id"]]["awarded_marks_milli"] == 1000
+    assert service.authorized_guides(sid)[q["session_question_id"]]["rubric"]["question_id"] == "package-" + q["question_id"]
