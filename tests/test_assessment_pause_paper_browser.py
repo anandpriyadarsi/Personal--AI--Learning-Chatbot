@@ -310,6 +310,7 @@ def test_paper_pause_is_only_in_palette(chromium, live):
     assert palette.get_by_role("button", name="Pause", exact=True).count() == 1
     assert page.locator("#state-banner").get_by_role("button", name="Pause").count() == 0
     palette.get_by_role("button", name="Pause", exact=True).click()
+    expect(page.locator("#state-banner")).to_contain_text("Paused — answers saved")
     assert service.state(ids["paper"])["status"] == "paused"
     context.close()
 
