@@ -16,7 +16,7 @@ from personal_learning_assistant.domain.assessment_self_evaluation import parse_
 SUBJECTIVE = frozenset({"short_subjective", "long_subjective"})
 
 
-def inspect_paper_import(connection: sqlite3.Connection, assessment_id: str) -> dict:
+def inspect_paper_import(connection: sqlite3.Connection, assessment_id: str, *, _trusted_write_transaction=False) -> dict:
     """Return bounded, redacted, fail-closed evidence about one imported assessment.
 
     Caller must explicitly attest a read transaction on a query-only database
@@ -26,8 +26,14 @@ def inspect_paper_import(connection: sqlite3.Connection, assessment_id: str) -> 
     """
     if not isinstance(connection, sqlite3.Connection):
         raise TypeError("An explicit SQLite connection is required.")
-    if not connection.in_transaction or connection.execute("PRAGMA query_only").fetchone()[0] != 1:
+    if not connection.in_transaction or (
+        not _trusted_write_transaction
+        and connection.execute("PRAGMA query_only").fetchone()[0] != 1
+    ):
         raise ValueError("Use an explicit read transaction and query-only connection.")
+    # A caller already inside an IMMEDIATE transaction may inspect its own
+    # immutable snapshots before atomically inserting local self-study state.
+    # This exception is private; the inspector still executes SELECT only.
     if not isinstance(assessment_id, str) or not 0 < len(assessment_id) <= 256:
         raise ValueError("Invalid assessment identity.")
 
