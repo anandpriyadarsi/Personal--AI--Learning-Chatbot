@@ -339,6 +339,9 @@ def test_palette_navigation_saves_before_moving_and_pause_keeps_last_question(ch
     page.get_by_role("navigation", name="Question palette").get_by_role(
         "button", name="Resume", exact=True
     ).click()
+    # A paused page intentionally renders every read-only question. Wait for
+    # the accepted resume and active-page repaint before testing one heading.
+    expect(page.locator("#state-banner")).to_contain_text("Solving in progress")
     expect(page.locator(".question-head")).to_contain_text("QUESTION 2")
     expect(page.locator('input[value="A"]')).to_be_checked()
     context.close()
