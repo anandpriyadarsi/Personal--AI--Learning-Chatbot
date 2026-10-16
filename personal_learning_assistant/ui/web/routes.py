@@ -996,6 +996,7 @@ def assessments():
         catalogue=_assessment_catalogue(),
         studio=_safe_assessment_studio(),
         workspace=_safe_assessment_workspace(),
+        assessment_extended_enabled=current_app.config.get("ASSESSMENT_EXTENDED_ENABLED") is True,
     )
 
 
