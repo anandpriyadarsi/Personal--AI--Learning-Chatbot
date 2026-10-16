@@ -312,3 +312,31 @@ def test_paper_pause_is_only_in_palette(chromium, live):
     palette.get_by_role("button", name="Pause", exact=True).click()
     assert service.state(ids["paper"])["status"] == "paused"
     context.close()
+
+
+def test_palette_navigation_saves_before_moving_and_pause_keeps_last_question(chromium, live):
+    base, service, ids, _ = live
+    context = chromium.new_context(viewport={"width": 1024, "height": 768})
+    page = context.new_page()
+    page.goto(base + "/assessments/candidate/sessions/" + ids["online"])
+    page.locator('input[value="B"]').check()
+    page.locator('[data-palette-go="2"]').click()
+    expect(page.locator(".question-head")).to_contain_text("QUESTION 2")
+    assert service.state(ids["online"])["current_ordinal"] == 2
+    assert service.state(ids["online"])["questions"][0]["response"]["selected_option_ids"] == ["B"]
+    page.locator('input[value="A"]').check()
+    page.get_by_role("navigation", name="Question palette").get_by_role(
+        "button", name="Pause", exact=True
+    ).click()
+    state = service.state(ids["online"])
+    assert state["status"] == "paused"
+    assert state["current_ordinal"] == 2
+    assert state["questions"][1]["response"]["selected_option_ids"] == ["A"]
+    page.reload()
+    assert "Paused — answers saved" in page.locator("#state-banner").inner_text()
+    page.get_by_role("navigation", name="Question palette").get_by_role(
+        "button", name="Resume", exact=True
+    ).click()
+    expect(page.locator(".question-head")).to_contain_text("QUESTION 2")
+    expect(page.locator('input[value="A"]')).to_be_checked()
+    context.close()
