@@ -4,7 +4,7 @@
 -- independent work, Tutor assessment, Topic mastery or Planner recovery signal.
 -- No existing sessions are adopted on migration; opt-in only for new attempts.
 CREATE TABLE assessment_extended_scope (scope TEXT PRIMARY KEY CHECK(scope='local-self-study-v1'));
-INSERT INTO assessment_extended_scope VALUES ('disposable-synthetic-only');
+INSERT INTO assessment_extended_scope VALUES ('local-self-study-v1');
 CREATE TABLE assessment_extended_execution (
  session_id TEXT PRIMARY KEY REFERENCES assessment_test_sessions(id) ON DELETE RESTRICT,
  revision INTEGER NOT NULL CHECK(revision>0), metadata_json TEXT NOT NULL
