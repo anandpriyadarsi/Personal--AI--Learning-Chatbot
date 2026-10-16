@@ -356,3 +356,14 @@
 @media(max-width:900px){.learning-page .ls-evidence-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:480px){.learning-page .ls-evidence-metrics{gap:.5rem}.learning-page .ls-evidence-metrics>div{padding:.75rem}.learning-page .ls-evidence-header{padding:1rem}.learning-page .ls-evidence-metrics strong{font-size:1.14rem}}
 @media print{.learning-page .ls-evidence-header,.learning-page .ls-evidence-metrics>div,.learning-page .ls-quality-item{background:white!important;color:black!important;border-color:#bbb}.learning-page .ls-evidence-metrics span,.learning-page .ls-quality-item p{color:black!important}}
+
+/* Reflect without interrupting the reading flow: compact two-column composition. */
+.learning-reader .ls-reflection-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);gap:1rem 1.35rem;align-items:start}
+.learning-reader .ls-reflection-grid .ls-reflection-prompt{padding:.25rem .95rem .35rem 0;border-right:1px solid #3b5b57}
+.learning-reader .ls-reflection-prompt :is(p,h2,h3){margin:.3rem 0 .7rem}
+.learning-reader .ls-reflection-prompt p{font-size:.92rem;line-height:1.6}
+.learning-reader .ls-reflection-grid .ls-reflection-form{min-width:0}
+.learning-reader .ls-reflection-grid .ls-reflection-form label{margin-top:0}
+.learning-reader .ls-reflection-grid .ls-reflection-form>p:last-of-type{font-size:.74rem;line-height:1.5;margin:.5rem 0;color:#abc6bb}
+@media(max-width:860px){.learning-reader .ls-reflection-grid{grid-template-columns:minmax(0,1fr);gap:.7rem}.learning-reader .ls-reflection-grid .ls-reflection-prompt{border-right:0;border-bottom:1px solid #3b5b57;padding:0 0 .45rem}}
+@media print{.learning-reader .ls-reflection-grid{display:block}.learning-reader .ls-reflection-form{display:none!important}}
