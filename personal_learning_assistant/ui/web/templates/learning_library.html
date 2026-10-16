@@ -47,7 +47,7 @@
 {% else %}<p class="empty-state">No registered courses are available. Learning Studio does not invent course records.</p>{% endfor %}
 <section class="ls-secondary-courses">
   <a class="ls-card" href="{{ url_for('learning.course',course_id='unmapped') }}"><h3>Unmapped material</h3><p>{{ library.unmapped_count }} authored modules need course mapping review.</p></a>
-  {% if library.unavailable_count %}<a class="ls-card" href="{{ url_for('learning.course',course_id='unavailable') }}"><h3>Unrecognised historical courses</h3><p>{{ library.unavailable_count }} modules retain their existing source records.</p></a>{% endif %}
+  {% if library.unavailable_count %}<a class="ls-card" href="{{ url_for('learning.course',course_id='unavailable') }}"><h3>Course unavailable / needs review</h3><p>{{ library.unavailable_count }} modules retain their existing source records.</p></a>{% endif %}
 </section>
 {% if library.staged %}<section class="ls-staged-list"><h2>Staged previews</h2><ul>{% for item in library.staged %}<li><a href="{{ url_for('learning.preview',module_id=item.module_id,revision=item.revision) }}">{{ item.title }} · revision {{ item.revision }}</a></li>{% endfor %}</ul></section>{% endif %}
 
