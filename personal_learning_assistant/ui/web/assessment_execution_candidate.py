@@ -5,13 +5,12 @@ from pathlib import Path
 import secrets
 import sqlite3
 from urllib.parse import urlsplit
-from flask import Flask, abort, jsonify, redirect, render_template, request, url_for
+from flask import Blueprint, Flask, abort, jsonify, redirect, render_template, request, url_for
 from itsdangerous import URLSafeSerializer, BadSignature
 
 
 def create_candidate_app(service, *, secret_key):
-    if not isinstance(secret_key, bytes) or len(secret_key) < 32:
-        raise ValueError("A private fixture signing key is required.")
+    """The original disposable development app; never opens installed data."""
     root = Path(__file__).resolve().parent
     app = Flask(
         __name__,
@@ -19,8 +18,33 @@ def create_candidate_app(service, *, secret_key):
         static_folder=str(root / "static"),
     )
     app.config.update(MAX_CONTENT_LENGTH=150000)
+    return _create_routes(app, service, secret_key=secret_key, production=False)
+
+
+class _ServiceProxy:
+    def __init__(self, factory):
+        self.factory = factory
+
+    def __getattr__(self, name):
+        # Factory is evaluated per request; no global connection or user state.
+        return getattr(self.factory(), name)
+
+
+def create_production_blueprint(service_factory, *, secret_key):
+    """Opt-in private self-study routes mounted by the normal create_app."""
+    root = Path(__file__).resolve().parent
+    bp = Blueprint("assessment_extended", __name__, template_folder=str(root / "templates"))
+    return _create_routes(bp, _ServiceProxy(service_factory),
+                          secret_key=secret_key, production=True)
+
+
+def _create_routes(app, service, *, secret_key, production):
+    if not isinstance(secret_key, bytes) or len(secret_key) < 32:
+        raise ValueError("A private mutation signing key is required.")
     signer = URLSafeSerializer(secret_key, salt="assessment-candidate-mutation-v1")
-    base = "/assessments/candidate/sessions/<sid>"
+    base = ("/assessments/extended/sessions/<sid>" if production
+            else "/assessments/candidate/sessions/<sid>")
+    endpoint_prefix = "assessment_extended." if production else ""
 
     @app.after_request
     def headers(response):
@@ -65,6 +89,7 @@ def create_candidate_app(service, *, secret_key):
                 retained=retained,
                 mutation_token=signer.dumps({"session_id": sid}),
                 new_id=lambda: secrets.token_urlsafe(18),
+                endpoint_prefix=endpoint_prefix,
                 error=error,
             ),
             code,
@@ -96,6 +121,8 @@ def create_candidate_app(service, *, secret_key):
             return False
 
     def authorize(sid, data):
+        if production and request.content_length is not None and request.content_length > 150000:
+            abort(413)
         origin = request.headers.get("Origin")
         site = request.headers.get("Sec-Fetch-Site")
         if site and site != "same-origin":
@@ -195,7 +222,7 @@ def create_candidate_app(service, *, secret_key):
         result = service.command(sid, action, payload)
         if request.is_json or request.headers.get("Accept") == "application/json":
             return jsonify(ok=True, **result)
-        return redirect(url_for("workspace", sid=sid), code=303)
+        return redirect(url_for(endpoint_prefix + "workspace", sid=sid), code=303)
 
     @app.errorhandler(ValueError)
     def invalid(error):
