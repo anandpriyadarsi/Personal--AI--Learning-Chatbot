@@ -136,3 +136,23 @@ def test_correction_cannot_jump_module_revisions(tmp_path):
         s.create_candidate('synthetic',1,dict(correction(),target_revision=9))
     assert s.store.path.read_bytes()==original
     assert s.library(course_id='unmapped')['modules'][0]['revision']==1
+
+
+def test_malformed_pdf_xobject_preflight_fails_closed_without_key_leak():
+    import io
+    from pypdf import PdfWriter
+    from pypdf.generic import DictionaryObject,NameObject,NumberObject
+    from .helpers import package
+    from personal_learning_assistant.learning_studio.source_features import pdf_features
+    from personal_learning_assistant.learning_studio.authoring import preflight
+    writer=PdfWriter()
+    first=writer.add_blank_page(width=100,height=100)
+    writer.add_blank_page(width=100,height=100)
+    first[NameObject('/Resources')]=DictionaryObject({NameObject('/XObject'):NumberObject(7)})
+    output=io.BytesIO();writer.write(output);raw=output.getvalue()
+    with pytest.raises(PackageError,match='Malformed PDF XObject resources'):
+        pdf_features(raw)
+    result=preflight(package(raw),raw,{},catalogue(),source_id='fixture-source')
+    assert result['valid'] is False
+    assert any(e['field']=='source.material' for e in result['errors'])
+    assert 'correct_index' not in json.dumps(result)
