@@ -95,6 +95,26 @@ def test_bridge_and_mistake_references_never_multiply_observations(tmp_path):
     assert 'inconsistent_bridge_reference' not in e.exclusion_reasons
 
 
+@pytest.mark.parametrize('reference,valid', [
+    ('ev-sq1', True),
+    ('assessment_response_evaluation:ev-sq1', True),
+    ('assessment_response_evaluation:ev-sq3', False),
+    ('other_prefix:ev-sq1', False),
+    (None, False),
+])
+def test_observation_bridge_uses_exact_evaluation_reference_contract(tmp_path, reference, valid):
+    path = _database(tmp_path)
+    update(path,
+           "INSERT INTO question_attempts (id,question_id,attempt_number,outcome,earned_marks_milli,max_marks_milli,occurred_at,signed_score_milli,evaluation_ref) "
+           "VALUES ('attempt','q1',1,'partially_correct',1000,2000,?,1000,?)",
+           (NOW, reference))
+    update(path, "UPDATE assessment_response_evaluations SET question_attempt_id='attempt' WHERE id='ev-sq1'")
+    evidence = read(path).evidence[0]
+    assert ('inconsistent_bridge_reference' not in evidence.exclusion_reasons) is valid
+    assert ('question_attempt', 'attempt') in {(r.kind, r.identifier) for r in evidence.source_refs}
+    assert evidence.automatic_eligible is False
+
+
 def test_content_duplicate_identity_is_shared_without_erasing_source_ids(tmp_path):
     path = _database(tmp_path)
     update(path, "UPDATE assessment_test_session_questions SET question_text=? WHERE id='sq1'", ('Café   rank',))
