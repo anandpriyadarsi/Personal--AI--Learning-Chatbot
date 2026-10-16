@@ -42,7 +42,7 @@ def test_status_and_source_page_filters_keep_unfiltered_denominators(tmp_path):
     studio.attempt('synthetic',event(authored))
     all_view=quality_report(studio,'synthetic',1)
     assert all_view['summary']['total_questions']==126
-    status=all_view['questions'][0]['status']
+    status=quality_report(studio,'synthetic',1,question_ids=['q1'])['questions'][0]['status']
     assert status in {'needs_review','checked_correct'}
     narrowed=quality_report(studio,'synthetic',1,status=status,page=1,limit=20)
     assert narrowed['questions_total']==1
