@@ -45,7 +45,10 @@ jobs:
         shell: python
         run: |
           import glob, os, subprocess, sys, xml.etree.ElementTree as ET
-          tests = sorted(glob.glob('tests/test_*assessment*.py'))
+          from pathlib import Path
+          # pathlib ensures the exact same POSIX-normalized test inventory on
+          # Windows and Ubuntu; glob emits backslashes on native Windows.
+          tests = sorted(Path(p).as_posix() for p in glob.glob('tests/test_*assessment*.py'))
           extra = [
               'tests/test_architecture_local_collector.py',
               'tests/test_topic_read_safety.py',
