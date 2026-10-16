@@ -54,6 +54,15 @@ def create_production_blueprint(service_factory, *, secret_key):
     """Opt-in private self-study routes mounted by the normal create_app."""
     root = Path(__file__).resolve().parent
     bp = Blueprint("assessment_extended", __name__, template_folder=str(root / "templates"))
+
+    @bp.record_once
+    def register_mutation_signer(state):
+        # Overview uses the *same* scoped, process-local signer as this
+        # blueprint for a native one-click POST resume. No GET mutation.
+        state.app.extensions["assessment_extended_mutation_signer"] = URLSafeSerializer(
+            secret_key, salt="assessment-candidate-mutation-v1"
+        )
+
     return _create_routes(bp, _ServiceProxy(service_factory),
                           secret_key=secret_key, production=True)
 
