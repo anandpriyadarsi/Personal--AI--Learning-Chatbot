@@ -1,4 +1,4 @@
-"""Unregistered execution candidate storage. Never installs or migrates a schema."""
+"""Explicitly scoped execution store. The migration runner owns schema updates."""
 
 from __future__ import annotations
 from contextlib import contextmanager
@@ -21,8 +21,9 @@ def has_extended_attempt(connection, session_id):
 
 
 class AssessmentExecutionRepository:
-    def __init__(self, path):
+    def __init__(self, path, *, production=False):
         self.path = Path(path)
+        self.production = production is True
 
     @contextmanager
     def open(self, *, write=False):
@@ -38,8 +39,9 @@ class AssessmentExecutionRepository:
             scope = db.execute(
                 "SELECT scope FROM assessment_candidate_scope"
             ).fetchall()
-            if len(scope) != 1 or scope[0][0] != "disposable-synthetic-only":
-                raise ValueError("Production authority is not approved.")
+            expected = "local-self-study-v1" if self.production else "disposable-synthetic-only"
+            if len(scope) != 1 or scope[0][0] != expected:
+                raise ValueError("Assessment execution store scope is unavailable.")
             if write:
                 db.execute("BEGIN IMMEDIATE")
             else:
