@@ -209,3 +209,46 @@ def test_temp_ledger_cannot_shadow_corrupt_main_authority(tmp_path):
         c.execute('BEGIN')
         with pytest.raises(ValueError, match='temporary'):
             module.inspect_authority(c, expected_ledger=module.source_migration_ledger(ROOT), backend='sqlite',control_status='PASS')
+
+
+@pytest.mark.parametrize('reference,conflicts', [
+    ('ev-sq1', 0),
+    ('assessment_response_evaluation:ev-sq1', 0),
+    ('assessment_response_evaluation:ev-sq3', 1),
+    ('other_evaluation:ev-sq1', 1),
+    (None, 1),
+])
+def test_attempt_bridge_accepts_only_exact_bare_or_writer_namespaced_identity(tmp_path, reference, conflicts):
+    """Existing evaluation writer uses namespaced references, while old fixtures
+    can have bare IDs. Both prove the same exact identity without trusting suffixes.
+    """
+    path = _database(tmp_path)
+    update(path,
+           "INSERT INTO question_attempts "
+           "(id,question_id,attempt_number,outcome,earned_marks_milli,max_marks_milli,"
+           "occurred_at,signed_score_milli,evaluation_ref) "
+           "VALUES ('attempt','q1',1,'partially_correct',1000,2000,?,1000,?)",
+           ('2026-09-20T10:30:00Z', reference))
+    update(path, "UPDATE assessment_response_evaluations SET question_attempt_id='attempt' "
+                 "WHERE id='ev-sq1'")
+    before = inventory(tmp_path)
+    report = inspect(path)
+    assert dict(report.identity_anomalies)['attempt_bridge_conflicts'] == conflicts
+    assert report.production_authority == 'BLOCKED'
+    assert report.total_changes == 0
+    after = inventory(tmp_path)
+    assert all(after[name] == original for name, original in before.items())
+
+
+def test_attempt_bridge_still_rejects_wrong_question_for_exact_eval_reference(tmp_path):
+    path = _database(tmp_path)
+    update(path,
+           "INSERT INTO question_attempts "
+           "(id,question_id,attempt_number,outcome,earned_marks_milli,max_marks_milli,"
+           "occurred_at,signed_score_milli,evaluation_ref) "
+           "VALUES ('attempt','q3',1,'partially_correct',1000,2000,?,1000,"
+           "'assessment_response_evaluation:ev-sq1')",
+           ('2026-09-20T10:30:00Z',))
+    update(path, "UPDATE assessment_response_evaluations SET question_attempt_id='attempt' "
+                 "WHERE id='ev-sq1'")
+    assert dict(inspect(path).identity_anomalies)['attempt_bridge_conflicts'] == 1
