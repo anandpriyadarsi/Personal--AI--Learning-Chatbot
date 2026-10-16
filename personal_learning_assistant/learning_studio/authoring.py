@@ -79,7 +79,12 @@ def preflight(package, source, assets, catalogue, *, source_id, coverage=None):
     if errors:return {'valid':False,'errors':errors}
     from .diagnostics import quality_diagnostics
     warnings.extend(quality_diagnostics(valid))
-    features=pdf_features(source)
+    try:
+        features=pdf_features(source)
+    except PackageError as exc:
+        error('source.material',str(exc),
+              'Inspect or obtain a valid immutable original PDF; never mark uninspectable visual resources as verified.')
+        return {'valid':False,'errors':errors}
     for page in features['pages']:
         if page['raster_resources'] or page['form_resources'] or not page['text_available']:
             warning(f"pages[{page['page']-1}]",'pdf-material-review',
