@@ -8,6 +8,7 @@ from .store import StudioStore
 from .progress import ProgressMixin
 from .review_store import ReviewStoreMixin
 from .mapping_review import MappingReviewMixin
+from .candidates import CandidateMixin
 from .validation import PackageError, identity, integer, require, validate_mapping, validate_package
 
 OWNER = 'local-owner'  # Existing ANVAYA is a single-owner local app, not multiuser auth.
@@ -21,13 +22,13 @@ def canonical(data):
     return json.dumps(data, ensure_ascii=False, sort_keys=True, separators=(',', ':'), allow_nan=False)
 
 
-class LearningStudioService(ProgressMixin, ReviewStoreMixin, MappingReviewMixin):
+class LearningStudioService(ProgressMixin, ReviewStoreMixin, MappingReviewMixin, CandidateMixin):
     def __init__(self, path, *, source_loader, catalogue_loader):
         self.store = StudioStore(path)
         self.source_loader = source_loader
         self.catalogue_loader = catalogue_loader
 
-    def stage(self, package, assets=None, coverage=None):
+    def stage(self, package, assets=None, coverage=None, *, candidate=False):
         require(isinstance(package, dict) and isinstance(package.get('source'), dict), 'Missing source/package.')
         raw = self.source_loader(package['source'].get('source_id'))
         p = validate_package(package, self.catalogue_loader(), raw, assets)
@@ -40,6 +41,15 @@ class LearningStudioService(ProgressMixin, ReviewStoreMixin, MappingReviewMixin)
             existing = con.execute('SELECT digest FROM modules WHERE module_id=? AND revision=?',
                                    (p['module_id'], p['module_revision'])).fetchone()
             if existing:
+                if candidate:
+                    require(not con.execute('SELECT 1 FROM publications WHERE module_id=? AND revision=?',
+                        (p['module_id'],p['module_revision'])).fetchone(),'Candidate target was published; reload before creating a new revision.',409)
+                    prior=con.execute('SELECT record_json FROM coverage_reports WHERE module_id=? AND revision=? ORDER BY seq DESC LIMIT 1',
+                        (p['module_id'],p['module_revision'])).fetchone()
+                    saved=json.loads(prior['record_json']) if prior else None
+                    if coverage is not None and saved is not None:
+                        coverage=copy.deepcopy(coverage);coverage['review']['reviewed_at']=saved['review']['reviewed_at']
+                    require(saved==coverage,'Candidate correction rationale conflicts; reload before creating another revision.',409)
                 require(existing['digest'] == digest, 'A module revision is immutable. Increment its revision.', 409)
                 existing_assets = {r['name']: r['bytes'] for r in con.execute(
                     'SELECT name,bytes FROM assets WHERE module_id=? AND revision=?', (p['module_id'], p['module_revision']))}
@@ -66,8 +76,10 @@ class LearningStudioService(ProgressMixin, ReviewStoreMixin, MappingReviewMixin)
                      mapping.get('course_id'), mapping.get('topic_name'), encoded, raw, now()))
                 for name, asset in (assets or {}).items():
                     con.execute('INSERT INTO assets VALUES(?,?,?,?)', (p['module_id'], p['module_revision'], name, asset))
-        if coverage is not None:
-            self.stage_coverage(p['module_id'], p['module_revision'], coverage)
+            if coverage is not None:
+                from .coverage import digest as coverage_digest
+                con.execute('INSERT OR IGNORE INTO coverage_reports(module_id,revision,digest,record_json,timestamp) VALUES(?,?,?,?,?)',
+                    (p['module_id'],p['module_revision'],coverage_digest(coverage),canonical(coverage),now()))
         return {'module_id': p['module_id'], 'revision': p['module_revision'], 'state': 'staged',
                 'semantic_review_pages': sum(page['status'] != 'verified' for page in p['pages'])}
 
