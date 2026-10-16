@@ -82,7 +82,7 @@ def test_normal_assessment_preflight_opt_in_resume_and_reject_legacy_mutation(tm
     sid = started.location.rsplit("/", 1)[1]
     with sqlite3.connect(path) as db:
         assert db.execute("SELECT count(*) FROM assessment_extended_execution WHERE session_id=?", (sid,)).fetchone()[0] == 1
-        assert db.execute("SELECT count(*) FROM assessment_candidate_execution").fetchone() is None if False else True
+        assert db.execute("SELECT count(*) FROM sqlite_master WHERE name='assessment_candidate_execution'").fetchone()[0] == 0
     clock.advance(10)
     q = extended().state(sid)["questions"][0]
     def command(name, **data):
