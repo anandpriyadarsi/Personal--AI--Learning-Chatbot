@@ -204,11 +204,33 @@ def evidence():
 def learning_quality(module_id,revision):
     from personal_learning_assistant.learning_studio.quality import quality_report
     from personal_learning_assistant.learning_studio.validation import require
-    require(not set(request.args)-{'format'} and request.args.get('format','json') in {'json','html'},
-            'Only the server derives evidence time and identity.')
-    result=quality_report(service(),module_id,revision)
-    if request.args.get('format')=='html':return render_template('learning_quality.html',active_page='learning',quality=result)
-    return jsonify(result)
+
+    allowed={'format','status','page','offset','limit'}
+    require(not set(request.args)-allowed and all(len(request.args.getlist(key))==1 for key in request.args)
+            and request.args.get('format','json') in {'json','html'},
+            'Only bounded queue filters are allowed; evidence time and identity are server-owned.')
+
+    def bounded_query_number(key, default, lower, upper):
+        raw=request.args.get(key)
+        if raw is None or raw=='':return default
+        require(len(raw)<=7 and raw.isascii() and raw.isdecimal(),
+                'Invalid revision queue pagination or source page.')
+        number=int(raw)
+        require(lower<=number<=upper,'Revision queue filter is out of range.')
+        return number
+
+    result=quality_report(service(),module_id,revision,
+        status=request.args.get('status','all'),
+        page=bounded_query_number('page',None,1,500),
+        offset=bounded_query_number('offset',0,0,1000000),
+        limit=bounded_query_number('limit',100,1,100))
+    response=(render_template('learning_quality.html',active_page='learning',quality=result)
+        if request.args.get('format')=='html' else jsonify(result))
+    if isinstance(response,str):
+        from flask import make_response
+        response=make_response(response)
+    response.headers['Cache-Control']='no-store'
+    return response
 
 
 @learning_blueprint.get('/learning/evidence/export')
