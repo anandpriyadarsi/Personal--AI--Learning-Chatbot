@@ -27,7 +27,12 @@ def test_new_routes_are_not_mounted_in_normal_app():
     from personal_learning_assistant.ui.web import create_app
 
     app = create_app({"TESTING": True})
-    assert not any("candidate" in str(rule) for rule in app.url_map.iter_rules())
+    # Learning Studio legitimately has a /learning/.../coverage/candidate
+    # route. Only the standalone Assessment fixture URL must be absent here.
+    assert not any(
+        str(rule).startswith("/assessments/candidate/")
+        for rule in app.url_map.iter_rules()
+    )
 
 
 def test_same_origin_token_and_private_projection(tmp_path):
