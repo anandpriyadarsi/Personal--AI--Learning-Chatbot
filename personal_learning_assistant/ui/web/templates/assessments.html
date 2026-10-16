@@ -5,6 +5,21 @@
   <div><p class="eyebrow">Your assessment workspace</p><h2 id="assessments-title">Assessment Studio</h2><p>Prepare, test, understand, improve.</p></div>
   <a class="button" href="{{ url_for('web.assessment_import') }}">Create with Alex <span aria-hidden="true">↗</span></a>
 </header>
+{% if assessment_extended_enabled %}
+<section class="assessment-mode-preview" aria-labelledby="assessment-modes-heading">
+  <div class="assessment-mode-preview-copy">
+    <p class="eyebrow">Assessment Studio · now available</p>
+    <h3 id="assessment-modes-heading">Pause/Resume and handwritten self-review</h3>
+    <p>Use these modes directly with your imported <strong>practice assessments</strong> in ANVAYA. Open an assessment from your library to select the mode on its instructions page.</p>
+    <p class="assessment-mode-preview-note">Pause saves the active-time practice clock. Handwritten marking uses the approved imported question and rubric, with marks recorded as <strong>private self-evaluation only</strong> — never an official grade, verified mastery or automatic Tutor/Planner evidence.</p>
+  </div>
+  <div class="assessment-mode-preview-actions">
+    <a class="button" href="{{ url_for('web.assessment_tests') }}">Open assessments →</a>
+    <a class="button button-secondary" href="{{ url_for('web.assessment_import') }}">Import practice paper</a>
+    <p>Practice modes are enabled for local ANVAYA. Your academic history is preserved.</p>
+  </div>
+</section>
+{% else %}
 <section class="assessment-mode-preview" aria-labelledby="assessment-modes-heading">
   <div class="assessment-mode-preview-copy">
     <p class="eyebrow">New Assessment Studio preview</p>
@@ -19,6 +34,7 @@
     <code>python scripts/assessment_execution_fixture.py --port 8766</code>
   </div>
 </section>
+{% endif %}
 {% if workspace.available %}
   {% if workspace.continuation %}{% set next = workspace.continuation %}
   <section class="assessment-continue" aria-labelledby="continue-title">
