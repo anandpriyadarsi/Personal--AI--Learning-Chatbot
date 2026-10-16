@@ -74,6 +74,12 @@ def test_current_defect_reproduction(evidence, finding):
 
 def test_get_missing_legacy_files_does_not_create_files(evidence):
     # Retires the inverted C assertion only after B2 desired regressions passed.
+    # The optimized single-snapshot probe must still cover all four GET cases.
+    assert len(evidence['read_routes']) == 4
+    assert {(row['route'], row['state']) for row in evidence['read_routes']} == {
+        ('/planning', 'empty'), ('/analysis', 'empty'),
+        ('/planning', 'seeded'), ('/analysis', 'seeded'),
+    }
     assert all(not row['created'] and not row['changed'] and not row['writes']
                for row in evidence['read_routes'])
 
