@@ -143,3 +143,74 @@ def test_feature_off_default_and_missing_migration_fail_closed(tmp_path):
     assert client.get("/assessments/extended/sessions/not-real").status_code == 404
     with pytest.raises(sqlite3.Error):
         AssessmentExecutionService(path, now_fn=clock, production=True).state("x")
+
+
+def test_launcher_activation_backs_up_existing_records_before_extension(tmp_path):
+    from personal_learning_assistant.services.assessment_activation import activate_assessment_extension
+    path = _database(tmp_path)
+    backups = tmp_path / "private-backups"
+    with sqlite3.connect(path) as db:
+        original = db.execute("SELECT COUNT(*) FROM questions").fetchone()[0]
+        assert original == 4
+    summary = activate_assessment_extension(path, backup_path=backups)
+    assert summary["enabled"] and not summary["new_database"]
+    assert summary["new_migrations"] == (15,)
+    assert summary["backup"] is not None
+    backup = backups / summary["backup"].split("/")[-1] if "/" in summary["backup"] else __import__("pathlib").Path(summary["backup"])
+    assert backup.is_file()
+    with sqlite3.connect(backup) as db:
+        assert db.execute("SELECT COUNT(*) FROM questions").fetchone()[0] == original
+        assert db.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0] == 14
+        assert db.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
+    with sqlite3.connect(path) as db:
+        assert db.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0] == 15
+        assert db.execute("SELECT COUNT(*) FROM questions").fetchone()[0] == original
+    second = activate_assessment_extension(path, backup_path=backups)
+    assert second["new_migrations"] == () and second["backup"] is None
+    assert len(list(backups.glob("*.sqlite3"))) == 1
+
+
+def test_launcher_activation_fails_closed_on_corrupted_sqlite(tmp_path):
+    from personal_learning_assistant.services.assessment_activation import activate_assessment_extension
+    path = tmp_path / "corrupt.sqlite"
+    corrupt = b"not an sqlite database"
+    path.write_bytes(corrupt)
+    with pytest.raises(sqlite3.DatabaseError):
+        activate_assessment_extension(path, backup_path=tmp_path / "backups")
+    assert path.read_bytes() == corrupt
+    assert not (tmp_path / "backups").exists()
+
+
+def test_launcher_enables_real_assessment_by_default_without_import_side_effects(monkeypatch):
+    from personal_learning_assistant.ui.web import __main__ as launch
+    from personal_learning_assistant.services import assessment_activation
+    calls = []
+    class FakeApp:
+        def run(self, **kwargs):
+            calls.append(("run", kwargs))
+    monkeypatch.delenv("ANVAYA_ASSESSMENT_EXTENDED", raising=False)
+    monkeypatch.setattr(assessment_activation, "activate_assessment_extension",
+                        lambda: calls.append(("migrate", True)) or {"backup": None})
+    monkeypatch.setattr(launch, "create_app", lambda options: calls.append(("config", options)) or FakeApp())
+    launch.main()
+    assert calls[0] == ("migrate", True)
+    assert calls[1] == ("config", {"ASSESSMENT_EXTENDED_ENABLED": True})
+    assert calls[2][0] == "run" and calls[2][1]["host"] == "127.0.0.1"
+
+    calls.clear()
+    monkeypatch.setenv("ANVAYA_ASSESSMENT_EXTENDED", "false")
+    launch.main()
+    assert calls[0] == ("config", {"ASSESSMENT_EXTENDED_ENABLED": False})
+    assert len(calls) == 2
+
+
+def test_live_overview_shows_real_practice_not_localhost_demo(tmp_path):
+    app, path, _, _, _ = _production(tmp_path)
+    page = app.test_client().get("/assessments")
+    assert page.status_code == 200
+    html = page.get_data(as_text=True)
+    assert "Assessment Studio · now available" in html
+    assert "Open assessments" in html
+    assert "Import practice paper" in html
+    assert "http://127.0.0.1:8766/" not in html
+    assert "Self-entered" not in html or "self-evaluation" in html.lower()
