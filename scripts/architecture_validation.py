@@ -144,6 +144,11 @@ def clean_environment(directory: Path, source: Path) -> dict:
                 'PYTHONPATH': os.pathsep.join([str(source / 'scripts/validation_guard'), str(source), str(source / 'tests')]),
                 'MPLBACKEND': 'Agg', 'MPLCONFIGDIR': str(directory / 'matplotlib'),
                 'ANVAYA_VALIDATION_ARTIFACTS': str(directory / 'screenshots'),
+                # Run all existing Chromium learning regressions in the architecture
+                # full-suite gate; unavailable external pilot sources remain explicit
+                # skips until their verified user-owned files are supplied.
+                'ANVAYA_BROWSER_TESTS': '1',
+                'ANVAYA_BROWSER_ARTIFACTS': str(directory / 'screenshots'),
                 'TZ': 'Asia/Kolkata'})
     return env
 
