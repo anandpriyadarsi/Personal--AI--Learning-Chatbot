@@ -32,3 +32,148 @@
   .learning-page .ls-queue-filters { display: grid; grid-template-columns: minmax(0,1fr); }
   .learning-page .ls-queue-filters #ls-queue-page { width: 100%; }
 }
+
+
+/* Subject workspace templates: local-first course presentation, no external media. */
+.ls-course-workspace{--ls-mint:#5bdfc9;--ls-muted:#a8b9c8}
+.ls-workspace-crumb{display:flex;align-items:center;gap:.65rem;margin:.4rem 0 1rem;font-size:.82rem;color:var(--ls-muted);flex-wrap:wrap}
+.ls-workspace-crumb a{color:#b5e6dd;text-decoration:none}
+.ls-workspace-hero{border:1px solid #334c59;background:radial-gradient(ellipse at 100% 0%,rgba(49,127,132,.24),transparent 55%),linear-gradient(125deg,#172231,#111923);border-radius:1.25rem;padding:clamp(1.3rem,3.4vw,2.6rem);margin-bottom:2rem;overflow:hidden;display:flex;gap:2rem;align-items:center;justify-content:space-between}
+.ls-workspace-intro{max-width:65ch;min-width:0}
+.ls-workspace-overline{color:#74dccc;font-size:.73rem;letter-spacing:.14em;text-transform:uppercase;font-weight:750;margin:0 0 .55rem}
+.ls-workspace-hero h1{font-size:clamp(2rem,4vw,3.7rem);line-height:1.14;margin:.25rem 0 1rem;letter-spacing:-.035em;max-width:18ch}
+.ls-workspace-hero p:not(.ls-workspace-overline){color:#b8cbda;max-width:56ch;line-height:1.7}
+.ls-workspace-actions{display:flex;flex-wrap:wrap;align-items:center;gap:.7rem 1.1rem;margin-top:1.5rem}
+.ls-workspace-actions a{color:#cce9ea;text-decoration:none;padding:.65rem .2rem;border-bottom:1px solid transparent}
+.ls-workspace-actions a.ls-workspace-primary{color:#102327;background:#72ddc9;padding:.7rem 1.2rem;border-radius:.6rem;font-weight:700;border:1px solid #92f0d6}
+.ls-workspace-actions a.ls-workspace-primary:hover{background:#a2f0de}
+.ls-workspace-journey{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:.5rem;color:#b3e4da;font-size:.79rem;max-width:17rem;line-height:2}
+.ls-course-hero-stat{width:10.5rem;flex:0 0 auto;display:grid;gap:.3rem;align-content:center;min-height:10rem;padding:1.2rem;border-radius:1rem;background:#102a30;border:1px solid #366269}
+.ls-course-hero-stat strong{font-size:3.3rem;color:#9af0da;line-height:1;font-variant-numeric:tabular-nums}
+.ls-course-hero-stat span{font-size:.85rem;color:#dfedec}
+.ls-course-hero-stat small{font-size:.7rem;color:#9bbaac}
+.ls-chemistry-hero{background:radial-gradient(ellipse at 93% 5%,rgba(44,159,115,.24),transparent 50%),linear-gradient(125deg,#182a2a,#101922)}
+.ls-section-heading{display:flex;flex-wrap:wrap;align-items:end;justify-content:space-between;gap:.7rem 2rem;margin-bottom:1.1rem}
+.ls-section-heading h2{margin:.1rem 0;font-size:clamp(1.35rem,2.2vw,2rem);letter-spacing:-.018em}
+.ls-section-heading>span,.ls-section-heading>a{color:#b3ccdc;font-size:.87rem}
+.ls-subject-group{margin:2.5rem 0}
+.ls-semester-label{font-size:.85rem;text-transform:uppercase;letter-spacing:.07em;color:#99b9c0;margin:1.3rem 0 .5rem}
+.ls-subject-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem}
+.ls-course-workspace .ls-subject-card{min-height:17rem;display:flex;flex-direction:column;gap:.7rem;padding:1.3rem 1.35rem;background:linear-gradient(150deg,#182638,#151f2c);border:1px solid #35465c;border-radius:1rem;margin:0;transition:transform .15s,border-color .15s}
+.ls-course-workspace .ls-subject-card:hover{transform:translateY(-3px);border-color:#81d5c4}
+.ls-subject-card-top,.ls-subject-footer,.ls-track-top,.ls-track-bottom{display:flex;align-items:center;justify-content:space-between;gap:.8rem}
+.ls-subject-code{font-size:.75rem;letter-spacing:.14em;color:#68ddd1;font-weight:800}
+.ls-subject-arrow,.ls-track-arrow{font-size:1.3rem;color:#8eb7c1}
+.ls-course-workspace .ls-subject-card h4{font-size:1.3rem;line-height:1.4;margin:0;color:#f4f8fb}
+.ls-course-workspace .ls-subject-card>p{font-size:.84rem;color:#a8bccb;line-height:1.55;margin:0}
+.ls-subject-tags{display:flex;flex-wrap:wrap;gap:.35rem}
+.ls-subject-tags>span{color:#b7d2df;background:#243548;border:1px solid #344a5c;padding:.22rem .48rem;font-size:.7rem;border-radius:2rem}
+.ls-subject-footer{margin-top:auto;border-top:1px solid #34495a;padding-top:.85rem;font-size:.77rem;color:#b4c3cf}
+.ls-subject-footer strong{color:#81e5d4;font-size:.76rem;text-align:right}
+.ls-subject-chemistry{border-color:#42746b!important;background:radial-gradient(circle at 100% 0%,rgba(67,142,114,.18),transparent 60%),#16252a!important}
+.ls-secondary-courses{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,18rem),1fr));gap:1rem}
+.ls-secondary-courses .ls-card{margin:0}
+.ls-workspace-section{margin:2.3rem 0;scroll-margin-top:5rem}
+.ls-chemistry-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem}
+.ls-chemistry-track{display:flex;flex-direction:column;align-items:flex-start;gap:.65rem;min-height:18rem;padding:1.4rem;border:1px solid #3b5257;border-radius:1.1rem;background:linear-gradient(152deg,#1c2b33,#121d25);text-decoration:none;color:#e5f4f6;transition:border-color .15s,transform .15s}
+.ls-chemistry-track:hover,.ls-chemistry-track.is-current{border-color:#72dec4;background:linear-gradient(152deg,#204039,#152927)}
+.ls-chemistry-track:hover{transform:translateY(-2px)}
+.ls-track-icon{display:inline-grid;place-items:center;width:3.4rem;height:3.4rem;border-radius:1rem;background:#2a5246;color:#a2f3dc;font-weight:850;font-size:.85rem;letter-spacing:.03em}
+.ls-track-spectroscopy{background:#273f60;color:#b2d2ff}.ls-track-lab{background:#514036;color:#ffd3a4}.ls-track-other{background:#354151;color:#cbd3e5}
+.ls-track-kicker{font-size:.73rem;color:#84cfcb;letter-spacing:.04em}
+.ls-chemistry-track strong{font-size:1.37rem;line-height:1.35}
+.ls-track-description{font-size:.85rem;line-height:1.65;color:#b6c6d0}
+.ls-track-bottom{font-size:.78rem;color:#9de1d3;border-top:1px solid #36515d;margin-top:auto;padding-top:.7rem;width:100%}
+.ls-classification-note{font-size:.8rem;line-height:1.5;color:#afc1cc;margin-top:.9rem}
+.ls-study-template{padding:1.5rem;border:1px solid #3b615c;border-radius:1rem;background:#152823;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:1rem 2rem}
+.ls-study-template h2{font-size:1.8rem;margin:.1rem 0}.ls-study-template p{color:#bfd1cc;line-height:1.65}
+.ls-study-template ol{list-style:none;display:grid;gap:.7rem;padding:0;margin:0}
+.ls-study-template li{display:flex;align-items:center;gap:.85rem;background:#1b3a33;padding:.8rem 1rem;border-radius:.6rem;line-height:1.5}
+.ls-study-template li span{font-weight:800;color:#7adfc6;font-size:.85rem}
+.ls-study-pathways{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem}
+.ls-study-pathways>div{padding:1.1rem;background:#1a2734;border:1px solid #354b5b;border-radius:.85rem}
+.ls-study-pathways h3{font-size:1rem;margin:.55rem 0}.ls-study-pathways p{font-size:.85rem;line-height:1.6;color:#afc1d1}
+.ls-pathway-number{font-size:.78rem;color:#74ddc8;font-weight:750}
+.ls-course-quicklinks{display:flex;flex-wrap:wrap;gap:.65rem;border-top:1px solid #2e4351;border-bottom:1px solid #2e4351;padding:1rem 0}
+.ls-course-quicklinks a{border-radius:.5rem;background:#1a2e3c;padding:.65rem .85rem;text-decoration:none;color:#c5f0e5;font-size:.88rem}
+.ls-course-filters{padding:1rem;background:#14222f;border:1px solid #354959;border-radius:.7rem;align-items:end}
+.ls-course-filters input{background:#0f1d29;color:#f0f5f7;border:1px solid #496073;border-radius:.4rem;font:inherit;padding:.55rem .6rem;width:100%;max-width:22rem;min-height:2.6rem}
+.ls-course-filters select{min-height:2.6rem}
+.ls-module-group{margin:1.4rem 0}.ls-module-group h3{font-size:1rem;color:#c4d9dc}
+.ls-module-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,17rem),1fr));gap:1rem}
+.ls-module-grid .ls-learning-module{margin:0;min-height:10rem;display:flex;flex-direction:column;gap:.75rem}
+.ls-learning-module h4{margin:0;font-size:1.13rem}.ls-learning-module>p{color:#b0c0c9;font-size:.8rem;line-height:1.5}
+.ls-learning-module>span:last-child{margin-top:auto;color:#81ddce;font-size:.8rem}
+.ls-empty-workspace{padding:clamp(1.4rem,5vw,3rem);border:1px dashed #47727b;border-radius:1rem;text-align:center;background:#14222b;max-width:100%}
+.ls-empty-workspace h3{font-size:1.25rem;margin:.5rem 0}.ls-empty-workspace p{color:#b2c5ce;line-height:1.65;max-width:60ch;margin:.7rem auto}
+.ls-empty-workspace>a{display:inline-block;text-decoration:none;padding:.55rem .95rem;margin:.75rem auto;color:#98edd7;border:1px solid #477f6c;border-radius:.5rem}
+.ls-empty-icon{font-size:2.5rem;color:#6de0cd}
+.ls-course-workspace :is(.ls-subject-card,.ls-chemistry-track,.ls-course-quicklinks a,.ls-workspace-actions a):focus-visible{outline:3px solid #8dffe0;outline-offset:3px}
+@media(max-width:1080px){.ls-subject-grid,.ls-chemistry-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:700px){.ls-workspace-hero{display:block}.ls-workspace-journey{max-width:100%;margin-top:1.5rem;justify-content:flex-start}.ls-course-hero-stat{min-height:unset;width:100%;margin-top:1rem}.ls-course-hero-stat strong{font-size:2.2rem}.ls-study-template{grid-template-columns:minmax(0,1fr)}.ls-study-pathways{grid-template-columns:minmax(0,1fr)}.ls-chemistry-grid,.ls-subject-grid{grid-template-columns:minmax(0,1fr)}.ls-chemistry-track{min-height:14rem}.ls-course-workspace .ls-subject-card{min-height:14rem}.ls-course-quicklinks a{flex:1 1 auto;text-align:center}}
+@media(prefers-reduced-motion:reduce){.ls-course-workspace .ls-subject-card,.ls-chemistry-track{transition:none}.ls-course-workspace .ls-subject-card:hover,.ls-chemistry-track:hover{transform:none}}
+@media print{.ls-workspace-hero,.ls-chemistry-track,.ls-study-template,.ls-study-pathways>div,.ls-course-filters,.ls-subject-card,.ls-empty-workspace{background:white!important;color:black!important}.ls-workspace-actions,.ls-course-quicklinks{display:none!important}}
+
+
+/* Subject dashboard refinement: compact horizontal rectangles with less text and cleaner rhythm.
+   Overrides the original spacious layouts; no scripting or external assets needed. */
+.ls-course-workspace .ls-subject-group{margin:1.5rem 0 2rem}
+.ls-course-workspace .ls-subject-heading{margin-bottom:.4rem}
+.ls-course-workspace .ls-subject-heading h2{font-size:clamp(1.3rem,2vw,1.7rem);letter-spacing:-.025em}
+.ls-course-workspace .ls-semester-label{margin:.85rem 0 .8rem;font-size:.75rem;letter-spacing:.09em;color:#9fbec5}
+.ls-course-workspace .ls-subject-grid{column-gap:.82rem;row-gap:.82rem}
+.ls-course-workspace .ls-subject-card{
+  box-sizing:border-box;min-height:9.2rem;padding:.92rem 1.05rem;
+  gap:.35rem;margin:0;border-radius:.78rem;
+  background:linear-gradient(130deg,#192535,#151f2b);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.027);
+  transition:border-color .15s,background-color .15s,transform .15s;
+}
+.ls-course-workspace .ls-subject-card:hover{transform:translateY(-2px);border-color:#6fcdb9}
+.ls-course-workspace .ls-subject-card h4{
+  font-size:clamp(.99rem,1.25vw,1.16rem);line-height:1.32;
+  letter-spacing:-.015em;margin:.08rem 0 0;
+}
+.ls-course-workspace .ls-subject-card .ls-subject-code{font-size:.67rem;letter-spacing:.14em}
+.ls-course-workspace .ls-subject-card .ls-subject-arrow{font-size:.95rem;color:#6ebaae}
+.ls-course-workspace .ls-subject-card .ls-subject-summary{
+  color:#9eafbf;font-size:.75rem;line-height:1.4;display:-webkit-box;
+  -webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;
+}
+.ls-course-workspace .ls-subject-card .ls-subject-footer{
+  margin-top:auto;padding-top:.52rem;border-top:1px solid #2e4150;
+  font-size:.72rem;min-height:1.35rem;
+}
+.ls-course-workspace .ls-subject-card .ls-subject-footer strong{font-size:.72rem}
+.ls-course-workspace .ls-subject-chemistry{
+  border-color:#3f685e!important;
+  background:linear-gradient(126deg,#19302f,#15232b)!important;
+}
+.ls-course-workspace .ls-subject-chemistry:hover{border-color:#7cdbc6!important}
+.ls-course-workspace .ls-subject-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+.ls-course-workspace .ls-workspace-hero:not(.ls-course-hero){
+  padding:clamp(1rem,2vw,1.6rem) clamp(1.2rem,2.5vw,2rem);
+  margin-bottom:1.4rem;gap:1.3rem;
+}
+.ls-course-workspace .ls-workspace-hero:not(.ls-course-hero) h1{font-size:clamp(1.85rem,3vw,2.75rem)}
+.ls-course-workspace .ls-workspace-hero:not(.ls-course-hero) p:not(.ls-workspace-overline){font-size:.9rem;line-height:1.55}
+.ls-course-workspace .ls-workspace-journey{font-size:.73rem}
+.ls-course-workspace .ls-chemistry-track{min-height:12.2rem;gap:.48rem;padding:1.05rem 1.15rem;border-radius:.8rem}
+.ls-course-workspace .ls-chemistry-track strong{font-size:1.15rem}
+.ls-course-workspace .ls-chemistry-track .ls-track-icon{width:2.7rem;height:2.7rem;border-radius:.65rem}
+.ls-course-workspace .ls-chemistry-track .ls-track-description{font-size:.77rem;line-height:1.45}
+.ls-course-workspace .ls-chemistry-track .ls-track-bottom{padding-top:.5rem;font-size:.73rem}
+@media(max-width:1199px){
+  .ls-course-workspace .ls-subject-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:680px){
+  .ls-course-workspace .ls-subject-grid,
+  .ls-course-workspace .ls-chemistry-grid{grid-template-columns:minmax(0,1fr)}
+  .ls-course-workspace .ls-subject-card{min-height:8.9rem;padding:.9rem 1rem}
+  .ls-course-workspace .ls-subject-card h4{font-size:1.12rem}
+  .ls-course-workspace .ls-workspace-journey{display:none}
+}
+@media(prefers-reduced-motion:reduce){
+  .ls-course-workspace .ls-subject-card{transition:none}
+  .ls-course-workspace .ls-subject-card:hover{transform:none}
+}

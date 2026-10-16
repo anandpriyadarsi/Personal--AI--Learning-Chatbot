@@ -1,21 +1,139 @@
 {% extends "base.html" %}
-{% block title %}Learning Studio · ANVAYA{% endblock %}
-{% block body_class %}learning-page{% endblock %}
-{% block page_scripts %}<link rel="stylesheet" href="{{ url_for('static', filename='css/learning_studio.css') }}">{% endblock %}
+{% block title %}{{ profile.title if profile else 'Learning Studio' }} · ANVAYA{% endblock %}
+{% block body_class %}learning-page ls-course-workspace{% endblock %}
+{% block page_scripts %}<link rel="stylesheet" href="{{ url_for('static',filename='css/learning_studio.css') }}">{% endblock %}
 {% block content %}
-<div class="ls-library-head"><div><p class="eyebrow">Source → understanding → recall</p><h1>{{ course.name if course else 'Learning Studio' }}</h1><p>Read lecture material, practise concepts, and return to the original source.</p></div><a href="{{ url_for('learning.import_module') }}">Import authored module</a></div>
-<nav aria-label="Learning breadcrumb"><a href="{{ url_for('learning.library') }}">Learning Studio</a>{% if course %} / {{ course.code }}{% endif %}</nav>
-{% if not library.available %}<p class="notice-panel">Registered courses are unavailable. Your academic data was not changed.</p>{% endif %}
-{% if course %}
-<form class="ls-filters" method="get"><label>Search modules<input type="search" name="q" value="{{ search }}" maxlength="200"></label><label>Canonical topic<select name="topic"><option value="">All topics</option>{% for t in course.topics %}<option value="{{ t.name }}"{% if topic == t.name %} selected{% endif %}>{{ t.name }}</option>{% endfor %}</select></label><button type="submit">Filter</button></form>
-<p>{{ library.total }} modules · showing up to {{ library.limit }}</p>
-{% for unit, rows in library.modules|groupby('unit') %}<section><h2>{{ unit }}</h2><div class="ls-card-grid">{% for item in rows %}<a class="ls-card" href="{{ url_for('learning.module', module_id=item.module_id, revision=item.revision) }}"><span class="eyebrow">{{ item.topic_name or 'Unmapped / needs review' }}</span><h3>{{ item.title }}</h3><small>Revision {{ item.revision }} · {{ item.created_at[:10] }}</small></a>{% endfor %}</div></section>{% else %}<p class="empty-state">No modules match. Import an authored package to begin.</p>{% endfor %}
-<nav class="ls-pagination" aria-label="Module pages">{% if library.offset %}<a href="{{ url_for('learning.course', course_id=course.id, q=search, topic=topic, offset=[0,library.offset-library.limit]|max) }}">Previous</a>{% endif %}{% if library.offset+library.limit < library.total %}<a href="{{ url_for('learning.course', course_id=course.id, q=search, topic=topic, offset=library.offset+library.limit) }}">Next</a>{% endif %}</nav>
+<nav class="ls-workspace-crumb" aria-label="Learning navigation">
+  <a href="{{ url_for('learning.library') }}">Learning Studio</a>
+  {% if course %}<span aria-hidden="true">/</span><span aria-current="page">{{ profile.title }}</span>{% endif %}
+</nav>
+
+{% if not course %}
+<header class="ls-workspace-hero">
+  <div class="ls-workspace-intro">
+    <p class="ls-workspace-overline">ANVAYA · Learning Studio</p>
+    <h1>One place for every subject.</h1>
+    <p>Choose a course to follow your lecture material from original source to clear concepts, active practice and exam-day revision.</p>
+    <div class="ls-workspace-actions">
+      <a class="ls-workspace-primary" href="{{ url_for('learning.import_module') }}">Import an authored learning module <span aria-hidden="true">↗</span></a>
+      <a href="{{ url_for('learning.analysis') }}">View practice evidence</a>
+    </div>
+  </div>
+  <div class="ls-workspace-journey" aria-label="Learning process">
+    <span>01 · Source</span><span aria-hidden="true">→</span><span>02 · Understand</span><span aria-hidden="true">→</span><span>03 · Practise</span><span aria-hidden="true">→</span><span>04 · Revise</span>
+  </div>
+</header>
+{% if not library.available %}<p class="notice-panel">The existing course catalogue is currently unavailable. ANVAYA has not changed your academic records.</p>{% endif %}
+
+{% for year, courses in library.courses|groupby('academic_year') %}
+{% set displayed_year = 'First Year' if year == 'Academic year unspecified' else year %}
+<section class="ls-subject-group" aria-label="Subjects for {{ displayed_year }}">
+  <div class="ls-section-heading ls-subject-heading"><div><p class="ls-workspace-overline">Academic year</p><h2>{{ displayed_year }}</h2></div><span>{{ courses|length }} courses</span></div>
+  {% for semester, members in courses|groupby('semester') %}
+  <h3 class="ls-semester-label">{{ 'Semester 1' if year == 'Academic year unspecified' and (not semester or semester == 'Semester unspecified') else (semester or 'Semester unspecified') }}</h3>
+  <div class="ls-subject-grid">
+    {% for c in members %}
+    {% set p=templates[c.id] %}
+    <a class="ls-card ls-subject-card{% if p.chemistry %} ls-subject-chemistry{% endif %}" href="{{ url_for('learning.course',course_id=c.id) }}">
+      <div class="ls-subject-card-top"><span class="ls-subject-code">{{ c.code }}</span><span class="ls-subject-arrow" aria-hidden="true">↗</span></div>
+      <h4>{{ p.title }}</h4>
+      <p class="ls-subject-summary">{{ p.eyebrow }}</p>
+      <div class="ls-subject-footer"><span>{{ c.module_count }} {{ 'module' if c.module_count == 1 else 'modules' }}</span><strong>Explore <span aria-hidden="true">→</span></strong></div>
+    </a>
+    {% endfor %}
+  </div>
+  {% endfor %}
+</section>
+{% else %}<p class="empty-state">No registered courses are available. Learning Studio does not invent course records.</p>{% endfor %}
+<section class="ls-secondary-courses">
+  <a class="ls-card" href="{{ url_for('learning.course',course_id='unmapped') }}"><h3>Unmapped material</h3><p>{{ library.unmapped_count }} authored modules need course mapping review.</p></a>
+  {% if library.unavailable_count %}<a class="ls-card" href="{{ url_for('learning.course',course_id='unavailable') }}"><h3>Course unavailable / needs review</h3><p>{{ library.unavailable_count }} modules retain their existing source records.</p></a>{% endif %}
+</section>
+{% if library.staged %}<section class="ls-staged-list"><h2>Staged previews</h2><ul>{% for item in library.staged %}<li><a href="{{ url_for('learning.preview',module_id=item.module_id,revision=item.revision) }}">{{ item.title }} · revision {{ item.revision }}</a></li>{% endfor %}</ul></section>{% endif %}
+
 {% else %}
-{% for year, courses in library.courses|groupby('academic_year') %}<section><h2>{{ year }}</h2>{% for semester, members in courses|groupby('semester') %}<h3>{{ semester or 'Semester unspecified' }}</h3><div class="ls-card-grid">{% for c in members %}<a class="ls-card" href="{{ url_for('learning.course', course_id=c.id) }}"><span class="eyebrow">{{ c.code }}</span><h3>{{ c.name }}</h3><p>{{ c.module_count }} modules</p></a>{% endfor %}</div>{% endfor %}</section>{% else %}<p class="empty-state">No registered courses yet. Learning Studio never creates courses automatically.</p>{% endfor %}
-<a class="ls-card" href="{{ url_for('learning.course', course_id='unmapped') }}"><h2>Unmapped / needs review</h2><p>{{ library.unmapped_count }} modules · course hints require canonical review.</p></a>
-{% if library.unavailable_count %}<a class="ls-card" href="{{ url_for('learning.course', course_id='unavailable') }}"><h2>Course unavailable / needs review</h2><p>{{ library.unavailable_count }} historical modules. Their original mappings are preserved.</p></a>{% endif %}
-{% if library.staged %}<section><h2>Staged imports</h2><ul>{% for item in library.staged %}<li><a href="{{ url_for('learning.preview', module_id=item.module_id, revision=item.revision) }}">{{ item.title }} · revision {{ item.revision }}</a></li>{% endfor %}</ul></section>{% endif %}
+<header class="ls-workspace-hero ls-course-hero{% if profile.chemistry %} ls-chemistry-hero{% endif %}">
+  <div class="ls-workspace-intro">
+    <p class="ls-workspace-overline">{{ course.code }} · {{ profile.eyebrow }}</p>
+    <h1>{{ profile.title }}</h1>
+    <p>{{ profile.description }}</p>
+    <div class="ls-workspace-actions">
+      <a class="ls-workspace-primary" href="#ls-course-material">Browse learning material <span aria-hidden="true">↓</span></a>
+      <a href="{{ url_for('learning.import_module') }}">Add authored module</a>
+    </div>
+  </div>
+  <div class="ls-course-hero-stat"><strong>{{ course.module_count if course.module_count is defined else library.total }}</strong><span>Published learning {{ 'module' if (course.module_count if course.module_count is defined else library.total) == 1 else 'modules' }}</span><small>Existing records only</small></div>
+</header>
+
+{% if profile.chemistry %}
+<section class="ls-workspace-section" aria-labelledby="ls-chemistry-pathways">
+  <div class="ls-section-heading"><div><p class="ls-workspace-overline">Chemistry course structure</p><h2 id="ls-chemistry-pathways">Choose your study area</h2></div><a href="{{ url_for('learning.course',course_id=course.id) }}">Show all Chemistry modules</a></div>
+  <div class="ls-chemistry-grid">
+    {% for area in chemistry_sections %}
+    {% if area.id != 'other' or library.chemistry_counts.get('other',0) %}
+    <a class="ls-chemistry-track{% if section==area.id %} is-current{% endif %}" href="{{ url_for('learning.course',course_id=course.id,section=area.id) }}"{% if section==area.id %} aria-current="page"{% endif %}>
+      <span class="ls-track-top"><span class="ls-track-icon ls-track-{{ area.id }}">{{ 'GC' if area.id == 'green-chemistry' else 'SP' if area.id == 'spectroscopy' else 'LB' if area.id == 'lab' else 'OT' }}</span><span class="ls-track-arrow" aria-hidden="true">↗</span></span>
+      <span class="ls-track-kicker">{{ area.kicker }}</span><strong>{{ area.title }}</strong><span class="ls-track-description">{{ area.description }}</span>
+      <span class="ls-track-bottom">{{ library.chemistry_counts.get(area.id,0) }} published {{ 'module' if library.chemistry_counts.get(area.id,0)==1 else 'modules' }}<span aria-hidden="true">→</span></span>
+    </a>
+    {% endif %}
+    {% endfor %}
+  </div>
+  <p class="ls-classification-note">Sections group already-published modules by existing title/topic keywords. They are not new academic topics or certified classifications; unmatched material stays in Other Chemistry.</p>
+</section>
+
+{% if selected_chemistry_section %}
+<section class="ls-study-template" aria-labelledby="ls-track-template">
+  <div><p class="ls-workspace-overline">Study template · {{ course.code }}</p><h2 id="ls-track-template">{{ selected_chemistry_section.title }}</h2><p>{{ selected_chemistry_section.description }}</p></div>
+  <ol>{% for step in selected_chemistry_section.workflow %}<li><span>0{{ loop.index }}</span>{{ step }}</li>{% endfor %}</ol>
+</section>
 {% endif %}
-<p><a href="{{ url_for('learning.analysis') }}">Practice analysis</a></p>
+
+{% else %}
+<section class="ls-workspace-section" aria-labelledby="ls-subject-method">
+  <div class="ls-section-heading"><div><p class="ls-workspace-overline">Your subject template</p><h2 id="ls-subject-method">Understand. Apply. Remember.</h2></div></div>
+  <div class="ls-study-pathways">
+    {% for pathway in profile.pathways %}<div><span class="ls-pathway-number">0{{ loop.index }}</span><h3>{{ pathway }}</h3><p>{{ 'Start from your original lecture or reference material.' if loop.index == 1 else 'Work through examples and questions without losing the source.' if loop.index == 2 else 'Revisit difficult concepts and prepare for assessments.' }}</p></div>{% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<div class="ls-course-quicklinks" aria-label="Other ANVAYA learning tools">
+  <a href="{{ url_for('web.notes') }}">Notes <span aria-hidden="true">↗</span></a>
+  <a href="{{ url_for('web.resources') }}">Resources <span aria-hidden="true">↗</span></a>
+  <a href="{{ url_for('web.assessments') }}">Assessments <span aria-hidden="true">↗</span></a>
+  <a href="{{ url_for('web.academic_agent') }}">Ask ANVAYA <span aria-hidden="true">↗</span></a>
+</div>
+
+<section id="ls-course-material" class="ls-workspace-section" aria-labelledby="ls-material-title">
+  <div class="ls-section-heading"><div><p class="ls-workspace-overline">Saved learning modules</p><h2 id="ls-material-title">{{ selected_chemistry_section.title if selected_chemistry_section else 'Your learning library' }}</h2></div><span>{{ library.total }} {{ 'module' if library.total==1 else 'modules' }} in this view</span></div>
+  <form class="ls-filters ls-course-filters" method="get" action="{{ url_for('learning.course',course_id=course.id) }}">
+    {% if section %}<input type="hidden" name="section" value="{{ section }}">{% endif %}
+    <label>Search modules<input type="search" name="q" value="{{ search }}" maxlength="200" placeholder="Find a lecture or concept"></label>
+    <label>Canonical topic<select name="topic"><option value="">All topics</option>{% for t in course.topics %}<option value="{{ t.name }}"{% if topic==t.name %} selected{% endif %}>{{ t.name }}</option>{% endfor %}</select></label>
+    <button type="submit">Filter modules</button>
+    {% if search or topic %}<a href="{{ url_for('learning.course',course_id=course.id,section=section) }}">Clear search</a>{% endif %}
+  </form>
+  {% for unit, rows in library.modules|groupby('unit') %}
+  <section class="ls-module-group"><h3>{{ unit }}</h3><div class="ls-module-grid">{% for item in rows %}
+    <a class="ls-card ls-learning-module" href="{{ url_for('learning.module',module_id=item.module_id,revision=item.revision) }}">
+      <span class="ls-workspace-overline">{{ item.topic_name or 'Unmapped / needs review' }}</span>
+      <h4>{{ item.title }}</h4>
+      <p>Open the source-grounded lesson, practise and use the revision tools.</p>
+      <span>Revision {{ item.revision }} · {{ item.created_at[:10] }} <span aria-hidden="true">→</span></span>
+    </a>{% endfor %}</div></section>
+  {% else %}
+  <div class="ls-empty-workspace">
+    <span class="ls-empty-icon" aria-hidden="true">◇</span>
+    <h3>{{ 'No modules match these filters' if search or topic else 'This learning template is ready' }}</h3>
+    <p>{{ 'Try another topic, clear your search or choose a different Chemistry area.' if search or topic else 'Your course exists, but no authored Learning Studio lessons have been published here yet. You can explore the layout now; real notes and questions appear once a source-linked module is imported and published.' }}</p>
+    <a href="{{ url_for('learning.import_module') }}">Import an authored module <span aria-hidden="true">↗</span></a>
+  </div>
+  {% endfor %}
+  <nav class="ls-pagination" aria-label="Learning module pages">
+    {% if library.offset %}<a href="{{ url_for('learning.course',course_id=course.id,q=search,topic=topic,section=section,offset=[0,library.offset-library.limit]|max) }}">← Previous</a>{% endif %}
+    {% if library.offset+library.limit < library.total %}<a href="{{ url_for('learning.course',course_id=course.id,q=search,topic=topic,section=section,offset=library.offset+library.limit) }}">Next →</a>{% endif %}
+  </nav>
+</section>
+{% endif %}
 {% endblock %}

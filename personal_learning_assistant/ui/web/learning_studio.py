@@ -54,22 +54,37 @@ register_errors()
 
 @learning_blueprint.get('/learning')
 def library():
-    return render_template('learning_library.html', active_page='learning', library=service().library(), course=None, search='', topic='')
+    from personal_learning_assistant.learning_studio.course_views import subject_template
+    view = service().library()
+    templates = {c['id']: subject_template(c) for c in view['courses']}
+    return render_template('learning_library.html', active_page='learning', library=view,
+        course=None, profile=None, templates=templates, search='', topic='', section='',
+        chemistry_sections=(), selected_chemistry_section=None)
 
 
 @learning_blueprint.get('/learning/courses/<course_id>')
 def course(course_id):
     from personal_learning_assistant.learning_studio.validation import PackageError
+    from personal_learning_assistant.learning_studio.course_views import (
+        CHEMISTRY_SECTIONS, chemistry_section, subject_template)
     try: offset = int(request.args.get('offset', '0'))
     except ValueError: raise PackageError('Invalid pagination offset.')
     search = request.args.get('q', '')
     topic = request.args.get('topic', '')
-    view = service().library(course_id=course_id, search=search, topic=topic, offset=offset)
+    section = request.args.get('section', '')
+    view = service().library(course_id=course_id, search=search, topic=topic, section=section, offset=offset)
     selected = next((c for c in view['courses'] if c['id'] == course_id), None)
-    if course_id == 'unmapped': selected = {'id': 'unmapped', 'code': 'Unmapped', 'name': 'Needs mapping review', 'topics': []}
-    if course_id == 'unavailable': selected = {'id': 'unavailable', 'code': 'Course unavailable / needs review', 'name': 'Course unavailable / needs review', 'topics': []}
+    if course_id == 'unmapped':
+        selected = {'id': 'unmapped', 'code': 'Unmapped', 'name': 'Needs mapping review', 'topics': []}
+    if course_id == 'unavailable':
+        selected = {'id': 'unavailable', 'code': 'Course unavailable / needs review',
+                    'name': 'Course unavailable / needs review', 'topics': []}
     if selected is None: raise PackageError('Course not registered.', 404)
-    return render_template('learning_library.html', active_page='learning', library=view, course=selected, search=search, topic=topic)
+    profile = subject_template(selected)
+    return render_template('learning_library.html', active_page='learning', library=view,
+        course=selected, profile=profile, templates={}, search=search, topic=topic, section=section,
+        chemistry_sections=CHEMISTRY_SECTIONS if profile['chemistry'] else (),
+        selected_chemistry_section=chemistry_section(section) if profile['chemistry'] else None)
 
 
 def module_view(module_id, revision, *, staged=False):
