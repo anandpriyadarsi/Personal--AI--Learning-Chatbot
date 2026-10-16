@@ -82,3 +82,29 @@ def test_read_only_transaction_is_mandatory(tmp_path):
         db.execute("BEGIN")
         assert inspect_paper_import(db, aid)["production_admission"] == "BLOCKED"
         db.rollback()
+
+
+@pytest.mark.parametrize("alter,expected", [
+    (
+        "UPDATE assessment_import_batches SET total_marks_milli=total_marks_milli+1000 "
+        "WHERE assessment_id=?",
+        "approved_total_marks_mismatch",
+    ),
+    (
+        "UPDATE assessments SET max_points_milli=max_points_milli+1000 WHERE id=?",
+        "approved_total_marks_mismatch",
+    ),
+    (
+        "UPDATE questions SET import_batch_id=NULL WHERE assessment_id=?",
+        "subjective_snapshot_or_rubric_mismatch",
+    ),
+])
+def test_paper_preflight_rejects_mutated_total_or_lost_import_ownership(tmp_path, alter, expected):
+    path, aid = approved_paper(tmp_path)
+    with sqlite3.connect(path) as db:
+        db.execute(alter, (aid,))
+    result = inspect(path, aid)
+    assert result["structural_status"] == "BLOCKED"
+    assert result["production_admission"] == "BLOCKED"
+    assert expected in result["issues"]
+    assert "solution" not in json.dumps(result)
