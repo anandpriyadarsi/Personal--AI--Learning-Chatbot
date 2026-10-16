@@ -211,8 +211,12 @@ class SQLiteTopicIntelligenceRepository:
             if row['question_attempt_id']:
                 refs.add(('question_attempt',row['question_attempt_id']))
                 attempt = connection.execute('SELECT question_id,evaluation_ref FROM question_attempts WHERE id=?', (row['question_attempt_id'],)).fetchone()
+                # Both historical bare refs and the canonical Evaluation
+                # writer's namespaced refs identify this exact immutable
+                # evaluation. A mismatched ID/namespace remains a conflict.
+                valid_refs = (row['id'], 'assessment_response_evaluation:' + row['id'])
                 if (attempt is None or attempt['question_id'] != row['snapshot_question_id'] or
-                        attempt['evaluation_ref'] != row['id']):
+                        attempt['evaluation_ref'] not in valid_refs):
                     reasons.add('inconsistent_bridge_reference')
             mistakes = connection.execute('SELECT id,category,mistake_event_id FROM assessment_evaluation_mistakes '
                                           "WHERE response_evaluation_id=? AND status='confirmed' ORDER BY category,id", (row['id'],)).fetchall()
