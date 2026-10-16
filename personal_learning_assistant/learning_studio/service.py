@@ -9,6 +9,7 @@ from .progress import ProgressMixin
 from .review_store import ReviewStoreMixin
 from .mapping_review import MappingReviewMixin
 from .candidates import CandidateMixin
+from .course_views import chemistry_area_sql, chemistry_section
 from .validation import PackageError, identity, integer, require, validate_mapping, validate_package
 
 OWNER = 'local-owner'  # Existing ANVAYA is a single-owner local app, not multiuser auth.
@@ -138,14 +139,19 @@ class LearningStudioService(ProgressMixin, ReviewStoreMixin, MappingReviewMixin,
             require(row is not None, 'Asset not owned by this module revision.', 404)
             return row['bytes']
 
-    def library(self, *, course_id=None, search='', topic='', offset=0, limit=12):
+    def library(self, *, course_id=None, search='', topic='', offset=0, limit=12, section=''):
         integer(offset, 0, 1000000); integer(limit, 1, 50)
         require(isinstance(search, str) and len(search) <= 200, 'Search exceeds 200 characters.')
         cat = self.catalogue_loader()
         courses = copy.deepcopy(cat.get('courses', []))
+        selected_course = next((c for c in courses if c['id'] == course_id), None)
+        is_chemistry = bool(selected_course and str(selected_course.get('code', '')).upper() == 'CY100N')
+        require(not section or (is_chemistry and chemistry_section(section) is not None),
+                'Unknown Chemistry section.')
         counts = {}
         result = {'courses': courses, 'available': cat.get('available', False), 'modules': [], 'total': 0,
-                  'unmapped_count': 0, 'unavailable_count': 0, 'staged': [], 'offset': offset, 'limit': limit}
+                  'unmapped_count': 0, 'unavailable_count': 0, 'staged': [], 'offset': offset, 'limit': limit,
+                  'section': section, 'chemistry_counts': {}}
         with self.store.connection() as con:
             if con is not None:
                 counts = {r['course_id']: r['n'] for r in con.execute('SELECT m.course_id,count(*) n FROM modules m JOIN active_modules a USING(module_id,revision) GROUP BY m.course_id')}
@@ -153,6 +159,14 @@ class LearningStudioService(ProgressMixin, ReviewStoreMixin, MappingReviewMixin,
                 current_ids = {c['id'] for c in courses}
                 result['unavailable_count'] = sum(n for key,n in counts.items() if key is not None and key not in current_ids)
                 result['staged'] = [dict(r) for r in con.execute('SELECT module_id,revision,title FROM modules m WHERE NOT EXISTS(SELECT 1 FROM publications p WHERE p.module_id=m.module_id AND p.revision=m.revision) ORDER BY created_at DESC LIMIT 20')]
+                if is_chemistry:
+                    # The three visible Chemistry templates are display groupings over
+                    # already-published metadata, not new topic IDs or lesson records.
+                    view_counts = con.execute(
+                        'SELECT ' + chemistry_area_sql() + ' area, count(*) n FROM modules m '
+                        'JOIN active_modules a USING(module_id,revision) '
+                        'WHERE m.course_id=? GROUP BY area', (course_id,)).fetchall()
+                    result['chemistry_counts'] = {row['area']: row['n'] for row in view_counts}
                 if course_id is not None:
                     require(course_id in {'unmapped', 'unavailable'} or any(c['id'] == course_id for c in courses), 'Course not registered.', 404)
                     if course_id == 'unmapped':
@@ -164,6 +178,9 @@ class LearningStudioService(ProgressMixin, ReviewStoreMixin, MappingReviewMixin,
                         if ids: clauses.append('m.course_id NOT IN (' + ','.join('?' for _ in ids) + ')')
                     else:
                         clauses, params = ['m.course_id=?'], [course_id]
+                    if section:
+                        clauses.append('(' + chemistry_area_sql() + ')=?')
+                        params.append(section)
                     if search:
                         # Casefold in Python happens only for bounded metadata, never full package bodies.
                         clauses.append("m.title LIKE ? ESCAPE '\\'")
