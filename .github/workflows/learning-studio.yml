@@ -3,6 +3,9 @@ on:
   push:
     branches: ['feature/learning-studio-v1', 'feature/learning-studio-v1-1', 'feature/learning-studio-v1-2', 'feature/learning-studio-v1-3', 'feature/learning-studio-v1-4-integration-2026-10-15', 'feature/learning-studio-v1-5-source-quality-rechecks', 'feature/learning-studio-v1-6-complete-revision-queue', 'feature/learning-studio-subject-workspaces-chemistry']
   workflow_dispatch:
+concurrency:
+  group: learning-studio-${{ github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
