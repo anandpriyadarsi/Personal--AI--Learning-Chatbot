@@ -329,3 +329,30 @@
  .learning-reader .ls-question{background:white!important;color:black!important;border-color:#aaa}
  .learning-reader .ls-question fieldset label{background:white!important;color:black!important;border:1px solid #aaa}
 }
+
+/* Secondary pages retain the same hierarchy, with a genuinely compact evidence dashboard. */
+.learning-reader .ls-review-stats{display:flex;flex-wrap:wrap;gap:.55rem;margin:.3rem 0 .85rem}
+.learning-reader .ls-review-stats>span{font-size:.77rem;border:1px solid #3d675c;border-radius:.5rem;padding:.35rem .65rem;background:#19382f;color:#c1e4d8}
+.learning-reader .ls-review-stats strong{font-variant-numeric:tabular-nums;color:#e8fff6;font-size:.96rem;margin-right:.22rem}
+.learning-reader .ls-revision-guide .ls-revision-empty-note{font-size:.83rem;color:#b8d5c7;margin:.6rem 0}
+.learning-reader .ls-review-intro details.ls-review-method{background:#1b3431;margin:.75rem 0 .15rem}
+.learning-reader .ls-review-intro details.ls-review-method p{margin:.65rem .35rem}
+.learning-page .ls-evidence-header{border:1px solid #3e5d63;background:linear-gradient(122deg,#1c313b,#14232d);border-radius:1rem;padding:1.3rem 1.55rem;margin:.5rem 0 1rem}
+.learning-page .ls-evidence-header h1{font-size:clamp(1.55rem,2.6vw,2.15rem);line-height:1.25;letter-spacing:-.025em;margin:.1rem 0 .5rem}
+.learning-page .ls-evidence-header>p:last-child{color:#bdcfd5;max-width:70ch;font-size:.89rem}
+.learning-page .ls-lesson-eyebrow{color:#7adcc6;text-transform:uppercase;letter-spacing:.11em;font-size:.73rem;font-weight:800}
+.learning-page .ls-evidence-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.75rem;margin:1rem 0 1.1rem}
+.learning-page .ls-evidence-metrics>div{background:#192936;border:1px solid #344e5e;padding:1rem 1.1rem;border-radius:.75rem;display:grid;gap:.3rem}
+.learning-page .ls-evidence-metrics strong{font-size:clamp(1.2rem,2vw,1.7rem);font-variant-numeric:tabular-nums;color:#e4f8f4;line-height:1.3}
+.learning-page .ls-evidence-metrics span{font-size:.78rem;color:#a9c3cd;line-height:1.45}
+.learning-page .ls-evidence-method{border:1px solid #375261;border-radius:.7rem;background:#152630;padding:.7rem 1rem;margin:0 0 1.4rem}
+.learning-page .ls-evidence-method summary{font-weight:650;font-size:.9rem;cursor:pointer;color:#c9e2dd}
+.learning-page .ls-evidence-method p{max-width:85ch;color:#c5d6dc;font-size:.87rem;line-height:1.6}
+.learning-page .ls-quality-item{border:1px solid #354f61;border-left:3px solid #5fc9b2;border-radius:.75rem;background:#172934;padding:1rem 1.25rem;margin:1rem 0}
+.learning-page .ls-quality-item .ls-lesson-eyebrow{margin:.1rem 0 .35rem}
+.learning-page .ls-quality-item h2{margin:0 0 .65rem;font-size:1.18rem;text-transform:capitalize}
+.learning-page .ls-quality-item p{color:#c8dce0;font-size:.85rem;line-height:1.6}
+.learning-page .ls-queue-filters{background:#172a37;border-color:#395869}
+@media(max-width:900px){.learning-page .ls-evidence-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:480px){.learning-page .ls-evidence-metrics{gap:.5rem}.learning-page .ls-evidence-metrics>div{padding:.75rem}.learning-page .ls-evidence-header{padding:1rem}.learning-page .ls-evidence-metrics strong{font-size:1.14rem}}
+@media print{.learning-page .ls-evidence-header,.learning-page .ls-evidence-metrics>div,.learning-page .ls-quality-item{background:white!important;color:black!important;border-color:#bbb}.learning-page .ls-evidence-metrics span,.learning-page .ls-quality-item p{color:black!important}}
