@@ -215,3 +215,20 @@ def test_live_overview_shows_real_practice_not_localhost_demo(tmp_path):
     assert "Import practice paper" in html
     assert "http://127.0.0.1:8766/" not in html
     assert "Self-entered" not in html or "self-evaluation" in html.lower()
+
+
+def test_unapproved_paper_never_creates_orphan_live_attempt(tmp_path):
+    app, path, aid, _, _ = _production(tmp_path)
+    client = app.test_client()
+    with sqlite3.connect(path) as db:
+        before = db.execute("SELECT COUNT(*) FROM assessment_test_sessions").fetchone()[0]
+    result = client.post(
+        "/assessments/tests/" + aid + "/start",
+        data={"confirmed": "1", "extended_kind": "paper_subjective",
+              "self_review_acknowledged": "1"},
+    )
+    assert result.status_code in (400, 422)
+    assert "approved import" in result.get_data(as_text=True).lower()
+    with sqlite3.connect(path) as db:
+        assert db.execute("SELECT COUNT(*) FROM assessment_test_sessions").fetchone()[0] == before
+        assert db.execute("SELECT COUNT(*) FROM assessment_extended_execution").fetchone()[0] == 0
