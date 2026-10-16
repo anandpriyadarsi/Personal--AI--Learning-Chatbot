@@ -29,8 +29,8 @@ def quality_report(service,module_id,revision,*,at=None,question_ids=None,status
     questions=[]
     for q in module['questions']:
         rows=by_question.get((q['id'],q['revision']),[]);wrong=[r for r in rows if not r['correct']]
-        status='never_practised' if not rows else ('needs_review' if not rows[-1]['correct'] else 'recovered_needs_recheck' if wrong else 'checked_correct')
-        summary[{'never_practised':'unanswered','needs_review':'wrong','recovered_needs_recheck':'retry_correct','checked_correct':'correct'}[status]]+=1
+        question_status='never_practised' if not rows else ('needs_review' if not rows[-1]['correct'] else 'recovered_needs_recheck' if wrong else 'checked_correct')
+        summary[{'never_practised':'unanswered','needs_review':'wrong','recovered_needs_recheck':'retry_correct','checked_correct':'correct'}[question_status]]+=1
         fresh=next((other['id'] for other in module['questions'] if other['id']!=q['id'] and (other['id'],other['revision']) not in by_question and set(other['pages'])&set(q['pages'])),None)
         due=None;suggestion='unanswered';reason='Try this authored question without revealing explanations.'
         if rows:
@@ -42,7 +42,7 @@ def quality_report(service,module_id,revision,*,at=None,question_ids=None,status
                     suggestion='due' if at>=datetime.fromisoformat(due) else 'later'
                     reason='Suggested 24-hour gap after the latest attempt, not a validated mastery threshold. Reusing this item may test memory of its answer.'
             except (TypeError,ValueError):pass
-        questions.append({'question_id':q['id'],'question_revision':q['revision'],'pages':q['pages'],'status':status,
+        questions.append({'question_id':q['id'],'question_revision':q['revision'],'pages':q['pages'],'status':question_status,
             'attempt_count':len(rows),'incorrect_count':len(wrong),'last_attempt':rows[-1]['timestamp'] if rows else None,
             'last_incorrect':wrong[-1]['timestamp'] if wrong else None,'suggestion':suggestion,'suggested_after':due,
             'reason':reason,'fresh_question_id':fresh,'independent_recheck':'unverified / insufficient evidence'})
