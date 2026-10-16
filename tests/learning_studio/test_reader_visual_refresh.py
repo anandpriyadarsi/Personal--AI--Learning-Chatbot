@@ -26,6 +26,8 @@ def test_source_linked_lesson_visual_hierarchy(browser,quality_live,width):
     expect(page.locator('.ls-lesson-thumbnail img')).to_have_count(1)
     expect(page.locator('.ls-content-label')).not_to_have_count(0)
     expect(page.locator('.ls-reflection-intro')).to_be_visible()
+    expect(page.locator('.ls-reflection-grid')).to_be_visible()
+    assert page.locator('.ls-reflection-grid').evaluate('(el)=>getComputedStyle(el).gridTemplateColumns.split(" ").length') == (1 if width <= 860 else 2)
     expect(page.locator('.ls-lesson-progress')).to_have_attribute('aria-valuenow','13')
     expect(page.locator('.ls-lesson-progress')).to_have_attribute('aria-valuemax','20')
     assert page.locator('.ls-lesson-thumbnail img').evaluate('(img)=>img.complete && img.naturalWidth > 0')
