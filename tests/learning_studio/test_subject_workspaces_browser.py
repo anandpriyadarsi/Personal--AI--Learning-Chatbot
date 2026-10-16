@@ -66,3 +66,25 @@ def test_empty_chemistry_lab_template_without_javascript(browser,chemistry_live)
     expect(page.locator('.ls-course-quicklinks')).to_contain_text('Notes')
     no_overflow(page)
     context.close()
+
+
+@pytest.mark.parametrize('width',[390,768,1024,1366,1920])
+def test_compact_subject_rectangles_and_first_year_fallback(browser,chemistry_live,width):
+    from playwright.sync_api import expect
+    url,service=chemistry_live
+    page=browser.new_page(viewport={'width':width,'height':900})
+    page.goto(url+'/learning')
+    heading=page.locator('.ls-subject-group .ls-section-heading h2').first
+    expect(heading).to_be_visible()
+    cards=page.locator('.ls-subject-card')
+    expect(cards).to_have_count(6)
+    # The request is for smaller landscape rectangles, not tall dashboard cards.
+    for i in range(cards.count()):
+        rect=cards.nth(i).bounding_box()
+        assert rect is not None
+        assert rect['width'] > rect['height'] * 1.35, (width,i,rect)
+        assert rect['height'] < 215, (width,i,rect)
+    expect(cards.first.locator('.ls-subject-summary')).to_be_visible()
+    no_overflow(page)
+    screenshot(page,f'compact-subject-dashboard-{width}.png')
+    page.close()
