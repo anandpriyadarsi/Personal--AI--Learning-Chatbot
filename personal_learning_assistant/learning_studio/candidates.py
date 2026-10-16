@@ -1,12 +1,13 @@
 """Explicit teaching corrections: new staged notes, never source/key rewriting."""
 from copy import deepcopy
-from .coverage import block_text,package_digest
+from .coverage import package_digest
 from .validation import integer,require,shape,text
 
 class CandidateMixin:
     def create_candidate(self,module_id,revision,payload):
         shape(payload,{'target_revision','section_id','block_index','text','reason'})
         target=integer(payload['target_revision'],revision+1,1000000)
+        require(target==revision+1,'A teaching correction must use the next consecutive module revision.',409)
         text(payload['text']);text(payload['reason'],2000)
         original=self.module(module_id,revision,staged=True,public=False)
         candidate=deepcopy(original);candidate.pop('history')
@@ -25,8 +26,11 @@ class CandidateMixin:
         if report:
             report=deepcopy(report)
             for entry in report['coverage']:
+                # A changed explanation invalidates prior source mappings even
+                # when it retains the old exact quote: matching text alone
+                # cannot certify the new interpretation.
                 entry['mappings']=[m for m in entry['mappings'] if not (
-                    m['section_id']==section['id'] and m['block_index']==index and m['quote'] not in block_text(block))]
+                    m['section_id']==section['id'] and m['block_index']==index)]
                 if entry['state']=='mapped' and not entry['mappings']:
                     entry.update(state='unresolved',reason='Changed teaching invalidated the previous location quote; compare the original element.')
             report['module_revision']=target;report['package_digest']=package_digest(candidate)
