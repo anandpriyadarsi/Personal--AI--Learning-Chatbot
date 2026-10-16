@@ -180,6 +180,7 @@ def apply_migrations(
     database_path: MigrationPath,
     *,
     migrations_path: MigrationPath = DEFAULT_MIGRATIONS_PATH,
+    enable_extended_assessment: bool = False,
 ) -> Tuple[int, ...]:
     """Apply pending schema migrations atomically and return applied versions.
 
@@ -187,6 +188,25 @@ def apply_migrations(
     database until the later structured-domain cutover is explicitly approved.
     """
     migrations = discover_migrations(migrations_path)
+    # Reserve opt-in 0015 in the checksum ledger even when this invocation is
+    # only applying core 0001-0014. Existing enabled installations must still
+    # start normally and verify their 0015 checksum on every boot.
+    optional = Path(migrations_path).parent / "optional_migrations" / "0015_assessment_self_study_sessions.sql"
+    extension = None
+    if Path(migrations_path).resolve() == DEFAULT_MIGRATIONS_PATH.resolve():
+        if not optional.is_file() or optional.is_symlink():
+            raise MigrationFormatError("Reserved Assessment migration 0015 source is missing.")
+        raw = optional.read_bytes()
+        try:
+            sql = raw.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise MigrationFormatError("Optional migration must be UTF-8.") from exc
+        extension = Migration(15, "assessment_self_study_sessions", optional, _checksum(raw), sql)
+    elif enable_extended_assessment:
+        raise MigrationFormatError("Optional Assessment migration requires the default source inventory.")
+    all_migrations = migrations + ((extension,) if extension else ())
+    if enable_extended_assessment and extension is None:
+        raise MigrationFormatError("Reserved Assessment extension source is unavailable.")
     connection = connect_database(
         database_path,
         synchronous="FULL",
@@ -196,10 +216,12 @@ def apply_migrations(
 
     try:
         applied = _applied_migrations(connection)
-        _validate_applied_history(migrations, applied)
+        _validate_applied_history(all_migrations, applied)
 
-        for migration in migrations:
+        for migration in all_migrations:
             if migration.version in applied:
+                continue
+            if extension is not None and migration.version == extension.version and not enable_extended_assessment:
                 continue
 
             with transaction(connection, immediate=True):

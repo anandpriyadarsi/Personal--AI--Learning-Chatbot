@@ -52,6 +52,27 @@
     <label class="form-field form-field-full"><span><input type="checkbox" name="confirmed" value="1" required> I have read the instructions and want to start the timed session now.</span></label>
     <div class="form-actions"><button class="button" type="submit">Start test</button></div>
   </form>
+  {% if test.extended_enabled and test.mode == 'practice' %}
+  <div class="assessment-disclosure" aria-label="Optional active-time practice">
+    <h4>Optional: Save and pause practice</h4>
+    <p>Choose this mode to save your answers and pause the active-time clock. Closing the tab without pressing Pause does not stop the timer. Existing normal tests are unchanged.</p>
+    <form method="post" action="{{ url_for('web.assessment_test_start', assessment_id=test.id) }}">
+      <input type="hidden" name="confirmed" value="1">
+      <input type="hidden" name="extended_kind" value="online_timed">
+      <button type="submit" class="button button-secondary">Start with Pause/Resume</button>
+    </form>
+    {% if test.paper_possible %}
+    <h4>Handwritten paper · private self-check</h4>
+    <p>Solve on paper, finish the timed period, reveal the imported solution and enter your own criterion marks. These marks are self-reported and <strong>not official grades, verified mastery or Tutor/Planner evidence</strong>.</p>
+    <form method="post" action="{{ url_for('web.assessment_test_start', assessment_id=test.id) }}">
+      <input type="hidden" name="confirmed" value="1">
+      <input type="hidden" name="extended_kind" value="paper_subjective">
+      <label class="form-field form-field-full"><span><input type="checkbox" name="self_review_acknowledged" value="1" required> I understand that this is private self-evaluation and will verify the marking guide myself.</span></label>
+      <button type="submit" class="button button-secondary">Start handwritten paper practice</button>
+    </form>
+    {% endif %}
+  </div>
+  {% endif %}
 </section>
 {% endif %}
 {% endblock %}
