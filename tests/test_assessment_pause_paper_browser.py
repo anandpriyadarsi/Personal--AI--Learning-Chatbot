@@ -329,6 +329,7 @@ def test_palette_navigation_saves_before_moving_and_pause_keeps_last_question(ch
     page.get_by_role("navigation", name="Question palette").get_by_role(
         "button", name="Pause", exact=True
     ).click()
+    expect(page.locator("#state-banner")).to_contain_text("Paused — answers saved")
     state = service.state(ids["online"])
     assert state["status"] == "paused"
     assert state["current_ordinal"] == 2
