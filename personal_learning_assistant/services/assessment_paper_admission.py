@@ -78,12 +78,12 @@ def inspect_paper_import(connection: sqlite3.Connection, assessment_id: str) -> 
             reasons.append("package_runtime_identity_mismatch")
         staged = connection.execute(
             "SELECT canonical_question_id,question_text,max_marks_milli,question_type,"
-            "solution_text,rubric_text,review_required,negative_marks_milli "
+            "solution_text,rubric_text,review_required,negative_marks_milli,package_question_id "
             "FROM main.assessment_import_questions WHERE batch_id=?",
             (approved[0],)
         ).fetchall()
         specs = connection.execute(
-            "SELECT s.question_id,s.question_type,s.solution_text,s.rubric_text "
+            "SELECT s.question_id,s.question_type,s.solution_text,s.rubric_text,s.package_question_id "
             "FROM main.assessment_question_specs s "
             "JOIN main.questions q ON q.id=s.question_id "
             "WHERE q.assessment_id=? AND q.deleted_at IS NULL",
@@ -104,13 +104,17 @@ def inspect_paper_import(connection: sqlite3.Connection, assessment_id: str) -> 
                         or old[1] != text or old[2] != maximum
                         or old[3] not in SUBJECTIVE or new[1] != old[3]
                         or old[4] != new[2] or old[5] != new[3]
+                        or not old[8] or old[8] != new[4]
                         or old[6] != 0 or old[7] != 0
                         or not isinstance(old[4], str) or not old[4].strip()
                         or not isinstance(old[5], str) or not old[5].strip()):
                     reasons.append("subjective_snapshot_or_rubric_mismatch")
                     break
                 try:
-                    parse_rubric(new[3], qid, maximum)
+                    # Reviewed structured rubrics are authored against the
+                    # immutable PACKAGE question ID, not a newly assigned
+                    # canonical SQLite UUID. Never guess by text or ordinal.
+                    parse_rubric(new[3], old[8], maximum)
                 except (ValueError, TypeError, KeyError):
                     reasons.append("rubric_not_verifiable")
                     break
