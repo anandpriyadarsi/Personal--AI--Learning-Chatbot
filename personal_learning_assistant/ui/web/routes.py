@@ -996,6 +996,7 @@ def assessments():
         catalogue=_assessment_catalogue(),
         studio=_safe_assessment_studio(),
         workspace=_safe_assessment_workspace(),
+        assessment_extended_enabled=current_app.config.get("ASSESSMENT_EXTENDED_ENABLED") is True,
     )
 
 
@@ -1750,10 +1751,29 @@ def assessment_test_start(assessment_id):
                 raise AssessmentRunnerValidationError("Extended attempts are practice only.")
             if request.form.get("confirmed") != "1":
                 raise AssessmentRunnerValidationError("Confirm the instructions before starting.")
-            if kind == "paper_subjective" and request.form.get("self_review_acknowledged") != "1":
-                raise AssessmentRunnerValidationError(
-                    "Confirm this is private, self-checked practice, not official grading."
-                )
+            if kind == "paper_subjective":
+                if request.form.get("self_review_acknowledged") != "1":
+                    raise AssessmentRunnerValidationError(
+                        "Confirm this is private, self-checked practice, not official grading."
+                    )
+                # Reject unapproved / mismatched imported rubrics BEFORE the
+                # legacy runner creates an active session. Validation never
+                # changes grades, topic evidence or existing attempts.
+                from contextlib import closing
+                import sqlite3
+                from personal_learning_assistant.services.assessment_paper_admission import inspect_paper_import
+                database = _assessment_extended_service().repository.path
+                if not database.is_file() or database.is_symlink():
+                    raise AssessmentRunnerValidationError("Practice database unavailable.")
+                with closing(sqlite3.connect(database.resolve().as_uri() + "?mode=ro", uri=True)) as readonly:
+                    readonly.execute("PRAGMA query_only=ON")
+                    readonly.execute("BEGIN")
+                    admission = inspect_paper_import(readonly, assessment_id)
+                    readonly.rollback()
+                if admission["structural_status"] != "PASS":
+                    raise AssessmentRunnerValidationError(
+                        "This paper requires an approved import with matching marking rubrics."
+                    )
             # A pre-existing active attempt must never be silently re-adopted.
             active = preflight.get("active_session_id")
             if active and _is_extended_session(active):
