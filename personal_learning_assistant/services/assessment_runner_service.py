@@ -299,6 +299,12 @@ class AssessmentRunnerService:
         with self._repository(write=False) as repository:
             assessments = repository.list_runnable_assessments()
             sessions = repository.list_sessions(limit=100)
+            from personal_learning_assistant.repositories.sqlite.assessment_execution_repository import has_extended_attempt
+            extended_active = {
+                str(row["active_session_id"])
+                for row in assessments if row.get("active_session_id")
+                and has_extended_attempt(repository.connection, row["active_session_id"])
+            }
 
         items = []
         for item in assessments:
@@ -308,7 +314,8 @@ class AssessmentRunnerService:
             active_id = str(row.get("active_session_id") or "")
             active_expiry = str(row.get("active_expires_at") or "")
             row["can_resume"] = bool(
-                active_id and active_expiry and _parse_iso(active_expiry) > now
+                active_id and (active_id in extended_active or
+                               (active_expiry and _parse_iso(active_expiry) > now))
             )
             row["active_session_id"] = active_id if row["can_resume"] else ""
             items.append(row)
@@ -332,6 +339,11 @@ class AssessmentRunnerService:
         now = self._now()
         with self._repository(write=False) as repository:
             item = repository.get_preflight(str(assessment_id))
+            from personal_learning_assistant.repositories.sqlite.assessment_execution_repository import has_extended_attempt
+            extended_active = bool(
+                item and item.get("active_session_id")
+                and has_extended_attempt(repository.connection, item["active_session_id"])
+            )
         if item is None:
             raise AssessmentRunnerNotFoundError(
                 "Assessment is not available for the timed runner."
@@ -350,7 +362,8 @@ class AssessmentRunnerService:
         active_id = str(result.get("active_session_id") or "")
         active_expiry = str(result.get("active_expires_at") or "")
         result["can_resume"] = bool(
-            active_id and active_expiry and _parse_iso(active_expiry) > now
+            active_id and (extended_active or
+                           (active_expiry and _parse_iso(active_expiry) > now))
         )
         result["active_session_id"] = active_id if result["can_resume"] else ""
         result["marking_groups"] = tuple({

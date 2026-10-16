@@ -1,0 +1,82 @@
+worktree /workspace/scratch/77c0f4234ec9/anvaya-repo
+HEAD e15c347e5a7bf58c7ec29708eee49b1fed13f712
+branch refs/heads/main
+
+worktree /workspace/scratch/77c0f4234ec9/assessment-work
+HEAD e15c347e5a7bf58c7ec29708eee49b1fed13f712
+branch refs/heads/feature/assessment-pause-paper-2026-10-15
+
+ M backup.py
+ M dashboard.py
+?? docs/evidence/assessment-pause-paper-2026-10-15/
+?? docs/superpowers/plans/2026-10-15-assessment-pause-paper.md
+feature/assessment-pause-paper-2026-10-15
+e15c347e5a7bf58c7ec29708eee49b1fed13f712
+e15c347e5a7bf58c7ec29708eee49b1fed13f712
+e15c347 (HEAD -> feature/assessment-pause-paper-2026-10-15, origin/main, origin/HEAD, main) Merge ANVAYA Gate A and Topic Intelligence B1/B2 read safety
+b978029 (origin/anvaya/topic-intelligence-b2-read-safety) Finalize verified B2 acceptance and source-only handoff
+c44bfa1 Give full Windows validation bounded headroom and preserve deadline failures
+5509380 Record verified B2 cross-platform acceptance and next gate boundaries
+ce2a770 Retain route audit failures and isolate snapshot Git maintenance
+fccf082 Make legacy and promoted B2 reads noninitializing and fail safely on invalid authority
+6d2c3a0 (origin/anvaya/topic-intelligence-b1-readonly) Add read-only closed-snapshot Topic Intelligence B1 evidence contract
+710b249 (origin/anvaya/gate-a-automated-validation) Fix Windows characterization paths and verify pristine CI checkouts
+  origin/HEAD -> origin/main
+  origin/anvaya/assessment-live-ux-coding-helper
+  origin/anvaya/assessment-uc100n-coding-helper-2
+  origin/anvaya/gate-a-automated-validation
+  origin/anvaya/gate-c0-synthetic-recovery
+  origin/anvaya/library-read-model-phase-a
+  origin/anvaya/operational-ux-integrations
+  origin/anvaya/topic-intelligence-b1-readonly
+  origin/anvaya/topic-intelligence-b2-read-safety
+  origin/anvaya/topic-intelligence-b3-attribution-authority
+  origin/anvaya/tutor-2.0
+  origin/anvaya/tutor-2.1-adaptive-intelligence
+  origin/anvaya/tutor-2.2-student-model
+  origin/anvaya/tutor-2.3-teaching-orchestration
+  origin/feature/learning-studio-v1
+  origin/feature/learning-studio-v1-1
+  origin/feature/learning-studio-v1-2
+  origin/feature/learning-studio-v1-3
+  origin/main
+  origin/phase7.5.14/tutor-2.0
+  origin/phase7.5.15.10/notes-obsidian-separation
+  origin/phase7.5.15.11/inline-note-media
+  origin/phase7.5.15.12/card-template-gallery
+  origin/phase7.5.15.13/card-polish-media-delete
+  origin/phase7.5.15.14/focus-companion-analysis
+  origin/phase7.5.assessment-evaluation-input-ux
+  origin/phase7.5.assessment-math-results-formatting
+  origin/phase7.5.assessment-math-typesetting-polish
+  origin/phase7.5.assessment-runner-ux/action-palette
+  origin/phase7.5.assessment-runner-ux/math-fillup
+  origin/phase7.5.assessment-runner-ux/math-fillup-final-validation
+  origin/phase7.5.assessment-runner-ux/math-fillup-validation
+  origin/phase7.5.assessment-runner-ux/math-fillup-validation-v2
+  origin/phase7.5.assessment-studio-a/baseline-validation
+  origin/phase7.5.assessment-studio-a/foundation
+  origin/phase7.5.assessment-studio-a/validation
+  origin/phase7.5.assessment-studio-b/package-import-review
+  origin/phase7.5.assessment-studio-b/validation
+  origin/phase7.5.assessment-studio-c/timed-test-runner
+  origin/phase7.5.assessment-studio-c/validation
+  origin/phase7.5.assessment-studio-d/evaluation-engine
+  origin/phase7.5.assessment-studio-d/validation
+  origin/phase7.5.assessment-studio-e/assessment-intelligence
+  origin/phase7.5.assessment-studio-e/validation
+  origin/phase7.5.assessment-studio-f/adaptive-academic-loop
+  origin/phase7.5.assessment-studio-f/validation
+  origin/phase7.5.assessment-studio-ux/alex-authoring-workspace
+  origin/phase7.5.assessment-studio-ux/blind-review
+  origin/phase7.5.assessment-studio-ux/blind-review-validation
+  origin/phase7.5.assessment-studio-ux/ma103n-topic-catalogue
+  origin/phase7.5.assessment-studio-ux/next-level
+  origin/phase7.5.assessment-studio-ux/revision-upload
+  origin/phase7.5.assessment-studio-ux/revision-upload-validation
+  origin/phase7.5.assessment-studio-ux/simplified-authoring
+  origin/phase7.5.assessment-studio-ux/simplified-authoring-validation
+  origin/phase7.5.assessment-studio-ux/topic-gap-approval
+  origin/phase7.5.assessment-studio-ux/validation
+  origin/phase7.5.assessment-studio/canonical-topic-catalogues
+  origin/phase7.5.assessment-studio/canonical-topic-catalogues-v2

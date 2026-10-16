@@ -144,6 +144,10 @@ def clean_environment(directory: Path, source: Path) -> dict:
                 'PYTHONPATH': os.pathsep.join([str(source / 'scripts/validation_guard'), str(source), str(source / 'tests')]),
                 'MPLBACKEND': 'Agg', 'MPLCONFIGDIR': str(directory / 'matplotlib'),
                 'ANVAYA_VALIDATION_ARTIFACTS': str(directory / 'screenshots'),
+                # The full pytest gate must execute Learning Studio Chromium tests,
+                # rather than silently skipping them on architecture CI.
+                'ANVAYA_BROWSER_TESTS': '1',
+                'ANVAYA_BROWSER_ARTIFACTS': str(directory / 'screenshots'),
                 'TZ': 'Asia/Kolkata'})
     return env
 

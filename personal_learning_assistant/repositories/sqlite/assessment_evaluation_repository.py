@@ -8,6 +8,7 @@ import uuid
 from typing import Any, Mapping, Sequence
 
 from personal_learning_assistant.repositories.sqlite.connection import transaction
+from personal_learning_assistant.repositories.sqlite.assessment_execution_repository import has_extended_attempt
 
 
 _REQUIRED_TABLES = {
@@ -87,6 +88,10 @@ class SQLiteAssessmentEvaluationRepository:
         return dict(row) if row is not None else None
 
     def get_terminal_session(self, session_id: str):
+        if has_extended_attempt(self.connection, session_id):
+            raise AssessmentEvaluationRepositoryConflictError(
+                "Use the candidate workspace for this extended attempt."
+            )
         row = self.connection.execute(
             "SELECT s.id, s.assessment_id, s.status, s.mode, s.title_snapshot, "
             "s.course_code_snapshot, s.course_name_snapshot, s.question_count, "

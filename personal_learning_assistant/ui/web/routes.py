@@ -314,6 +314,27 @@ def _assessment_runner_service():
     return factory() if factory is not None else build_assessment_runner_service()
 
 
+def _assessment_extended_service():
+    factory = current_app.config.get("ASSESSMENT_EXTENDED_SERVICE_FACTORY")
+    if callable(factory):
+        return factory()
+    from personal_learning_assistant.services.assessment_execution_service import AssessmentExecutionService
+    import config
+    return AssessmentExecutionService(config.DATABASE_PATH, production=True)
+
+
+def _is_extended_session(session_id):
+    from personal_learning_assistant.repositories.sqlite.assessment_execution_repository import has_extended_attempt
+    with _assessment_runner_service()._repository(write=False) as repository:
+        return has_extended_attempt(repository.connection, session_id)
+
+
+def _extended_destination(session_id):
+    if not current_app.config.get("ASSESSMENT_EXTENDED_ENABLED"):
+        return None
+    return url_for("assessment_extended.workspace", sid=session_id)
+
+
 def _assessment_evaluation_service():
     factory = current_app.config.get("ASSESSMENT_EVALUATION_SERVICE_FACTORY")
     return factory() if factory is not None else build_assessment_evaluation_service()
@@ -1699,6 +1720,13 @@ def assessment_test_history(assessment_id):
 def assessment_test_preflight(assessment_id):
     try:
         test = _assessment_runner_service().preflight(assessment_id)
+        test["extended_enabled"] = current_app.config.get("ASSESSMENT_EXTENDED_ENABLED") is True
+        test["paper_possible"] = (
+            test["mode"] == "practice"
+            and bool(test["marking_groups"])
+            and all(g["question_type"] in {"short_subjective", "long_subjective"}
+                    for g in test["marking_groups"])
+        )
         return render_template(
             "assessment_test_preflight.html",
             active_page="assessments",
@@ -1712,10 +1740,35 @@ def assessment_test_preflight(assessment_id):
 @web_blueprint.post("/assessments/tests/<assessment_id>/start")
 def assessment_test_start(assessment_id):
     try:
+        kind = request.form.get("extended_kind", "")
+        if kind:
+            if (current_app.config.get("ASSESSMENT_EXTENDED_ENABLED") is not True
+                    or kind not in {"online_timed", "paper_subjective"}):
+                raise AssessmentRunnerValidationError("Extended practice is not enabled.")
+            preflight = _assessment_runner_service().preflight(assessment_id)
+            if preflight["mode"] != "practice":
+                raise AssessmentRunnerValidationError("Extended attempts are practice only.")
+            if request.form.get("confirmed") != "1":
+                raise AssessmentRunnerValidationError("Confirm the instructions before starting.")
+            if kind == "paper_subjective" and request.form.get("self_review_acknowledged") != "1":
+                raise AssessmentRunnerValidationError(
+                    "Confirm this is private, self-checked practice, not official grading."
+                )
+            # A pre-existing active attempt must never be silently re-adopted.
+            active = preflight.get("active_session_id")
+            if active and _is_extended_session(active):
+                return redirect(url_for("assessment_extended.workspace", sid=active), code=303)
         result = _assessment_runner_service().start(
             assessment_id,
             confirmed=request.form.get("confirmed") == "1",
         )
+        if kind and result.get("created"):
+            _assessment_extended_service().adopt(
+                result["session_id"], kind=kind,
+                self_review_acknowledged=(
+                    request.form.get("self_review_acknowledged") == "1"
+                ),
+            )
         return redirect(
             url_for("web.assessment_session", session_id=result["session_id"]),
             code=303,
@@ -1738,6 +1791,11 @@ def assessment_test_start(assessment_id):
 
 @web_blueprint.get("/assessments/sessions/<session_id>")
 def assessment_session(session_id):
+    if _is_extended_session(session_id):
+        target = _extended_destination(session_id)
+        return redirect(target, code=303) if target else (
+            "Extended attempt is temporarily unavailable; answers are preserved.", 503
+        )
     from personal_learning_assistant.services.assessment_coding_helper import tool_options
     from personal_learning_assistant.services.coding_operations import OPERATION_CARDS
     try:
@@ -1896,6 +1954,11 @@ def assessment_session_submit(session_id):
 
 @web_blueprint.get("/assessments/sessions/<session_id>/summary")
 def assessment_session_summary(session_id):
+    if _is_extended_session(session_id):
+        target = _extended_destination(session_id)
+        return redirect(target, code=303) if target else (
+            "Extended attempt is temporarily unavailable; answers are preserved.", 503
+        )
     try:
         summary = _assessment_runner_service().summary(session_id)
         return render_template(
