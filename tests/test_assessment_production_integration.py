@@ -232,3 +232,93 @@ def test_unapproved_paper_never_creates_orphan_live_attempt(tmp_path):
     with sqlite3.connect(path) as db:
         assert db.execute("SELECT COUNT(*) FROM assessment_test_sessions").fetchone()[0] == before
         assert db.execute("SELECT COUNT(*) FROM assessment_extended_execution").fetchone()[0] == 0
+
+
+def test_paused_online_resumes_directly_from_assessment_overview_at_last_question(tmp_path):
+    import re
+    from uuid import uuid4
+    app, path, aid, extended, _ = _production(tmp_path)
+    client = app.test_client()
+    started = client.post(
+        "/assessments/tests/" + aid + "/start",
+        data={"confirmed": "1", "extended_kind": "online_timed"},
+    )
+    assert started.status_code == 303
+    sid = started.location.rsplit("/", 1)[1]
+    service = extended()
+    state = service.state(sid)
+    first = state["questions"][0]
+    result = service.command(sid, "navigate", {
+        "request_id": uuid4().hex,
+        "expected_revision": state["revision"],
+        "ordinal": 2,
+        "question_id": first["session_question_id"],
+        "expected_response_revision": first["response_revision"],
+        "response": {"selected_option_ids": ["B"]},
+        "marked": False,
+    })
+    assert result["state"]["current_ordinal"] == 2
+    second = service.state(sid)["questions"][1]
+    if second["question_type"] in ("mcq", "msq"):
+        response = {"selected_option_ids": [second["options"][0]["id"]]}
+    elif second["question_type"] in ("numerical", "fill_blank", "true_false"):
+        response = {"value": "2"}
+    else:
+        response = {"text": "Saved second answer"}
+    frozen = service.command(sid, "pause", {
+        "request_id": uuid4().hex,
+        "expected_revision": service.state(sid)["revision"],
+        "question_id": second["session_question_id"],
+        "expected_response_revision": second["response_revision"],
+        "response": response,
+        "marked": True,
+    })["state"]
+    assert frozen["status"] == "paused" and frozen["current_ordinal"] == 2
+    before = list(sqlite3.connect(path).execute(
+        "SELECT metadata_json FROM assessment_extended_execution WHERE session_id=?", (sid,)
+    ))
+    overview = client.get("/assessments")
+    assert overview.status_code == 200
+    text = overview.get_data(as_text=True)
+    assert "Continue your assessment" in text
+    assert "Paused at question 2" in text
+    assert "Resume test" in text
+    assert sid in text
+    assert list(sqlite3.connect(path).execute(
+        "SELECT metadata_json FROM assessment_extended_execution WHERE session_id=?", (sid,)
+    )) == before
+
+    token = re.search(r'name="mutation_token" value="([^"]+)"', text).group(1)
+    request_id = re.search(r'name="request_id" value="([^"]+)"', text).group(1)
+    endpoint = f"/assessments/extended/sessions/{sid}/resume"
+    bad = client.post(endpoint, data={
+        "mutation_token": "invalid", "request_id": request_id,
+        "expected_revision": frozen["revision"],
+    }, headers={"Origin": "http://localhost"})
+    assert bad.status_code == 403 and service.state(sid)["status"] == "paused"
+
+    resumed = client.post(endpoint, data={
+        "mutation_token": token, "request_id": request_id,
+        "expected_revision": frozen["revision"],
+    }, headers={"Origin": "http://localhost"})
+    assert resumed.status_code == 303
+    assert resumed.location.endswith("/assessments/extended/sessions/" + sid)
+    current = service.state(sid)
+    assert current["status"] == "active"
+    assert current["current_ordinal"] == 2
+    assert current["questions"][1]["response"] == frozen["questions"][1]["response"]
+    assert "QUESTION 2" in client.get(resumed.location).get_data(as_text=True)
+
+
+def test_paused_resume_overview_disappears_if_feature_off(tmp_path):
+    app, path, aid, extended, _ = _production(tmp_path)
+    client = app.test_client()
+    started = client.post("/assessments/tests/" + aid + "/start",
+                          data={"confirmed": "1", "extended_kind": "online_timed"})
+    sid = started.location.rsplit("/", 1)[1]
+    state = extended().state(sid)
+    extended().command(sid, "pause", {"request_id": "pause_no_answer_123",
+                                     "expected_revision": state["revision"]})
+    assert "Continue your assessment" in client.get("/assessments").get_data(as_text=True)
+    app.config["ASSESSMENT_EXTENDED_ENABLED"] = False
+    assert "Continue your assessment" not in client.get("/assessments").get_data(as_text=True)

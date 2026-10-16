@@ -34,6 +34,26 @@
       pending = false;
     }
   }));
+  // Selecting a question from the palette submits the *current* answer
+  // before changing ordinal. Do not navigate to a question that was never
+  // rendered or bypass the atomic save/acknowledgement.
+  document.querySelectorAll('[data-palette-go]').forEach(link => link.addEventListener('click', event => {
+    if (pending || root.dataset.status !== 'active') {
+      event.preventDefault();
+      return;
+    }
+    const form = document.querySelector('form.answer-form');
+    const ordinal = form && form.querySelector('select[name="ordinal"]');
+    const navigate = form && form.querySelector('button[name="command"][value="navigate"]');
+    if (!ordinal || !navigate) return;
+    if (!Array.from(ordinal.options).some(option => option.value === link.dataset.paletteGo)) {
+      event.preventDefault();
+      return;
+    }
+    event.preventDefault();
+    ordinal.value = link.dataset.paletteGo;
+    form.requestSubmit(navigate);
+  }));
   if (root.dataset.status === 'paused') document.getElementById('state-banner').focus();
   else if (root.dataset.status === 'active') document.querySelector('.question').focus({ preventScroll: true });
 })();
