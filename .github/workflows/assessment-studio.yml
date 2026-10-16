@@ -1,0 +1,121 @@
+name: Assessment Studio isolated synthetic acceptance
+
+on:
+  push:
+    branches: ['feature/assessment-pause-paper-**']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  assessment:
+    name: Assessment regressions (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+            requirements-assessment-browser.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install tracked dependencies
+        run: python -m pip install -r requirements.txt -r requirements-dev.txt -r requirements-assessment-browser.txt
+      - name: Install Chromium with host libraries
+        if: runner.os == 'Linux'
+        run: python -m playwright install --with-deps chromium
+      - name: Install Chromium
+        if: runner.os == 'Windows'
+        run: python -m playwright install chromium
+      - name: Run all Assessment-related pytest modules without skips or missing cases
+        shell: python
+        run: |
+          import glob, os, subprocess, sys, xml.etree.ElementTree as ET
+          from pathlib import Path
+          # pathlib ensures the exact same POSIX-normalized test inventory on
+          # Windows and Ubuntu; glob emits backslashes on native Windows.
+          tests = sorted(Path(p).as_posix() for p in glob.glob('tests/test_*assessment*.py'))
+          extra = [
+              'tests/test_architecture_local_collector.py',
+              'tests/test_topic_read_safety.py',
+          ]
+          tests = sorted(set(tests + extra))
+          assert len(tests) >= 22, 'Assessment test module discovery is unexpectedly incomplete'
+          assert 'tests/test_assessment_pause_paper_browser.py' in tests
+          assert 'tests/test_assessment_coding_helper_2.py' in tests
+          os.environ['PYTHONDONTWRITEBYTECODE'] = '1'
+          os.environ['ANVAYA_BROWSER_TESTS'] = '1'
+          code = subprocess.call([sys.executable, '-m', 'pytest', '-q', *tests,
+                                  '--junitxml=assessment-acceptance.xml'])
+          if code:
+              sys.exit(code)
+          root = ET.parse('assessment-acceptance.xml').getroot()
+          cases = root.findall('.//testcase')
+          skipped = [c for c in cases if c.find('skipped') is not None]
+          failed = [c for c in cases if c.find('failure') is not None or c.find('error') is not None]
+          print('Assessment modules:', len(tests), 'cases:', len(cases), 'skipped:', len(skipped), 'failed:', len(failed))
+          assert len(cases) >= 150, 'Assessment regression case inventory is unexpectedly incomplete'
+          assert not skipped and not failed, 'Isolated Assessment synthetic gate requires zero skips/failures'
+      - name: Run Assessment browser/tool JavaScript regressions
+        shell: python
+        run: |
+          import glob, subprocess, sys
+          scripts = sorted(glob.glob('tests/js/*assessment*.test.cjs'))
+          assert len(scripts) >= 4, 'Missing Assessment JavaScript regression modules'
+          sys.exit(subprocess.call(['node', '--test', *scripts]))
+      - name: Source compilation
+        run: python -m compileall -q personal_learning_assistant scripts
+      - name: Retain exact-head assessment test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: assessment-synthetic-${{ matrix.os }}-${{ github.sha }}
+          if-no-files-found: warn
+          path: |
+            assessment-acceptance.xml
+
+  acceptance:
+    name: Assessment isolated cross-platform gate
+    if: always()
+    needs: assessment
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require both platform jobs
+        shell: python
+        env:
+          MATRIX_RESULT: ${{ needs.assessment.result }}
+        run: |
+          import json, os
+          from pathlib import Path
+          passed = os.environ['MATRIX_RESULT'] == 'success'
+          result = {
+            'source_sha': os.environ['GITHUB_SHA'],
+            'scope': 'Assessment Studio synthetic isolated regressions only',
+            'ubuntu_and_windows': os.environ['MATRIX_RESULT'],
+            'assessment_synthetic_gate': 'PASS' if passed else 'FAIL',
+            'full_repository_architecture_gate': 'SEPARATE; does not override 4 missing Learning Studio real pilot fixtures',
+            'installed_projection_and_import_authority': 'NOT ESTABLISHED',
+            'production_activation': 'BLOCKED'
+          }
+          Path('ASSESSMENT_ACCEPTANCE.json').write_text(json.dumps(result, indent=2), encoding='utf-8')
+          print(json.dumps(result, indent=2))
+          if not passed: raise SystemExit(1)
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: assessment-isolated-acceptance-${{ github.sha }}
+          path: ASSESSMENT_ACCEPTANCE.json

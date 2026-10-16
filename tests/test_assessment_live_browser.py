@@ -102,7 +102,10 @@ def test_native_form_save_update_review_previous_refresh_clear_and_final(live):
         assert db.execute("SELECT count(*) FROM assessment_test_responses WHERE session_question_id IN (SELECT id FROM assessment_test_session_questions WHERE session_id=?)", (sid,)).fetchone()[0] == 4
     page.goto(url + "?q=4")
     page.locator("textarea").fill("My independently written explanation.")
-    page.get_by_role("button", name="Save & Next", exact=True).click()
+    # The final question redirects to the same URL. URL equality alone does
+    # not await the save/navigation and a concurrent reload can abort it.
+    with page.expect_navigation(wait_until="load"):
+        page.get_by_role("button", name="Save & Next", exact=True).click()
     page.wait_for_url(url + "?q=4")
     page.reload()
     assert page.locator("textarea").input_value() == "My independently written explanation."
