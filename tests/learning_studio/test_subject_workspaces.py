@@ -107,3 +107,34 @@ def test_nonchemistry_course_uses_source_practice_revision_template(chemistry):
     assert 'Worked problems' in res.text
     assert 'Mistakes &amp; exam revision' in res.text
     assert 'Notes' in res.text and 'Assessments' in res.text
+
+
+def test_unknown_academic_year_is_presentation_only_first_year_semester_one(chemistry):
+    service,client,source=chemistry
+    for course in source['courses']:
+        course.pop('academic_year',None)
+        course['semester']=''
+    assert 'academic_year' not in source['courses'][0]
+    page=client.get('/learning')
+    assert page.status_code==200
+    assert 'First Year' in page.text
+    assert 'Semester 1' in page.text
+    assert 'Academic year unspecified' not in page.text
+    assert 'Semester unspecified' not in page.text
+    assert 'ls-subject-summary' in page.text
+    assert 'ls-subject-tags' not in page.text
+    assert page.text.count('class="ls-card ls-subject-card') == len(source['courses'])
+    assert source['courses'][0]['name']=='Green Chemistry'
+    assert 'academic_year' not in source['courses'][0]
+    assert not service.store.path.exists()
+
+
+def test_real_academic_year_and_other_semesters_are_not_relabelled(chemistry):
+    _,client,source=chemistry
+    source['courses'][0]['academic_year']='2027-28'
+    source['courses'][0]['semester']='Semester 3'
+    page=client.get('/learning')
+    assert page.status_code==200
+    assert '2027-28' in page.text
+    assert 'Semester 3' in page.text
+    assert 'First Year' not in page.text
