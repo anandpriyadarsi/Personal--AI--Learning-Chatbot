@@ -156,7 +156,8 @@ def test_launcher_activation_backs_up_existing_records_before_extension(tmp_path
     assert summary["enabled"] and not summary["new_database"]
     assert summary["new_migrations"] == (15,)
     assert summary["backup"] is not None
-    backup = backups / summary["backup"].split("/")[-1] if "/" in summary["backup"] else __import__("pathlib").Path(summary["backup"])
+    from pathlib import Path
+    backup = Path(summary["backup"])
     assert backup.is_file()
     with sqlite3.connect(backup) as db:
         assert db.execute("SELECT COUNT(*) FROM questions").fetchone()[0] == original
