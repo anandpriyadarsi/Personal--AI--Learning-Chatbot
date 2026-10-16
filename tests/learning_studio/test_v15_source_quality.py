@@ -111,3 +111,28 @@ def test_pdf_resource_cues_are_structural_not_visual_extraction():
     out=io.BytesIO();writer.write(out);features=authoring.pdf_features(out.getvalue())
     assert features['pages'][0]['raster_resources']==1 and not features['semantic_certification']
     assert features['vector_formula_speaker_notes']=='unsupported / needs review'
+
+
+def test_changed_explanation_invalidates_retained_source_quote(tmp_path):
+    s,p,r=setup(tmp_path)
+    before=s.coverage_report('synthetic',1)
+    assert any(m['section_id']=='lesson-1' and m['block_index']==1
+               for e in before['coverage'] for m in e['mappings'])
+    previous=p['sections'][0]['blocks'][1]['text']
+    s.create_candidate('synthetic',1,dict(correction(),
+        text=previous+'\\n\\nAn additional interpretation that needs fresh source review.'))
+    new=s.coverage_report('synthetic',2)
+    assert all(not (m['section_id']=='lesson-1' and m['block_index']==1)
+               for e in new['coverage'] for m in e['mappings'])
+    assert any(e['state']=='unresolved' for e in new['coverage'])
+    assert new['review']['status']=='needs_review'
+    assert s.coverage_report('synthetic',1)==before
+
+
+def test_correction_cannot_jump_module_revisions(tmp_path):
+    s,p,r=setup(tmp_path)
+    original=s.store.path.read_bytes()
+    with pytest.raises(PackageError,match='next consecutive'):
+        s.create_candidate('synthetic',1,dict(correction(),target_revision=9))
+    assert s.store.path.read_bytes()==original
+    assert s.library(course_id='unmapped')['modules'][0]['revision']==1
