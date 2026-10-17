@@ -13,6 +13,30 @@
 {% if error_message %}<section class="notice-panel" role="alert"><p>{{ error_message }}</p></section>{% endif %}
 
 {% set agenda = day.existing %}
+{% if proposal_token %}
+<section class="dashboard-panel">
+  <p class="eyebrow">Review your proposal</p>
+  <h3>Available {{ proposal_start }}–{{ proposal_end }} · {{ proposal_timezone }}</h3>
+  <p>Only your stated availability is used. Commitments and a 10-minute break buffer reduce capacity. Unscheduled tasks remain visible below.</p>
+  <form method="post" action="{{ url_for('planning_proposals.proposal', agenda_date=day.date) }}">
+    <input type="hidden" name="proposal_token" value="{{ proposal_token }}">
+    <button class="button" type="submit">Save proposal as draft</button>
+    <a class="button button-secondary" href="{{ url_for('web.planning_day', agenda_date=day.date) }}">Cancel</a>
+  </form>
+  <p>Review the saved draft before choosing Approve day. This preview expires after 15 minutes; changed sources require a new preview.</p>
+</section>
+{% else %}
+<section class="dashboard-panel">
+  <p class="eyebrow">Your availability</p>
+  <h3>Find time for your tasks</h3>
+  <p>Enter a free window to preview a schedule. Nothing is saved until you choose Save proposal as draft.</p>
+  <form method="get" action="{{ url_for('planning_proposals.proposal', agenda_date=day.date) }}" class="planner-form">
+    <label>Available from<input type="time" name="start" required></label>
+    <label>Available until<input type="time" name="end" required></label>
+    <button class="button" type="submit">Preview available time</button>
+  </form>
+</section>
+{% endif %}
 <section class="action-panel">
   <div>
     <p class="eyebrow">Agenda state</p>
@@ -20,11 +44,11 @@
     <p>{{ day.summary.fixed_count }} fixed/routine · {{ day.summary.task_count }} task(s) · {{ day.summary.scheduled_focus_minutes }} scheduled focus min</p>
   </div>
   <div class="planner-inline-actions">
-    {% if not agenda or agenda.status == 'draft' %}
+    {% if not proposal_token and (not agenda or agenda.status == 'draft') %}
     <form method="post" action="{{ url_for('web.planning_day_generate', agenda_date=day.date) }}"><button class="button" type="submit">{% if agenda %}Regenerate draft{% else %}Generate today{% endif %}</button></form>
     {% endif %}
-    {% if agenda and agenda.status == 'draft' %}
-    <form method="post" action="{{ url_for('web.planning_day_approve', agenda_date=day.date) }}"><button class="button button-secondary" type="submit">Approve day</button></form>
+    {% if not proposal_token and agenda and agenda.status == 'draft' %}
+    <form method="post" action="{{ url_for('web.planning_day_approve', agenda_date=day.date) }}"><input type="hidden" name="approval_token" value="{{ planner_approval_token(day.date) }}"><button class="button button-secondary" type="submit">Approve day</button></form>
     {% endif %}
   </div>
 </section>
@@ -59,17 +83,17 @@
   </article>
 </section>
 
-{% if agenda %}
+{% if agenda and not proposal_token %}
 <section class="dashboard-panel">
   <div class="panel-heading"><div><p class="eyebrow">Saved agenda</p><h3>Track what actually happened</h3></div><span class="tag">{{ agenda.status }}</span></div>
   <ul class="planner-agenda-items">
-  {% for item in agenda.items %}
+  {% for item in agenda['items'] %}
     <li>
       <div class="list-main">
         <strong>{{ item.title }}</strong>
-        <span>{{ item.item_kind|title }} · {{ item.status|replace('_',' ')|title }}{% if item.planned_minutes is not none %} · planned {{ item.planned_minutes }} min{% endif %}</span>
+        <span>{% if item.starts_at %}{{ item.starts_at[11:16] }}–{{ item.ends_at[11:16] }} · {% endif %}{{ item.item_kind|title }} · {{ item.status|replace('_',' ')|title }}{% if item.planned_minutes is not none %} · planned {{ item.planned_minutes }} min{% endif %}</span>
       </div>
-      {% if agenda.status != 'closed' and item.item_kind in ['task','study','manual'] %}
+      {% if agenda.status in ['approved','active'] and item.item_kind in ['task','study','manual'] %}
       <form method="post" action="{{ url_for('web.planning_day_item_update', agenda_date=day.date, item_id=item.id) }}" class="planner-inline-actions">
         <input type="number" name="actual_minutes" min="0" max="1440" placeholder="actual min">
         <button class="button button-secondary" name="status" value="completed">Complete</button>

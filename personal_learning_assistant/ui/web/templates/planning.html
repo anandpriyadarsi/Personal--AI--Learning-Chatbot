@@ -1,55 +1,32 @@
 {% extends "base.html" %}
-
-{% block title %}Progress & Planning · Personal AI Learning Assistant{% endblock %}
-
+{% block title %}Planning · ANVAYA{% endblock %}
+{% block body_class %}analysis-page pa-page{% endblock %}
+{% block page_scripts %}<link rel="stylesheet" href="{{ url_for('static', filename='planning_analysis.css') }}">{% endblock %}
 {% block content %}
-<section class="hero dashboard-hero" aria-labelledby="planning-title">
-  <div>
-    <p class="eyebrow">Academic progress workspace</p>
-    <h2 id="planning-title">Progress &amp; planning</h2>
-    <p class="lede">A read-only view of course progress, priority topics, and study plans that already exist.</p>
-  </div>
-  {% if dashboard.available %}
-    <p class="date-chip">{{ dashboard.summary.courses }} course{% if dashboard.summary.courses != 1 %}s{% endif %} · {{ dashboard.summary.saved_plans }} saved plan{% if dashboard.summary.saved_plans != 1 %}s{% endif %}</p>
-  {% endif %}
-</section>
-
-{% include "_planning_operational.html" %}
-
-{% if not dashboard.available %}
-<section class="notice-panel" aria-live="polite">
-  <h3>Progress and planning are temporarily unavailable</h3>
-  <p>{{ dashboard.message }}</p>
-</section>
-{% else %}
-<section class="metric-grid" aria-label="Progress summary">
-  <article class="metric-card">
-    <span class="metric-label">Average progress</span>
-    <strong>{{ dashboard.summary.average_progress }}%</strong>
-    <span>Across current courses</span>
-  </article>
-  <article class="metric-card">
-    <span class="metric-label">Mastered topics</span>
-    <strong>{{ dashboard.summary.mastered_topics }}</strong>
-    <span>Current stored mastery</span>
-  </article>
-  <article class="metric-card">
-    <span class="metric-label">Weak topics</span>
-    <strong>{{ dashboard.summary.weak_topics }}</strong>
-    <span>Need deliberate repair</span>
-  </article>
-  <article class="metric-card">
-    <span class="metric-label">Not started</span>
-    <strong>{{ dashboard.summary.missing_topics }}</strong>
-    <span>Missing / unfinished topics</span>
-  </article>
-</section>
-
+<section class="pa-hero" aria-labelledby="planning-title"><div><p class="eyebrow">Planning · {{ hub.date }} · {{ hub.timezone }}</p><h2 id="planning-title">Make room for what matters.</h2><p>Your commitments, tasks and deliberate next steps.</p></div><a class="pa-button pa-primary" href="{{ url_for('web.planning_day', agenda_date=hub.date) }}">Open today's agenda <span aria-hidden="true">↗</span></a></section>
+<nav class="pa-workflows" aria-label="Planning workflows"><a href="{{ url_for('web.planning_tasks') }}">Task inbox</a><a href="{{ url_for('web.planning_weekly_review', anchor_date=hub.date) }}">Weekly review</a><a href="{{ url_for('web.planning_month_plan') }}">Month plan import</a><a href="{{ url_for('web.analysis') }}">View evidence →</a></nav>
+<section class="pa-metrics" aria-label="Today at a glance"><article><span>Open tasks</span><strong>{{ hub.summary.open_tasks if hub.summary.open_tasks is not none else 'Unknown' }}</strong><small>Canonical task inbox</small></article><article><span>Overdue</span><strong>{{ hub.summary.overdue_tasks if hub.summary.overdue_tasks is not none else 'Unknown' }}</strong><small>Review before carrying forward</small></article><article><span>Today's agenda</span><strong class="pa-word-value">{% if operational and operational.available %}{{ operational.daily_review_status|replace('_',' ')|title }}{% else %}Unavailable{% endif %}</strong><small>Open the agenda to review its state</small></article><article><span>Free capacity</span><strong class="pa-word-value">Unspecified</strong><small>No free time inferred from empty slots</small></article></section>
+<div class="pa-split pa-planning-split"><section class="pa-panel" aria-labelledby="calendar-heading"><div class="pa-heading"><div><p class="eyebrow">Existing commitments</p><h3 id="calendar-heading">Your schedule</h3></div><nav class="pa-segmented" aria-label="Calendar view">{% for view in ['day','week','month'] %}<a href="{{ url_for('web.planning',view=view,date=(calendar_view.anchor_date if calendar_view and calendar_view.available else hub.date),course=hub.filters.course,days=hub.filters.days,evidence=hub.filters.evidence) }}"{% if calendar_view and calendar_view.view == view %} aria-current="page"{% endif %}>{{ view|title }}</a>{% endfor %}</nav></div>
+{% if calendar_view and calendar_view.available %}<div class="pa-calendar-nav"><a aria-label="Previous {{ calendar_view.view }}" href="{{ url_for('web.planning',view=calendar_view.view,date=calendar_view.previous_anchor,course=hub.filters.course,days=hub.filters.days,evidence=hub.filters.evidence) }}">←</a><span>{{ calendar_view.starts_on }}{% if calendar_view.ends_on != calendar_view.starts_on %} — {{ calendar_view.ends_on }}{% endif %}</span><a aria-label="Next {{ calendar_view.view }}" href="{{ url_for('web.planning',view=calendar_view.view,date=calendar_view.next_anchor,course=hub.filters.course,days=hub.filters.days,evidence=hub.filters.evidence) }}">→</a></div>
+{% if calendar_view.days %}<div class="pa-timeline">{% for date,items in calendar_view.days.items() %}<section class="pa-day"><a class="pa-day-label" href="{{ url_for('web.planning_day', agenda_date=date) }}">{{ date }}{% if date == hub.date %}<span>Today</span>{% endif %}</a><ul>{% for item in items %}<li class="pa-event pa-event-{{ item.source }}"><div class="pa-event-time">{% if item.start_time %}{{ item.start_time }}{% if item.end_time %}<span>{{ item.end_time }}</span>{% endif %}{% elif item.source == 'task' %}Due{% elif item.all_day %}All day{% else %}Unspecified{% endif %}</div><div><strong>{{ item.title }}</strong><small>{{ item.kind|replace('_',' ')|title }} · {{ item.source|replace('_',' ') }}{% if item.priority %} · {{ item.priority }}{% endif %}</small></div></li>{% endfor %}</ul></section>{% endfor %}</div>{% else %}<div class="pa-empty"><span class="pa-empty-mark" aria-hidden="true">▦</span><h4>No recorded commitments in this view</h4><p>Empty dates do not confirm availability. Add tasks or review your month plan when ready.</p></div>{% endif %}
+<p class="pa-caption">Calendar commitments and due dates only; open a day's agenda for approved study sessions. Tasks shown as “Due” are not allocated study blocks.</p>
+{% else %}<div class="pa-empty"><h4>Calendar temporarily unavailable</h4><p>Your existing records have not been changed. Task and agenda workflows remain available above.</p></div>{% endif %}</section>
+<aside class="pa-panel pa-next"><p class="eyebrow">A deliberate next step</p><h3>{% if hub.summary.overdue_tasks %}Review what carried over{% else %}Shape today's agenda{% endif %}</h3><p>{% if hub.summary.overdue_tasks %}{{ hub.summary.overdue_tasks if hub.summary.overdue_tasks is not none else 'Unknown' }} open task{% if hub.summary.overdue_tasks != 1 %}s are{% else %} is{% endif %} past the due date. Review status and timing before adding more work.{% else %}Review commitments and preferred days, then preview your agenda before approving it.{% endif %}</p><a class="pa-button" href="{{ url_for('web.planning_tasks') if hub.summary.overdue_tasks else url_for('web.planning_day', agenda_date=hub.date) }}">{% if hub.summary.overdue_tasks %}Review tasks{% else %}Review agenda{% endif %} →</a><div class="pa-next-note"><span class="pa-badge">You decide</span><p>Opening this page does not create or move tasks. Scheduling changes belong to the existing preview and approval workflows.</p></div></aside></div>
+<section class="pa-panel" aria-labelledby="task-inbox-title"><div class="pa-heading"><div><p class="eyebrow">Keep the next step visible</p><h3 id="task-inbox-title">Task inbox</h3></div><a class="pa-text-link" href="{{ url_for('web.planning_tasks') }}">Manage tasks →</a></div>
+<form class="pa-filters" method="get" aria-label="Task course filter">
+{% if calendar_view and calendar_view.available %}<input type="hidden" name="view" value="{{ calendar_view.view }}"><input type="hidden" name="date" value="{{ calendar_view.anchor_date }}">{% endif %}
+  <label>Course<select name="course"><option value="">All courses</option>{% for course in hub.courses %}<option value="{{ course.code }}"{% if hub.filters.course == course.code %} selected{% endif %}>{{ course.code }} · {{ course.name }}</option>{% endfor %}</select></label>
+  <button class="pa-button" type="submit">Apply filters</button>
+</form>
+{% if hub.tasks %}<ul class="pa-task-list">{% for task in hub.tasks %}<li><span class="pa-task-marker" aria-hidden="true"></span><div><a href="{{ url_for('web.planning_tasks') }}">{{ task.title }}</a><small>{{ task.course_code or 'No course linked' }} · {{ task.status|replace('_',' ') }}{% if task.due_on %} · Due {{ task.due_on }}{% else %} · No due date{% endif %}{% if task.preferred_day %} · Preferred {{ task.preferred_day }}{% endif %}</small></div><div class="pa-task-meta"><span class="pa-badge">{{ task.priority }}</span><small>{% if task.estimated_minutes is not none %}{{ task.estimated_minutes }} min{% else %}Effort unspecified{% endif %}</small></div></li>{% endfor %}</ul>{% else %}<div class="pa-empty"><h4>No tasks in this selection</h4><p>Add a task or change the course filter to see your next steps.</p><a href="{{ url_for('web.planning_tasks') }}">Open task inbox →</a></div>{% endif %}</section>
+<details class="pa-disclosure"><summary>Evidence sources &amp; limits</summary><div class="pa-disclosure-body"><p>Updated from existing records as of {{ hub.date }} · {{ hub.timezone }}. Unknown evidence is not failure, and activity is not measured mastery.</p><ul>{% for limit in hub.limits %}<li>{{ limit }}</li>{% endfor %}</ul>{% if hub.source_status %}<dl class="pa-source-list">{% for name,status in hub.source_status.items() %}<div><dt>{{ name|replace('_',' ')|title }}</dt><dd>{{ status|replace('_',' ') }}</dd></div>{% endfor %}</dl>{% endif %}</div></details>
+{% if not dashboard.available %}<section class="notice-panel" aria-live="polite"><h3>Progress and planning are temporarily unavailable</h3><p>{{ dashboard.message }}</p></section>{% else %}
+<details class="pa-disclosure"><summary>Learner-reported course progress &amp; legacy saved plans</summary><div class="pa-disclosure-body"><p class="pa-caption">These legacy topic labels and confidence values are learner-reported, not measured mastery. Saved study plans are historical records and do not establish an approved daily agenda.</p>
 <section class="dashboard-panel" aria-labelledby="progress-heading">
   <div class="panel-heading">
     <div>
-      <p class="eyebrow">Progress evidence</p>
-      <h3 id="progress-heading">Course progress &amp; priorities</h3>
+      <p class="eyebrow">Learner-reported status</p>
+      <h3>Progress &amp; planning</h3><p>Legacy stored average {{ dashboard.summary.average_progress }}% · learner-reported topic labels, not an assessed grade.</p><h3 id="progress-heading">Course progress &amp; priorities · learner-reported</h3>
     </div>
     <span class="tag">Read only</span>
   </div>
@@ -69,7 +46,7 @@
         </div>
 
         <p class="empty-state">
-          <strong>{{ course.mastered_topics }}/{{ course.total_topics }} mastered</strong>
+          <strong>{{ course.mastered_topics }}/{{ course.total_topics }} labelled mastered by learner</strong>
           · confidence {{ course.average_confidence }}/5
           {% if course.has_history %}
             · change {{ "%+g"|format(course.delta_progress) }} pts
@@ -80,7 +57,7 @@
 
         {% if course.weak_topics or course.missing_topics %}
         <div class="tag-row" aria-label="Course gaps">
-          {% for topic in course.weak_topics %}<span class="tag">Weak: {{ topic }}</span>{% endfor %}
+          {% for topic in course.weak_topics %}<span class="tag">Reported weak: {{ topic }}</span>{% endfor %}
           {% for topic in course.missing_topics %}<span class="tag">Not started: {{ topic }}</span>{% endfor %}
         </div>
         {% endif %}
@@ -97,7 +74,7 @@
             </div>
             <div class="tag-row">
               <span class="tag">{{ topic.status_label }}</span>
-              <span class="score-badge">Priority {{ topic.score|int }}</span>
+
               {% if topic.confidence %}<span class="tag">Confidence {{ topic.confidence }}/5</span>{% endif %}
             </div>
           </li>
@@ -166,5 +143,6 @@
     {% endfor %}
   </div>
 </section>
+</div></details>
 {% endif %}
 {% endblock %}

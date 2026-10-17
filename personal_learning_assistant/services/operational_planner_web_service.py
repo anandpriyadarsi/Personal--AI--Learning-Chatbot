@@ -2,9 +2,15 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
+import hashlib
+import json
+from zoneinfo import ZoneInfoNotFoundError
+
+from personal_learning_assistant.repositories.sqlite.daily_agenda_repository import DailyAgendaRepositoryError
 
 from personal_learning_assistant.services.daily_agenda_service import (
+    DailyAgendaService,
     DailyAgendaConflictError,
     DailyAgendaError,
     DailyAgendaNotFoundError,
@@ -168,8 +174,57 @@ class OperationalPlannerWebService:
 
     def day_view(self, agenda_date):
         try:
-            preview = self.daily.preview_day(agenda_date)
-            return preview
+            return self.daily.day_view(agenda_date)
+        except DailyAgendaError as error:
+            raise _translate(error)
+
+    def _proposal_daily(self, agenda_date, start, end, *, local_timezone="Asia/Kolkata", now=None):
+        try:
+            datetime.strptime(agenda_date, "%Y-%m-%d")
+            left = datetime.strptime(start, "%H:%M")
+            right = datetime.strptime(end, "%H:%M")
+            if left >= right or left.strftime("%H:%M") != start or right.strftime("%H:%M") != end:
+                raise ValueError("Invalid availability")
+            return DailyAgendaService(
+                self.daily.agendas, self.daily.tasks, self.daily.calendar_repository, self.daily.calendar,
+                now=now or self.daily._now, free_windows={agenda_date: [(start, end)]},
+                local_timezone=local_timezone,
+            )
+        except (TypeError, ValueError, ZoneInfoNotFoundError) as error:
+            raise OperationalPlannerWebValidationError("Enter a valid date and availability window (start before end).") from error
+
+    @staticmethod
+    def _proposal_hash(preview):
+        # Creation timestamps are not scheduling decisions; all other fields bind the preview.
+        semantic = {key: value for key, value in preview.items() if key not in {"items", "tasks", "study", "fixed"}}
+        semantic["items"] = [
+            {key: value for key, value in item.items() if key not in {"created_at", "updated_at"}}
+            for item in preview["items"]
+        ]
+        return hashlib.sha256(json.dumps(semantic, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+    def preview_proposal(self, agenda_date, start, end, *, local_timezone="Asia/Kolkata", now=None):
+        daily = self._proposal_daily(agenda_date, start, end, local_timezone=local_timezone, now=now)
+        try:
+            fingerprint = daily.agendas.planning_fingerprint()
+            preview = daily.preview_day(agenda_date)
+            if fingerprint != daily.agendas.planning_fingerprint():
+                raise OperationalPlannerWebConflictError("Planner changed during preview. Try again.")
+            if preview["existing"] and preview["existing"]["status"] != "draft":
+                raise OperationalPlannerWebConflictError("Only an absent or draft agenda can receive a proposal.")
+            return {"day": preview, "fingerprint": fingerprint, "semantic_hash": self._proposal_hash(preview)}
+        except DailyAgendaError as error:
+            raise _translate(error)
+        except DailyAgendaRepositoryError as error:
+            raise OperationalPlannerWebUnavailableError("Planner preview storage is unavailable.") from error
+
+    def save_proposal(self, agenda_date, start, end, *, fingerprint, semantic_hash, local_timezone="Asia/Kolkata", now=None):
+        current = self.preview_proposal(agenda_date, start, end, local_timezone=local_timezone, now=now)
+        if current["fingerprint"] != fingerprint or current["semantic_hash"] != semantic_hash:
+            raise OperationalPlannerWebConflictError("Planner changed since preview. Preview again before saving.")
+        daily = self._proposal_daily(agenda_date, start, end, local_timezone=local_timezone, now=now)
+        try:
+            return daily.generate_day(agenda_date, expected_fingerprint=fingerprint, preview=current["day"])
         except DailyAgendaError as error:
             raise _translate(error)
 

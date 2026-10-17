@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import date, datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 from personal_learning_assistant.repositories.sqlite.daily_agenda_repository import (
     DailyAgendaRepositoryConflictError,
@@ -92,31 +93,43 @@ def _preferred_window(task):
     return DAY_START_MINUTE, SHUTDOWN_MINUTE
 
 
-def _free_windows(fixed):
+def _free_windows(fixed, availability, earliest, buffer):
+    """Subtract commitments from explicit availability; unknown occupancy closes the day."""
     occupied = []
     for item in fixed:
-        if item.get("all_day"):
-            continue
         start = _minutes(item.get("start_time"))
         end = _minutes(item.get("end_time"))
-        if start is not None and end is not None and end > start:
-            occupied.append((start, end))
-    occupied.sort()
-    merged = []
-    for start, end in occupied:
-        if merged and start <= merged[-1][1]:
-            merged[-1] = (merged[-1][0], max(merged[-1][1], end))
-        else:
-            merged.append((start, end))
+        if item.get("all_day") or start is None or end is None or end <= start:
+            return []
+        occupied.append((max(0, start - buffer), min(1440, end + buffer)))
     windows = []
-    cursor = DAY_START_MINUTE
-    for start, end in merged:
-        if cursor < start:
-            windows.append((cursor, start))
-        cursor = max(cursor, end)
-    if cursor < SHUTDOWN_MINUTE:
-        windows.append((cursor, SHUTDOWN_MINUTE))
-    return windows
+    for raw_start, raw_end in availability:
+        start, end = _minutes(raw_start), _minutes(raw_end)
+        if start is None or end is None or end <= start:
+            continue
+        fragments = [(max(start, earliest, DAY_START_MINUTE), min(end, SHUTDOWN_MINUTE))]
+        for a, b in sorted(occupied):
+            remaining = []
+            for x, y in fragments:
+                if b <= x or a >= y:
+                    remaining.append((x, y))
+                else:
+                    remaining.extend([(x, min(y, a)), (max(x, b), y)])
+            fragments = [(x, y) for x, y in remaining if x < y]
+        windows.extend((x, y) for x, y in fragments if x < y)
+    return sorted(windows)
+
+
+def _preferred_day_allows(task, target):
+    preferred = str(task.get("preferred_day") or "").strip()
+    if not preferred:
+        return True
+    try:
+        return _parse_date(preferred) <= target
+    except DailyAgendaValidationError:
+        days = {"monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3,
+                "friday": 4, "saturday": 5, "sunday": 6}
+        return days.get(preferred.lower()) == target.weekday()
 
 
 def _place_task(task, windows, used, duration):
@@ -145,12 +158,21 @@ class DailyAgendaService:
         calendar_service,
         *,
         now=_now,
+        free_windows=None,
+        local_timezone="Asia/Kolkata",
+        break_minutes=10,
     ):
         self.agendas = agenda_repository
         self.tasks = task_repository
         self.calendar_repository = calendar_repository
         self.calendar = calendar_service
         self._now = now
+        # Date-keyed explicit local wall-clock availability. No defaults are invented.
+        self.free_windows = free_windows or {}
+        self.local_timezone = timezone.utc if local_timezone == "UTC" else ZoneInfo(local_timezone)
+        if not isinstance(break_minutes, int) or not 0 <= break_minutes <= 120:
+            raise DailyAgendaValidationError("Break minutes must be between 0 and 120.")
+        self.break_minutes = break_minutes
 
     def _open_tasks(self):
         try:
@@ -177,13 +199,14 @@ class DailyAgendaService:
         day = target.isoformat()
         existing = self.agendas.get_agenda(day)
         try:
-            fixed = tuple(self.calendar.day_items(day))
+            fixed = tuple(item for item in self.calendar.day_items(day)
+                          if item.get("source") != "task")
             study = tuple(self.calendar_repository.list_study_items(day))
         except OperationalCalendarError as error:
             raise DailyAgendaUnavailableError("Calendar is temporarily unavailable.") from error
         tasks = sorted(self._open_tasks(), key=lambda item: self._task_rank(item, day))
         # Active-flexible ceiling.
-        selected = list(tasks[:MAX_FLEXIBLE])
+        selected = [task for task in tasks if _preferred_day_allows(task, target)][:MAX_FLEXIBLE]
         fixed_count = sum(1 for item in fixed if item.get("start_time"))
         deep_limit = 1 if fixed_count >= 4 else 3
 
@@ -225,48 +248,72 @@ class DailyAgendaService:
                 "priority": "P1",
                 "starts_at": None,
                 "ends_at": None,
-                "planned_minutes": int(row.get("minutes") or 0),
+                "planned_minutes": row.get("minutes"),
                 "status": "planned",
                 "reason": row.get("reason") or "Saved study plan item",
                 "created_at": now,
                 "updated_at": now,
             })
 
-        windows = _free_windows(fixed)
+        try:
+            clock = datetime.fromisoformat(str(now).replace("Z", "+00:00"))
+            if clock.tzinfo is None:
+                raise ValueError("Clock must include a timezone")
+            clock = clock.astimezone(self.local_timezone)
+            earliest = (clock.hour * 60 + clock.minute + bool(clock.second or clock.microsecond)
+                        if target == clock.date() else 0 if target > clock.date() else 1440)
+        except (TypeError, ValueError):
+            earliest = 1440
+        midnight = datetime(target.year, target.month, target.day, tzinfo=self.local_timezone)
+        if midnight.utcoffset() != (midnight + timedelta(days=1)).utcoffset():
+            # Stored agenda slots have no offset/fold field: do not guess through DST.
+            earliest = 1440
+        windows = _free_windows(fixed, self.free_windows.get(day, ()), earliest, self.break_minutes)
+        descriptors = {('planner_task', row['id']): row for row in selected}
+        for row in study[:deep_limit]:
+            descriptors[('study_plan_item', row['id'])] = {
+                'id': row['id'], 'priority': 'P1', 'due_on': day,
+                'estimated_minutes': row.get('minutes'),
+            }
+        for task in selected:
+            items.append({
+                'id': _id(day, 'task', task['id']), 'item_kind': 'task',
+                'source_type': 'planner_task', 'source_id': task['id'],
+                'title': task['title'], 'priority': task['priority'],
+                'starts_at': None, 'ends_at': None,
+                'planned_minutes': task.get('estimated_minutes'), 'status': 'planned',
+                'reason': '', 'created_at': now, 'updated_at': now,
+            })
+        # One priority order, one capacity ledger and one deep-work ceiling.
+        # Saved date-specific study is P1 due-today work; P0 tasks rank before it.
+        focus = sorted((row for row in items if row['item_kind'] in {'task', 'study'}),
+                       key=lambda row: self._task_rank(descriptors[(row['source_type'], row['source_id'])], day))
         used = []
         placed_deep = 0
-        for task in selected:
-            duration = int(task.get("estimated_minutes") or 30)
-            duration = max(10, min(duration, 180))
-            placement = None
-            if placed_deep < deep_limit:
-                placement = _place_task(task, windows, used, duration)
-            starts_at = ends_at = None
-            reason = "Important task selected for today"
+        for item in focus:
+            descriptor = descriptors[(item['source_type'], item['source_id'])]
+            try:
+                duration = int(descriptor.get('estimated_minutes') or 0)
+            except (TypeError, ValueError):
+                duration = 0
+            duration_known = 0 < duration <= 1440
+            item['planned_minutes'] = duration if duration_known else None
+            due = str(descriptor.get('due_on') or '')
+            deadline_valid = not due or due >= day
+            placement = (_place_task(descriptor, windows, used, duration)
+                         if duration_known and deadline_valid and placed_deep < deep_limit else None)
             if placement is not None:
                 a, b = placement
-                starts_at = day + "T" + _hm(a) + ":00"
-                ends_at = day + "T" + _hm(b) + ":00"
-                used.append((a, b))
+                item['starts_at'], item['ends_at'] = day + 'T' + _hm(a) + ':00', day + 'T' + _hm(b) + ':00'
+                item['reason'] = 'Scheduled within shared explicit availability and capacity'
+                used.append((max(0, a - self.break_minutes), b + self.break_minutes))
                 placed_deep += 1
-                reason = "Scheduled into a free window without crossing shutdown"
             else:
-                reason = "Selected for today but left unscheduled because no safe free window was available"
-            items.append({
-                "id": _id(day, "task", task["id"]),
-                "item_kind": "task",
-                "source_type": "planner_task",
-                "source_id": task["id"],
-                "title": task["title"],
-                "priority": task["priority"],
-                "starts_at": starts_at,
-                "ends_at": ends_at,
-                "planned_minutes": duration,
-                "status": "planned",
-                "reason": reason,
-                "created_at": now,
-                "updated_at": now,
-            })
+                item['reason'] = (
+                    'Unscheduled: deadline has passed; revise the deadline explicitly' if not deadline_valid
+                    else 'Unscheduled: a valid duration is required' if not duration_known
+                    else 'Unscheduled: no safe explicit availability or capacity'
+                )
 
         day_mode = "minimum_viable" if fixed_count >= 6 else "normal"
         return {
@@ -290,8 +337,67 @@ class DailyAgendaService:
             },
         }
 
-    def generate_day(self, agenda_date):
-        preview = self.preview_day(agenda_date)
+    def day_view(self, agenda_date):
+        day = _parse_date(agenda_date).isoformat()
+        existing = self.agendas.get_agenda(day)
+        if existing is None:
+            return self.preview_day(day)
+        items = existing["items"]
+        return {"available": True, "date": day, "existing": existing,
+                "day_mode": existing["day_mode"], "items": items,
+                "fixed": tuple(i for i in items if i["item_kind"] in {"fixed", "routine"}),
+                "tasks": tuple(i for i in items if i["item_kind"] == "task"),
+                "study": tuple(i for i in items if i["item_kind"] == "study"),
+                "summary": {"fixed_count": sum(i["item_kind"] in {"fixed", "routine"} for i in items),
+                            "task_count": sum(i["item_kind"] == "task" for i in items),
+                            "scheduled_focus_minutes": sum(int(i.get("planned_minutes") or 0) for i in items
+                                                           if i["item_kind"] in {"task", "study"} and i.get("starts_at")),
+                            "p0": sum(i.get("priority") == "P0" for i in items)}}
+
+    def _validate_saved_slots(self, day, agenda):
+        target = _parse_date(day)
+        tasks = {task["id"]: task for task in self._open_tasks()}
+        study = {row["id"]: row for row in self.calendar_repository.list_study_items(day)}
+        fixed = tuple(i for i in self.calendar.day_items(day) if i.get("source") != "task")
+        windows = _free_windows(fixed, [("06:00", "22:10")], 0, self.break_minutes)
+        clock = datetime.fromisoformat(str(self._now()).replace("Z", "+00:00"))
+        if clock.tzinfo is None:
+            raise DailyAgendaConflictError("Approval clock must include a timezone.")
+        clock = clock.astimezone(self.local_timezone).replace(tzinfo=None)
+        used = []
+        for item in agenda["items"]:
+            if item["item_kind"] not in {"task", "study"}:
+                continue
+            if not item.get("starts_at") and not item.get("ends_at"):
+                continue  # Legacy unscheduled drafts remain unscheduled.
+            try:
+                start = datetime.fromisoformat(item["starts_at"])
+                end = datetime.fromisoformat(item["ends_at"])
+                if start.tzinfo or end.tzinfo or start.date() != target or end.date() != target or start < clock:
+                    raise ValueError()
+                a, b = start.hour * 60 + start.minute, end.hour * 60 + end.minute
+                if start.second or end.second or b <= a or b - a != item["planned_minutes"]:
+                    raise ValueError()
+                if not any(x <= a and b <= y for x, y in windows):
+                    raise ValueError()
+                if any(a < y and b > x for x, y in used):
+                    raise ValueError()
+                if item["item_kind"] == "task":
+                    task = tasks[item["source_id"]]
+                    left, right = _preferred_window(task)
+                    if (int(task.get("estimated_minutes") or 0) != b - a
+                            or not _preferred_day_allows(task, target)
+                            or (task.get("due_on") and task["due_on"] < day)
+                            or a < left or b > right):
+                        raise ValueError()
+                elif int(study[item['source_id']].get('minutes') or 0) != b - a:
+                    raise ValueError()
+                used.append((a - self.break_minutes, b + self.break_minutes))
+            except (ValueError, TypeError, KeyError):
+                raise DailyAgendaConflictError("Saved slots are no longer safe. Preview and save a fresh draft.")
+
+    def generate_day(self, agenda_date, *, expected_fingerprint=None, preview=None):
+        preview = preview if preview is not None else self.preview_day(agenda_date)
         if preview["existing"] and preview["existing"]["status"] != "draft":
             raise DailyAgendaConflictError("Only a draft agenda can be regenerated.")
         now = self._now()
@@ -304,7 +410,11 @@ class DailyAgendaService:
             "updated_at": now,
         }
         try:
-            return self.agendas.create_or_replace_draft(agenda, preview["items"])
+            if expected_fingerprint is None:
+                return self.agendas.create_or_replace_draft(agenda, preview["items"])
+            return self.agendas.create_or_replace_draft(
+                agenda, preview["items"], expected_fingerprint=expected_fingerprint
+            )
         except DailyAgendaRepositoryConflictError as error:
             raise DailyAgendaConflictError(str(error)) from error
         except DailyAgendaRepositoryError as error:
@@ -314,7 +424,13 @@ class DailyAgendaService:
         day = _parse_date(agenda_date).isoformat()
         now = self._now()
         try:
-            return self.agendas.approve_agenda(day, approved_at=now, updated_at=now)
+            fingerprint = self.agendas.planning_fingerprint()
+            agenda = self.agendas.get_agenda(day)
+            if agenda is None or agenda["status"] != "draft":
+                raise DailyAgendaConflictError("Only a draft agenda can be approved.")
+            self._validate_saved_slots(day, agenda)
+            return self.agendas.approve_agenda(day, approved_at=now, updated_at=now,
+                                               expected_fingerprint=fingerprint)
         except DailyAgendaRepositoryConflictError as error:
             raise DailyAgendaConflictError(str(error)) from error
         except DailyAgendaRepositoryError as error:

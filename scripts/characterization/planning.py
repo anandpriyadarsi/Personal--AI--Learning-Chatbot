@@ -3,7 +3,7 @@
 
 Usage: python reproduce_planning.py --repo /path/to/audit
 No existing database is read or modified. Migrations apply only to new temp DBs.
-Assertions describe the current defect; this is not a desired-behavior test suite.
+Assertions distinguish repaired desired behavior from remaining defect witnesses.
 """
 import argparse
 from contextlib import closing
@@ -44,19 +44,26 @@ with tempfile.TemporaryDirectory(prefix='anvaya-planning-audit-') as temp:
     with closing(sqlite3.connect(db)) as c, c:
         task(c, 'future', preferred='2026-10-30')
     service = build_daily_agenda_service(db)
+    service._now = lambda: '2026-09-30T00:00:00Z'
+    service.free_windows = {'2026-10-01': [('06:00', '22:00')]}
     before = dump(db)
     preview = service.preview_day('2026-10-01')
-    selected = next(r for r in preview['tasks'] if r['source_id'] == 'future')
-    assert selected['starts_at'] == '2026-10-01T06:00:00'
+    assert not any(r['source_id'] == 'future' for r in preview['tasks'])
     assert dump(db) == before
-    service.generate_day('2026-10-01')
-    saved = service.approve_day('2026-10-01')
     with closing(sqlite3.connect(db)) as c, c:
-        c.execute("UPDATE planner_tasks SET title='changed after approval', estimated_minutes=90 WHERE id='future'")
-    current = service.preview_day('2026-10-01')
-    assert current['existing']['items'][0]['title'] == 'future'
-    assert current['tasks'][0]['title'] == 'changed after approval'
-    results['scenario_B'] = {'preferred_day':'2026-10-30', 'preview_on':'2026-10-01', 'actual_placement': selected['starts_at'], 'read_logical_dump_unchanged': True, 'approved_title': current['existing']['items'][0]['title'], 'above_saved_preview_title': current['tasks'][0]['title']}
+        task(c, 'today', minutes=60)
+    service.generate_day('2026-10-01')
+    service.approve_day('2026-10-01')
+    with closing(sqlite3.connect(db)) as c, c:
+        c.execute("UPDATE planner_tasks SET title='changed after approval', estimated_minutes=90 WHERE id='today'")
+    current = service.day_view('2026-10-01')
+    saved_item = next(r for r in current['existing']['items'] if r['source_id']=='today')
+    shown_item = next(r for r in current['tasks'] if r['source_id']=='today')
+    assert saved_item['title'] == shown_item['title'] == 'today'
+    assert saved_item['starts_at'] == shown_item['starts_at']
+    results['scenario_B'] = {'preferred_day':'2026-10-30', 'preview_on':'2026-10-01',
+        'actual_placement': None, 'future_task_excluded':True, 'read_logical_dump_unchanged': True,
+        'approved_title':saved_item['title'], 'above_saved_preview_title':shown_item['title']}
 
     # B2 replaces the inverted C witness with desired no-initialization reads.
     import course_manager
@@ -80,10 +87,12 @@ with tempfile.TemporaryDirectory(prefix='anvaya-planning-audit-') as temp:
         task(c, 'p0-two', priority='P0')
         task(c, 'p0-three', priority='P0')
     daily = build_daily_agenda_service(db)
+    daily._now = lambda: '2026-09-30T00:00:00Z'
+    daily.free_windows = {'2026-10-12': [('06:00', '22:00')]}
     preview = daily.preview_day('2026-10-12')
     duplicates = [r for r in preview['items'] if r['source_id']=='due']
-    assert len(duplicates) == 2
-    assert {(r['source_type'],r['item_kind']) for r in duplicates} == {('task','routine'),('planner_task','task')}
+    assert len(duplicates) == 1
+    assert {(r['source_type'],r['item_kind']) for r in duplicates} == {('planner_task','task')}
     daily.generate_day('2026-10-12')
     daily.approve_day('2026-10-12')
     closed = daily.close_day('2026-10-12', {})
@@ -105,10 +114,10 @@ with tempfile.TemporaryDirectory(prefix='anvaya-planning-audit-') as temp:
     month = calendar.view(view='month',anchor_date='2026-10-12')
     day = calendar.view(view='day',anchor_date='2026-10-12')
     assert len([r for r in month['items'] if r['id']=='count']) == 3
-    assert any(r['id']=='count' for r in day['items'])
+    assert not any(r['id']=='count' for r in day['items'])
     assert any(r['id']=='recurring' and r['date']=='2026-10-12' for r in month['items'])
-    assert not any(r['id']=='recurring' for r in day['items'])
-    results['calendar_window_inconsistency'] = {'month_count_dates':[r['date'] for r in month['items'] if r['id']=='count'], 'day_count_dates':[r['date'] for r in day['items'] if r['id']=='count'], 'month_class_on_oct12':True, 'day_class_on_oct12':False}
+    assert any(r['id']=='recurring' for r in day['items'])
+    results['calendar_window_inconsistency'] = {'month_count_dates':[r['date'] for r in month['items'] if r['id']=='count'], 'day_count_dates':[r['date'] for r in day['items'] if r['id']=='count'], 'month_class_on_oct12':True, 'day_class_on_oct12':True}
 
     db = root / 'study_capacity.db'
     apply_migrations(db)
@@ -118,8 +127,11 @@ with tempfile.TemporaryDirectory(prefix='anvaya-planning-audit-') as temp:
             c.execute("INSERT INTO study_plan_items (id,plan_id,plan_date,ordinal,minutes,action) VALUES (?,'plan','2026-10-12',?,180,'Legacy study')",('s'+str(n),n))
             task(c,'t'+str(n),minutes=180)
     daily = build_daily_agenda_service(db)
+    daily._now = lambda: '2026-09-30T00:00:00Z'
+    daily.free_windows = {'2026-10-12': [('06:00', '22:00')]}
     preview = daily.preview_day('2026-10-12')
-    assert len(preview['study'])==3 and len([r for r in preview['tasks'] if r['starts_at']])==3
+    assert len(preview['study'])==3 and not any(r['starts_at'] for r in preview['tasks'])
+    assert len([r for r in preview['study'] if r['starts_at']])==3
     assert sum(r['planned_minutes'] for r in preview['study'])==540
     assert preview['summary']['scheduled_focus_minutes']==540
     saved = daily.generate_day('2026-10-12')
@@ -131,7 +143,7 @@ with tempfile.TemporaryDirectory(prefix='anvaya-planning-audit-') as temp:
         engagement_count = c.execute('SELECT COUNT(*) FROM study_sessions').fetchone()[0]
     assert source_status=='planned' and engagement_count==0
     assert any(r['source_id']=='s1' for r in daily.preview_day('2026-10-12')['study'])
-    results['study_capacity_and_completion'] = {'study_count':3,'timed_task_count':3,'untimed_study_minutes':540,'summary_focus_minutes':540,'total_selected_focus_minutes':1080,'completed_agenda_source_status':source_status,'engagement_rows':engagement_count,'completed_source_reappears_in_preview':True}
+    results['study_capacity_and_completion'] = {'study_count':3,'timed_task_count':0,'timed_study_minutes':540,'summary_focus_minutes':540,'total_scheduled_focus_minutes':540,'completed_agenda_source_status':source_status,'engagement_rows':engagement_count,'completed_source_reappears_in_preview':True}
 
     # Changed revision repeats same ledger PK per plan/external ID (not per import).
     db = root / 'month_revision.db'
