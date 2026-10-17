@@ -237,3 +237,16 @@ def test_paper_projection_latest_submitted_revision_is_as_of_clock(tmp_path):
     latest = AcademicOverviewService(path, now=clock).overview()['assessments'][0]
     assert old['review_revision']==1 and old['earned']==old['question_count']*.5
     assert latest['review_revision']==2 and latest['earned']==latest['question_count']
+
+
+def test_topic_latest_outcome_uses_absolute_time_across_offsets(tmp_path):
+    path=_database(tmp_path)
+    with sqlite3.connect(path) as c:
+        c.execute("UPDATE assessment_test_session_questions SET question_id='q1' WHERE id='sq3'")
+        c.execute("UPDATE assessment_response_evaluations SET outcome='incorrect',updated_at='2026-09-27T23:30:00+05:30' WHERE id='ev-sq1'")
+        c.execute("UPDATE assessment_response_evaluations SET outcome='correct',updated_at='2026-09-27T19:00:00Z' WHERE id='ev-sq3'")
+    row=next(r for r in service(path).overview()['topics'] if r['id']=='topic-lu')
+    assert row['question_count']==1
+    assert row['correct']==1 and row['incorrect']==0
+    assert row['first_observed']=='2026-09-27T23:30:00+05:30'
+    assert row['last_observed']=='2026-09-27T19:00:00Z'

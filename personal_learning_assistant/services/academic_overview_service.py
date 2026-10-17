@@ -123,7 +123,7 @@ class AcademicOverviewService:
             WHERE julianday(COALESCE(e.updated_at,s.started_at)) BETWEEN julianday(?) AND julianday(?)
               AND julianday(s.started_at)<=julianday(?)
               AND (?='' OR s.course_code_snapshot=? COLLATE NOCASE)
-            '''+paper_exclusion+''' GROUP BY s.id ORDER BY COALESCE(e.updated_at,s.started_at) DESC,s.id LIMIT ?''',
+            '''+paper_exclusion+''' GROUP BY s.id ORDER BY julianday(COALESCE(e.updated_at,s.started_at)) DESC,s.id LIMIT ?''',
             (upper,lower,upper,upper,view['filters']['course'],view['filters']['course'],LIMIT+1))
         if rows is None: return
         if len(rows)>LIMIT: view['limits'].append('Assessment history limited to the latest 100 sessions; totals describe this sample.')
@@ -156,7 +156,9 @@ class AcademicOverviewService:
                 view['limits'].append('Paper self-reported evidence unavailable in this schema.')
         # Merge by absolute instant, then apply the shared sample and evidence filter.
         def timestamp(row):
-            return datetime.fromisoformat(row['date'].replace('Z','+00:00')).timestamp()
+            value = datetime.fromisoformat(row['date'].replace('Z','+00:00'))
+            # SQLite julianday treats an offset-free canonical UTC value as UTC.
+            return (value if value.tzinfo else value.replace(tzinfo=timezone.utc)).timestamp()
         selected.sort(key=lambda row: (-timestamp(row), row['id']))
         selected = [row for row in selected[:LIMIT] if view['filters']['evidence'] in ('all',row['category'])]
         view['assessments'] = selected
@@ -209,7 +211,7 @@ class AcademicOverviewService:
             LEFT JOIN topics t ON t.id=q.topic_id LEFT JOIN courses c ON c.id=t.course_id
             WHERE julianday(r.updated_at) BETWEEN julianday(?) AND julianday(?)
             AND (?='' OR s.course_code_snapshot=? COLLATE NOCASE)
-            ORDER BY r.updated_at DESC,r.id LIMIT 501""",
+            ORDER BY julianday(r.updated_at) DESC,r.id LIMIT 501""",
             (lower,upper,view['filters']['course'],view['filters']['course']))
         if rows is None: return
         if len(rows)>500:
