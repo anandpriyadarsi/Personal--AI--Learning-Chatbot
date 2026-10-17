@@ -41,13 +41,26 @@ jobs:
           import os
           with open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8') as f:
               f.write('ANVAYA_VALIDATION_OUTPUT='+os.path.join(os.environ['RUNNER_TEMP'],'planning-analysis-v2')+'\n')
-      - name: Full tests, browser suites, architecture, Node and migration integrity
+      - name: Planning Analysis V2 fixtures and native browser journeys
         shell: python
         run: |
-          import os, subprocess, sys
-          sys.exit(subprocess.call([sys.executable,'scripts/architecture_validation.py','--require-clean','--output',os.environ['ANVAYA_VALIDATION_OUTPUT']]))
+          import json, os, pathlib, subprocess, sys, xml.etree.ElementTree as ET
+          output=pathlib.Path(os.environ['ANVAYA_VALIDATION_OUTPUT'])
+          output.mkdir(parents=True,exist_ok=True)
+          env=dict(os.environ,ANVAYA_VALIDATION_ARTIFACTS=str(output/'screenshots'),PYTHONDONTWRITEBYTECODE='1')
+          source={'sha':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),'tree':subprocess.check_output(['git','rev-parse','HEAD^{tree}'],text=True).strip(),'dirty':bool(subprocess.check_output(['git','status','--porcelain'],text=True).strip())}
+          (output/'source.json').write_text(json.dumps(source,indent=2),encoding='utf-8')
+          assert not source['dirty'], 'Validation requires a clean source tree'
+          files=['tests/test_planning_analysis_v2.py','tests/test_planning_analysis_v2_browser.py','tests/test_planning_v2_scheduler.py','tests/test_planning_v2_proposals.py','tests/test_planning_v2_review_regressions.py']
+          with (output/'planning-v2.log').open('w',encoding='utf-8') as stream:
+              code=subprocess.call([sys.executable,'-m','pytest','-q',*files,'--junitxml='+str(output/'planning-v2.xml')],env=env,stdout=stream,stderr=subprocess.STDOUT)
+          print((output/'planning-v2.log').read_text(encoding='utf-8'))
+          if code: sys.exit(code)
+          cases=ET.parse(output/'planning-v2.xml').findall('.//testcase')
+          assert cases and all(c.find('skipped') is None and c.find('failure') is None and c.find('error') is None for c in cases), 'V2 gate requires zero skips/failures'
+          subprocess.run(['git','diff','--check'],check=True)
       - name: Native Learning Studio feature and browser matrix
-        if: always()
+        if: ${{ !cancelled() }}
         shell: python
         run: |
           import os, subprocess, sys
@@ -57,9 +70,8 @@ jobs:
         with:
           name: planning-analysis-v2-${{ matrix.os }}-${{ github.sha }}
           path: |
-            ${{ env.ANVAYA_VALIDATION_OUTPUT }}/run-*/*.json
-            ${{ env.ANVAYA_VALIDATION_OUTPUT }}/run-*/*.md
-            ${{ env.ANVAYA_VALIDATION_OUTPUT }}/run-*/*.log
-            ${{ env.ANVAYA_VALIDATION_OUTPUT }}/run-*/*.xml
-            ${{ env.ANVAYA_VALIDATION_OUTPUT }}/run-*/screenshots/*
+            ${{ env.ANVAYA_VALIDATION_OUTPUT }}/*.json
+            ${{ env.ANVAYA_VALIDATION_OUTPUT }}/*.log
+            ${{ env.ANVAYA_VALIDATION_OUTPUT }}/*.xml
+            ${{ env.ANVAYA_VALIDATION_OUTPUT }}/screenshots/*
             ${{ env.ANVAYA_VALIDATION_OUTPUT }}/learning/**
