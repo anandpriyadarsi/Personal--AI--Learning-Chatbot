@@ -225,13 +225,16 @@ def test_month_approval_uses_expected_hash_and_prg():
 
 def test_day_commands_use_explicit_post_and_prg():
     fake = FakePlanner()
-    client = _app(fake).test_client()
+    app = _app(fake)
+    client = app.test_client()
     for path, data in (
         ("/planning/day/2026-10-12/generate", {}),
         ("/planning/day/2026-10-12/approve", {}),
         ("/planning/day/2026-10-12/items/i1", {"status": "completed", "actual_minutes": "40"}),
         ("/planning/day/2026-10-12/close", {"learned": "x"}),
     ):
+        if path.endswith('/approve'):
+            data = {**data, 'approval_token': app.extensions['planner_approval_signer'].dumps({'date':'2026-10-12'})}
         assert client.post(path, data=data).status_code == 303
 
 
