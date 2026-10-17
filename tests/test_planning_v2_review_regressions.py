@@ -44,3 +44,19 @@ def test_approval_requires_signed_same_origin_intent(proposal_app):
     assert client.post('/planning/day/2026-10-12/approve',data={'approval_token':token},headers={'Origin':'https://other.example'}).status_code==400
     assert client.post('/planning/day/2026-10-13/approve',data={'approval_token':token}).status_code==400
     assert client.post('/planning/day/2026-10-12/approve',data={'approval_token':token}).status_code==303
+
+
+def test_completed_day_displays_recorded_actual_effort(proposal_app):
+    app,path=proposal_app
+    client=app.test_client()
+    client.post('/planning/proposal/2026-10-12',data={'proposal_token':preview(client)})
+    import re
+    token=re.search(r'name="approval_token" value="([^"]+)"',client.get('/planning/day/2026-10-12').text).group(1)
+    client.post('/planning/day/2026-10-12/approve',data={'approval_token':token})
+    import sqlite3
+    with sqlite3.connect(path) as c:
+        ident=c.execute("SELECT id FROM daily_agenda_items WHERE item_kind='task'").fetchone()[0]
+    client.post(f'/planning/day/2026-10-12/items/{ident}',data={'status':'completed','actual_minutes':'35'})
+    html=client.get('/planning/day/2026-10-12').text
+    assert 'recorded 35 min' in html
+    assert 'aria-label="Actual minutes for ' in html

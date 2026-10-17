@@ -2,7 +2,7 @@
 
 Implemented a responsive dark Planning hub with day/week/month commitment timeline, today status, course-filtered task inbox, due/preferred date/effort labels, weekly review and month-import links. Calendar due markers are labelled as due dates, never allocated study sessions. Approved study sessions remain in the canonical day view; the month timeline does not claim to contain those slots. No inferred free capacity is shown.
 
-The day page accepts explicit availability via GET preview, then a deliberate protected save-draft POST, then separate protected approval. Drafts show saved times. Preview hides completion/close actions; approved/active items expose existing execution actions. Browser journeys record actual effort and save weekly reflection through existing owners.
+The day page accepts explicit availability via GET preview, then a deliberate protected save-draft POST, then separate protected approval. Drafts show saved times. Preview hides completion/close actions; approved/active items expose existing execution actions. Saved agenda rows display recorded actual minutes distinctly from planned or not-recorded effort, with labelled inputs. Browser journeys record actual effort and save weekly reflection through existing owners.
 
 ## Placement
 

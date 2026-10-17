@@ -111,6 +111,7 @@ def test_analysis_to_saved_approved_completed_day_and_review(chromium, live_hub,
         page.locator('input[name=actual_minutes]').fill('35')
         page.get_by_role('button',name='Complete',exact=True).click()
         expect(page.locator('.planner-agenda-items')).to_contain_text('Completed')
+        expect(page.locator('.planner-agenda-items')).to_contain_text('recorded 35 min')
     page.goto(base+'/planning/review/week/2026-09-28')
     assert page.locator('main').count()==1
     assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')

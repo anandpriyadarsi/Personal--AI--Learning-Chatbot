@@ -91,11 +91,11 @@
     <li>
       <div class="list-main">
         <strong>{{ item.title }}</strong>
-        <span>{% if item.starts_at %}{{ item.starts_at[11:16] }}–{{ item.ends_at[11:16] }} · {% endif %}{{ item.item_kind|title }} · {{ item.status|replace('_',' ')|title }}{% if item.planned_minutes is not none %} · planned {{ item.planned_minutes }} min{% endif %}</span>
+        <span>{% if item.starts_at %}{{ item.starts_at[11:16] }}–{{ item.ends_at[11:16] }} · {% endif %}{{ item.item_kind|title }} · {{ item.status|replace('_',' ')|title }}{% if item.planned_minutes is not none %} · planned {{ item.planned_minutes }} min{% endif %}{% if item.item_kind in ['task','study','manual'] %}{% if item.actual_minutes is not none %} · recorded {{ item.actual_minutes }} min{% else %} · actual effort not recorded{% endif %}{% endif %}</span>
       </div>
       {% if agenda.status in ['approved','active'] and item.item_kind in ['task','study','manual'] %}
       <form method="post" action="{{ url_for('web.planning_day_item_update', agenda_date=day.date, item_id=item.id) }}" class="planner-inline-actions">
-        <input type="number" name="actual_minutes" min="0" max="1440" placeholder="actual min">
+        <input type="number" name="actual_minutes" min="0" max="1440" placeholder="actual min" aria-label="Actual minutes for {{ item.title }}">
         <button class="button button-secondary" name="status" value="completed">Complete</button>
         <button class="button button-quiet" name="status" value="skipped">Skip</button>
       </form>
