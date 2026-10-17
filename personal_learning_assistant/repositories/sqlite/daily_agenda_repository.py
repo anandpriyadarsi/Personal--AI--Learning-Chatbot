@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import sqlite3
+import hashlib
+import json
 from pathlib import Path
 from urllib.parse import quote
 
@@ -80,10 +82,35 @@ class SQLiteDailyAgendaRepository:
         finally:
             c.close()
 
-    def create_or_replace_draft(self, agenda_row, items):
+    @staticmethod
+    def _planning_fingerprint(c):
+        """Bounded conservative source guard, shared by read preview and locked write."""
+        digest = hashlib.sha256()
+        for table in ("planner_tasks", "academic_events", "routine_templates",
+                      "study_plan_items", "month_plan_import_items", "courses",
+                      "daily_agendas", "daily_agenda_items", "daily_reviews"):
+            digest.update(table.encode("ascii"))
+            rows = c.execute("SELECT * FROM " + table + " ORDER BY rowid LIMIT 10001")
+            for index, row in enumerate(rows):
+                if index >= 10000:
+                    raise DailyAgendaRepositoryError("Planner proposal source exceeds the safe preview limit.")
+                digest.update(json.dumps(dict(row), sort_keys=True, separators=(",", ":"), default=str).encode("utf-8"))
+        return digest.hexdigest()
+
+    def planning_fingerprint(self):
+        c = self._connect(writable=False)
+        try:
+            c.execute("BEGIN")
+            return self._planning_fingerprint(c)
+        finally:
+            c.close()
+
+    def create_or_replace_draft(self, agenda_row, items, *, expected_fingerprint=None):
         c = self._connect(writable=True)
         try:
             with transaction(c, immediate=True):
+                if expected_fingerprint is not None and self._planning_fingerprint(c) != expected_fingerprint:
+                    raise DailyAgendaRepositoryConflictError("Planner sources changed. Preview again before saving.")
                 existing = c.execute(
                     "SELECT id,status FROM daily_agendas WHERE agenda_date=?",
                     (agenda_row["agenda_date"],),
@@ -136,10 +163,12 @@ class SQLiteDailyAgendaRepository:
             c.close()
         return self.get_agenda(agenda_row["agenda_date"])
 
-    def approve_agenda(self, agenda_date, *, approved_at, updated_at):
+    def approve_agenda(self, agenda_date, *, approved_at, updated_at, expected_fingerprint=None):
         c = self._connect(writable=True)
         try:
             with transaction(c, immediate=True):
+                if expected_fingerprint is not None and self._planning_fingerprint(c) != expected_fingerprint:
+                    raise DailyAgendaRepositoryConflictError("Planner sources changed. Preview again before approval.")
                 cur = c.execute(
                     "UPDATE daily_agendas SET status='approved',approved_at=?,updated_at=? "
                     "WHERE agenda_date=? AND status='draft'",

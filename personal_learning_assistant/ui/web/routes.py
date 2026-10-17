@@ -330,7 +330,7 @@ def _assessment_paused_resume_actions():
     """
     if current_app.config.get("ASSESSMENT_EXTENDED_ENABLED") is not True:
         return []
-    import sqlite3
+    from personal_learning_assistant.services.assessment_entry_service import AssessmentStorageError
     try:
         from secrets import token_urlsafe
         signer = current_app.extensions["assessment_extended_mutation_signer"]
@@ -343,7 +343,7 @@ def _assessment_paused_resume_actions():
             }
             for item in sessions
         ]
-    except (ValueError, LookupError, OSError, KeyError, sqlite3.Error) as exc:
+    except (ValueError, LookupError, OSError, KeyError, AssessmentStorageError) as exc:
         current_app.logger.warning("Paused Assessment sessions unavailable (%s).", type(exc).__name__)
         return []
 
@@ -648,9 +648,14 @@ def _obsidian_study_service():
 
 def _operational_planner_service():
     factory = current_app.config.get("OPERATIONAL_PLANNER_WEB_SERVICE_FACTORY")
-    if factory is not None:
-        return factory()
-    return build_operational_planner_web_service()
+    service = factory() if factory is not None else build_operational_planner_web_service()
+    if hasattr(service, "daily"):
+        from zoneinfo import ZoneInfo
+        service.daily.local_timezone = ZoneInfo(current_app.config.get(
+            "PLANNING_LOCAL_TIMEZONE", current_app.config.get("ACADEMIC_TIMEZONE", "Asia/Kolkata")))
+        if current_app.config.get("PLANNING_NOW") is not None:
+            service.daily._now = current_app.config["PLANNING_NOW"]
+    return service
 
 
 def _unavailable_operational_home():
@@ -671,9 +676,10 @@ def _unavailable_operational_home():
     }
 
 
-def _safe_operational_home():
+def _safe_operational_home(today=None):
     try:
-        return _operational_planner_service().planning_home()
+        service = _operational_planner_service()
+        return service.planning_home(today=today) if today else service.planning_home()
     except Exception as error:
         current_app.logger.warning(
             "Operational planner unavailable (%s).", type(error).__name__
@@ -942,9 +948,26 @@ def home():
     )
 
 
+def _academic_overview():
+    from personal_learning_assistant.services.academic_overview_service import AcademicOverviewService
+    import config as installed_config
+    factory = current_app.config.get("ACADEMIC_OVERVIEW_SERVICE_FACTORY")
+    service = factory() if factory else AcademicOverviewService(
+        installed_config.DATABASE_PATH,
+        local_timezone=current_app.config.get("ACADEMIC_TIMEZONE", "Asia/Kolkata"),
+    )
+    return service.overview(course=request.args.get("course", ""),
+                            days=request.args.get("days", "28"),
+                            evidence=request.args.get("evidence", "all"))
+
+
 @web_blueprint.get("/analysis")
 def analysis():
     """Render the dedicated, read-only academic + Notes analysis hub."""
+    try:
+        hub = _academic_overview()
+    except ValueError:
+        return "Invalid academic filters. Choose a course, 7/28/90 days and an evidence category.", 400
     academic = _home_dashboard()
     try:
         notes = _anvaya_notes_service().analysis()
@@ -1004,7 +1027,7 @@ def analysis():
     from personal_learning_assistant.learning_studio.analysis_view import component
     from .learning_studio import service as learning_service
     return render_template("analysis.html", active_page="analysis", analysis=view,
-                           learning_evidence=component(learning_service()))
+                           learning_evidence=component(learning_service()), hub=hub)
 
 
 @web_blueprint.get("/courses")
@@ -1785,17 +1808,8 @@ def assessment_test_start(assessment_id):
                 # Reject unapproved / mismatched imported rubrics BEFORE the
                 # legacy runner creates an active session. Validation never
                 # changes grades, topic evidence or existing attempts.
-                from contextlib import closing
-                import sqlite3
-                from personal_learning_assistant.services.assessment_paper_admission import inspect_paper_import
-                database = _assessment_extended_service().repository.path
-                if not database.is_file() or database.is_symlink():
-                    raise AssessmentRunnerValidationError("Practice database unavailable.")
-                with closing(sqlite3.connect(database.resolve().as_uri() + "?mode=ro", uri=True)) as readonly:
-                    readonly.execute("PRAGMA query_only=ON")
-                    readonly.execute("BEGIN")
-                    admission = inspect_paper_import(readonly, assessment_id)
-                    readonly.rollback()
+                from personal_learning_assistant.services.assessment_entry_service import inspect_existing_paper
+                admission = inspect_existing_paper(_assessment_extended_service().repository.path, assessment_id)
                 if admission["structural_status"] != "PASS":
                     raise AssessmentRunnerValidationError(
                         "This paper requires an approved import with matching marking rubrics."
@@ -2354,7 +2368,23 @@ def assessment_adaptive_reject(recommendation_id):
 @web_blueprint.get("/planning")
 def planning():
     """Render the Operational Planner landing page plus existing progress evidence."""
-    return render_template("planning.html", active_page="planning", dashboard=_planning_dashboard(), operational=_safe_operational_home())
+    try:
+        hub = _academic_overview()
+    except ValueError:
+        return "Invalid academic filters.", 400
+    view = request.args.get("view", "week")
+    anchor = request.args.get("date", hub["date"])
+    if view not in ("day", "week", "month"):
+        return "Choose day, week or month.", 400
+    try:
+        from datetime import date as calendar_date
+        if calendar_date.fromisoformat(anchor).isoformat() != anchor:
+            raise ValueError("Invalid date")
+    except ValueError:
+        return "Date must be YYYY-MM-DD.", 400
+    return render_template("planning.html", active_page="planning", dashboard=_planning_dashboard(),
+                           operational=_safe_operational_home(today=hub["date"]), hub=hub,
+                           calendar_view=_safe_operational_calendar(view, anchor))
 
 
 @web_blueprint.get("/calendar")
@@ -2595,6 +2625,9 @@ def planning_day_generate(agenda_date):
 
 @web_blueprint.post("/planning/day/<agenda_date>/approve")
 def planning_day_approve(agenda_date):
+    from .planning_approval_controls import valid_approval
+    if not valid_approval(agenda_date):
+        return "Invalid or expired approval. Open the saved day and review it again.", 400
     try:
         _operational_planner_service().approve_day(agenda_date)
         return redirect(url_for("web.planning_day", agenda_date=agenda_date), code=303)

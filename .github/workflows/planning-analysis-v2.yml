@@ -1,0 +1,77 @@
+name: Planning Analysis V2 cross-platform acceptance
+on:
+  push:
+    branches: ['feature/planning-analysis-v2-2026-10-16']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: planning-analysis-v2-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  validation:
+    name: Planning Analysis V2 (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements-learning-studio.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install tracked test dependencies
+        run: python -m pip install -r requirements-learning-studio.txt
+      - name: Restore historical EOL bytes without source changes
+        run: python scripts/architecture_checkout_eol.py --repo .
+      - name: Install Chromium
+        run: python -m playwright install --with-deps chromium
+      - name: Define external disposable output
+        shell: python
+        run: |
+          import os
+          with open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8') as f:
+              f.write('ANVAYA_VALIDATION_OUTPUT='+os.path.join(os.environ['RUNNER_TEMP'],'planning-analysis-v2')+'\n')
+      - name: Planning Analysis V2 fixtures and native browser journeys
+        shell: python
+        run: |
+          import json, os, pathlib, subprocess, sys, xml.etree.ElementTree as ET
+          output=pathlib.Path(os.environ['ANVAYA_VALIDATION_OUTPUT'])
+          output.mkdir(parents=True,exist_ok=True)
+          env=dict(os.environ,ANVAYA_VALIDATION_ARTIFACTS=str(output/'screenshots'),PYTHONDONTWRITEBYTECODE='1')
+          source={'sha':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),'tree':subprocess.check_output(['git','rev-parse','HEAD^{tree}'],text=True).strip(),'dirty':bool(subprocess.check_output(['git','status','--porcelain'],text=True).strip())}
+          (output/'source.json').write_text(json.dumps(source,indent=2),encoding='utf-8')
+          assert not source['dirty'], 'Validation requires a clean source tree'
+          files=['tests/test_planning_analysis_v2.py','tests/test_planning_analysis_v2_browser.py','tests/test_planning_v2_scheduler.py','tests/test_planning_v2_proposals.py','tests/test_planning_v2_review_regressions.py']
+          with (output/'planning-v2.log').open('w',encoding='utf-8') as stream:
+              code=subprocess.call([sys.executable,'-m','pytest','-q',*files,'--junitxml='+str(output/'planning-v2.xml')],env=env,stdout=stream,stderr=subprocess.STDOUT)
+          print((output/'planning-v2.log').read_text(encoding='utf-8'))
+          if code: sys.exit(code)
+          cases=ET.parse(output/'planning-v2.xml').findall('.//testcase')
+          assert cases and all(c.find('skipped') is None and c.find('failure') is None and c.find('error') is None for c in cases), 'V2 gate requires zero skips/failures'
+          subprocess.run(['git','diff','--check'],check=True)
+      - name: Native Learning Studio feature and browser matrix
+        if: ${{ !cancelled() }}
+        shell: python
+        run: |
+          import os, subprocess, sys
+          sys.exit(subprocess.call([sys.executable,'scripts/learning_studio_validate.py','--scope','feature','--base','d3fc9b583be1b5e98cf00960f4b7ad7217526b43','--output',os.path.join(os.environ['ANVAYA_VALIDATION_OUTPUT'],'learning')]))
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: planning-analysis-v2-${{ matrix.os }}-${{ github.sha }}
+          path: |
+            ${{ env.ANVAYA_VALIDATION_OUTPUT }}/*.json
+            ${{ env.ANVAYA_VALIDATION_OUTPUT }}/*.log
+            ${{ env.ANVAYA_VALIDATION_OUTPUT }}/*.xml
+            ${{ env.ANVAYA_VALIDATION_OUTPUT }}/screenshots/*
+            ${{ env.ANVAYA_VALIDATION_OUTPUT }}/learning/**

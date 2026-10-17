@@ -1,4 +1,4 @@
-"""A/B/D/P reproduction remains; C is desired B2 read-safety acceptance."""
+"""Repaired B/C/P01/P02/P04/P05/P07 are desired regressions; remaining IDs reproduce defects."""
 import json
 from pathlib import Path
 import subprocess
@@ -29,7 +29,7 @@ def evidence(tmp_path_factory, record_testsuite_property):
     directory = tmp_path_factory.mktemp('characterization')
     reports = {}
     for finding, (owner, future_test) in OWNERS.items():
-        status = 'DESIRED read safety PASS' if finding == 'C' else 'REPRODUCED; desired behaviour FAIL'
+        status = 'DESIRED behavior PASS' if finding in {'B','C','P01','P02','P04','P05','P07'} else 'REPRODUCED; desired behaviour FAIL'
         record_testsuite_property(finding, status + '; owner ' + owner + '; ' + future_test)
     for name in ['topic', 'planning', 'read_routes']:
         output = directory / (name + '.json')
@@ -40,33 +40,34 @@ def evidence(tmp_path_factory, record_testsuite_property):
     return reports
 
 
-@pytest.mark.known_defect
-@pytest.mark.parametrize('finding', [f for f in OWNERS if f != 'C'])
+@pytest.mark.parametrize('finding', [pytest.param(f, marks=pytest.mark.known_defect) if f in {'A','D','P03','P06','P08'} else f for f in OWNERS if f != 'C'])
 def test_current_defect_reproduction(evidence, finding):
     topic, planning = evidence['topic'], evidence['planning']
     if finding == 'A':
         assert topic['scenario_A']['strong_topic']['weighted_performance_percent'] == 100
         assert topic['scenario_A']['recovery_candidate']['action_family'] == 'evidence_check'
     elif finding == 'B':
-        assert planning['scenario_B']['actual_placement'][:10] < planning['scenario_B']['preferred_day']
+        assert planning['scenario_B']['actual_placement'] is None
+        assert planning['scenario_B']['future_task_excluded']
     elif finding == 'D':
         assert len(topic['scenario_D']['missing_mapping_snapshot_fields']) == 6
     elif finding == 'P01':
-        assert planning['scenario_B']['approved_title'] != planning['scenario_B']['above_saved_preview_title']
+        assert planning['scenario_B']['approved_title'] == planning['scenario_B']['above_saved_preview_title']
     elif finding == 'P02':
-        assert len(planning['due_marker_duplicate']) == 2
+        assert len(planning['due_marker_duplicate']) == 1
     elif finding == 'P03':
         assert planning['rollover_policy_not_consumed']['dropped_reappeared']
     elif finding == 'P04':
-        assert planning['calendar_window_inconsistency']['day_count_dates'] == ['2026-10-12']
+        assert planning['calendar_window_inconsistency']['day_count_dates'] == []
     elif finding == 'P05':
-        assert planning['calendar_window_inconsistency']['month_class_on_oct12'] and not planning['calendar_window_inconsistency']['day_class_on_oct12']
+        assert planning['calendar_window_inconsistency']['month_class_on_oct12'] and planning['calendar_window_inconsistency']['day_class_on_oct12']
     elif finding == 'P06':
         assert 'UNIQUE constraint failed' in planning['month_revision_failure']['root_cause']
         assert planning['month_revision_failure']['rollback_logical_dump_unchanged']
     elif finding == 'P07':
         row = planning['study_capacity_and_completion']
-        assert row['total_selected_focus_minutes'] == 1080 > row['summary_focus_minutes']
+        assert row['total_scheduled_focus_minutes'] == row['summary_focus_minutes'] == 540
+        assert row['timed_task_count'] == 0
     elif finding == 'P08':
         row = planning['study_capacity_and_completion']
         assert row['completed_agenda_source_status'] == 'planned' and row['engagement_rows'] == 0

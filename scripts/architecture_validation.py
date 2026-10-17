@@ -211,8 +211,9 @@ def main(argv=None) -> int:
         pytest('fixture_order_agent_first', order)
         pytest('fixture_order_phase2_first', list(reversed(order)))
         pytest('characterization', ['tests/test_architecture_characterization.py'])
-        # C now has desired acceptance; A/B/D/P remain current-defect witnesses.
-        report['known_product_behaviour']['C'] = report['categories']['characterization']['status']
+        # Desired regressions are distinguished from the remaining defect witnesses.
+        for repaired in ('B', 'C', 'P01', 'P02', 'P04', 'P05', 'P07'):
+            report['known_product_behaviour'][repaired] = report['categories']['characterization']['status']
         pytest('headless_browser', ['tests/test_assessment_live_browser.py', 'tests/test_architecture_live_browser.py', 'tests/test_topic_read_safety_browser.py'])
         command('node', ['node', '--test', *[str(p.relative_to(source)) for p in sorted((source / 'tests/js').glob('*.test.cjs'))]])
         command('pip_check', [sys.executable, '-m', 'pip', 'check'])

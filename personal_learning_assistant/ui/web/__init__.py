@@ -55,5 +55,10 @@ def create_app(config: Mapping[str, Any] | None = None) -> Flask:
         app.register_blueprint(create_production_blueprint(
             extended_service, secret_key=token_bytes(32)
         ))
+    from .planning_approval_controls import register_approval_controls
+    register_approval_controls(app)
+    from .planning_proposals import register_planning_proposals
+    from .routes import _operational_planner_service
+    register_planning_proposals(app, _operational_planner_service)
     register_error_handlers(app)
     return app
