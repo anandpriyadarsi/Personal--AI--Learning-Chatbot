@@ -21,4 +21,4 @@
 ## Execution record
 Baseline: fresh clone has historical EOL-only dirty backup.py/dashboard.py; preserved untouched. Dedicated sibling worktree created; no unrelated files to stage. Initial runtime lacked pytest; isolated venv installed from tracked learning requirements. No production data or migration accessed.
 
-Implementation and independent review checkpoints completed; P5 final cross-platform evidence is pending. Checked tasks record work performed, not production acceptance. See the reports for partial gates.
+Implementation and independent review checkpoints completed; P5 cross-platform evidence is recorded in CROSS_PLATFORM_ACCEPTANCE.md; the strict architecture gate remains blocked by four external pilot-file skips. Checked tasks record work performed, not production acceptance. See the reports for partial gates.

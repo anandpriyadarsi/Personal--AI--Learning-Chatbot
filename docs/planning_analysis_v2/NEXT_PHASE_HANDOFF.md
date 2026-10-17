@@ -1,6 +1,6 @@
 # Next phase handoff
 
-Start from the exact feature head recorded in CROSS_PLATFORM_ACCEPTANCE.md, not a memory of main. Fetch origin, verify main and all parallel feature heads. Preserve this branch's scoped CSS/templates when integrating the separate product-wide redesign; shared conflicts are routes.py and __init__.py. Do not merge/deploy until the user authorizes that separately.
+Validated implementation is c0cfcb3d9253cd45219b9d7b51ab9f348aee9c6d; the delivery commit changes documentation only. Start from the current PR #21 feature head and verify its diff from that implementation, not a memory of main. Fetch origin, verify main and all parallel feature heads. Preserve this branch's scoped CSS/templates when integrating the separate product-wide redesign; shared conflicts are routes.py and __init__.py. Do not merge/deploy until the user authorizes that separately.
 
 1. Resolve a physically non-mutating live-WAL read architecture with installed authority. New reader deliberately refuses WAL; legacy components still need the same file/WAL/SHM proof. Do not copy sidecars, use immutable mode, change journal mode or silently relax the contract.
 2. Repair canonical planner P03/P06/P08 with owner-level RED→GREEN history/idempotency tests: explicit carry-forward acceptance preserving IDs, revision-keyed month ledger, and source study completion/engagement semantics. Until then S8 and full canonical study completion integration are not accepted.
