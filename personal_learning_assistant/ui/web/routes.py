@@ -953,7 +953,7 @@ def _academic_overview():
     import config as installed_config
     factory = current_app.config.get("ACADEMIC_OVERVIEW_SERVICE_FACTORY")
     service = factory() if factory else AcademicOverviewService(
-        installed_config.DATABASE_PATH,
+        current_app.config.get("ACADEMIC_DATABASE_PATH", installed_config.DATABASE_PATH),
         local_timezone=current_app.config.get("ACADEMIC_TIMEZONE", "Asia/Kolkata"),
         wal_snapshot_provider=current_app.config.get("ACADEMIC_WAL_SNAPSHOT_PROVIDER"),
         max_snapshot_age_seconds=current_app.config.get("ACADEMIC_WAL_SNAPSHOT_MAX_AGE", 120),
