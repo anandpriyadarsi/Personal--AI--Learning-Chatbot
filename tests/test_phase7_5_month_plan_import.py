@@ -155,3 +155,35 @@ def test_unsafe_yaml_python_tag_is_rejected(tmp_path):
     payload = b"!!python/object/apply:os.system ['echo unsafe']"
     with pytest.raises(MonthPlanImportValidationError):
         build_month_plan_import_service(path).preview("unsafe.yaml", payload)
+
+
+def test_changed_month_revision_keeps_both_ledger_histories(tmp_path):
+    from personal_learning_assistant.services.month_plan_import_service import build_month_plan_import_service
+    path = _db(tmp_path)
+    service = build_month_plan_import_service(path)
+    original = FIXTURE.read_bytes()
+    first = service.preview("first.yaml", original)
+    assert first["valid"]
+    result = service.approve("first.yaml", original, first["source_sha256"])
+    previous_import = result["import"]["id"]
+    changed = original.replace(b"Solve and explain one LU set.", b"Solve two LU sets independently.")
+    assert changed != original
+    second = service.preview("second.yaml", changed)
+    assert second["valid"] and not second["already_imported"]
+    result = service.approve("second.yaml", changed, second["source_sha256"])
+    assert result["created"] and not result["idempotent"]
+    assert result["import"]["id"] != previous_import
+    with sqlite3.connect(path) as c:
+        imports = c.execute(
+            "SELECT id,status FROM month_plan_imports ORDER BY approved_at,id"
+        ).fetchall()
+        assert len(imports) == 2
+        assert {row[1] for row in imports} == {"superseded", "active"}
+        rows = c.execute("SELECT id,import_id FROM month_plan_import_items").fetchall()
+        assert len(rows) == len(set(row[0] for row in rows))
+        assert {row[1] for row in rows} == {imp[0] for imp in imports}
+        assert c.execute("SELECT COUNT(*) FROM planner_tasks").fetchone()[0] == 1
+        assert c.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
+        assert not c.execute("PRAGMA foreign_key_check").fetchall()
+    repeated = service.approve("second.yaml", changed, second["source_sha256"])
+    assert repeated["idempotent"] and not repeated["created"]
