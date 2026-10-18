@@ -1,0 +1,395 @@
+{
+  "baseline_sha": "ce2e4e06175f76778f114a85f7552160aeb08a99",
+  "renames": [
+    {
+      "original": "PHASE3_2_REVERSE_EXPORT_RESTORE.md",
+      "archive": "docs/archive/phase3/PHASE3_2_REVERSE_EXPORT_RESTORE.md",
+      "sha": "0f49e3b5c4c43bf0c2e7dc4a227ba22a660a060d"
+    },
+    {
+      "original": "PHASE3_FIX1_SQLITE_FOUNDATION.md",
+      "archive": "docs/archive/phase3/PHASE3_FIX1_SQLITE_FOUNDATION.md",
+      "sha": "fd96d64be94bf2eae5fa64fb645c176d1b8b9da8"
+    },
+    {
+      "original": "PHASE3_FIX10_STUDY_PLANS_IMPORTER.md",
+      "archive": "docs/archive/phase3/PHASE3_FIX10_STUDY_PLANS_IMPORTER.md",
+      "sha": "66b97e729117ca815a108eefe82ab532bdcc993f"
+    },
+    {
+      "original": "PHASE3_FIX11_GRADES_CALENDAR_IMPORTER.md",
+      "archive": "docs/archive/phase3/PHASE3_FIX11_GRADES_CALENDAR_IMPORTER.md",
+      "sha": "c947f0cd815686672e010f71377fef1c9bdb7045"
+    },
+    {
+      "original": "PHASE3_FIX12_RECONCILIATION_REPORTS.md",
+      "archive": "docs/archive/phase3/PHASE3_FIX12_RECONCILIATION_REPORTS.md",
+      "sha": "6020e7e8489890184734199221ebbaa6177865e1"
+    },
+    {
+      "original": "PHASE3_FIX2_ACADEMIC_SCHEMA.md",
+      "archive": "docs/archive/phase3/PHASE3_FIX2_ACADEMIC_SCHEMA.md",
+      "sha": "e7c5619b3c790c7128cff53b4b395365da79eaa6"
+    },
+    {
+      "original": "PHASE3_FIX3_LEGACY_SOURCE_LEDGER.md",
+      "archive": "docs/archive/phase3/PHASE3_FIX3_LEGACY_SOURCE_LEDGER.md",
+      "sha": "60804d8e4934a41f896c06522299c69bafac7617"
+    },
+    {
+      "original": "PHASE3_FIX4_COURSES_TOPICS_IMPORTER.md",
+      "archive": "docs/archive/phase3/PHASE3_FIX4_COURSES_TOPICS_IMPORTER.md",
+      "sha": "1fe57888deb990abab29296abcaf199dd6dedf7a"
+    },
+    {
+      "original": "PHASE3_FIX5_ASSESSMENTS_TOPICS_IMPORTER.md",
+      "archive": "docs/archive/phase3/PHASE3_FIX5_ASSESSMENTS_TOPICS_IMPORTER.md",
+      "sha": "74e984a00d9e7174927d00fd4148f5a5f0a80737"
+    },
+    {
+      "original": "PHASE3_FIX6_ASSESSMENT_QUESTIONS_SOURCES_IMPORTER.md",
+      "archive": "docs/archive/phase3/PHASE3_FIX6_ASSESSMENT_QUESTIONS_SOURCES_IMPORTER.md",
+      "sha": "7e3126cdf629b5b5a201efd55318192b473986cd"
+    },
+    {
+      "original": "PHASE3_FIX7_QUESTION_TOPIC_MAPPINGS_IMPORTER.md",
+      "archive": "docs/archive/phase3/PHASE3_FIX7_QUESTION_TOPIC_MAPPINGS_IMPORTER.md",
+      "sha": "09774f0ffba409c3a4b7f5edef41903886901eef"
+    },
+    {
+      "original": "PHASE3_FIX8_ATTEMPTS_PERFORMANCE_IMPORTER.md",
+      "archive": "docs/archive/phase3/PHASE3_FIX8_ATTEMPTS_PERFORMANCE_IMPORTER.md",
+      "sha": "7b43870177e5a896e428ed540409c33f95537019"
+    },
+    {
+      "original": "PHASE3_FIX9_LEARNING_MEMORY_PROGRESS_IMPORTER.md",
+      "archive": "docs/archive/phase3/PHASE3_FIX9_LEARNING_MEMORY_PROGRESS_IMPORTER.md",
+      "sha": "3eaae9f8a829ee380879dad72ed2353134adb02d"
+    },
+    {
+      "original": "PHASE4_10_SQLITE_COMMAND_REPOSITORIES_LEGACY_GUARDS.md",
+      "archive": "docs/archive/phase4/PHASE4_10_SQLITE_COMMAND_REPOSITORIES_LEGACY_GUARDS.md",
+      "sha": "eb4c3d85729b573dd195ae4f57c343704fd7ac00"
+    },
+    {
+      "original": "PHASE4_11_STRUCTURED_AUTHORITY_ROUTING.md",
+      "archive": "docs/archive/phase4/PHASE4_11_STRUCTURED_AUTHORITY_ROUTING.md",
+      "sha": "468d97ed40db22ff9a9e36b1184af31b85b21e1e"
+    },
+    {
+      "original": "PHASE4_9_AUTHORITY_PROMOTION_FOUNDATION.md",
+      "archive": "docs/archive/phase4/PHASE4_9_AUTHORITY_PROMOTION_FOUNDATION.md",
+      "sha": "2313e619e08db9d2cd002d320d23ec9891aa6be1"
+    },
+    {
+      "original": "PHASE4_FINAL_LOCKED_SQLITE_AUTHORITY_PROMOTION.md",
+      "archive": "docs/archive/phase4/PHASE4_FINAL_LOCKED_SQLITE_AUTHORITY_PROMOTION.md",
+      "sha": "b480492b79b17016d9e218e100439b75b34db2d7"
+    },
+    {
+      "original": "PHASE4_FINAL_STRUCTURED_CUTOVER_RECONCILIATION.md",
+      "archive": "docs/archive/phase4/PHASE4_FINAL_STRUCTURED_CUTOVER_RECONCILIATION.md",
+      "sha": "9e1a0a8f4735e82d8dd612eba6ea218fc38270d9"
+    },
+    {
+      "original": "PHASE4_FIX1_COURSES_TOPICS_DUAL_READ.md",
+      "archive": "docs/archive/phase4/PHASE4_FIX1_COURSES_TOPICS_DUAL_READ.md",
+      "sha": "b0a53d0dd61d5ef5c0dca04d496f4bdb7e8d388e"
+    },
+    {
+      "original": "PHASE4_FIX2_ASSESSMENTS_DUAL_READ.md",
+      "archive": "docs/archive/phase4/PHASE4_FIX2_ASSESSMENTS_DUAL_READ.md",
+      "sha": "56f912a68711953e7319f0853d01f679fa8f4b60"
+    },
+    {
+      "original": "PHASE4_FIX3_QUESTIONS_SOURCES_DUAL_READ.md",
+      "archive": "docs/archive/phase4/PHASE4_FIX3_QUESTIONS_SOURCES_DUAL_READ.md",
+      "sha": "e59366f5104d7aa113dba00ca205d4965b82b9b1"
+    },
+    {
+      "original": "PHASE4_FIX4_QUESTION_TOPIC_MAPPINGS_DUAL_READ.md",
+      "archive": "docs/archive/phase4/PHASE4_FIX4_QUESTION_TOPIC_MAPPINGS_DUAL_READ.md",
+      "sha": "d117ffa719d4ebb82c9d024a148c2b3597459d2a"
+    },
+    {
+      "original": "PHASE4_FIX5_ATTEMPTS_MISTAKES_PERFORMANCE_DUAL_READ.md",
+      "archive": "docs/archive/phase4/PHASE4_FIX5_ATTEMPTS_MISTAKES_PERFORMANCE_DUAL_READ.md",
+      "sha": "441a96ca8546b2a9d97c73e5d73324427ca829bc"
+    },
+    {
+      "original": "PHASE4_FIX6_LEARNING_MEMORY_ACADEMIC_PROGRESS_DUAL_READ.md",
+      "archive": "docs/archive/phase4/PHASE4_FIX6_LEARNING_MEMORY_ACADEMIC_PROGRESS_DUAL_READ.md",
+      "sha": "b04358bd67a2c51e6088368c5afb9bf6c3b2e96a"
+    },
+    {
+      "original": "PHASE4_FIX7_STUDY_PLANS_DUAL_READ.md",
+      "archive": "docs/archive/phase4/PHASE4_FIX7_STUDY_PLANS_DUAL_READ.md",
+      "sha": "f4a64fcb5badcc7c1419d4ef5de4d66dd1764673"
+    },
+    {
+      "original": "PHASE4_FIX8_GRADES_ACADEMIC_CALENDAR_DUAL_READ.md",
+      "archive": "docs/archive/phase4/PHASE4_FIX8_GRADES_ACADEMIC_CALENDAR_DUAL_READ.md",
+      "sha": "127f196adc0686046f475156cad0f982866db127"
+    },
+    {
+      "original": "PHASE4_POST_PROMOTION_VERIFICATION_CLOSURE.md",
+      "archive": "docs/archive/phase4/PHASE4_POST_PROMOTION_VERIFICATION_CLOSURE.md",
+      "sha": "758e85e12eea0503ae7f6361830bddcb014b536b"
+    },
+    {
+      "original": "PHASE5_FINAL_RECONCILIATION_CLOSURE.md",
+      "archive": "docs/archive/phase5/PHASE5_FINAL_RECONCILIATION_CLOSURE.md",
+      "sha": "069116ff0819923bb4a8830f15cde2c68bc6744b"
+    },
+    {
+      "original": "PHASE5_FIX1_KNOWLEDGE_REGISTRY_FOUNDATION.md",
+      "archive": "docs/archive/phase5/PHASE5_FIX1_KNOWLEDGE_REGISTRY_FOUNDATION.md",
+      "sha": "1f7b76c1e2bcecefdbf3542fc39ff919d76388d5"
+    },
+    {
+      "original": "PHASE5_FIX2_DOCUMENT_REGISTRY_SOURCE_SCANNER.md",
+      "archive": "docs/archive/phase5/PHASE5_FIX2_DOCUMENT_REGISTRY_SOURCE_SCANNER.md",
+      "sha": "5862b46047fc7f9b89405ba0705929d309a8796a"
+    },
+    {
+      "original": "PHASE5_FIX3_OBSIDIAN_VAULT_REGISTRY_LINK_GRAPH.md",
+      "archive": "docs/archive/phase5/PHASE5_FIX3_OBSIDIAN_VAULT_REGISTRY_LINK_GRAPH.md",
+      "sha": "1c68236bd730d701b5d05bc726df9c7e276ee4b4"
+    },
+    {
+      "original": "PHASE5_FIX4_NOTES_STUDIO_FOUNDATION.md",
+      "archive": "docs/archive/phase5/PHASE5_FIX4_NOTES_STUDIO_FOUNDATION.md",
+      "sha": "a9eb26d3a64cb10aad076983aa84a401f4085cfd"
+    },
+    {
+      "original": "PHASE5_FIX5_RESOURCES2_CORE.md",
+      "archive": "docs/archive/phase5/PHASE5_FIX5_RESOURCES2_CORE.md",
+      "sha": "9bf87b45ab48cae54d11790512dd8cae4096dfac"
+    },
+    {
+      "original": "PHASE5_FIX6_UNIFIED_INGESTION_PIPELINE.md",
+      "archive": "docs/archive/phase5/PHASE5_FIX6_UNIFIED_INGESTION_PIPELINE.md",
+      "sha": "2ef55efa58973f7c8e250e187bbe60ebed40a13a"
+    },
+    {
+      "original": "PHASE5_FIX7_MIT1806_EXTERNAL_COURSE_KNOWLEDGE.md",
+      "archive": "docs/archive/phase5/PHASE5_FIX7_MIT1806_EXTERNAL_COURSE_KNOWLEDGE.md",
+      "sha": "724f4d292676c1a5daf7daf2454db49d6c1f19f8"
+    },
+    {
+      "original": "PHASE5_FIX8_REBUILDABLE_RETRIEVAL_RAG.md",
+      "archive": "docs/archive/phase5/PHASE5_FIX8_REBUILDABLE_RETRIEVAL_RAG.md",
+      "sha": "f9e6530b4f0bebe8ab94690d8923d197fc9533b1"
+    },
+    {
+      "original": "PHASE6_FINAL_TUTOR_WORKSPACE_CLOSURE.md",
+      "archive": "docs/archive/phase6/PHASE6_FINAL_TUTOR_WORKSPACE_CLOSURE.md",
+      "sha": "be849c652a05c17f99dcded44d7c6272b91880e3"
+    },
+    {
+      "original": "PHASE6_FIX1_TUTOR_DOMAIN_SESSION_EVIDENCE.md",
+      "archive": "docs/archive/phase6/PHASE6_FIX1_TUTOR_DOMAIN_SESSION_EVIDENCE.md",
+      "sha": "efed2d3a5ba390a3d81353e4028bbc90b069fc08"
+    },
+    {
+      "original": "PHASE6_FIX2_GROUNDED_ACADEMIC_TUTOR_ENGINE.md",
+      "archive": "docs/archive/phase6/PHASE6_FIX2_GROUNDED_ACADEMIC_TUTOR_ENGINE.md",
+      "sha": "85debcf7fd87eb0bc3b2ecb4f623d25c5319d71e"
+    },
+    {
+      "original": "PHASE6_FIX3_KNOWLEDGE_NAVIGATOR.md",
+      "archive": "docs/archive/phase6/PHASE6_FIX3_KNOWLEDGE_NAVIGATOR.md",
+      "sha": "ff597d8ce17816a9372c12e06ddc5efb6082ac05"
+    },
+    {
+      "original": "PHASE6_FIX4_LECTURE_LEARNING_MODE.md",
+      "archive": "docs/archive/phase6/PHASE6_FIX4_LECTURE_LEARNING_MODE.md",
+      "sha": "4f83af7cdd0a95d2a625b16cd1a65ecd2553de0b"
+    },
+    {
+      "original": "PHASE6_FIX5_ACTIVE_RECALL_FAST_QUIZ.md",
+      "archive": "docs/archive/phase6/PHASE6_FIX5_ACTIVE_RECALL_FAST_QUIZ.md",
+      "sha": "a5419d27828733250762858cf251dfd5920a2a19"
+    },
+    {
+      "original": "PHASE6_FIX6_PYQ_EXAM_INTELLIGENCE.md",
+      "archive": "docs/archive/phase6/PHASE6_FIX6_PYQ_EXAM_INTELLIGENCE.md",
+      "sha": "f3c380747d24b0e740d4854d9bd142531f0b4212"
+    },
+    {
+      "original": "PHASE6_FIX7_ADAPTIVE_MENTOR.md",
+      "archive": "docs/archive/phase6/PHASE6_FIX7_ADAPTIVE_MENTOR.md",
+      "sha": "cac963459b828b8e2d4ec93418275de196157fcf"
+    },
+    {
+      "original": "PHASE6_FIX8_ACADEMIC_AGENT_CUTOVER.md",
+      "archive": "docs/archive/phase6/PHASE6_FIX8_ACADEMIC_AGENT_CUTOVER.md",
+      "sha": "e4885d1bb1f4f189ef2b988d21488b93dc6d776b"
+    },
+    {
+      "original": "PHASE7_5_12_2_RECOVERY_REPORT.md",
+      "archive": "docs/archive/phase7/PHASE7_5_12_2_RECOVERY_REPORT.md",
+      "sha": "a682520e845d0a8cfc35e4f7d3ee90d5282aeb8f"
+    },
+    {
+      "original": "PHASE7_5_15_1_PRE_EDIT_AUDIT.md",
+      "archive": "docs/archive/phase7/PHASE7_5_15_1_PRE_EDIT_AUDIT.md",
+      "sha": "2dbc02b39799fc3c99b9bab1e13f17eeb34b2689"
+    },
+    {
+      "original": "PHASE7_5_15_10_IMPLEMENTATION_REPORT.md",
+      "archive": "docs/archive/phase7/PHASE7_5_15_10_IMPLEMENTATION_REPORT.md",
+      "sha": "e1bcfcb16a376ad47da25c54eda1458556db8e6e"
+    },
+    {
+      "original": "PHASE7_5_15_12_IMPLEMENTATION_REPORT.md",
+      "archive": "docs/archive/phase7/PHASE7_5_15_12_IMPLEMENTATION_REPORT.md",
+      "sha": "4277230acae9f019fa2928f58e053a6fdcb2c60a"
+    },
+    {
+      "original": "PHASE7_5_15_14_IMPLEMENTATION_REPORT.md",
+      "archive": "docs/archive/phase7/PHASE7_5_15_14_IMPLEMENTATION_REPORT.md",
+      "sha": "4097da86e602d1ab3a2656de4dec18c8d0343698"
+    },
+    {
+      "original": "PHASE7_5_15_2_IMPLEMENTATION_REPORT.md",
+      "archive": "docs/archive/phase7/PHASE7_5_15_2_IMPLEMENTATION_REPORT.md",
+      "sha": "1b754ae48263bbfc1068b8d9883b1031aed38257"
+    },
+    {
+      "original": "PHASE7_5_15_3_IMPLEMENTATION_REPORT.md",
+      "archive": "docs/archive/phase7/PHASE7_5_15_3_IMPLEMENTATION_REPORT.md",
+      "sha": "ebb1baf3a4222489a5edd9f5446a01a5630405fe"
+    },
+    {
+      "original": "PHASE7_5_15_4_IMPLEMENTATION_REPORT.md",
+      "archive": "docs/archive/phase7/PHASE7_5_15_4_IMPLEMENTATION_REPORT.md",
+      "sha": "25d6b8e5ea1be114f15852fd6a235ab0b02229fb"
+    },
+    {
+      "original": "PHASE7_5_15_5_IMPLEMENTATION_REPORT.md",
+      "archive": "docs/archive/phase7/PHASE7_5_15_5_IMPLEMENTATION_REPORT.md",
+      "sha": "3efcd6f3de1a3d990f5ed0832c19443240a952e2"
+    },
+    {
+      "original": "PHASE7_5_15_6_IMPLEMENTATION_REPORT.md",
+      "archive": "docs/archive/phase7/PHASE7_5_15_6_IMPLEMENTATION_REPORT.md",
+      "sha": "f5b28137974c19e7dbf70f125fd117d6d95a8aa9"
+    },
+    {
+      "original": "PHASE7_5_15_7_IMPLEMENTATION_REPORT.md",
+      "archive": "docs/archive/phase7/PHASE7_5_15_7_IMPLEMENTATION_REPORT.md",
+      "sha": "341c46ed0d00121d79d8de597af29d28bf90e8f3"
+    },
+    {
+      "original": "PHASE7_5_15_8_IMPLEMENTATION_REPORT.md",
+      "archive": "docs/archive/phase7/PHASE7_5_15_8_IMPLEMENTATION_REPORT.md",
+      "sha": "2faa0536cb9badd3bf3464edeb9cf53347fccf79"
+    },
+    {
+      "original": "PHASE7_5_15_9_IMPLEMENTATION_REPORT.md",
+      "archive": "docs/archive/phase7/PHASE7_5_15_9_IMPLEMENTATION_REPORT.md",
+      "sha": "cb088b634c3fda48afc2176c042295d824980108"
+    },
+    {
+      "original": "PHASE7_5_15_9_MIGRATION_RECOVERY.md",
+      "archive": "docs/archive/phase7/PHASE7_5_15_9_MIGRATION_RECOVERY.md",
+      "sha": "0557090e3702275e6a7cd65279bb9ad183c17fa0"
+    },
+    {
+      "original": "PHASE7_5_15_9_RECONCILIATION_DECISION.md",
+      "archive": "docs/archive/phase7/PHASE7_5_15_9_RECONCILIATION_DECISION.md",
+      "sha": "c43ffb6c70664ef4a383d191f41c5a1364ceebb8"
+    },
+    {
+      "original": "PHASE7_5_FIX1_WEB_FOUNDATION.md",
+      "archive": "docs/archive/phase7/PHASE7_5_FIX1_WEB_FOUNDATION.md",
+      "sha": "50cd5077703350485508ea0ba2862cd57ddb3d51"
+    },
+    {
+      "original": "PHASE7_5_FIX10_ANVAYA_PRODUCT_SHELL.md",
+      "archive": "docs/archive/phase7/PHASE7_5_FIX10_ANVAYA_PRODUCT_SHELL.md",
+      "sha": "0b12a6adbb23022fa056e6b078b8bf9de9678823"
+    },
+    {
+      "original": "PHASE7_5_FIX10_UX_REFINEMENT.md",
+      "archive": "docs/archive/phase7/PHASE7_5_FIX10_UX_REFINEMENT.md",
+      "sha": "9fecb10dc9a4bd53a4d2ad6dc675b73cec48f5bf"
+    },
+    {
+      "original": "PHASE7_5_FIX11_OPERATIONAL_NOTES_RESOURCES.md",
+      "archive": "docs/archive/phase7/PHASE7_5_FIX11_OPERATIONAL_NOTES_RESOURCES.md",
+      "sha": "c8f0f94c6daae273c23585c15c1012ae9610c02b"
+    },
+    {
+      "original": "PHASE7_5_FIX12_OBSIDIAN_WORKSPACE_SEARCH.md",
+      "archive": "docs/archive/phase7/PHASE7_5_FIX12_OBSIDIAN_WORKSPACE_SEARCH.md",
+      "sha": "0edb81960336f0e94fa53d687071ad7a954d0feb"
+    },
+    {
+      "original": "PHASE7_5_FIX13_OPERATIONAL_PLANNER.md",
+      "archive": "docs/archive/phase7/PHASE7_5_FIX13_OPERATIONAL_PLANNER.md",
+      "sha": "3b82206f5df1b4c1d0a7d728bbcc483800673a63"
+    },
+    {
+      "original": "PHASE7_5_FIX2_HOME_ACADEMIC_BRIEF.md",
+      "archive": "docs/archive/phase7/PHASE7_5_FIX2_HOME_ACADEMIC_BRIEF.md",
+      "sha": "b3ad232f5c0fc6397dc63afc214cfcbe4946869a"
+    },
+    {
+      "original": "PHASE7_5_FIX3_COURSES_TOPICS.md",
+      "archive": "docs/archive/phase7/PHASE7_5_FIX3_COURSES_TOPICS.md",
+      "sha": "b70bb6c46379149c8801639f9720777b19c082c2"
+    },
+    {
+      "original": "PHASE7_5_FIX4_ASSESSMENTS.md",
+      "archive": "docs/archive/phase7/PHASE7_5_FIX4_ASSESSMENTS.md",
+      "sha": "3fc0f608855d5975e74c757390c47fe6526b97e9"
+    },
+    {
+      "original": "PHASE7_5_FIX5_PROGRESS_PLANNING.md",
+      "archive": "docs/archive/phase7/PHASE7_5_FIX5_PROGRESS_PLANNING.md",
+      "sha": "09eedc60ac8add9b06ed7610b364fcb03353640f"
+    },
+    {
+      "original": "PHASE7_5_FIX6_CALENDAR_GRADES.md",
+      "archive": "docs/archive/phase7/PHASE7_5_FIX6_CALENDAR_GRADES.md",
+      "sha": "c4d953bda3d7119799ff42dbc4de90db212a4d9b"
+    },
+    {
+      "original": "PHASE7_5_FIX7_NOTES_RESOURCES.md",
+      "archive": "docs/archive/phase7/PHASE7_5_FIX7_NOTES_RESOURCES.md",
+      "sha": "57f49d1e8ca204c75150de3d3321bf03b9e0cd14"
+    },
+    {
+      "original": "PHASE7_5_FIX8_KNOWLEDGE_RAG.md",
+      "archive": "docs/archive/phase7/PHASE7_5_FIX8_KNOWLEDGE_RAG.md",
+      "sha": "06949454e352931c985c983dff535c47f472fa24"
+    },
+    {
+      "original": "PHASE7_5_FIX9_ACADEMIC_AGENT_WEB.md",
+      "archive": "docs/archive/phase7/PHASE7_5_FIX9_ACADEMIC_AGENT_WEB.md",
+      "sha": "0d2437e8dad7de72627f13eada8526b28bf9fd4d"
+    },
+    {
+      "original": "PHASE7_FIX1_CANONICAL_RUNTIME_CONSUMER_INVENTORY.md",
+      "archive": "docs/archive/phase7/PHASE7_FIX1_CANONICAL_RUNTIME_CONSUMER_INVENTORY.md",
+      "sha": "e413d21d044ca1e3f2b9c8294dfc446711225eb3"
+    },
+    {
+      "original": "PHASE7_FIX2_RECOVERY_BUNDLE_TWO_BACKUPS.md",
+      "archive": "docs/archive/phase7/PHASE7_FIX2_RECOVERY_BUNDLE_TWO_BACKUPS.md",
+      "sha": "a8a08c41770fe72e2af61367dd1aa67377285ae0"
+    },
+    {
+      "original": "PHASE7_FIX3_FULL_RESTORE_REVERSE_RESTORE_REHEARSAL.md",
+      "archive": "docs/archive/phase7/PHASE7_FIX3_FULL_RESTORE_REVERSE_RESTORE_REHEARSAL.md",
+      "sha": "ad26ffaf92a1553a40cf7c1867107ecd0ca27bec"
+    },
+    {
+      "original": "PHASE7_FIX4_LEGACY_USAGE_OBSERVATION_CONSUMER_WATCH.md",
+      "archive": "docs/archive/phase7/PHASE7_FIX4_LEGACY_USAGE_OBSERVATION_CONSUMER_WATCH.md",
+      "sha": "d6a36a14a5eaec609582a52724ee8a1a3888c7f6"
+    }
+  ]
+}
