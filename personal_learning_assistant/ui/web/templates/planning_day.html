@@ -117,6 +117,13 @@
     <label>Tomorrow's first task<input name="tomorrow_first_task"></label>
     <label><input type="checkbox" name="coding_completed" value="1"> Coded today</label>
     <label><input type="checkbox" name="coding_independent" value="1"> Independent coding</label>
+    <fieldset class="planner-span-2">
+      <legend>Choose unfinished tasks to carry to tomorrow (maximum two)</legend>
+      <p>Nothing carries automatically. Unselected tasks stay in your backlog; they are not deleted.</p>
+      {% for item in agenda['items'] if item.item_kind == 'task' and item.status not in ['completed','moved'] and item.source_id %}
+      <label><input type="checkbox" name="carry_task_ids" value="{{ item.source_id }}"> {{ item.priority }} · {{ item.title }}</label>
+      {% else %}<p>No unfinished tasks to carry.</p>{% endfor %}
+    </fieldset>
     <button class="button" type="submit">Close day &amp; prepare tomorrow</button>
   </form>
 </section>
