@@ -51,6 +51,22 @@ def main():
         "personal_learning_assistant/ui/web/routes.py",
         "tests/test_architecture_characterization.py",
     ])
+    # Active runtime, tests, validators and workflows must not mention the old
+    # root-level report paths. Exclude the historical archive and its manifest.
+    active = [ROOT / "README.md"]
+    for dirname in ["personal_learning_assistant", "tests", "scripts", ".github/workflows"]:
+        folder = ROOT / dirname
+        active += [p for p in folder.rglob("*") if p.is_file() and
+                   p.suffix.lower() in {".py", ".ps1", ".cjs", ".js", ".html",
+                                        ".yml", ".yaml", ".json", ".md", ".css"}]
+    active += list(ROOT.glob("*.py")) + list(ROOT.glob("*.ps1"))
+    dangling = []
+    for path in active:
+        body = path.read_text(encoding="utf-8", errors="replace")
+        matches = [name for name in unique_old if name in body]
+        if matches:
+            dangling.append((path.relative_to(ROOT).as_posix(), sorted(matches)))
+    assert not dangling, f"Active source references relocated root docs: {dangling}"
     try:
         git("diff", "--check", BASE_SHA, "HEAD")
     except subprocess.CalledProcessError as error:
