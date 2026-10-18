@@ -51,7 +51,12 @@ def main():
         "personal_learning_assistant/ui/web/routes.py",
         "tests/test_architecture_characterization.py",
     ])
-    git("diff", "--check", BASE_SHA, "HEAD")
+    try:
+        git("diff", "--check", BASE_SHA, "HEAD")
+    except subprocess.CalledProcessError as error:
+        print("Whitespace check STDOUT:", error.stdout)
+        print("Whitespace check STDERR:", error.stderr)
+        raise
     print(f"PASS: {len(records)} byte-identical documentation moves; "
           f"{len(changes)} changed paths within allowlist; "
           "no application, academic, CI or test source was modified.")
