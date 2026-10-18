@@ -172,3 +172,42 @@ def test_connected_normal_analysis_page_renders_fresh_snapshot_metadata(tmp_path
         if publication is not None:
             publication.stop()
         writer.close()
+
+
+def test_default_assessment_enabled_startup_preserves_academics_with_backup_first(tmp_path, monkeypatch):
+    import config as installed_config
+
+    path, writer = _wal_fixture(tmp_path)
+    writer.close()  # Installation activation owns the database before server startup.
+    monkeypatch.setattr(installed_config, 'BACKUP_PATH', tmp_path / 'backups')
+    with sqlite3.connect(path) as connection:
+        original_courses = connection.execute(
+            'SELECT id,code,name FROM courses ORDER BY id'
+        ).fetchall()
+        assert connection.execute(
+            'SELECT COUNT(*) FROM schema_migrations WHERE version=15'
+        ).fetchone()[0] == 0
+
+    publisher = None
+    try:
+        app, publisher = prepare_local_app(assessment_enabled=True, database_path=path)
+        assert app.config['ASSESSMENT_EXTENDED_ENABLED'] is True
+        assert publisher is not None
+        assert publisher.state().has_snapshot
+        with sqlite3.connect(path) as connection:
+            assert connection.execute(
+                'SELECT COUNT(*) FROM schema_migrations WHERE version=15'
+            ).fetchone()[0] == 1
+            assert connection.execute(
+                'SELECT id,code,name FROM courses ORDER BY id'
+            ).fetchall() == original_courses
+            assert connection.execute('PRAGMA integrity_check').fetchone()[0] == 'ok'
+            assert not connection.execute('PRAGMA foreign_key_check').fetchall()
+        backups = list((tmp_path / 'backups').glob('assessment-before-0015-*.sqlite3'))
+        assert len(backups) == 1
+        with app.test_request_context('/analysis?course=MA103N'):
+            view = _academic_overview()
+        assert view['available'] and view['source_snapshot']['mode'] == 'owner_published_wal'
+    finally:
+        if publisher is not None:
+            publisher.stop()
