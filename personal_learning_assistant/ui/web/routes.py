@@ -2675,6 +2675,7 @@ def planning_day_close(agenda_date):
                 "energy_1_to_5": request.form.get("energy_1_to_5", ""),
                 "sleep_target": request.form.get("sleep_target", ""),
                 "tomorrow_first_task": request.form.get("tomorrow_first_task", ""),
+                "carry_task_ids": request.form.getlist("carry_task_ids"),
             },
         )
         return redirect(url_for("web.planning_day", agenda_date=agenda_date), code=303)
