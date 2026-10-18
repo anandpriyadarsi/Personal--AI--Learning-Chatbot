@@ -29,13 +29,16 @@ def prepare_local_app(*, assessment_enabled=None, database_path=None):
         from personal_learning_assistant.services.assessment_activation import (
             activate_assessment_extension,
         )
-        status = activate_assessment_extension(database_path=database)
+        # Keep the normal no-argument activation API unchanged. Explicit
+        # alternate paths are reserved for synthetic installation tests.
+        status = (activate_assessment_extension() if database_path is None
+                  else activate_assessment_extension(database_path=database))
         print("Assessment Studio practice: enabled (migration 0015 verified).", flush=True)
         if status["backup"]:
             print("Pre-migration database backup:", status["backup"], flush=True)
 
     publication = None
-    config = {"ASSESSMENT_EXTENDED_ENABLED": enabled, "ACADEMIC_DATABASE_PATH": database}
+    config = {"ASSESSMENT_EXTENDED_ENABLED": enabled}
     # The publisher has explicitly authorized read-only access in a worker
     # thread. Ordinary app factories and HTTP handlers never start it.
     candidate = InstalledAcademicWalPublisher(database)
@@ -45,6 +48,7 @@ def prepare_local_app(*, assessment_enabled=None, database_path=None):
         print("Academic WAL overview: no trusted WAL publisher needed/available.", flush=True)
     else:
         publication = candidate
+        config["ACADEMIC_DATABASE_PATH"] = database
         config["ACADEMIC_WAL_SNAPSHOT_PROVIDER"] = publication.feed.latest
         config["ACADEMIC_WAL_SNAPSHOT_MAX_AGE"] = 120
         print(
