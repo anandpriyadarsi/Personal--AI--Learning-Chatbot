@@ -48,6 +48,7 @@ jobs:
             'tests/test_planning_analysis_v2.py',
             'tests/test_planning_v21_wal_snapshot.py',
             'tests/test_planning_v21_wal_installed_launcher.py',
+            'tests/test_assessment_production_integration.py::test_launcher_enables_real_assessment_by_default_without_import_side_effects',
             'tests/test_planning_v2_scheduler.py',
             'tests/test_planning_v2_proposals.py',
             'tests/test_planning_v2_review_regressions.py',
