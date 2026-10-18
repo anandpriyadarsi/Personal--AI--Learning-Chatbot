@@ -179,13 +179,14 @@ class AcademicOverviewService:
         view['summary']['overdue_tasks'] = sum(bool(r['due_on'] and r['due_on']<view['date']) for r in view['tasks'])
 
     def _effort(self, con, view, start):
-        # Course-scoped attribution is only safe for linked planner tasks.
+        # Course-scoped attribution is safe for linked planner tasks and canonical study plan items.
         rows = self._read(con, view, 'effort', '''SELECT SUM(i.planned_minutes) planned_minutes,
             SUM(i.actual_minutes) actual_minutes,COUNT(i.actual_minutes) recorded_items,
             COUNT(*) total_items,SUM(CASE WHEN i.status='completed' THEN 1 ELSE 0 END) completed_items
             FROM daily_agenda_items i JOIN daily_agendas a ON a.id=i.agenda_id
             LEFT JOIN planner_tasks t ON i.source_type='planner_task' AND t.id=i.source_id
-            LEFT JOIN courses c ON c.id=t.course_id
+            LEFT JOIN study_plan_items sp ON i.source_type='study_plan_item' AND sp.id=i.source_id
+            LEFT JOIN courses c ON c.id=COALESCE(t.course_id,sp.course_id)
             WHERE a.status IN ('approved','active','closed') AND a.agenda_date BETWEEN ? AND ?
             AND i.item_kind IN ('task','study','manual') AND (?='' OR c.code=? COLLATE NOCASE)''',
             (start,view['date'],view['filters']['course'],view['filters']['course']))
@@ -195,7 +196,7 @@ class AcademicOverviewService:
             row['completed_items'] = row['completed_items'] or 0
             view['effort'] = row
         if view['filters']['course']:
-            view['limits'].append('Course effort includes only canonically linked task sessions; unlinked study/manual sessions are excluded.')
+            view['limits'].append('Course effort includes canonically linked planner tasks and dated study plan items; unlinked manual sessions remain excluded.')
 
     def _topics(self, con, view, lower, upper):
         session_ids = {r['id'] for r in view['assessments'] if r['category']=='evaluated'}
