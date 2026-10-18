@@ -169,6 +169,8 @@ def test_protected_surfaces_retain_shell_controls_and_dark_layout(protected_brow
             assert protected_live["tutor"].llm_calls == 0
             assert protected_live["tutor"].created == []
 
+        # A submitted native filter can expose its DOM before the next CSS load finishes.
+        page.wait_for_load_state("networkidle")
         assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"), (surface, width, "after controls")
         assert not errors
         # Learning's preexisting reader records progress automatically. This is

@@ -25,7 +25,12 @@ def capture(output, widths):
                 errors = []
                 page.on('pageerror', lambda error: errors.append(str(error)))
                 response = page.goto(fixture['base'] + route, wait_until='networkidle')
-                page.screenshot(path=str(output / f'{name}-{width}.png'), full_page=True)
+                # Prime scrollable table layers before a full-document capture.
+                # Chromium can otherwise leave an offscreen overflow pane unpainted.
+                tables = page.locator('main table')
+                if tables.count():
+                    tables.first.scroll_into_view_if_needed()
+                page.screenshot(path=str(output / f'{name}-{width}.png'), full_page=True, animations='disabled')
                 manifest.append({'page': name, 'route': route, 'width': width, 'height': height,
                                  'status': response.status, 'overflow': page.evaluate('document.documentElement.scrollWidth > innerWidth'), 'errors': errors,
                                  'screenshot': f'{name}-{width}.png'})
