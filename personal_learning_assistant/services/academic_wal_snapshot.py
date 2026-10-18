@@ -95,6 +95,10 @@ class AcademicSnapshotFeed:
                 target = sqlite3.connect(":memory:")
                 try:
                     owner_connection.backup(target, pages=128, sleep=0.02)
+                    # SQLite's backup preserves the source WAL header (02/02)
+                    # even in RAM; normalize using RAM-only VACUUM before
+                    # deserialize so the image needs no external -wal/-shm.
+                    target.execute("VACUUM")
                     raw = target.serialize()
                     if (not isinstance(raw, bytes) or len(raw) < 100 or
                             len(raw) > self._max_bytes or not raw.startswith(SQLITE_HEADER) or
