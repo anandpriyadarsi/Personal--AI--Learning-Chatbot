@@ -2,33 +2,34 @@
 
 **Branch:** `maintenance/repository-cleanup-2026-10`
 **Baseline commit:** `ce2e4e06175f76778f114a85f7552160aeb08a99`
-**Status:** Documentation-only archival work, not merged into `main`.
+**Status:** Non-destructive dependency-checked cleanup; not merged.
 
-## Verified baseline
+## Findings and work completed
 
-The parent tree contained 1,054 tracked files, of which 311 were at repository root (151 Markdown reports and 93 PowerShell gate scripts). The GitHub tree inventory was not truncated.
+- Inspected an untruncated tracked tree: 1,054 files, 311 root-level files, 151 root-level Markdown documents and 93 root-level PowerShell `*_gate.ps1` scripts.
+- Initially proposed archiving 78 historical Phase 3–7 reports. A stronger active-reference check discovered references in existing legacy `*_gate.ps1` scripts. **69 moves were reverted**, retaining their original locations and content.
+- **9 unreferenced Phase 3 reports** are now archived byte-for-byte in `docs/archive/phase3/`.
+- Added `docs/README.md`, a historical documentation index, an explicit archive manifest and repository audit notes.
+- Added a GitHub Actions workflow and Python validator for Windows/Ubuntu that verifies the archive blob identities against baseline, limits the changed-path scope and scans active sources for stale report references.
+- No prior application module, test, validation gate, workflow, academic data, backup or dependency manifest is modified by the resulting diff.
 
-## Applied cleanup
+## Why the larger document relocation was rolled back
 
-- 45 historical Phase 3–6 reports moved into `docs/archive/phase3` through `phase6`.
-- 33 historical Phase 7 implementation, migration, and recovery reports moved into `docs/archive/phase7`.
-- 78 total document renames with unchanged Git blob SHA.
-- Documentation landing page, historical index and machine-readable archive manifest added.
-- Branch-specific, cross-platform repository hygiene validation provided in `.github/workflows/repository-cleanup.yml`.
+The report names are baked into historical PowerShell validation gates. A pure file move would break those checks. The cleanup leaves all referenced reports in place rather than modifying dozens of gate scripts without a separate dependency audit and Windows compatibility testing.
 
-No existing application source, academic-data files, migration tools, tests, scripts, dependency manifests, or workflows are moved or deleted by this cleanup phase. A new verification script and new branch-specific workflow are added.
+## Next safe cleanup phases
 
-## Deferred cleanup and risk assessment
+1. Inventory active versus legacy PowerShell gates and all report/document references, then plan **paired** path updates with Windows execution evidence, or leave them in place.
+2. Consolidate active project documentation while keeping Learning Studio, Assessment Studio and Planning/Analysis authority contracts stable.
+3. Review tracked `backup/notes_backup.json` and `backup/resources_backup.json` for provenance, local privacy and possible consumers before touching any backups.
+4. Do not delete or rewrite history of local academic data, Obsidian vaults, assessment results, notes or credentials.
+5. Do not rename production entry points (`phase7_web.py`), migrators, scripts, package files, workflows or tests without targeted regression tests and review.
+6. Preserve all active feature branch work and leave `main` untouched.
 
-1. **PowerShell scripts:** The 93 root `*_gate.ps1` scripts may be called manually or via historical automation. Do not relocate before establishing callers and Windows support.
-2. **Academic authority and local data:** Never delete production academic databases, local vaults, note assets, learning history or personal backups for file-count reduction.
-3. **Tracked backups:** `backup/notes_backup.json` and `backup/resources_backup.json` remain tracked although `.gitignore` excludes the folder. Review provenance, privacy, and consumer references separately before deleting.
-4. **Current learning and assessment specifications:** Remain in the root because active parallel branches may reference them by path.
-5. **CI workflows:** Current GitHub Actions remain intact. Branch-specific historical workflows require a separate dependency and cost review before consolidation.
-6. **Code deduplication:** Defer until imports, dynamic loading, scripts, migrations, and test fixtures can be exercised on Ubuntu and Windows.
+## Verified and unverified
 
-## Acceptance
+The branch-specific safety job checks byte-for-byte Git blob identity, unapproved changed paths, stale references inside active code/gates, Python source compilation and Git whitespace hygiene on Ubuntu and Windows.
 
-The verification script checks the manifest against Git blob SHA values at the baseline and cleanup head, forbids any unapproved path mutation, checks original root paths are absent, and confirms essential source paths exist. It does **not** prove complete runtime correctness, end-to-end browser behavior, or absence of stale links in third-party systems.
+The safety job is **not** the full integration, browser, migration or local production-authority suite. Require those tests before any change to executable source or before merging the cleanup into `main`.
 
-Do not merge without reviewing the GitHub status checks and any unresolved dependency or documentation link findings.
+External bookmarks pointing at relocated report URLs are not automatically redirected.

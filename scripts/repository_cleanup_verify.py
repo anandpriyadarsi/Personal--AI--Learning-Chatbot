@@ -19,7 +19,7 @@ def git(*args):
 def main():
     manifest_path = ROOT / "docs" / "maintenance" / "archive-manifest.json"
     records = json.loads(manifest_path.read_text(encoding="utf-8"))["renames"]
-    assert len(records) == 78, f"Unexpected archived report count: {len(records)}"
+    assert len(records) == 9, f"Unexpected archived report count: {len(records)}"
     unique_old = set()
     unique_new = set()
     for record in records:
