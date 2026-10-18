@@ -153,10 +153,44 @@ def test_snapshot_feed_rejects_symlink_owner_identity(tmp_path):
         try:
             link.symlink_to(path)
         except OSError:
-            pytest.skip('Symlinks unavailable on this Windows account')
+            # Windows CI may forbid real symlinks. Exercise the production
+            # guard via a mocked symlink predicate instead of skipping.
+            from unittest.mock import patch
+            with patch('pathlib.Path.is_symlink', autospec=True,
+                       side_effect=lambda subject: subject == link):
+                with pytest.raises(AcademicSnapshotUnavailable):
+                    AcademicSnapshotFeed(link).publish(owner, at=NOW)
+            return
         feed = AcademicSnapshotFeed(link)
         with pytest.raises(AcademicSnapshotUnavailable):
             feed.publish(owner, at=NOW)
         assert feed.latest() is None
     finally:
         owner.close()
+
+
+def test_flask_installed_overview_receives_provider_not_writer_connection(tmp_path, monkeypatch):
+    from personal_learning_assistant.ui.web import create_app
+    from personal_learning_assistant.ui.web.routes import _academic_overview
+    import config as installed_config
+
+    path, writer = _wal(tmp_path)
+    try:
+        feed = AcademicSnapshotFeed(path)
+        feed.publish(writer, at=NOW)
+        monkeypatch.setattr(installed_config, 'DATABASE_PATH', str(path))
+        app = create_app({
+            'ACADEMIC_WAL_SNAPSHOT_PROVIDER': feed.latest,
+            'ACADEMIC_WAL_SNAPSHOT_MAX_AGE': 120,
+        })
+        # Flask's default factory uses real wall time, so publish a fresh
+        # owner snapshot just before the request.
+        feed.publish(writer)
+        before = inventory(tmp_path)
+        with app.test_request_context('/analysis?course=MA103N'):
+            view = _academic_overview()
+        assert view['source_snapshot']['mode'] == 'owner_published_wal'
+        assert view['courses'][0]['name'] == 'Latest committed source'
+        assert inventory(tmp_path) == before
+    finally:
+        writer.close()
