@@ -1,7 +1,7 @@
 name: Planning Analysis V2.1 reliability (synthetic)
 on:
   push:
-    branches: ['feature/planning-analysis-v2-1-reliability-2026-10-18', 'feature/planning-v21-authorized-wal-snapshot-2026-10-18']
+    branches: ['feature/planning-analysis-v2-1-reliability-2026-10-18', 'feature/planning-v21-authorized-wal-snapshot-2026-10-18', 'feature/planning-v21-installed-wal-publisher-2026-10-18']
   workflow_dispatch:
 permissions:
   contents: read
@@ -47,6 +47,7 @@ jobs:
             'tests/test_architecture_characterization.py',
             'tests/test_planning_analysis_v2.py',
             'tests/test_planning_v21_wal_snapshot.py',
+            'tests/test_planning_v21_wal_installed_launcher.py',
             'tests/test_planning_v2_scheduler.py',
             'tests/test_planning_v2_proposals.py',
             'tests/test_planning_v2_review_regressions.py',
