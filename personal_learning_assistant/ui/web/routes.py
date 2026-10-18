@@ -955,6 +955,8 @@ def _academic_overview():
     service = factory() if factory else AcademicOverviewService(
         installed_config.DATABASE_PATH,
         local_timezone=current_app.config.get("ACADEMIC_TIMEZONE", "Asia/Kolkata"),
+        wal_snapshot_provider=current_app.config.get("ACADEMIC_WAL_SNAPSHOT_PROVIDER"),
+        max_snapshot_age_seconds=current_app.config.get("ACADEMIC_WAL_SNAPSHOT_MAX_AGE", 120),
     )
     return service.overview(course=request.args.get("course", ""),
                             days=request.args.get("days", "28"),

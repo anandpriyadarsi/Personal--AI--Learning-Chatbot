@@ -12,15 +12,70 @@ import sqlite3
 from urllib.parse import quote
 from zoneinfo import ZoneInfo
 
+from .academic_wal_snapshot import (
+    AcademicSnapshotUnavailable, AuthorizedAcademicSnapshot, MAX_SNAPSHOT_BYTES, SQLITE_HEADER,
+)
+
 LIMIT = 100
 POLICY = 'planning-analysis-read-v2.1'
 
 
 class AcademicOverviewService:
-    def __init__(self, database_path, *, now=None, local_timezone='Asia/Kolkata'):
+    def __init__(self, database_path, *, now=None, local_timezone='Asia/Kolkata',
+                 wal_snapshot_provider=None, max_snapshot_age_seconds=120):
         self.path = Path(database_path)
         self.now = now or (lambda: datetime.now(timezone.utc))
         self.zone = ZoneInfo(local_timezone)
+        if (type(max_snapshot_age_seconds) is not int
+                or not 1 <= max_snapshot_age_seconds <= 3600):
+            raise ValueError('Snapshot maximum age must be between 1 and 3600 seconds.')
+        if wal_snapshot_provider is not None and not callable(wal_snapshot_provider):
+            raise ValueError('WAL snapshot provider must be callable.')
+        self.wal_snapshot_provider = wal_snapshot_provider
+        self.max_snapshot_age_seconds = max_snapshot_age_seconds
+
+    def _open_authorized_wal_snapshot(self, view, now):
+        """Read an authoritative owner's memory image, never the live -wal/-shm."""
+        if self.wal_snapshot_provider is None:
+            raise AcademicSnapshotUnavailable('No academic snapshot publisher configured.')
+        try:
+            snapshot = self.wal_snapshot_provider()
+        except Exception as error:
+            raise AcademicSnapshotUnavailable('The academic owner snapshot feed is unavailable.') from error
+        if not isinstance(snapshot, AuthorizedAcademicSnapshot):
+            raise AcademicSnapshotUnavailable('Snapshot must be issued by the academic owner.')
+        if snapshot.database_identity != str(self.path.absolute().resolve(strict=True)):
+            raise AcademicSnapshotUnavailable('Snapshot source identity does not match.')
+        if not isinstance(snapshot.published_at, datetime) or snapshot.published_at.tzinfo is None:
+            raise AcademicSnapshotUnavailable('Snapshot timestamp is not authoritative.')
+        age = (now.astimezone(timezone.utc) -
+               snapshot.published_at.astimezone(timezone.utc)).total_seconds()
+        if age < -5 or age > self.max_snapshot_age_seconds:
+            raise AcademicSnapshotUnavailable('Snapshot is stale or from the future.')
+        payload = snapshot.payload
+        if (type(payload) is not bytes or len(payload) < 100 or
+                len(payload) > MAX_SNAPSHOT_BYTES or not payload.startswith(SQLITE_HEADER)
+                or payload[18:20] != bytes((1, 1))
+                or type(snapshot.revision) is not int or snapshot.revision <= 0):
+            raise AcademicSnapshotUnavailable('Snapshot integrity or revision is invalid.')
+        con = sqlite3.connect(':memory:')
+        try:
+            con.deserialize(payload)
+            con.row_factory = sqlite3.Row
+            con.execute('PRAGMA query_only=ON')
+            con.execute('BEGIN')
+        except (sqlite3.Error, ValueError):
+            con.close()
+            raise AcademicSnapshotUnavailable('The published snapshot is unreadable.')
+        view['source_snapshot'] = {
+            'mode': 'owner_published_wal',
+            'revision': snapshot.revision,
+            'published_at': snapshot.published_at.astimezone(timezone.utc).isoformat(),
+            'age_seconds': max(0, int(age)),
+            'provenance': 'Committed academic-owner SQLite online backup',
+        }
+        view['limits'].append('Academic evidence is current only through the last committed owner publication.')
+        return con
 
     def overview(self, *, course='', days=28, evidence='all'):
         course = str(course).strip().upper()
@@ -47,7 +102,7 @@ class AcademicOverviewService:
             'effort': {'planned_minutes': None, 'actual_minutes': None, 'recorded_items': 0,
                        'total_items': 0, 'completed_items': 0},
             'summary': dict.fromkeys(('open_tasks','overdue_tasks','evaluated_sessions','self_reported_sessions','pending_sessions')),
-            'source_status': {},
+            'source_status': {}, 'source_snapshot': None,
             'limits': ['Evaluated performance does not establish independent work or mastery.',
                        'Topic mapping review is not established; recovery candidates require manual review.',
                        'Learning practice and Notes below use their own source scope; these filters apply to Assessment records.'],
@@ -56,19 +111,33 @@ class AcademicOverviewService:
         if not path.is_file() or path.is_symlink() or any(p.is_symlink() for p in path.absolute().parents):
             view['limits'].append('Academic database unavailable. No database was created.')
             return view
-        # Opening WAL without an existing shared-memory index can create sidecars.
-        # Do not use immutable=1 (would hide live WAL). Fail closed instead.
+        # Direct query-only WAL reads can still update the shared-memory index.
+        # No file-based SQLite connection is opened on the WAL read path.
         try:
-            with path.open('rb') as stream:
-                header = stream.read(20)
-            if len(header) >= 20 and header[18:20] == b'\x02\x02':
-                view['limits'].append('Strict physical read gate: live WAL storage is unavailable to this new overview because even query-only SQLite can update its shared-memory index. No files were changed.')
-                return view
-            con = sqlite3.connect(path.resolve().as_uri()+'?mode=ro', uri=True, timeout=2)
-            con.row_factory = sqlite3.Row
-            try:
+            # A configured owner feed never even reads the source header.
+            # For unconfigured installs, inspect the 20-byte header and refuse
+            # WAL databases instead of opening their shared-memory index.
+            if self.wal_snapshot_provider is not None:
+                source_is_wal = True
+            else:
+                with path.open('rb') as stream:
+                    header = stream.read(20)
+                source_is_wal = len(header) >= 20 and header[18:20] == bytes((2, 2))
+            if source_is_wal:
+                try:
+                    con = self._open_authorized_wal_snapshot(view, now)
+                except (AcademicSnapshotUnavailable, OSError, sqlite3.Error, ValueError):
+                    view['source_status']['academic_snapshot'] = 'unavailable'
+                    view['limits'].append(
+                        'Live WAL evidence unavailable: a fresh, owner-published committed snapshot '
+                        'is required. This reader did not open the database, WAL or SHM with SQLite.')
+                    return view
+            else:
+                con = sqlite3.connect(path.resolve().as_uri()+'?mode=ro', uri=True, timeout=2)
+                con.row_factory = sqlite3.Row
                 con.execute('PRAGMA query_only=ON')
                 con.execute('BEGIN')
+            try:
                 self._courses(con, view)
                 self._assessments(con, view, lower, upper)
                 self._topics(con, view, lower, upper)
