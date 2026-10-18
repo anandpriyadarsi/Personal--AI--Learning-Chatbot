@@ -45,6 +45,7 @@ class InstalledAcademicWalPublisher:
             self.path, **({} if max_bytes is None else {"max_bytes": max_bytes})
         )
         self._stop = threading.Event()
+        self._refresh = threading.Event()
         self._first_attempt = threading.Event()
         self._worker = None
         self._error_lock = threading.Lock()
@@ -105,10 +106,12 @@ class InstalledAcademicWalPublisher:
                         connection = None
                 finally:
                     self._first_attempt.set()
-                self._stop.wait(self.interval_seconds)
+                self._refresh.wait(self.interval_seconds)
+                self._refresh.clear()
         finally:
             if connection is not None:
                 connection.close()
+            self.feed.invalidate()
             self._first_attempt.set()
 
     def start(self, *, initial_wait_seconds=8.0):
@@ -128,9 +131,15 @@ class InstalledAcademicWalPublisher:
         self._first_attempt.wait(initial_wait_seconds)
         return self.state()
 
+    def request_refresh(self):
+        """Optional trusted writer signal after commit; never called from GET."""
+        if not self._stop.is_set():
+            self._refresh.set()
+
     def stop(self):
-        """Signal thread termination; do not checkpoint or close user DB data."""
+        """Signal owner shutdown; do not checkpoint or change academic tables."""
         self._stop.set()
+        self._refresh.set()
         worker = self._worker
         if worker is not None and worker.is_alive():
             worker.join(timeout=3.0)
