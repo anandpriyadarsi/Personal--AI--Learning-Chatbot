@@ -35,7 +35,7 @@ def prepare_local_app(*, assessment_enabled=None, database_path=None):
             print("Pre-migration database backup:", status["backup"], flush=True)
 
     publication = None
-    config = {"ASSESSMENT_EXTENDED_ENABLED": enabled}
+    config = {"ASSESSMENT_EXTENDED_ENABLED": enabled, "ACADEMIC_DATABASE_PATH": database}
     # The publisher has explicitly authorized read-only access in a worker
     # thread. Ordinary app factories and HTTP handlers never start it.
     candidate = InstalledAcademicWalPublisher(database)
