@@ -250,3 +250,40 @@ def test_topic_latest_outcome_uses_absolute_time_across_offsets(tmp_path):
     assert row['correct']==1 and row['incorrect']==0
     assert row['first_observed']=='2026-09-27T23:30:00+05:30'
     assert row['last_observed']=='2026-09-27T19:00:00Z'
+
+
+def test_course_filtered_study_receipt_is_attributed_to_canonical_source(tmp_path):
+    path = _database(tmp_path)
+    with sqlite3.connect(path) as c:
+        course = c.execute("SELECT id FROM courses WHERE code='MA103N'").fetchone()
+        if course is None:
+            c.execute("INSERT INTO courses(id,code,name,status,created_at,updated_at) "
+                      "VALUES ('v21-course','MA103N','Linear Algebra','active','x','x')")
+            course_id = 'v21-course'
+        else:
+            course_id = course[0]
+        c.execute(
+            "INSERT INTO study_plans "
+            "(id,kind,horizon,starts_on,ends_on,requested_minutes,allocated_minutes,engine_name,engine_version,created_at,updated_at) "
+            "VALUES ('v21-plan','weekly','week','2026-09-27','2026-09-27',45,45,'fixture','1','x','x')"
+        )
+        c.execute(
+            "INSERT INTO study_plan_items (id,plan_id,plan_date,ordinal,course_id,minutes,action,status) "
+            "VALUES ('v21-study','v21-plan','2026-09-27',1,?,45,'Study source','completed')",
+            (course_id,))
+        c.execute(
+            "INSERT INTO daily_agendas (id,agenda_date,status,generated_at,created_at,updated_at) "
+            "VALUES ('v21-day','2026-09-27','approved','x','x','x')"
+        )
+        c.execute(
+            "INSERT INTO daily_agenda_items "
+            "(id,agenda_id,ordinal,item_kind,source_type,source_id,title,planned_minutes,actual_minutes,status,created_at,updated_at) "
+            "VALUES ('v21-receipt','v21-day',1,'study','study_plan_item','v21-study','Study source',45,32,'completed','x','x')"
+        )
+    before = inventory(tmp_path)
+    view = service(path).overview(course='MA103N')
+    assert view['source_status']['effort'] == 'available'
+    assert view['effort']['planned_minutes'] == 45
+    assert view['effort']['actual_minutes'] == 32
+    assert view['effort']['completed_items'] == 1
+    assert inventory(tmp_path) == before
