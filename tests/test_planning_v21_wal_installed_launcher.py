@@ -124,3 +124,51 @@ def test_owner_publisher_does_not_misrepresent_uncommitted_work(tmp_path):
     finally:
         publication.stop()
         writer.close()
+
+
+def test_writer_commit_refreshes_installed_snapshot_without_get_side_effects(tmp_path):
+    path, writer = _wal_fixture(tmp_path)
+    publisher = InstalledAcademicWalPublisher(path, interval_seconds=60)
+    try:
+        assert publisher.start().has_snapshot
+        first = publisher.feed.latest()
+        writer.execute("UPDATE courses SET name='Second committed value' WHERE code='MA103N'")
+        writer.commit()
+        publisher.request_refresh()  # Explicit owner-side post-commit signal.
+        expires = time.monotonic() + 8
+        while time.monotonic() < expires:
+            newest = publisher.feed.latest()
+            if newest is not None and newest.revision > first.revision:
+                break
+            time.sleep(.05)
+        else:
+            pytest.fail('Installed owner did not publish a new committed revision')
+        from personal_learning_assistant.services.academic_overview_service import AcademicOverviewService
+        before = inventory(tmp_path)
+        view = AcademicOverviewService(
+            path, wal_snapshot_provider=publisher.feed.latest,
+            now=lambda: datetime.now(timezone.utc),
+        ).overview(course='MA103N')
+        assert view['source_snapshot']['revision'] > first.revision
+        assert view['courses'][0]['name'] == 'Second committed value'
+        assert inventory(tmp_path) == before
+    finally:
+        publisher.stop()
+        assert publisher.feed.latest() is None
+        writer.close()
+
+
+def test_connected_normal_analysis_page_renders_fresh_snapshot_metadata(tmp_path):
+    path, writer = _wal_fixture(tmp_path)
+    publication = None
+    try:
+        app, publication = prepare_local_app(assessment_enabled=False, database_path=path)
+        assert publication is not None and publication.feed.latest() is not None
+        response = app.test_client().get('/analysis?course=MA103N')
+        assert response.status_code == 200
+        assert b'Committed academic snapshot' in response.data
+        assert b'Committed installed state' in response.data or b'MA103N' in response.data
+    finally:
+        if publication is not None:
+            publication.stop()
+        writer.close()
