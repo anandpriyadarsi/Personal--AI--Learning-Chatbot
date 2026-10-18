@@ -71,7 +71,7 @@ class InstalledAcademicWalPublisher:
         try:
             with path.open("rb") as stream:
                 head = stream.read(20)
-            return len(head) == 20 and head[:16] == b"SQLite format 3\\x00" and head[18:20] == bytes((2, 2))
+            return len(head) == 20 and head[:16] == b"SQLite format 3" + bytes((0,)) and head[18:20] == bytes((2, 2))
         except OSError:
             return False
 
@@ -83,7 +83,7 @@ class InstalledAcademicWalPublisher:
                     if not self._eligible(self.path):
                         raise InstalledWalPublisherError("Academic WAL source unavailable or unsafe.")
                     if connection is None:
-                        safe_path = quote(str(self.path.absolute().resolve(strict=True)).replace("\\\\", "/"), safe="/:")
+                        safe_path = quote(str(self.path.absolute().resolve(strict=True)).replace(chr(92), "/"), safe="/:")
                         connection = sqlite3.connect(
                             "file:" + safe_path + "?mode=ro", uri=True,
                             isolation_level=None, timeout=2.0,
