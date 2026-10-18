@@ -20,7 +20,6 @@ jobs:
     env:
       ANVAYA_BROWSER_TESTS: '1'
       PYTHONDONTWRITEBYTECODE: '1'
-      ANVAYA_VALIDATION_ARTIFACTS: ${{ runner.temp }}/anvaya-v21/browser
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
