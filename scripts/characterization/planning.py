@@ -95,14 +95,16 @@ with tempfile.TemporaryDirectory(prefix='anvaya-planning-audit-') as temp:
     assert {(r['source_type'],r['item_kind']) for r in duplicates} == {('planner_task','task')}
     daily.generate_day('2026-10-12')
     daily.approve_day('2026-10-12')
-    closed = daily.close_day('2026-10-12', {})
+    closed = daily.close_day('2026-10-12', {'carry_task_ids':['due']})
     tomorrow = closed['tomorrow_draft']
-    dropped = [r['task_id'] for r in closed['rollover'] if r['decision']=='drop']
-    assert dropped
+    carried = {r['task_id'] for r in closed['rollover'] if r['decision']=='carry'}
+    backlogged = {r['task_id'] for r in closed['rollover'] if r['decision']=='backlog'}
     tomorrow_sources = {r['source_id'] for r in tomorrow['items'] if r['item_kind']=='task'}
-    assert set(dropped) <= tomorrow_sources
+    assert carried == {'due'} and carried <= tomorrow_sources
+    assert backlogged.isdisjoint(tomorrow_sources)
     results['due_marker_duplicate'] = [{k:r[k] for k in ('item_kind','source_type','source_id','starts_at','reason')} for r in duplicates]
-    results['rollover_policy_not_consumed'] = {'ledger':list(closed['rollover']), 'tomorrow_task_sources':sorted(tomorrow_sources), 'dropped_reappeared':dropped}
+    results['rollover_reviewed'] = {'ledger':list(closed['rollover']), 'tomorrow_task_sources':sorted(tomorrow_sources),
+                                   'carried':sorted(carried),'backlogged':sorted(backlogged)}
 
     # COUNT is global to recurrence, but current implementation restarts on each window.
     db = root / 'calendar.db'
@@ -141,9 +143,9 @@ with tempfile.TemporaryDirectory(prefix='anvaya-planning-audit-') as temp:
     with closing(sqlite3.connect(db)) as c, c:
         source_status = c.execute("SELECT status FROM study_plan_items WHERE id='s1'").fetchone()[0]
         engagement_count = c.execute('SELECT COUNT(*) FROM study_sessions').fetchone()[0]
-    assert source_status=='planned' and engagement_count==0
-    assert any(r['source_id']=='s1' for r in daily.preview_day('2026-10-12')['study'])
-    results['study_capacity_and_completion'] = {'study_count':3,'timed_task_count':0,'timed_study_minutes':540,'summary_focus_minutes':540,'total_scheduled_focus_minutes':540,'completed_agenda_source_status':source_status,'engagement_rows':engagement_count,'completed_source_reappears_in_preview':True}
+    assert source_status=='completed' and engagement_count==1
+    assert not any(r['source_id']=='s1' for r in daily.preview_day('2026-10-12')['study'])
+    results['study_capacity_and_completion'] = {'study_count':3,'timed_task_count':0,'timed_study_minutes':540,'summary_focus_minutes':540,'total_scheduled_focus_minutes':540,'completed_agenda_source_status':source_status,'engagement_rows':engagement_count,'completed_source_reappears_in_preview':False}
 
     # Changed revision repeats same ledger PK per plan/external ID (not per import).
     db = root / 'month_revision.db'
@@ -160,15 +162,16 @@ with tempfile.TemporaryDirectory(prefix='anvaya-planning-audit-') as temp:
     changed = payload.replace(b'Solve and explain one LU set.',b'Solve two LU sets independently.')
     assert changed != payload
     preview = monthly.preview('revision.yaml',changed)
-    before = dump(db)
-    try:
-        monthly.approve('revision.yaml',changed,preview['source_sha256'])
-    except Exception as error:
-        results['month_revision_failure'] = {'error_type':type(error).__name__, 'safe_error':str(error), 'cause_type':type(error.__cause__).__name__, 'root_cause':str(error.__cause__.__cause__), 'rollback_logical_dump_unchanged':dump(db)==before}
-        assert 'UNIQUE constraint failed: month_plan_import_items.id' in str(error.__cause__.__cause__)
-        assert dump(db)==before
-    else:
-        raise AssertionError('Expected existing changed-revision ledger defect')
+    revised = monthly.approve('revision.yaml',changed,preview['source_sha256'])
+    assert revised['created'] and not revised['idempotent']
+    with closing(sqlite3.connect(db)) as c, c:
+        assert c.execute("SELECT COUNT(*) FROM month_plan_imports").fetchone()[0] == 2
+        ledgers = c.execute("SELECT id,import_id FROM month_plan_import_items").fetchall()
+        assert len(ledgers) == len({r[0] for r in ledgers})
+        assert len({r[1] for r in ledgers}) == 2
+        assert c.execute("SELECT COUNT(*) FROM planner_tasks").fetchone()[0] == 1
+    results['month_revision_repaired'] = {'historical_imports':2,'distinct_ledgers':True,
+                                          'task_identity_preserved':True}
 
 serialized = json.dumps(results, indent=2, default=str) + '\n'
 if args.output:
