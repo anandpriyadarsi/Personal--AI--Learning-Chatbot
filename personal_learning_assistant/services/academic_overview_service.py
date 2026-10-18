@@ -38,7 +38,10 @@ class AcademicOverviewService:
         """Read an authoritative owner's memory image, never the live -wal/-shm."""
         if self.wal_snapshot_provider is None:
             raise AcademicSnapshotUnavailable('No academic snapshot publisher configured.')
-        snapshot = self.wal_snapshot_provider()
+        try:
+            snapshot = self.wal_snapshot_provider()
+        except Exception as error:
+            raise AcademicSnapshotUnavailable('The academic owner snapshot feed is unavailable.') from error
         if not isinstance(snapshot, AuthorizedAcademicSnapshot):
             raise AcademicSnapshotUnavailable('Snapshot must be issued by the academic owner.')
         if snapshot.database_identity != str(self.path.absolute().resolve(strict=True)):
@@ -111,9 +114,16 @@ class AcademicOverviewService:
         # Direct query-only WAL reads can still update the shared-memory index.
         # No file-based SQLite connection is opened on the WAL read path.
         try:
-            with path.open('rb') as stream:
-                header = stream.read(20)
-            if len(header) >= 20 and header[18:20] == bytes((2, 2)):
+            # A configured owner feed never even reads the source header.
+            # For unconfigured installs, inspect the 20-byte header and refuse
+            # WAL databases instead of opening their shared-memory index.
+            if self.wal_snapshot_provider is not None:
+                source_is_wal = True
+            else:
+                with path.open('rb') as stream:
+                    header = stream.read(20)
+                source_is_wal = len(header) >= 20 and header[18:20] == bytes((2, 2))
+            if source_is_wal:
                 try:
                     con = self._open_authorized_wal_snapshot(view, now)
                 except (AcademicSnapshotUnavailable, OSError, sqlite3.Error, ValueError):
