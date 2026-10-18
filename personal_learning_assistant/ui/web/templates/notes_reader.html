@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "workspace_base.html" %}
 
 {% block title %}{% if note %}{{ note.title }} · {% endif %}Notes Studio · ANVAYA{% endblock %}
 
@@ -14,9 +14,9 @@
   <a class="button secondary-button compact-button" href="{{ url_for('web.notes') }}">Return to Notes Studio</a>
 </section>
 {% elif note %}
-<header class="notes-reader-header" aria-labelledby="notes-reader-title">
+<header class="notes-reader-header" aria-label="Full Note Reader" aria-labelledby="notes-reader-title">
   <div class="notes-reader-title-block">
-    <p class="eyebrow">Full Note Reader</p>
+    <p class="eyebrow">Notes Studio · Vault Markdown</p>
     <h2 id="notes-reader-title">{{ note.title }}</h2>
     {% if note.topic %}
       <p class="notes-reader-topic">{{ note.topic }}</p>
@@ -53,11 +53,11 @@
 </header>
 
 <div class="notes-reader-layout">
-  <main class="dashboard-panel notes-reader-document" aria-label="Full note content">
+  <section class="dashboard-panel notes-reader-document" aria-label="Full note content">
     <article class="notes-reader-reading-view">
       {{ note.rendered_html }}
     </article>
-  </main>
+  </section>
 
   <aside class="notes-reader-sidebar" aria-label="Note context">
     {% if note.managed %}
@@ -180,6 +180,7 @@
       {% endif %}
     </section>
 
+    <details class="source-disclosure"><summary>Backlinks · {{ note.backlinks|length }}</summary>
     <section class="dashboard-panel notes-reader-side-panel">
       <div class="notes-reader-side-heading">
         <div>
@@ -201,7 +202,9 @@
         <p class="empty-state">No backlinks found in the current vault.</p>
       {% endif %}
     </section>
+    </details>
 
+    <details class="source-disclosure"><summary>Linked notes · {{ note.wikilinks|length }}</summary>
     <section class="dashboard-panel notes-reader-side-panel">
       <div class="notes-reader-side-heading">
         <div>
@@ -228,7 +231,9 @@
         <p class="empty-state">No linked notes found in this note.</p>
       {% endif %}
     </section>
+    </details>
 
+    <details class="source-disclosure"><summary>Source and provenance</summary>
     <section class="dashboard-panel notes-reader-side-panel notes-reader-source">
       <p class="eyebrow">Source</p>
       <dl class="notes-reader-source-grid">
@@ -249,6 +254,7 @@
       </dl>
       <a class="notes-reader-secondary-link" href="{{ url_for('web.obsidian_note', path=note.relative_path) }}">Open in Obsidian Reader →</a>
     </section>
+    </details>
   </aside>
 </div>
 {% endif %}

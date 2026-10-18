@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "workspace_base.html" %}
 
 {% block title %}{% if editor.id %}Edit{% else %}Typed Note{% endif %} · ANVAYA{% endblock %}
 
@@ -15,7 +15,7 @@
   <div>
     <p class="eyebrow">{% if editor.id %}Edit personal note{% else %}Typed personal note{% endif %}</p>
     <h2>{% if editor.id %}Edit {{ editor.title }}{% else %}Create typed note{% endif %}</h2>
-    <p class="lede">Topic and key points shape the card. Creation date and time are recorded automatically.</p>
+    <p class="lede">Your personal note stays in My Notes. Write the full idea below and choose the key points to show on its card.</p>
   </div>
 </section>
 
@@ -41,8 +41,8 @@
       <textarea name="key_points" rows="5" maxlength="1800" placeholder="One key point per line">{{ editor.key_points_text }}</textarea>
     </label>
     {% if editor.note_kind != 'handwritten' %}
-    <label class="form-field form-field-full anvaya-native-body-field">
-      <span>Full note</span>
+    <div class="form-field form-field-full anvaya-native-body-field">
+      <label for="anvaya-note-body">Full note</label>
       <div class="anvaya-note-editor-toolbar" aria-label="Quick formatting">
         <button type="button" data-note-insert="## Heading\n">Heading</button>
         <button type="button" data-note-wrap="**">Bold</button>
@@ -55,7 +55,7 @@
       </div>
       <textarea id="anvaya-note-body" name="body" rows="26" spellcheck="true" placeholder="Write your note here...">{{ editor.body }}</textarea>
       <small>Use the quick buttons for headings, equations, tables, flowcharts and diagrams. You can still type Markdown directly.</small>
-    </label>
+    </div>
     {% endif %}
     <section class="form-field form-field-full anvaya-note-media-manager" aria-labelledby="anvaya-media-title">
       <div class="anvaya-note-media-heading">
@@ -160,6 +160,7 @@
       {% endif %}
     </section>
   </div>
+  <p class="editor-save-note">{% if editor.id %}Changes are not saved until you choose Save changes.{% else %}This draft is not saved until you choose Create note.{% endif %}</p>
   <div class="form-actions">
     <button class="button" type="submit">{% if editor.id %}Save changes{% else %}Create note{% endif %}</button>
     <a class="button secondary-button" href="{% if editor.id %}{{ url_for('web.anvaya_note_reader', note_id=editor.id) }}{% else %}{{ url_for('web.notes') }}{% endif %}">Cancel</a>

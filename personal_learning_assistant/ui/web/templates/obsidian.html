@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "workspace_base.html" %}
 
 {% block title %}Obsidian · ANVAYA{% endblock %}
 
@@ -7,7 +7,7 @@
   <div>
     <p class="eyebrow">Live Markdown workspace</p>
     <h2 id="obsidian-title">Obsidian</h2>
-    <p class="lede">Browse and search your configured Obsidian vault inside ANVAYA without changing the vault or rebuilding the knowledge index.</p>
+    <p class="lede">Find a note. Follow a connection. Make space to understand. Your Markdown stays in your vault.</p>
   </div>
   {% if dashboard.configured %}
     <span class="tag">{% if dashboard.enabled and dashboard.valid %}Connected{% elif dashboard.enabled %}Needs attention{% else %}Disabled{% endif %}</span>
@@ -49,6 +49,8 @@
   </form>
 </section>
 {% else %}
+<details class="ws-connection"{% if not dashboard.enabled or not dashboard.valid %} open{% endif %}>
+  <summary><span><strong>{{ dashboard.vault_name or 'Your vault' }}</strong> · {{ dashboard.summary.markdown_files }} Markdown notes</span><span>Connection settings <span aria-hidden="true">⌄</span></span></summary>
 <section class="dashboard-panel obsidian-status" aria-labelledby="obsidian-status-title">
   <div class="panel-heading">
     <div>
@@ -59,10 +61,6 @@
   </div>
 
   <dl class="obsidian-status-grid">
-    <div>
-      <dt>Configured path</dt>
-      <dd class="obsidian-path">{{ dashboard.vault_path }}</dd>
-    </div>
     <div>
       <dt>Markdown notes</dt>
       <dd>{{ dashboard.summary.markdown_files }}</dd>
@@ -99,6 +97,8 @@
   </details>
 </section>
 
+</details>
+
 {% if dashboard.enabled and dashboard.valid %}
 <section class="dashboard-panel obsidian-search" aria-labelledby="obsidian-search-title">
   <div class="panel-heading">
@@ -116,7 +116,7 @@
     <button class="button" type="submit">Search vault</button>
     {% if dashboard.query %}<a class="button secondary-button" href="{{ url_for('web.obsidian') }}">Clear</a>{% endif %}
   </form>
-  <p class="empty-state">Searches Markdown directly. It does not rebuild or change the ANVAYA knowledge index.</p>
+  <p class="empty-state">Read-only search · Matches titles, paths, tags and note text.</p>
 </section>
 
 {% if dashboard.issues.blocking or dashboard.issues.warnings or dashboard.issues.ignored_symlinks or dashboard.issues.search_skipped %}
@@ -151,7 +151,7 @@
       {% for note in dashboard.notes %}
       <article class="obsidian-note-row">
         <div class="obsidian-note-main">
-          <h4>{{ note.title }}</h4>
+          <h4><a href="{{ url_for('web.obsidian_note', path=note.relative_path) }}">{{ note.title }}</a></h4>
           <p class="obsidian-path">{{ note.relative_path }}</p>
           <div class="tag-row">
             <span class="tag">{{ note.note_type }}</span>
@@ -161,7 +161,7 @@
           </div>
           {% if dashboard.searched and note.excerpt %}<p class="obsidian-excerpt">{{ note.excerpt }}</p>{% endif %}
         </div>
-        <a class="button secondary-button compact-button" href="{{ url_for('web.obsidian_note', path=note.relative_path) }}">Open note</a>
+        <a class="button secondary-button compact-button" href="{{ url_for('web.obsidian_note', path=note.relative_path) }}" aria-label="Open note: {{ note.title }}">Open note <span aria-hidden="true">→</span></a>
       </article>
       {% endfor %}
     </div>

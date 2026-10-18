@@ -12,6 +12,7 @@
   {% if active_page == 'assessments' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/assessment_studio.css') }}">{% endif %}
   <script defer src="{{ url_for('static', filename='js/app.js') }}"></script>
   {% block page_scripts %}{% endblock %}
+  {% block workspace_assets %}{% endblock %}
 </head>
 <body class="{% if active_page == 'assessments' %}assessment-page {% endif %}{% block body_class %}{% endblock %}">
   <a class="skip-link" href="#main-content">Skip to content</a>
@@ -81,6 +82,7 @@
           </div>
         </div>
         <div class="topbar-actions">
+          {% block global_search %}
           <div class="global-search" role="search">
             <label class="visually-hidden" for="global-study-search">Search learning material</label>
             <input
@@ -92,9 +94,11 @@
               aria-label="Search learning material"
             >
           </div>
+          {% endblock %}
           <a class="topbar-link" href="{{ url_for('web.academic_agent') }}">Ask ANVAYA</a>
         </div>
       </header>
+      {% block workspace_fallback_nav %}{% endblock %}
 
       <main id="main-content" class="content" tabindex="-1">
         {% if active_page == 'assessments' and request.endpoint != 'web.assessment_session' %}{% include '_assessment_nav.html' %}{% endif %}

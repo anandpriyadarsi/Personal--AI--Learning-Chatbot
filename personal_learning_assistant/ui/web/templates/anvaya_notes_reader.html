@@ -1,14 +1,15 @@
-{% extends "base.html" %}
+{% extends "workspace_base.html" %}
 
 {% block title %}{{ note.title if note else 'Note' }} · ANVAYA{% endblock %}
-{% block body_class %}notes-focus-page{% endblock %}
+{% block body_class %}{{ super() }} notes-focus-page{% endblock %}
 
 {% block page_scripts %}
+{{ super() }}
 <script defer src="{{ url_for('static', filename='js/anvaya_notes_reader.js') }}"></script>
 {% endblock %}
 
 {% block content %}
-<nav class="notes-reader-back"><a href="{{ url_for('web.notes') }}">← Back to My Notes</a></nav>
+<nav class="notes-reader-back ws-reader-toolbar" aria-label="Personal note navigation"><a href="{{ url_for('web.notes') }}">← Back to My Notes</a>{% if note %}<button type="button" class="button secondary-button ws-focus-toggle" data-workspace-focus aria-pressed="false" hidden>Focus reading</button>{% endif %}</nav>
 
 {% if error_message %}
 <section class="notice-panel error-panel" role="alert"><strong>{{ error_message }}</strong></section>
@@ -20,19 +21,21 @@
       {% if note.course %}<span>{{ note.course }}</span>{% endif %}
       <span>{{ note.created_label }}</span>
     </div>
-    <p class="eyebrow">Full note</p>
+    <p class="eyebrow">My Notes · Personal library</p>
     <h1>{{ note.title }}</h1>
     {% if note.key_points %}
+    <details class="reader-summary"><summary>Key points · {{ note.key_points|length }}</summary>
     <ul class="anvaya-native-reader-points">
       {% for point in note.key_points %}<li>{{ point }}</li>{% endfor %}
     </ul>
+    </details>
     {% endif %}
   </div>
   <a class="button secondary-button" href="{{ url_for('web.anvaya_note_edit', note_id=note.id) }}">Edit note</a>
 </header>
 
 {% if note.note_kind == 'typed' %}
-<article class="dashboard-panel anvaya-native-rendered-note">
+<article class="dashboard-panel anvaya-native-rendered-note" aria-label="Full note">
   {{ note.rendered_html }}
 </article>
 {% endif %}
@@ -46,7 +49,7 @@
     {% for asset in note.assets %}
       {% if asset.mimetype == 'application/pdf' %}
       <div class="anvaya-native-pdf">
-        <div class="anvaya-native-file-heading"><strong>{{ asset.filename }}</strong><a href="{{ asset.url }}" target="_blank" rel="noopener">Open PDF ↗</a></div>
+        <div class="anvaya-native-file-heading"><strong>{{ asset.filename }}</strong><a href="{{ asset.url }}" target="_blank" rel="noopener noreferrer">Open PDF ↗</a></div>
         <iframe src="{{ asset.url }}" title="{{ asset.filename }}"></iframe>
       </div>
       {% else %}
