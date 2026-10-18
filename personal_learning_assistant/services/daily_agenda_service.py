@@ -204,7 +204,18 @@ class DailyAgendaService:
             study = tuple(self.calendar_repository.list_study_items(day))
         except OperationalCalendarError as error:
             raise DailyAgendaUnavailableError("Calendar is temporarily unavailable.") from error
-        tasks = sorted(self._open_tasks(), key=lambda item: self._task_rank(item, day))
+        # The previous day's explicit carry decisions control the NEXT draft only.
+        # Backlogged tasks remain in the canonical inbox; do not silently reinsert
+        # them into a next-day agenda that the student explicitly reviewed.
+        previous = (target - timedelta(days=1)).isoformat()
+        decisions = {row["task_id"]: row["decision"] for row in
+                     self.agendas.rollover_for_date(previous)}
+        tasks = sorted(
+            (task for task in self._open_tasks()
+             if task["id"] not in decisions or decisions[task["id"]] == "carry"),
+            key=lambda item: (0 if decisions.get(item["id"]) == "carry" else 1,
+                              self._task_rank(item, day)),
+        )
         # Active-flexible ceiling.
         selected = [task for task in tasks if _preferred_day_allows(task, target)][:MAX_FLEXIBLE]
         fixed_count = sum(1 for item in fixed if item.get("start_time"))
@@ -506,26 +517,28 @@ class DailyAgendaService:
             and item["status"] not in {"completed", "moved"}
             and item.get("source_id")
         ]
-        p0 = [item for item in incomplete_tasks if item.get("priority") == "P0"][:1]
-        p1 = [item for item in incomplete_tasks if item.get("priority") == "P1"][:1]
-        selected = p0 + p1
+        raw_carry = review.get("carry_task_ids", ())
+        if not isinstance(raw_carry, (list, tuple, set)):
+            raise DailyAgendaValidationError("Choose carry-forward tasks from the daily review.")
+        selected_ids = tuple(str(item) for item in raw_carry)
+        available_ids = {item["source_id"] for item in incomplete_tasks}
+        if (len(selected_ids) != len(set(selected_ids))
+                or len(selected_ids) > 2
+                or not set(selected_ids) <= available_ids):
+            raise DailyAgendaValidationError("Only two existing unfinished tasks may be carried.")
         tomorrow = day + timedelta(days=1)
         rollover = []
         for item in incomplete_tasks:
-            carry = item in selected
-            decision = "carry" if carry else ("backlog" if item.get("priority") == "P1" else "drop")
-            if item.get("priority") == "P2":
-                decision = "backlog"
+            carry = item["source_id"] in selected_ids
+            decision = "carry" if carry else "backlog"
             rollover.append({
                 "id": _id(day.isoformat(), "rollover", item["source_id"], decision),
                 "task_id": item["source_id"],
                 "from_date": day.isoformat(),
                 "to_date": tomorrow.isoformat() if carry else None,
                 "decision": decision,
-                "reason": (
-                    "Bounded daily carry-forward" if carry
-                    else "Returned to backlog under the rollover policy"
-                ),
+                "reason": ("Student explicitly selected carry-forward"
+                           if carry else "Left in task backlog; no automatic rollover"),
                 "created_at": now,
             })
         try:
@@ -544,7 +557,7 @@ class DailyAgendaService:
         tomorrow_draft = None
         try:
             existing_tomorrow = self.agendas.get_agenda(tomorrow.isoformat())
-            if existing_tomorrow is None or existing_tomorrow["status"] == "draft":
+            if existing_tomorrow is None:
                 tomorrow_draft = self.generate_day(tomorrow.isoformat())
         except DailyAgendaError:
             tomorrow_draft = None

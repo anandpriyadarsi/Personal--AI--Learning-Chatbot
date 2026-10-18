@@ -212,7 +212,7 @@ def main(argv=None) -> int:
         pytest('fixture_order_phase2_first', list(reversed(order)))
         pytest('characterization', ['tests/test_architecture_characterization.py'])
         # Desired regressions are distinguished from the remaining defect witnesses.
-        for repaired in ('B', 'C', 'P01', 'P02', 'P04', 'P05', 'P07'):
+        for repaired in ('B', 'C', 'P01', 'P02', 'P03', 'P04', 'P05', 'P06', 'P07', 'P08'):
             report['known_product_behaviour'][repaired] = report['categories']['characterization']['status']
         pytest('headless_browser', ['tests/test_assessment_live_browser.py', 'tests/test_architecture_live_browser.py', 'tests/test_topic_read_safety_browser.py'])
         command('node', ['node', '--test', *[str(p.relative_to(source)) for p in sorted((source / 'tests/js').glob('*.test.cjs'))]])

@@ -14,7 +14,7 @@ def task(**changes):
 def service(tasks=None, fixed=(), **kwargs):
     kwargs.setdefault("local_timezone", "UTC")
     return DailyAgendaService(
-        SimpleNamespace(get_agenda=lambda day: None),
+        SimpleNamespace(get_agenda=lambda day: None, rollover_for_date=lambda day: ()),
         SimpleNamespace(list_tasks=lambda **kw: tasks or [task()]),
         SimpleNamespace(list_study_items=lambda day: ()),
         SimpleNamespace(day_items=lambda day: fixed),
