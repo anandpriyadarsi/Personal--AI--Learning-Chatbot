@@ -7,7 +7,10 @@ from personal_learning_assistant.ui.web import create_app
 
 
 def client(path, **config):
-    return create_app({'TESTING': True, 'LEARNING_LIBRARY_DATABASE_PATH': path, **config}).test_client()
+    from personal_learning_assistant.services.knowledge_reader_service import KnowledgeReaderService
+    return create_app({'TESTING': True, 'LEARNING_LIBRARY_DATABASE_PATH': path,
+                       'KNOWLEDGE_READER_SERVICE_FACTORY': lambda: KnowledgeReaderService(database_path=path),
+                       **config}).test_client()
 
 
 def test_list_and_detail_render_safe_links_and_keep_all_destinations(library_db):
@@ -98,3 +101,33 @@ def test_pagination_preserves_filters(library_db):
     body = client(library_db).get('/library?course_id=c2&item_kind=resource&page_size=1').get_data(as_text=True)
     assert 'page=2' in body and 'page_size=1' in body and 'course_id=c2' in body
     assert 'item_kind=resource' in body
+
+
+def test_search_route_filters_results_and_preserves_query_in_pagination(library_db):
+    c = client(library_db)
+    body = c.get('/library?q=lecture').get_data(as_text=True)
+    assert 'Lecture collection' in body and 'Reference text' not in body
+    assert 'name="q"' in body and 'value="lecture"' in body
+    body = c.get('/library?q=instructor&page_size=1&course_id=c2').get_data(as_text=True)
+    assert 'q=instructor' in body and 'page=2' in body and 'course_id=c2' in body
+    assert c.get('/library?q=' + 'x' * 201).status_code == 400
+    assert c.get('/library?q=a&q=b').status_code == 400
+
+
+def test_mismatched_reader_source_never_links_to_colliding_document(library_db, tmp_path):
+    from personal_learning_assistant.services.knowledge_reader_service import KnowledgeReaderService
+    c = client(library_db, KNOWLEDGE_READER_SERVICE_FACTORY=lambda: KnowledgeReaderService(database_path=tmp_path/'other.db'))
+    for route in ('/library', '/library/resources/r1'):
+        response = c.get(route)
+        assert response.status_code == 200
+        body = response.get_data(as_text=True)
+        assert 'href="/knowledge/item/' not in body
+        assert 'Source reader unavailable' in body
+
+
+def test_matching_reader_source_link_opens_the_registered_document(library_db):
+    from personal_learning_assistant.services.knowledge_reader_service import KnowledgeReaderService
+    c = client(library_db, KNOWLEDGE_READER_SERVICE_FACTORY=lambda: KnowledgeReaderService(database_path=library_db))
+    assert 'href="/knowledge/item/d1"' in c.get('/library/resources/r1').get_data(as_text=True)
+    response = c.get('/knowledge/item/d1')
+    assert response.status_code == 200

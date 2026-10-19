@@ -5,7 +5,11 @@ from contextlib import contextmanager
 from pathlib import Path
 from datetime import datetime, timezone
 import sqlite3
+import os
+import stat
+from urllib.parse import urlsplit
 from personal_learning_assistant.services.academic_wal_snapshot import AcademicSnapshotUnavailable
+from personal_learning_assistant.services.academic_wal_snapshot import MAX_SNAPSHOT_BYTES, SQLITE_HEADER
 
 
 class LibraryUnavailableError(RuntimeError):
@@ -18,8 +22,14 @@ class LibraryNotFoundError(LookupError):
 
 def document_title(path_key):
     # A display basename only. Never reveal directories or URI query credentials.
-    value = str(path_key or '').replace('\\', '/').rstrip('/')
-    return value.rsplit('/', 1)[-1].split('?', 1)[0].split('#', 1)[0] or 'Registered document'
+    value = str(path_key or '').split('?', 1)[0].split('#', 1)[0].replace('\\', '/')
+    if '://' in value or value.startswith('//'):
+        try:
+            value = urlsplit(value).path
+        except ValueError:
+            return 'Registered document'
+    value = value.rstrip('/')
+    return value.rsplit('/', 1)[-1] or 'Registered document'
 
 
 # Validate the complete read contract even for an empty database/result.
@@ -52,6 +62,44 @@ class LearningLibraryRepository:
         self.database_path = Path(database_path)
         self.wal_snapshot_provider = wal_snapshot_provider
 
+    @staticmethod
+    def _source_stamp(source):
+        if any(path.is_symlink() or getattr(path, 'is_junction', lambda: False)()
+               for path in (source, *source.parents)):
+            raise LibraryUnavailableError('Library is temporarily unavailable')
+        info = source.stat()
+        if not stat.S_ISREG(info.st_mode):
+            raise LibraryUnavailableError('Library is temporarily unavailable')
+        return (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+
+    @staticmethod
+    def _refuse_sidecars(source):
+        if any(Path(str(source) + suffix).exists() or Path(str(source) + suffix).is_symlink()
+               for suffix in ('-wal', '-shm', '-journal')):
+            raise LibraryUnavailableError('Library is temporarily unavailable')
+
+    def _capture_delete_source(self, source):
+        # SQLite sees only a stable, bounded RAM image. A DELETE->WAL race can
+        # never attach this read route to a live file or modify its SHM index.
+        self._refuse_sidecars(source)
+        before = self._source_stamp(source)
+        if not 100 <= before[2] <= MAX_SNAPSHOT_BYTES:
+            raise LibraryUnavailableError('Library source exceeds the safe snapshot bounds')
+        with source.open('rb') as stream:
+            info = os.fstat(stream.fileno())
+            opened = (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+            if not stat.S_ISREG(info.st_mode) or opened != before:
+                raise LibraryUnavailableError('Library source changed; retry')
+            payload = stream.read(MAX_SNAPSHOT_BYTES + 1)
+            info = os.fstat(stream.fileno())
+            after = (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+        self._refuse_sidecars(source)
+        if (before != after or before != self._source_stamp(source)
+                or len(payload) != before[2] or not payload.startswith(SQLITE_HEADER)
+                or payload[18:20] != bytes((1, 1))):
+            raise LibraryUnavailableError('Library source changed or requires an owner snapshot')
+        return payload
+
     @contextmanager
     def _read(self):
         con = None
@@ -79,14 +127,12 @@ class LearningLibraryRepository:
                 con = owner_reader._open_authorized_wal_snapshot(
                     {'limits': []}, datetime.now(timezone.utc))
             else:
-                with self.database_path.open('rb') as stream:
-                    header = stream.read(20)
-                if len(header) >= 20 and header[18:20] == bytes((2, 2)):
-                    raise LibraryUnavailableError('WAL requires a fresh academic owner snapshot')
-                con = sqlite3.connect(self.database_path.resolve().as_uri() + '?mode=ro',
-                                      uri=True, isolation_level=None, timeout=5)
+                payload = self._capture_delete_source(source)
+                con = sqlite3.connect(':memory:', isolation_level=None)
+                con.deserialize(payload)
             con.row_factory = sqlite3.Row
             con.create_function('library_document_title', 1, document_title, deterministic=True)
+            con.create_function('library_casefold', 1, lambda value: str(value or '').casefold(), deterministic=True)
             con.execute('PRAGMA query_only=ON')
             if not con.in_transaction:
                 con.execute('BEGIN')
@@ -141,6 +187,11 @@ class LearningLibraryRepository:
                              'JOIN courses c ON c.id=rc.course_id WHERE rc.resource_id=i.id '
                              'AND c.id=? AND c.deleted_at IS NULL)')
                 params.append(query.course_id)
+            if query.search.strip():
+                where.append('(instr(library_casefold(i.title), ?) > 0 OR '
+                             'instr(library_casefold(i.provider), ?) > 0 OR '
+                             'instr(library_casefold(i.item_type), ?) > 0)')
+                params.extend([query.search.strip().casefold()] * 3)
             filtered = 'SELECT * FROM (' + _ITEMS + ') i' + (' WHERE ' + ' AND '.join(where) if where else '')
             total_all = con.execute('SELECT COUNT(*) FROM (' + _ITEMS + ')').fetchone()[0]
             total = con.execute('SELECT COUNT(*) FROM (' + filtered + ')', params).fetchone()[0]

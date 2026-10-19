@@ -16,6 +16,15 @@
 - Live SQLite WAL: fail closed without a valid owner snapshot. When supplied by the normal launcher, reuse the authorized Planning/Analysis owner snapshot and deserialize read-only to RAM. No Library GET opens the live SQLite WAL or SHM.
 - Feature flag ANVAYA_LIBRARY_ENABLED=false; optional path ANVAYA_LIBRARY_DATABASE_PATH; service factory injection retained.
 
+## Final development (19 October 2026)
+- Library adds literal Unicode case-insensitive title/provider/type search, composed with existing course/kind filters before pagination. No document body or private path search.
+- Independent review reproduced a DELETE-to-WAL race. Library now captures a bounded stable DELETE-mode file image, validates file descriptor/path stamps and sidecars, then queries only a RAM copy. Live WAL still requires the existing authorized owner publisher. Captures over the existing 128 MiB snapshot limit fail closed.
+- Document labels discard URI authority/query/fragment credentials before choosing a basename. No source pathname is opened by resource IDs or search input.
+- Source-reader actions require matching Library/Knowledge database identity. A custom Library source with a different or opaque reader displays an unavailable action rather than forwarding colliding IDs to another source. Existing Knowledge reader behavior is unchanged.
+- Resources has a more compact header, clearer rectangular cards, aligned mobile status controls, reduced mobile metadata, visible keyboard focus, and keyboard activation that focuses the existing title field. Native details fallback is retained.
+- Final acceptance workflow checks out the exact PR head, records head/tree/platform, enforces zero focused skips and rejects every full-suite skip outside the four named external IKS prerequisite tests. No private pilot fixtures are included or imported.
+- Final execution report and GitHub Actions results are the authority for final head, test totals and merge status; earlier pending/historical entries below describe the original handoff.
+
 ## Validation
 - Original isolated Phase A branch reported 109 focused passed and Windows checks; this is historical, not verification for this branch.
 - New focused tests cover grouping, filters, privacy, XSS, zero writes, WAL no-publisher fail-closed, owner-snapshot reading, stale/foreign rejected snapshots.

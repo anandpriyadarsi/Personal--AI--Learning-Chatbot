@@ -19,10 +19,12 @@ pytestmark = pytest.mark.skipif(
 
 @pytest.fixture
 def library_server(library_db):
+    from personal_learning_assistant.services.knowledge_reader_service import KnowledgeReaderService
     app = create_app({
         "TESTING": True,
         "LEARNING_LIBRARY_ENABLED": True,
         "LEARNING_LIBRARY_DATABASE_PATH": library_db,
+        "KNOWLEDGE_READER_SERVICE_FACTORY": lambda: KnowledgeReaderService(database_path=library_db),
     })
     server = make_server("127.0.0.1", 0, app, threaded=True)
     thread = Thread(target=server.serve_forever, daemon=True)
@@ -79,9 +81,11 @@ def test_resources_primary_action_reveals_form_with_javascript_and_native_fallba
             assert page.goto(ui["base"] + "/resources").status == 200
             panel = page.locator("details#new-resource")
             assert not panel.evaluate("el => el.open")
-            page.locator('.materials-hero-actions a[href="#new-resource"]').click()
+            page.locator('.materials-hero-actions a[href="#new-resource"]').focus()
+            page.keyboard.press('Enter')
             assert panel.evaluate("el => el.open")
             assert page.locator("input[name='title']").is_visible()
+            assert page.locator("input[name='title']").evaluate("el => el === document.activeElement")
             context.close()
             no_js = browser.new_context(java_script_enabled=False)
             fallback = no_js.new_page()
@@ -92,3 +96,20 @@ def test_resources_primary_action_reveals_form_with_javascript_and_native_fallba
             assert fallback.locator("input[name='title']").is_visible()
             no_js.close()
             browser.close()
+
+
+def test_library_search_and_source_navigation_with_keyboard(library_server):
+    from playwright.sync_api import sync_playwright
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch()
+        page = browser.new_page(viewport={'width': 390, 'height': 844})
+        page.goto(library_server + '/library')
+        search = page.locator('main input[name="q"]')
+        search.fill('LECTURE')
+        search.press('Enter')
+        assert page.locator('article.library-card').count() == 1
+        page.get_by_role('link', name='View resource').click()
+        page.get_by_role('link', name='View source').first.click()
+        assert '/knowledge/item/d1' in page.url
+        assert page.locator('main').count() == 1
+        browser.close()

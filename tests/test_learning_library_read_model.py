@@ -75,6 +75,105 @@ def fingerprint(path):
         return (tuple(con.iterdump()), con.execute("PRAGMA journal_mode").fetchone()[0])
 
 
+@pytest.mark.parametrize('search,expected', [
+    ('LECTURE', ['resource:r1']), ('instructor', ['resource:r1', 'resource:r2']),
+    ('MA103N-loose', ['document:d0']), ('private', []),
+    ("%' OR 1=1 --", []), ('%', []), ('_', []),
+])
+def test_literal_metadata_search_preserves_sources(library_db, search, expected):
+    before = fingerprint(library_db)
+    page = service(library_db).list_items(query(search=search))
+    assert [item.key for item in page.items] == expected
+    assert fingerprint(library_db) == before
+
+
+def test_unicode_search_composes_with_course_kind_and_pagination(library_db):
+    with sqlite3.connect(library_db) as con:
+        con.execute("UPDATE resources SET title='Straße Notes' WHERE id IN ('r1','r2')")
+    page = service(library_db).list_items(query(search='STRASSE', course_id='c2',
+                                               item_kind='resource', page_size=1, page=2))
+    assert page.total == 2 and page.total_pages == 2
+    assert len(page.items) == 1
+    assert page.items[0].key == 'resource:r2'
+
+
+@pytest.mark.parametrize('search', [None, 7, 'x' * 201, 'bad\x00query'])
+def test_invalid_metadata_search_is_rejected(search):
+    with pytest.raises(ValueError):
+        query(search=search)
+
+
+def test_delete_source_is_never_attached_to_file_sqlite_even_during_wal_transition(library_db, monkeypatch):
+    from pathlib import Path
+    import personal_learning_assistant.repositories.sqlite.learning_library_repository as module
+    actual = sqlite3.connect
+    attached = []
+    owner = []
+    shm_before = []
+    def connect(target, *args, **kwargs):
+        if str(target) != ':memory:':
+            attached.append(str(target))
+        elif not owner:
+            con = actual(library_db)
+            owner.append(con)
+            assert con.execute('PRAGMA journal_mode=WAL').fetchone()[0] == 'wal'
+            con.execute("UPDATE resources SET title='New live WAL title' WHERE id='r1'")
+            con.commit()
+            shm_before.append(Path(str(library_db) + '-shm').read_bytes())
+        return actual(target, *args, **kwargs)
+    monkeypatch.setattr(module.sqlite3, 'connect', connect)
+    try:
+        page = service(library_db).list_items(query())
+        assert page.total == 3 and page.items[0].title == 'Lecture collection'
+        assert attached == [], 'Library must query a RAM copy, never attach to a mutable file'
+        assert Path(str(library_db) + '-shm').read_bytes() == shm_before[0]
+    finally:
+        for con in owner:
+            con.close()
+
+
+def test_source_change_during_capture_fails_closed(library_db, monkeypatch):
+    from pathlib import Path
+    from personal_learning_assistant.services.learning_library_service import LibraryUnavailableError
+    original = Path.open
+    class ChangingStream:
+        def __init__(self, stream): self.stream = stream
+        def __enter__(self): return self
+        def __exit__(self, *args): self.stream.close()
+        def fileno(self): return self.stream.fileno()
+        def read(self, *args):
+            data = self.stream.read(*args)
+            with sqlite3.connect(library_db) as con:
+                con.execute("UPDATE resources SET title='Changed during capture' WHERE id='r1'")
+            return data
+    def opened(path, *args, **kwargs):
+        stream = original(path, *args, **kwargs)
+        return ChangingStream(stream) if path == library_db and args == ('rb',) else stream
+    monkeypatch.setattr(Path, 'open', opened)
+    with pytest.raises(LibraryUnavailableError):
+        service(library_db).list_items(query())
+
+
+@pytest.mark.parametrize('suffix', ['?access_token=public/PRIVATE_SECRET', '#token=public/PRIVATE_SECRET'])
+def test_document_title_discards_credentials_before_basename(library_db, suffix):
+    with sqlite3.connect(library_db) as con:
+        con.execute("UPDATE knowledge_documents SET path_key=? WHERE id='d0'",
+                    ('https://example.org/document.pdf' + suffix,))
+    page = service(library_db).list_items(query())
+    assert next(i for i in page.items if i.key == 'document:d0').title == 'document.pdf'
+
+
+@pytest.mark.parametrize('uri', ['https://user:PRIVATE_SECRET@example.org',
+                                  'https://user:PRIVATE_SECRET@example.org/',
+                                  '//user:PRIVATE_SECRET@example.org',
+                                  '//user:PRIVATE_SECRET@example.org/'])
+def test_document_title_never_uses_uri_authority_as_filename(library_db, uri):
+    with sqlite3.connect(library_db) as con:
+        con.execute("UPDATE knowledge_documents SET path_key=? WHERE id='d0'", (uri,))
+    page = service(library_db).list_items(query())
+    assert next(i for i in page.items if i.key == 'document:d0').title == 'Registered document'
+
+
 def test_groups_multi_document_resources_and_never_resurrects_hidden_documents(library_db):
     page = service(library_db).list_items(query())
     assert [i.key for i in page.items] == ["resource:r1", "document:d0", "resource:r2"]

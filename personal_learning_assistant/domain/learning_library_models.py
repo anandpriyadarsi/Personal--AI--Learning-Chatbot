@@ -10,8 +10,12 @@ class LibraryQuery:
     item_kind: str = 'all'
     page: int = 1
     page_size: int = 25
+    search: str = ''
 
     def __post_init__(self):
+        if (not isinstance(self.search, str) or len(self.search) > 200
+                or any(ord(c) < 32 for c in self.search)):
+            raise ValueError('Invalid search')
         if self.item_kind not in ('all', 'resource', 'document'):
             raise ValueError('Invalid item kind')
         if type(self.page) is not int or self.page < 1:

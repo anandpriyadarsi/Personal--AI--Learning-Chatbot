@@ -7,7 +7,7 @@
     <div class="materials-hero-copy">
       <p class="eyebrow">Your academic collection <span aria-hidden="true">/</span> Resources</p>
       <h1 id="resources-title">Keep every resource <em>within reach.</em></h1>
-      <p class="materials-intro">Save useful links and references, revisit them quickly, and track what you have finished. Your existing resources stay exactly where they are.</p>
+      <p class="materials-intro">Save useful links and references, pick up where you left off, and track your progress.</p>
       <div class="materials-hero-actions">
         <a class="button" href="#new-resource">+ Add Resource</a>
         {% if config.get('LEARNING_LIBRARY_ENABLED', True) %}<a class="materials-subtle-link" href="{{ url_for('web.learning_library') }}">Browse registered Library <span aria-hidden="true">↗</span></a>{% endif %}

@@ -4400,6 +4400,18 @@ def _learning_library_service():
         wal_snapshot_provider=current_app.config.get("ACADEMIC_WAL_SNAPSHOT_PROVIDER"))
 
 
+def _library_source_reader_available(service):
+    # IDs are local to a database. Never send a Library ID to a different
+    # Knowledge source, including when an install overrides only Library's path.
+    from pathlib import Path
+    try:
+        source = service.repository.database_path.resolve()
+        reader_source = Path(_knowledge_reader_service().database_path).resolve()
+        return source == reader_source
+    except Exception:
+        return False
+
+
 @web_blueprint.get("/library")
 def learning_library():
     from flask import abort
@@ -4409,22 +4421,25 @@ def learning_library():
         abort(404)
     try:
         if any(len(request.args.getlist(key)) > 1 for key in
-               ("course_id", "item_kind", "page", "page_size")):
+               ("course_id", "item_kind", "page", "page_size", "q")):
             raise ValueError("Duplicate filters")
         query = LibraryQuery(
             course_id=request.args.get("course_id") or None,
             item_kind=request.args.get("item_kind", "all"),
             page=int(request.args.get("page", "1")),
-            page_size=int(request.args.get("page_size", "25")))
+            page_size=int(request.args.get("page_size", "25")),
+            search=request.args.get("q", "").strip())
     except ValueError:
         return render_template("library.html", active_page="library", library=None,
-                               error_message="Choose a valid course, item kind and page."), 400
+                               error_message="Choose valid search text, course, item kind and page."), 400
     try:
-        page = _learning_library_service().list_items(query)
+        service = _learning_library_service()
+        page = service.list_items(query)
     except LibraryUnavailableError:
         return render_template("library.html", active_page="library", library=None,
                                error_message="Library is temporarily unavailable"), 503
-    return render_template("library.html", active_page="library", library=page)
+    return render_template("library.html", active_page="library", library=page,
+                           source_reader_available=_library_source_reader_available(service))
 
 
 @web_blueprint.get("/library/resources/<resource_id>")
@@ -4435,10 +4450,12 @@ def learning_library_resource(resource_id):
     if not current_app.config.get("LEARNING_LIBRARY_ENABLED", True):
         abort(404)
     try:
-        detail = _learning_library_service().resource_detail(resource_id)
+        service = _learning_library_service()
+        detail = service.resource_detail(resource_id)
     except LibraryNotFoundError:
         abort(404)
     except LibraryUnavailableError:
         return render_template("library.html", active_page="library", library=None,
                                error_message="Library is temporarily unavailable"), 503
-    return render_template("library_resource.html", active_page="library", resource=detail)
+    return render_template("library_resource.html", active_page="library", resource=detail,
+                           source_reader_available=_library_source_reader_available(service))

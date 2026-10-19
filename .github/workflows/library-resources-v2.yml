@@ -30,6 +30,8 @@ jobs:
       PYTHONDONTWRITEBYTECODE: '1'
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -47,10 +49,15 @@ jobs:
       - name: Set up evidence paths
         shell: python
         run: |
-          import os
+          import json, os, subprocess
           from pathlib import Path
           root = Path(os.environ['RUNNER_TEMP']) / 'library-resources-v2'
           root.mkdir(parents=True, exist_ok=True)
+          (root / 'source.json').write_text(json.dumps({
+              'head': subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip(),
+              'tree': subprocess.check_output(['git', 'rev-parse', 'HEAD^{tree}'], text=True).strip(),
+              'platform': os.name,
+          }, indent=2), encoding='utf-8')
           with open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8') as env:
               env.write('ANVAYA_LIBRARY_V2_ARTIFACTS=' + str(root / 'library-screenshots') + '\n')
               env.write('ANVAYA_UI_V2_ARTIFACTS=' + str(root / 'workspace-screenshots') + '\n')
@@ -91,15 +98,25 @@ jobs:
         if: success()
         shell: python
         run: |
-          import os, subprocess, sys, pathlib
+          import os, subprocess, sys, pathlib, xml.etree.ElementTree as ET
           root = pathlib.Path(os.environ['ANVAYA_LIBRARY_V2_RESULTS'])
           args = [sys.executable, '-m', 'pytest', '-q', '--junitxml=' + str(root/'full.xml')]
           with (root/'full.log').open('w', encoding='utf-8') as f:
               code = subprocess.call(args, stdout=f, stderr=subprocess.STDOUT)
           print((root/'full.log').read_text(encoding='utf-8')[-18000:])
-          sys.exit(code)
+          if code:
+              sys.exit(code)
+          allowed = {
+            ('tests.learning_studio.test_pilot', 'test_external_bad_v3_source_is_rejected'),
+            ('tests.learning_studio.test_recovered_pilot', 'test_external_recovered_pilot_strict_import_and_durable_evidence'),
+            ('tests.learning_studio.test_recovered_pilot', 'test_external_pilot_demo_does_not_fabricate_course_mappings'),
+            ('tests.learning_studio.test_browser', 'test_external_recovered_pilot_real_browser'),
+          }
+          skipped = {(case.get('classname'), case.get('name')) for case in ET.parse(root/'full.xml').findall('.//testcase') if case.find('skipped') is not None}
+          assert skipped <= allowed, 'Unexpected skipped tests: ' + repr(skipped - allowed)
+          print('Known unavailable external IKS fixture skips:', sorted(skipped))
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: library-resources-v2-${{ matrix.os }}-${{ github.sha }}
+          name: library-resources-v2-${{ matrix.os }}-${{ github.event.pull_request.head.sha || github.sha }}
           path: ${{ env.ANVAYA_LIBRARY_V2_RESULTS }}/**
