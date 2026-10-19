@@ -28,7 +28,7 @@ def test_list_and_detail_render_safe_links_and_keep_all_destinations(library_db)
     assert 'View source' in body
     assert 'My LU explanation' in body
     assert '/private/vault' not in body
-    assert '<form' not in body
+    assert 'method="post"' not in body  # Workspace V2 has a read-only search form.
     assert 'reading/heartbeat' not in body
 
 
