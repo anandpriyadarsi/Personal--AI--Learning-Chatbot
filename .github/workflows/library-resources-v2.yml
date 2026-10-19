@@ -59,6 +59,7 @@ jobs:
         run: |
           python -m compileall -q personal_learning_assistant tests
           node --check personal_learning_assistant/ui/web/static/js/workspace_v2.js
+          node --check personal_learning_assistant/ui/web/static/js/resources_v2.js
           git diff --check
       - name: Focused Library and Resources preservation; zero skips
         shell: python
