@@ -167,3 +167,15 @@
 @media (prefers-reduced-motion: no-preference) {
   .materials-workspace .materials-resource-card,.materials-workspace .materials-subtle-link {transition:border-color .14s ease,background-color .14s ease}
 }
+
+/* Honest cross-workspace library hub: links, not invented source imports. */
+.materials-workspace .library-collections {margin:2rem 0 1.15rem}
+.materials-workspace .library-collection-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.8rem;margin:1rem 0}
+.materials-workspace .library-collection-link {display:flex;align-items:center;gap:.85rem;min-width:0;padding:1rem;border:1px solid var(--materials-border);border-radius:1rem;background:#16232c;text-decoration:none}
+.materials-workspace .library-collection-link:hover {border-color:rgba(122,214,192,.5);background:#1a2b34}
+.materials-workspace .library-collection-link > span:nth-child(2) {flex:1;min-width:0;display:grid;gap:.18rem}
+.materials-workspace .library-collection-link strong {color:#eef7f6;font-size:.84rem}
+.materials-workspace .library-collection-link small {color:#a1b7c1;font-size:.72rem}
+.materials-workspace .library-collection-link > span:last-child {color:#84ddcb;flex:0 0 auto}
+.materials-workspace .library-collection-symbol {display:grid;place-items:center;flex:0 0 2.4rem;height:2.4rem;border-radius:.7rem;background:var(--materials-soft);color:var(--materials-accent);font-weight:760}
+@media(max-width:630px){.materials-workspace .library-collection-grid {grid-template-columns:minmax(0,1fr)}}
