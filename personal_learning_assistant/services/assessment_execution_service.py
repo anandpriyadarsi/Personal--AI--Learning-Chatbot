@@ -65,6 +65,10 @@ def bounded(value, limit=2000):
     return value
 
 
+class AssessmentExecutionNotFoundError(LookupError):
+    """The requested attempt or question is absent from its owning store."""
+
+
 class AssessmentExecutionService:
     def __init__(self, path, *, now_fn=None, production=False):
         self.repository = AssessmentExecutionRepository(path, production=production)
@@ -78,7 +82,7 @@ class AssessmentExecutionService:
             "SELECT * FROM assessment_test_sessions WHERE id=?", (sid,)
         ).fetchone()
         if row is None or header is None:
-            raise LookupError("Attempt not found.")
+            raise AssessmentExecutionNotFoundError("Attempt not found.")
         meta = json.loads(row["metadata_json"])
         meta["revision"] = row["revision"]
         questions = [
@@ -442,7 +446,7 @@ class AssessmentExecutionService:
             if qid is not None:
                 q = next((q for q in questions if q["id"] == qid), None)
                 if q is None:
-                    raise LookupError("Question does not belong to this attempt.")
+                    raise AssessmentExecutionNotFoundError("Question does not belong to this attempt.")
             review_commands = {"self_save", "self_submit", "amend", "reveal"}
             if status == "expired" and h["status"] == "active":
                 self._terminal(db, h, m, now, used, "expired")

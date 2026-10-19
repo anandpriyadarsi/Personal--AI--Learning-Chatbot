@@ -1,0 +1,67 @@
+name: Private architecture source certification
+
+# Never attach a private/self-hosted runner to arbitrary pull-request code.
+# The repository owner must approve the exact SHA and configure this protected
+# environment/runner group before dispatch. This workflow grants no new access.
+on:
+  workflow_dispatch:
+    inputs:
+      reviewed_sha:
+        description: Exact 40-character owner-reviewed feature commit SHA
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  private-validation:
+    if: github.actor == github.repository_owner
+    environment: anvaya-private-fixture-validation
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [Linux, Windows]
+    runs-on: [self-hosted, anvaya-private-fixtures, '${{ matrix.platform }}']
+    timeout-minutes: 60
+    steps:
+      - name: Require an explicit reviewed commit
+        shell: python
+        env:
+          REVIEWED_SHA: ${{ inputs.reviewed_sha }}
+        run: |
+          import os, re, sys
+          if sys.version_info < (3, 12):
+              raise SystemExit('Private validation requires Python 3.12 or later')
+          if not re.fullmatch(r'[0-9a-f]{40}', os.environ['REVIEWED_SHA']):
+              raise SystemExit('An exact reviewed SHA is required')
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.reviewed_sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Validate privately provisioned inputs and run the unchanged strict gate
+        shell: python
+        env:
+          REVIEWED_SHA: ${{ inputs.reviewed_sha }}
+        run: |
+          import os, pathlib, subprocess, sys
+          sha = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+          if sha != os.environ['REVIEWED_SHA']:
+              raise SystemExit('Reviewed source mismatch')
+          # Runner-owner service configuration supplies this path; never a PR
+          # input, a repository secret containing ZIP bytes, or a public URL.
+          private = os.environ.get('ANVAYA_PRIVATE_FIXTURE_DIR')
+          if not private:
+              raise SystemExit('BLOCKED: trusted runner private staging is not configured')
+          root = pathlib.Path(private)
+          env = os.environ.copy()
+          env['ANVAYA_TEST_RECOVERED_PILOT_ZIP'] = str(root / 'ANVAYA_Interactive_Learning_Pilot_v3_Source_Reconciled_Candidate.zip')
+          env['ANVAYA_TEST_BAD_V3_ZIP'] = str(root / 'ANVAYA_Interactive_Learning_Pilot_Complete_v3.zip')
+          output = pathlib.Path(os.environ['RUNNER_TEMP']) / ('anvaya-private-validation-' + os.environ['GITHUB_RUN_ID'])
+          subprocess.run([sys.executable, 'scripts/architecture_checkout_eol.py', '--repo', '.'], check=True)
+          # Python3.12+, pinned dependencies/Chromium must be installed by the runner owner.
+          # No network-capable transport runs while private files are in scope.
+          sys.exit(subprocess.call([sys.executable, 'scripts/architecture_validation.py', '--require-clean', '--private-fixtures', '--output', str(output)], env=env))
+      # Deliberately no upload-artifact step: owner reviews the redacted output
+      # in place. Public hosted runs remain a separate synthetic evidence gate.

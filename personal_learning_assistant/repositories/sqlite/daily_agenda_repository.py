@@ -108,6 +108,7 @@ class SQLiteDailyAgendaRepository:
 
     def create_or_replace_draft(self, agenda_row, items, *, expected_fingerprint=None):
         c = self._connect(writable=True)
+        saved_fingerprint = None
         try:
             with transaction(c, immediate=True):
                 if expected_fingerprint is not None and self._planning_fingerprint(c) != expected_fingerprint:
@@ -160,9 +161,17 @@ class SQLiteDailyAgendaRepository:
                             item.get("completed_at"),
                         ),
                     )
+                if expected_fingerprint is not None:
+                    # Bind the exact committed draft and its sources while the
+                    # same write lock still excludes another writer. A later
+                    # read must not bless a source change after this save.
+                    saved_fingerprint = self._planning_fingerprint(c)
         finally:
             c.close()
-        return self.get_agenda(agenda_row["agenda_date"])
+        result = self.get_agenda(agenda_row["agenda_date"])
+        if saved_fingerprint is not None:
+            result['planning_fingerprint'] = saved_fingerprint
+        return result
 
     def approve_agenda(self, agenda_date, *, approved_at, updated_at, expected_fingerprint=None):
         c = self._connect(writable=True)

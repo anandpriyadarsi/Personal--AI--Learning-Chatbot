@@ -61,6 +61,25 @@ class SQLiteAssessmentIntelligenceRepository:
     def _dict(row):
         return dict(row) if row is not None else None
 
+    @staticmethod
+    def _observed_evidence(row):
+        # These session snapshots contain a topic ID but no immutable mapping
+        # review or assistance history. Current mappings and exam mode cannot
+        # establish what was reviewed or independent when this answer occurred.
+        return {
+            **dict(row),
+            'mapping_id': None,
+            'mapping_state': 'unknown',
+            'mapping_confidence': None,
+            'mapping_method': None,
+            'mapping_reviewed_at': None,
+            'mapping_review_required': True,
+            'mapping_provenance': 'historical_snapshot_unavailable',
+            'independence_status': 'unknown',
+            'automatic_remediation_eligible': False,
+            'remediation_exclusion_reasons': ('mapping_snapshot_unknown', 'independence_unknown'),
+        }
+
     def get_course(self, course_id: str):
         row = self.connection.execute(
             "SELECT id, code, name FROM courses "
@@ -169,7 +188,7 @@ class SQLiteAssessmentIntelligenceRepository:
             "ORDER BY q.ordinal",
             (str(session_id),),
         ).fetchall()
-        return tuple(dict(row) for row in rows)
+        return tuple(self._observed_evidence(row) for row in rows)
 
     def list_confirmed_question_evidence(self, *, course_id: str | None = None):
         where = ""
@@ -210,7 +229,7 @@ class SQLiteAssessmentIntelligenceRepository:
             "ORDER BY occurred_at, s.id, q.ordinal".format(where),
             tuple(params),
         ).fetchall()
-        return tuple(dict(row) for row in rows)
+        return tuple(self._observed_evidence(row) for row in rows)
 
     def list_confirmed_mistakes(self, *, course_id: str | None = None):
         where = ""

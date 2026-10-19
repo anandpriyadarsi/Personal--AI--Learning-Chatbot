@@ -7,6 +7,7 @@ import sqlite3
 from urllib.parse import urlsplit
 from flask import Blueprint, Flask, abort, jsonify, redirect, render_template, request, url_for
 from itsdangerous import URLSafeSerializer, BadSignature
+from personal_learning_assistant.services.assessment_execution_service import AssessmentExecutionNotFoundError
 
 
 def create_candidate_app(service, *, secret_key, landing_sessions=None):
@@ -198,7 +199,7 @@ def _create_routes(app, service, *, secret_key, production):
                     None,
                 )
                 if q is None:
-                    raise LookupError("Question not found.")
+                    raise AssessmentExecutionNotFoundError("Question not found.")
                 if q["question_type"] in {"mcq", "msq"}:
                     response = {
                         "selected_option_ids": request.form.getlist("option_ids")
@@ -267,10 +268,12 @@ def _create_routes(app, service, *, secret_key, production):
                 pass
         return "Assessment request is unavailable.", code
 
-    @app.errorhandler(LookupError)
+    @app.errorhandler(AssessmentExecutionNotFoundError)
     def missing(error):
         return jsonify(ok=False, error="Attempt or question not found."), 404
 
+    @app.errorhandler(LookupError)
+    @app.errorhandler(OSError)
     @app.errorhandler(sqlite3.Error)
     def storage(error):
         return (

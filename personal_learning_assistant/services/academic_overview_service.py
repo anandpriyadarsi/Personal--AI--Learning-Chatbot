@@ -213,7 +213,8 @@ class AcademicOverviewService:
                    'max_marks':r['max_marks_milli']/1000,'question_count':r['question_count'],
                    'category':category,'independence':'unknown','mapping_review':'not_established',
                    'source_refs':[r['id']]+([r['evaluation_id']] if r['evaluation_id'] else []),
-                   'url':'/assessments/sessions/'+quote(r['id'],safe='')+('/evaluation' if terminal else '')}
+                   'url':'/assessments/sessions/'+quote(r['id'],safe='')+
+                         ('/evaluation' if terminal and r['evaluation_id'] else '/summary' if terminal else '')}
             selected.append(row)
         if has_papers:
             from .academic_paper_projection import paper_rows
