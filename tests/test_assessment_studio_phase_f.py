@@ -181,15 +181,19 @@ def test_migration_0013_adds_recommendation_ledger_and_recovery_task_unique_inde
         connection.close()
 
 
-def test_preview_is_read_only_and_maps_concept_gap_to_concept_rebuild(tmp_path):
+def test_preview_is_read_only_and_unqualified_concept_gap_requires_diagnostic(tmp_path):
     path = _database(tmp_path)
     preview = _service(path).preview()
 
     assert preview["has_evidence"] is True
     lu = next(item for item in preview["candidates"] if item["topic_id"] == "topic-lu")
-    assert lu["action_family"] == "concept_rebuild"
-    assert lu["suggested_priority"] == "P0"
-    assert lu["suggested_minutes"] == 60
+    # Legacy confirmed grading has no historical mapping/independence snapshot.
+    # It previously caused P0 concept rebuilding from one session (Scenario A/D).
+    assert lu["action_family"] == "evidence_check"
+    assert lu["suggested_priority"] == "P2"
+    assert lu["suggested_minutes"] == 25
+    assert lu["evidence"]["automatic_remediation_eligible"] is False
+    assert all(item["topic_id"] != "topic-rank" for item in preview["candidates"])
     assert "LU Factorization" in lu["alex_prompt"]
     assert any(step["kind"] == "retest" for step in lu["action_plan"])
 
@@ -308,8 +312,8 @@ def test_apply_creates_one_linked_planner_backlog_task_and_retry_is_idempotent(t
 def test_reject_creates_no_planner_task(tmp_path):
     path = _database(tmp_path)
     service = _service(path)
-    rank = next(item for item in service.preview()["candidates"] if item["topic_id"] == "topic-rank")
-    service.generate([rank["evidence_fingerprint"]])
+    diagnostic = next(item for item in service.preview()["candidates"] if item["topic_id"] == "topic-lu")
+    service.generate([diagnostic["evidence_fingerprint"]])
     recommendation = service.workspace()["pending"][0]
 
     result = service.reject(

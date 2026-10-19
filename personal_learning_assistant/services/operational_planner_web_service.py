@@ -178,7 +178,7 @@ class OperationalPlannerWebService:
         except DailyAgendaError as error:
             raise _translate(error)
 
-    def _proposal_daily(self, agenda_date, start, end, *, local_timezone="Asia/Kolkata", now=None):
+    def _proposal_daily(self, agenda_date, start, end, *, local_timezone="Asia/Kolkata", now=None, break_minutes=10):
         try:
             datetime.strptime(agenda_date, "%Y-%m-%d")
             left = datetime.strptime(start, "%H:%M")
@@ -188,9 +188,9 @@ class OperationalPlannerWebService:
             return DailyAgendaService(
                 self.daily.agendas, self.daily.tasks, self.daily.calendar_repository, self.daily.calendar,
                 now=now or self.daily._now, free_windows={agenda_date: [(start, end)]},
-                local_timezone=local_timezone,
+                local_timezone=local_timezone, break_minutes=break_minutes,
             )
-        except (TypeError, ValueError, ZoneInfoNotFoundError) as error:
+        except (TypeError, ValueError, ZoneInfoNotFoundError, DailyAgendaValidationError) as error:
             raise OperationalPlannerWebValidationError("Enter a valid date and availability window (start before end).") from error
 
     @staticmethod
@@ -203,8 +203,8 @@ class OperationalPlannerWebService:
         ]
         return hashlib.sha256(json.dumps(semantic, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
-    def preview_proposal(self, agenda_date, start, end, *, local_timezone="Asia/Kolkata", now=None):
-        daily = self._proposal_daily(agenda_date, start, end, local_timezone=local_timezone, now=now)
+    def preview_proposal(self, agenda_date, start, end, *, local_timezone="Asia/Kolkata", now=None, break_minutes=10):
+        daily = self._proposal_daily(agenda_date, start, end, local_timezone=local_timezone, now=now, break_minutes=break_minutes)
         try:
             fingerprint = daily.agendas.planning_fingerprint()
             preview = daily.preview_day(agenda_date)
@@ -218,11 +218,11 @@ class OperationalPlannerWebService:
         except DailyAgendaRepositoryError as error:
             raise OperationalPlannerWebUnavailableError("Planner preview storage is unavailable.") from error
 
-    def save_proposal(self, agenda_date, start, end, *, fingerprint, semantic_hash, local_timezone="Asia/Kolkata", now=None):
-        current = self.preview_proposal(agenda_date, start, end, local_timezone=local_timezone, now=now)
+    def save_proposal(self, agenda_date, start, end, *, fingerprint, semantic_hash, local_timezone="Asia/Kolkata", now=None, break_minutes=10):
+        current = self.preview_proposal(agenda_date, start, end, local_timezone=local_timezone, now=now, break_minutes=break_minutes)
         if current["fingerprint"] != fingerprint or current["semantic_hash"] != semantic_hash:
             raise OperationalPlannerWebConflictError("Planner changed since preview. Preview again before saving.")
-        daily = self._proposal_daily(agenda_date, start, end, local_timezone=local_timezone, now=now)
+        daily = self._proposal_daily(agenda_date, start, end, local_timezone=local_timezone, now=now, break_minutes=break_minutes)
         try:
             return daily.generate_day(agenda_date, expected_fingerprint=fingerprint, preview=current["day"])
         except DailyAgendaError as error:
@@ -234,11 +234,25 @@ class OperationalPlannerWebService:
         except DailyAgendaError as error:
             raise _translate(error)
 
-    def approve_day(self, agenda_date):
+    def approve_day(self, agenda_date, *, proposal_context=None, local_timezone="Asia/Kolkata", now=None, break_minutes=10):
         try:
+            if proposal_context is not None:
+                if (proposal_context.get('date') != agenda_date
+                        or proposal_context.get('timezone') != local_timezone
+                        or proposal_context.get('break_minutes') != break_minutes
+                        or proposal_context.get('policy') != 'explicit-availability-v1'
+                        or proposal_context.get('saved_fingerprint') != self.daily.agendas.planning_fingerprint()):
+                    raise OperationalPlannerWebConflictError("Planner or availability context changed. Preview and save a fresh draft.")
+                daily = self._proposal_daily(
+                    agenda_date, proposal_context['start'], proposal_context['end'],
+                    local_timezone=local_timezone, now=now, break_minutes=break_minutes,
+                )
+                return daily.approve_day(agenda_date, expected_fingerprint=proposal_context['saved_fingerprint'])
             return self.daily.approve_day(agenda_date)
         except DailyAgendaError as error:
             raise _translate(error)
+        except DailyAgendaRepositoryError as error:
+            raise OperationalPlannerWebUnavailableError("Planner approval storage is unavailable.") from error
 
     def update_day_item(self, agenda_date, item_id, *, status, actual_minutes=None):
         try:

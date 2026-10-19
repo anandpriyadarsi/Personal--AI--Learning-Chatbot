@@ -25,13 +25,14 @@
 
 <section class="dashboard-panel next-panel">
   <div class="panel-heading"><div><p class="eyebrow">Question evidence</p><h3>Time, result and topic</h3></div><span class="count-badge">{{ report.questions|length }}</span></div>
+  <p class="intelligence-muted">Historical mapping review and independence are unknown. These scores describe grading outcomes and do not establish assessed mastery.</p>
   <div class="table-wrap">
     <table>
       <thead><tr><th>Q</th><th>Type</th><th>Topic</th><th>Difficulty</th><th>Outcome</th><th>Score</th><th>Focus</th><th>Status</th></tr></thead>
       <tbody>
       {% for q in report.questions %}
         <tr>
-          <td>{{ q.question_number or q.ordinal }}</td><td>{{ q.question_type|replace('_',' ')|title }}</td><td>{{ q.topic_name or 'Unmapped' }}</td><td>{{ (q.difficulty or 'unlabelled')|replace('_',' ')|title }}</td><td>{{ q.outcome_label }}</td><td>{{ q.score }} / {{ q.max_marks }}</td><td>{{ q.focus_minutes }} min</td><td>{{ q.evaluation_status_label }}</td>
+          <td>{{ q.question_number or q.ordinal }}</td><td>{{ q.question_type|replace('_',' ')|title }}</td><td>{{ q.topic_name or 'Unmapped' }}<br><small class="intelligence-muted">Mapping: {{ q.mapping_state|default('unknown')|title }}{% if q.mapping_review_required|default(true) %} · review required{% endif %}; independence: {{ q.independence_status|default('unknown')|title }}</small></td><td>{{ (q.difficulty or 'unlabelled')|replace('_',' ')|title }}</td><td>{{ q.outcome_label }}</td><td>{{ q.score }} / {{ q.max_marks }}</td><td>{{ q.focus_minutes }} min</td><td>{{ q.evaluation_status_label }}</td>
         </tr>
       {% endfor %}
       </tbody>
