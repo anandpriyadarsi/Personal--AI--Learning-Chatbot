@@ -21,6 +21,8 @@ def create_app(config: Mapping[str, Any] | None = None) -> Flask:
     )
     app.config.from_mapping(
         TESTING=False,
+        LEARNING_LIBRARY_ENABLED=os.environ.get("ANVAYA_LIBRARY_ENABLED", "true").strip().lower() == "true",
+        LEARNING_LIBRARY_DATABASE_PATH=os.environ.get("ANVAYA_LIBRARY_DATABASE_PATH") or None,
         JSON_SORT_KEYS=False,
         ASSESSMENT_COLAB_URL=os.environ.get("ANVAYA_COLAB_URL", ""),
         ASSESSMENT_CODING_HELPER_ENABLED=os.environ.get("ANVAYA_CODING_HELPER_ENABLED", "true").lower() == "true",
