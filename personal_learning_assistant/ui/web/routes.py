@@ -4382,3 +4382,63 @@ def healthz():
         service="personal-learning-assistant-web",
         status="ok",
     )
+
+
+
+# Bounded Library projection. Read-only and independent of the legacy Resources editor.
+def _learning_library_service():
+    from personal_learning_assistant.services.learning_library_service import LearningLibraryService
+    factory = current_app.config.get("LEARNING_LIBRARY_SERVICE_FACTORY")
+    if factory is not None:
+        return factory()
+    import config as installed_config
+    source = (current_app.config.get("LEARNING_LIBRARY_DATABASE_PATH")
+              or current_app.config.get("ACADEMIC_DATABASE_PATH")
+              or installed_config.DATABASE_PATH)
+    return LearningLibraryService(
+        database_path=source,
+        wal_snapshot_provider=current_app.config.get("ACADEMIC_WAL_SNAPSHOT_PROVIDER"))
+
+
+@web_blueprint.get("/library")
+def learning_library():
+    from flask import abort
+    from personal_learning_assistant.domain.learning_library_models import LibraryQuery
+    from personal_learning_assistant.services.learning_library_service import LibraryUnavailableError
+    if not current_app.config.get("LEARNING_LIBRARY_ENABLED", True):
+        abort(404)
+    try:
+        if any(len(request.args.getlist(key)) > 1 for key in
+               ("course_id", "item_kind", "page", "page_size")):
+            raise ValueError("Duplicate filters")
+        query = LibraryQuery(
+            course_id=request.args.get("course_id") or None,
+            item_kind=request.args.get("item_kind", "all"),
+            page=int(request.args.get("page", "1")),
+            page_size=int(request.args.get("page_size", "25")))
+    except ValueError:
+        return render_template("library.html", active_page="library", library=None,
+                               error_message="Choose a valid course, item kind and page."), 400
+    try:
+        page = _learning_library_service().list_items(query)
+    except LibraryUnavailableError:
+        return render_template("library.html", active_page="library", library=None,
+                               error_message="Library is temporarily unavailable"), 503
+    return render_template("library.html", active_page="library", library=page)
+
+
+@web_blueprint.get("/library/resources/<resource_id>")
+def learning_library_resource(resource_id):
+    from flask import abort
+    from personal_learning_assistant.services.learning_library_service import (
+        LibraryNotFoundError, LibraryUnavailableError)
+    if not current_app.config.get("LEARNING_LIBRARY_ENABLED", True):
+        abort(404)
+    try:
+        detail = _learning_library_service().resource_detail(resource_id)
+    except LibraryNotFoundError:
+        abort(404)
+    except LibraryUnavailableError:
+        return render_template("library.html", active_page="library", library=None,
+                               error_message="Library is temporarily unavailable"), 503
+    return render_template("library_resource.html", active_page="library", resource=detail)
