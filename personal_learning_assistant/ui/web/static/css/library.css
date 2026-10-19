@@ -82,7 +82,7 @@
 .materials-create >summary {display:flex;align-items:center;gap:.8rem;padding:1.1rem 1.25rem;cursor:pointer;list-style:none}
 .materials-create >summary::-webkit-details-marker {display:none}
 .materials-create >summary.details-action::after {content:none}
-.materials-create >summary:focus-visible {outline-offset:-4px}
+.materials-workspace .materials-create >summary:focus-visible {outline-offset:-4px}
 .materials-create >summary strong {display:block;font-size:.88rem}
 .materials-create >summary small {display:block;font-size:.73rem;color:var(--materials-muted);margin-top:.25rem}
 .materials-create-icon {display:grid;place-items:center;flex:0 0 2.25rem;height:2.25rem;border-radius:.72rem;background:var(--materials-soft);border:1px solid rgba(122,214,192,.2);color:var(--materials-accent);font-size:1.3rem}
