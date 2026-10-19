@@ -1,0 +1,104 @@
+name: Library and Resources V2 acceptance
+on:
+  push:
+    branches: ['feature/library-hub-resources-v2-2026-10-19']
+  pull_request:
+    paths:
+      - 'personal_learning_assistant/domain/learning_library_models.py'
+      - 'personal_learning_assistant/repositories/sqlite/learning_library_repository.py'
+      - 'personal_learning_assistant/services/learning_library_service.py'
+      - 'personal_learning_assistant/ui/web/**'
+      - 'tests/*library*'
+      - '.github/workflows/library-resources-v2.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: library-resources-v2-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  library:
+    name: Library and resource controls (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    env:
+      ANVAYA_BROWSER_TESTS: '1'
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements-learning-studio.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pinned validation dependencies
+        run: python -m pip install -r requirements-learning-studio.txt
+      - name: Restore checkout EOL
+        run: python scripts/architecture_checkout_eol.py --repo .
+      - name: Install Chromium
+        run: python -m playwright install --with-deps chromium
+      - name: Set up evidence paths
+        shell: python
+        run: |
+          import os
+          from pathlib import Path
+          root = Path(os.environ['RUNNER_TEMP']) / 'library-resources-v2'
+          root.mkdir(parents=True, exist_ok=True)
+          with open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8') as env:
+              env.write('ANVAYA_LIBRARY_V2_ARTIFACTS=' + str(root / 'library-screenshots') + '\n')
+              env.write('ANVAYA_UI_V2_ARTIFACTS=' + str(root / 'workspace-screenshots') + '\n')
+              env.write('ANVAYA_LIBRARY_V2_RESULTS=' + str(root) + '\n')
+      - name: Syntax and source hygiene
+        run: |
+          python -m compileall -q personal_learning_assistant tests
+          node --check personal_learning_assistant/ui/web/static/js/workspace_v2.js
+          git diff --check
+      - name: Focused Library and Resources preservation; zero skips
+        shell: python
+        run: |
+          import os, subprocess, sys, pathlib, xml.etree.ElementTree as ET
+          root = pathlib.Path(os.environ['ANVAYA_LIBRARY_V2_RESULTS'])
+          tests = [
+            'tests/test_learning_library_read_model.py',
+            'tests/test_learning_library_routes.py',
+            'tests/test_learning_library_wal_bridge.py',
+            'tests/test_phase7_5_operational_notes_resources.py',
+            'tests/test_phase7_5_anvaya_shell.py',
+            'tests/test_phase7_5_12_2_recovery.py',
+            'tests/test_phase7_5_15_10_notes_obsidian_separation.py',
+            'tests/test_phase5_resources2_core.py',
+            'tests/test_library_v2_browser.py',
+            'tests/test_ui_v2_browser.py',
+            'tests/test_ui_v2_protected_browser.py',
+          ]
+          args = [sys.executable, '-m', 'pytest', '-q', *tests, '--junitxml=' + str(root/'focused.xml')]
+          with (root/'focused.log').open('w', encoding='utf-8') as f:
+              code = subprocess.call(args, stdout=f, stderr=subprocess.STDOUT)
+          print((root/'focused.log').read_text(encoding='utf-8')[-28000:])
+          if code:
+              sys.exit(code)
+          cases = ET.parse(root/'focused.xml').findall('.//testcase')
+          assert cases and all(c.find('skipped') is None for c in cases), 'Focused gate must not skip tests'
+      - name: Whole-project regression (inherited external skips disclosed)
+        if: ${{ !cancelled() }}
+        shell: python
+        run: |
+          import os, subprocess, sys, pathlib
+          root = pathlib.Path(os.environ['ANVAYA_LIBRARY_V2_RESULTS'])
+          args = [sys.executable, '-m', 'pytest', '-q', '--junitxml=' + str(root/'full.xml')]
+          with (root/'full.log').open('w', encoding='utf-8') as f:
+              code = subprocess.call(args, stdout=f, stderr=subprocess.STDOUT)
+          print((root/'full.log').read_text(encoding='utf-8')[-18000:])
+          sys.exit(code)
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: library-resources-v2-${{ matrix.os }}-${{ github.sha }}
+          path: ${{ env.ANVAYA_LIBRARY_V2_RESULTS }}/**
