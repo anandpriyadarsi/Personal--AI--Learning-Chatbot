@@ -1,0 +1,27 @@
+/* Scoped additions; use the existing ANVAYA palette and components. */
+.library-page .content { min-width: 0; }
+.library-page h1 { font-size: clamp(1.65rem, 3vw, 2.2rem); line-height: 1.25; margin: .4rem 0; }
+.library-page h1, .library-page h2, .library-page h3, .library-page p, .library-page li { overflow-wrap: anywhere; }
+.library-page .workspace-header > div { min-width: 0; }
+.library-page .library-coverage, .library-page .library-count, .library-page .library-extraction { color: var(--text-secondary, #B6C2CE); font-size: .9rem; }
+.library-page .library-coverage { line-height: 1.7; margin-bottom: 1.5rem; }
+.library-page .library-filters { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) auto; align-items: end; gap: 1rem; }
+.library-page .form-field, .library-page select { min-width: 0; max-width: 100%; }
+.library-page .form-actions { display: flex; flex-wrap: wrap; gap: .9rem; align-items: center; }
+.library-page .library-card { display: flex; align-items: center; gap: 1.5rem; justify-content: space-between; margin-bottom: 1rem; }
+.library-page .library-card-main { min-width: 0; flex: 1; }
+.library-page .library-card h2 { font-size: 1.15rem; margin: .5rem 0 .8rem; }
+.library-page .library-card .button { flex-shrink: 0; }
+.library-page .library-labels { display: flex; flex-wrap: wrap; gap: .5rem; }
+.library-page .library-label { border: 1px solid var(--border, #2A3543); border-radius: .5rem; padding: .25rem .6rem; font-size: .8rem; overflow-wrap: anywhere; max-width: 100%; }
+.library-page .library-status { color: var(--accent, #55C2B8); }
+.library-page .library-pagination { display: flex; gap: 1rem; margin-top: 1.25rem; }
+.library-page .library-back { display: inline-block; margin-bottom: 1rem; }
+.library-page a:focus-visible, .library-page button:focus-visible, .library-page select:focus-visible { outline: 2px solid #55C2B8; outline-offset: 4px; }
+@media (max-width: 900px) {
+  .library-page .library-filters { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 600px) {
+  .library-page .library-card { align-items: stretch; flex-direction: column; gap: .5rem; }
+  .library-page .library-card .button { align-self: flex-start; }
+}
