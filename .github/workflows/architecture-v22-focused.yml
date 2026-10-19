@@ -43,7 +43,7 @@ jobs:
           out.mkdir()
           env = {**os.environ, 'ANVAYA_VALIDATION_ARTIFACTS': str(out / 'screenshots')}
           tests = ['tests/test_architecture_private_fixtures.py', 'tests/test_architecture_validation_harness.py', 'tests/test_topic_remediation_safety.py', 'tests/test_topic_evidence_repository.py', 'tests/test_architecture_characterization.py', 'tests/test_architecture_academic_result_boundaries.py', 'tests/test_architecture_planning_context.py', 'tests/test_planning_v21_wal_snapshot.py', 'tests/test_assessment_studio_phase_e.py', 'tests/test_assessment_studio_phase_f.py', 'tests/test_assessment_live_browser.py', 'tests/test_architecture_live_browser.py', 'tests/test_topic_read_safety_browser.py']
-          tests += ['tests/test_architecture_manual_academic_journey_browser.py']
+          tests += ['tests/test_architecture_manual_academic_journey_browser.py', 'tests/test_assessment_studio_next_level_results.py']
           xml = out / 'focused.xml'
           with (out / 'focused.log').open('w', encoding='utf-8') as stream:
               code = subprocess.call([sys.executable, '-m', 'pytest', '-q', *tests, '--junitxml=' + str(xml)], env=env, stdout=stream, stderr=subprocess.STDOUT)

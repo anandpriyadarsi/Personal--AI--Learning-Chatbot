@@ -192,17 +192,22 @@ class PrivateFixtureStage:
                 destination.chmod(stat.S_IRUSR)
                 self.environment[row['environment']] = str(destination)
             self.manifest = public_manifest(validate_pair(self.environment, repo=repo, output=output))
-        except BaseException:
+        except BaseException as error:
             self.close()
+            if isinstance(error, OSError):
+                raise FixtureError('Private fixture staging is unavailable') from None
             raise
 
     def close(self):
         if self.directory is not None:
             # Windows cannot remove read-only files; restore owner write only
             # inside this instance's private directory before deterministic cleanup.
-            for path in Path(self.directory.name).glob('*.zip'):
-                path.chmod(stat.S_IRUSR | stat.S_IWUSR)
-            self.directory.cleanup()
+            try:
+                for path in Path(self.directory.name).glob('*.zip'):
+                    path.chmod(stat.S_IRUSR | stat.S_IWUSR)
+                self.directory.cleanup()
+            except OSError:
+                raise FixtureError('Private fixture cleanup is unavailable; owner intervention required') from None
             self.directory = None
 
 

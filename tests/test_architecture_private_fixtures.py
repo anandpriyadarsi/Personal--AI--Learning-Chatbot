@@ -252,3 +252,13 @@ def test_four_original_outcomes_are_individual_and_cannot_be_replaced_by_other_p
     ET.ElementTree(root).write(xml)
     result = harness.external_pilot_acceptance(xml)
     assert result['status'] == 'BLOCKED' and 'NOT_RUN' in result['outcomes'].values()
+
+
+def test_staging_os_failure_never_exposes_private_path(tmp_path, monkeypatch):
+    module, paths = synthetic_pair(tmp_path, monkeypatch)
+    def failed_write(path, raw):
+        raise OSError(28, 'Synthetic disk full', 'SENSITIVE_PRIVATE_PATH')
+    monkeypatch.setattr(Path, 'write_bytes', failed_write)
+    with pytest.raises(module.FixtureError) as caught:
+        module.PrivateFixtureStage(paths, repo=harness.ROOT, output=tmp_path / 'out')
+    assert 'SENSITIVE_PRIVATE_PATH' not in str(caught.value)
