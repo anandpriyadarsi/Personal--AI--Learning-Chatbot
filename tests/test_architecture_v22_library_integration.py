@@ -43,3 +43,20 @@ def test_architecture_disabled_library_does_not_shadow_existing_surfaces(library
     resources = client.get("/resources")
     assert resources.status_code == 200
     assert b'href="/library"' not in resources.data
+
+
+def test_library_hub_links_independent_learning_collections_without_import(library_db):
+    from sqlite3 import connect
+    app = create_app({"TESTING": True, "LEARNING_LIBRARY_DATABASE_PATH": library_db})
+    with connect(library_db) as database:
+        before = tuple(database.iterdump())
+    response = app.test_client().get("/library")
+    assert response.status_code == 200
+    html = response.get_data(as_text=True)
+    assert 'Other learning workspaces' in html
+    assert 'not imported or counted as registered Library documents' in html
+    for target in ('/notes', '/obsidian', '/knowledge'):
+        assert f'href="{target}"' in html
+    assert 'Learning Studio' in html
+    with connect(library_db) as database:
+        assert tuple(database.iterdump()) == before
