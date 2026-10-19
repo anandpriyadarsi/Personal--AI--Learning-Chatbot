@@ -70,6 +70,7 @@ jobs:
             'tests/test_learning_library_read_model.py',
             'tests/test_learning_library_routes.py',
             'tests/test_learning_library_wal_bridge.py',
+            'tests/test_architecture_v22_library_integration.py',
             'tests/test_phase7_5_operational_notes_resources.py',
             'tests/test_phase7_5_anvaya_shell.py',
             'tests/test_phase7_5_12_2_recovery.py',
