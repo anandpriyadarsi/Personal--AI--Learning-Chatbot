@@ -21,6 +21,10 @@ def test_library_and_architecture_routes_are_registered_without_side_effects(lib
     assert "/analysis" in routes
     assert "/assessments" in routes
     client = app.test_client()
+    # Preserve the legacy Resources control label during visual redesign.
+    resources_page = client.get("/resources")
+    assert resources_page.status_code == 200
+    assert b"+ Add Resource" in resources_page.data
     listing = client.get("/library")
     assert listing.status_code == 200
     assert b"Lecture collection" in listing.data
