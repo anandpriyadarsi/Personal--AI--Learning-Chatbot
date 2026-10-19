@@ -11,7 +11,7 @@
       <div class="materials-hero-actions"><a class="button" href="{{ url_for('web.knowledge') }}">Search knowledge ↗</a><a class="materials-subtle-link" href="{{ url_for('web.resources') }}">Manage saved Resources ↗</a></div>
     </div><div class="materials-hero-symbol" aria-hidden="true"><span>L</span><small>ANVAYA / SOURCES</small></div>
   </section>
-  <div class="materials-context-strip"><span class="materials-context-dot" aria-hidden="true"></span><span>Read-only registered material</span><span class="materials-context-divider">/</span><span>Extraction status is not proof of search or learning readiness</span></div>
+  <div class="materials-context-strip"><span class="materials-context-dot" aria-hidden="true"></span><span>Read-only registered material</span><span class="materials-context-divider">/</span><span>Extraction status is shown; retrieval availability is not checked on this page</span></div>
   {% if error_message %}
     <section class="notice-panel materials-empty" role="alert"><h2>{{ error_message }}</h2><p>Existing Notes, Knowledge and Resources remain available. The Library did not create or change any academic records.</p></section>
   {% elif library %}
