@@ -23,3 +23,7 @@ Spec: user-provided UI V2 redesign brief (kept private). Execution: implementati
 - [ ] Integration readiness BLOCKED: strict architecture zero-skip gate requires missing external Learning pilot evidence; do not waive it.
 
 U6 closure: separate engineering and UX reviewers accepted the repaired priority surfaces; no unresolved Critical/Important findings. Protected gate14 passes. No-JS/search/form purity checks preserve separate stores. U7 hosted UI/Assessment gates now pass on both platforms; the strict architecture aggregate fails only because its full-suite category is BLOCKED by four missing external pilot fixtures. Exact-source outcomes are in CROSS_PLATFORM_ACCEPTANCE. Integration remains NO; no merge/deployment.
+
+Final CI diagnostic: bcee8f0 Windows architecture headless42passed/1failed from a transient exact30 timer assertion (server clock frozen, browser clock advancing). Test-only Playwright clock repair preserves every original persistence/expiry/static-GET assertion and adds synchronized2s/exact28 countdown proof after the purity check. Delayed original red and repaired green are retained; final focused/full/hosted reruns remain required. No protected Assessment application file changed.
+
+Post-repair local gates complete: full2501passed/4external skips404.13s; focused107passed/0skip75.61s; headless43passed/0skip57.31s. Final test/CI repair reviewed independently; await actual hosted outcomes for the published source.

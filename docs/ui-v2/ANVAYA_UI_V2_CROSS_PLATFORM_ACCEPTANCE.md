@@ -2,14 +2,14 @@
 
 ANVAYA UI V2 — FEATURE BRANCH READY FOR INTEGRATION: NO
 
-The UI implementation and its focused gates pass. The existing strict architecture gate remains blocked by four missing external Learning Studio pilot fixtures. Do not waive or relabel that gate. PR #26 stays draft; no merge, deployment, production authority certification or real data edits occurred.
+The UI implementation and its focused gates pass. The existing strict architecture gate remains blocked by four external Learning Studio tests whose recovered-pilot/bad-V3 packages are absent. Do not waive or relabel that gate. PR #26 stays draft; no merge, deployment, production authority certification or real data edits occurred.
 
 ## Exact tested source
 
 - Published source: `b19ead6d280c9098b53a637222235407ed28889d`; tree `721e365c2e18261451334f51978e1254dba71ca5`.
 - Verified main/base: `ce2e4e06175f76778f114a85f7552160aeb08a99` (unchanged when checked on 19 October 2026).
 - PR synthetic merge: `3e035c1702700cef670d548c52a53443a46fe02b`; **same tree** `721e365c2e18261451334f51978e1254dba71ca5`. PR and push workflows therefore used identical tracked bytes.
-- This acceptance update changes reports and synthetic screenshot evidence only. The runtime and test sources remain identical to the source above. The final branch head and subsequent workflow outcomes are recorded in PR #26 and the downloadable acceptance-results.json; the counts below refer specifically to the completed runs linked here.
+- The report/screenshot head bcee8f0b311c3719cfb605e0b31e730d889efb12 preserved the runtime and test sources above. A later test-only clock repair is described below; application code is still unchanged. The final branch head and its rerun outcomes are recorded in PR #26 and downloadable acceptance-results.json. Counts in the table refer specifically to the linked completed b19-source runs.
 
 ## Completed hosted outcomes
 
@@ -39,3 +39,13 @@ The external recovered pilot and bad V3 source are absent. No real-source import
 Local full run: 2501 passed, 4 explicit skips in 412.41s. Final UI/contract selection: 112 passed, zero skips in 78.15s. Independent protected browser:14 passed; source/sanitizer:60 passed; repaired interaction selection:7 passed; revised Home/launcher fixture selection:6 passed. These selections overlap and must not be summed as distinct product coverage. The archive retains JUnit, logs, manifests and review notes.
 
 The focused browser matrix covers nine redesigned surfaces at 320, 360, 390, 768, 1024, 1366, 1536 and 1920px, plus seven actual protected surfaces at 390/1366. Hosted jobs install pinned dependencies and Chromium in disposable Ubuntu/Windows environments. No manual Windows setup is required. Physical-device Safari and full assistive-technology audits remain unperformed.
+
+## Later Windows timing failure and test-only repair
+
+At report/screenshot head `bcee8f0b311c3719cfb605e0b31e730d889efb12`, [architecture run39185292133](https://github.com/anandpriyadarsi/Personal--AI--Learning-Chatbot/actions/runs/39185292133) retained full2501 passes/four external skips on both platforms. Ubuntu headless43 passed, but Windows headless had42 passes/one failure: `test_active_attempt_reopens_after_real_server_restart_with_authoritative_timer` sampled29 seconds after expecting the initial30, then counted down to25 while the assertion retried. Authoritative server expiry/remaining30 and restored-answer checks had passed. This actual failed run is retained in the archive, not replaced by a passing historical result.
+
+The unchanged main test mixed a frozen server fixture clock with an advancing browser monotonic clock. A disposable diagnostic delaying the resumed Page.goto return by1.2 seconds reproduces the failure locally. The test-only repair installs/pauses Playwright's browser clock before resumed navigation, retaining every original saved-response, exact30, expiry and database-dump/static-CSS purity assertion. After that purity check, it revisits the resumed page, advances both fixture/browser clocks by2 seconds, and requires exact browser28, server28 and unchanged expiry. Independent engineering review accepted this ordering; advancing before the purity check was rejected because the existing beforeunload heartbeat correctly records accrued focus.
+
+No Assessment application code, timing policy, scoring, routes, or records changed. No assertion was removed, tolerance widened, skip introduced or retry added. Playwright1.51 was already pinned. The delayed original fails and the repaired case passes; the complete focused/full/hosted rerun outcomes for the final source belong to PR #26 and acceptance-results.json.
+
+Post-repair local verification: full2501 passed/four explicit external skips in404.13s; the UI workflow's expanded focused selection107 passed/zero skips in75.61s; complete architecture headless43 passed/zero skips in57.31s. Artifact-enabled timer capture passed in2.27s. The owned UI workflow adds this existing timer case to its zero-skip selection; no test selection was removed. Final hosted source/results remain governed by the actual PR/artifact records.

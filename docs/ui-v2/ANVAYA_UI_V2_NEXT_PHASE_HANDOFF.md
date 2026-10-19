@@ -3,7 +3,7 @@
 ANVAYA UI V2 — FEATURE BRANCH READY FOR INTEGRATION: NO
 
 PR: https://github.com/anandpriyadarsi/Personal--AI--Learning-Chatbot/pull/26 (draft). Branch: `feature/anvaya-ui-v2-home-obsidian-workspaces`.
-Verified integration base: `ce2e4e06175f76778f114a85f7552160aeb08a99`. Runtime-tested source: `b19ead6d280c9098b53a637222235407ed28889d`, tree `721e365c2e18261451334f51978e1254dba71ca5`. The final report/screenshot commit preserves those runtime and test bytes. See CROSS_PLATFORM_ACCEPTANCE for completed exact-source runs and PR #26 for final-head outcomes.
+Verified integration base: `ce2e4e06175f76778f114a85f7552160aeb08a99`. Runtime-tested source: `b19ead6d280c9098b53a637222235407ed28889d`, tree `721e365c2e18261451334f51978e1254dba71ca5`. The report/screenshot commit bcee8f0 preserves those runtime/test bytes. A subsequent test-only deterministic browser-clock repair addresses the inherited Windows timer sampling race; runtime bytes remain unchanged. See CROSS_PLATFORM_ACCEPTANCE for completed exact-source runs and PR #26 for final-head outcomes.
 
 ## Delivered and deferred
 
@@ -14,7 +14,7 @@ Home, Obsidian vault/reader, personal Notes library/reader/editor and Knowledge 
 1. Keep this PR draft until the existing strict architecture gate is resolved by its validation owner. Both hosted platforms report no failing tests but four absent external Learning pilot fixtures. Do not disable the zero-skip gate or copy private fixtures to GitHub. UI browser106/full2501+4skip and Assessment455Python+24Node already pass on both platforms for the tested source above.
 2. Fetch current main and the branch and compare the new main SHA with `ce2e4e06175f76778f114a85f7552160aeb08a99`. Main was unchanged on 19 October. Planning V2.1 and automatic WAL snapshot work are already included in that base; no competing Planning branch was merged here. Reconcile any later Planning changes with their owner, preserving their templates/services and academic authority rules.
 3. Learning Studio visual PR #20 remains open and separate at `10cf1b0ef34049f0633f5b8da396f8f8eb630794`. Do not merge it as a convenience. Its recorded shared app.css/base additions must survive eventual integration. Our app.css/app.js are unchanged; base.html adds empty extension blocks and workspace_base.html supplies opt-in assets/search/nav. Reconcile these additive base blocks explicitly rather than replacing either shell.
-4. Review the diff and before/after evidence. Confirm no product routes/services/schema/data changes, scoped CSS only, explicit form actions, and separate personal/vault Notes authorities. Retain the test-only installed-launcher backup-path fixture repair and its original integrity assertions.
+4. Review the diff and before/after evidence. Confirm no product routes/services/schema/data changes, scoped CSS only, explicit form actions, and separate personal/vault Notes authorities. Retain the test-only installed-launcher backup-path fixture repair and its original integrity assertions. Also retain the browser-clock repair in test_architecture_live_browser.py: every original timer/persistence/static-GET assertion stays, with added synchronized two-second countdown checks. It changes no Assessment product code.
 5. After any actual integration/rebase changes, rerun the focused Chromium zero-skip gate, full suite, protected browser controls and Assessment preservation on Ubuntu and Windows. Require actual results for the intended integration source. Main merge and deployment need a later explicit user instruction.
 
 ## Reproduction and rollback

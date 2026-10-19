@@ -61,7 +61,7 @@ jobs:
           import os, pathlib, subprocess, sys, xml.etree.ElementTree as ET
           out = pathlib.Path(os.environ['ANVAYA_UI_V2_OUTPUT'])
           with (out / 'browser.log').open('w', encoding='utf-8') as stream:
-              result = subprocess.call([sys.executable, '-m', 'pytest', '-q', 'tests/test_ui_v2_browser.py', 'tests/test_ui_v2_protected_browser.py', '--junitxml=' + str(out / 'browser.xml')], stdout=stream, stderr=subprocess.STDOUT)
+              result = subprocess.call([sys.executable, '-m', 'pytest', '-q', 'tests/test_ui_v2_browser.py', 'tests/test_ui_v2_protected_browser.py', 'tests/test_architecture_live_browser.py::test_active_attempt_reopens_after_real_server_restart_with_authoritative_timer', '--junitxml=' + str(out / 'browser.xml')], stdout=stream, stderr=subprocess.STDOUT)
           print((out / 'browser.log').read_text(encoding='utf-8'))
           if result: sys.exit(result)
           cases = ET.parse(out / 'browser.xml').findall('.//testcase')

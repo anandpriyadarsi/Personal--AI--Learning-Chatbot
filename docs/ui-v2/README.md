@@ -2,7 +2,7 @@
 
 **ANVAYA UI V2 — FEATURE BRANCH READY FOR INTEGRATION: NO.** UI and Assessment checks pass on Ubuntu and Windows. The existing strict architecture gate is blocked by four absent external Learning pilot fixtures; this gate remains intact. No merge or deployment.
 
-Runtime-tested source `b19ead6d280c9098b53a637222235407ed28889d`; base `ce2e4e06175f76778f114a85f7552160aeb08a99`. The report/screenshot handoff changes no runtime or test source. Exact counts and run URLs are in [cross-platform acceptance](ANVAYA_UI_V2_CROSS_PLATFORM_ACCEPTANCE.md); the final branch SHA and latest CI are recorded in [draft PR #26](https://github.com/anandpriyadarsi/Personal--AI--Learning-Chatbot/pull/26).
+Runtime-tested source `b19ead6d280c9098b53a637222235407ed28889d`; base `ce2e4e06175f76778f114a85f7552160aeb08a99`. The report/screenshot handoff changed no runtime/test source; a subsequent test-only clock repair makes the inherited Windows restart-timer assertion deterministic and adds explicit elapsed-countdown coverage. Application source remains identical. Exact counts and run URLs are in [cross-platform acceptance](ANVAYA_UI_V2_CROSS_PLATFORM_ACCEPTANCE.md); the final branch SHA and latest CI are recorded in [draft PR #26](https://github.com/anandpriyadarsi/Personal--AI--Learning-Chatbot/pull/26).
 
 ## Actual browser before and after
 
