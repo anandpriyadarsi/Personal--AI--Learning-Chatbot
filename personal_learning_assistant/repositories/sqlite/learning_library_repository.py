@@ -56,7 +56,19 @@ class LearningLibraryRepository:
     def _read(self):
         con = None
         try:
-            if not self.database_path.is_file() or self.database_path.is_symlink():
+            source = self.database_path.absolute()
+            # Reject aliases to private or changing SQLite files before opening.
+            # Junction rejection is necessary on Windows as well as POSIX symlinks.
+            if (not source.is_file() or any(
+                    path.is_symlink() or getattr(path, 'is_junction', lambda: False)()
+                    for path in (source, *source.parents))):
+                raise LibraryUnavailableError('Library is temporarily unavailable')
+            # A DELETE-header database can still have sidecars from interrupted
+            # operations. Never let a Library GET create or reconcile those files.
+            if self.wal_snapshot_provider is None and any(
+                    Path(str(source) + suffix).exists() or
+                    Path(str(source) + suffix).is_symlink()
+                    for suffix in ('-wal', '-shm', '-journal')):
                 raise LibraryUnavailableError('Library is temporarily unavailable')
             # Live WAL query-only SQLite still touches the shared-memory index.
             # Reuse the validated Planning/Analysis owner snapshot instead.
