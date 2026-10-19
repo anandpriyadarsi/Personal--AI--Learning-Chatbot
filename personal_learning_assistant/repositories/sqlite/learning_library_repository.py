@@ -63,6 +63,14 @@ class LearningLibraryRepository:
         self.wal_snapshot_provider = wal_snapshot_provider
 
     @staticmethod
+    def _file_stamp(info):
+        # CPython 3.12 Windows path stat uses creation time for st_ctime,
+        # while fstat uses the actual change time. Compare their shared birth
+        # time when exposed; retain the handle's change-time check separately.
+        identity_time = getattr(info, 'st_birthtime_ns', info.st_ctime_ns)
+        return (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, identity_time)
+
+    @staticmethod
     def _source_stamp(source):
         if any(path.is_symlink() or getattr(path, 'is_junction', lambda: False)()
                for path in (source, *source.parents)):
@@ -70,7 +78,7 @@ class LearningLibraryRepository:
         info = source.stat()
         if not stat.S_ISREG(info.st_mode):
             raise LibraryUnavailableError('Library is temporarily unavailable')
-        return (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+        return LearningLibraryRepository._file_stamp(info)
 
     @staticmethod
     def _refuse_sidecars(source):
@@ -87,14 +95,16 @@ class LearningLibraryRepository:
             raise LibraryUnavailableError('Library source exceeds the safe snapshot bounds')
         with source.open('rb') as stream:
             info = os.fstat(stream.fileno())
-            opened = (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+            opened = self._file_stamp(info)
+            opened_change_time = info.st_ctime_ns
             if not stat.S_ISREG(info.st_mode) or opened != before:
                 raise LibraryUnavailableError('Library source changed; retry')
             payload = stream.read(MAX_SNAPSHOT_BYTES + 1)
             info = os.fstat(stream.fileno())
-            after = (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+            after = self._file_stamp(info)
+            handle_changed = info.st_ctime_ns != opened_change_time
         self._refuse_sidecars(source)
-        if (before != after or before != self._source_stamp(source)
+        if (handle_changed or before != after or before != self._source_stamp(source)
                 or len(payload) != before[2] or not payload.startswith(SQLITE_HEADER)
                 or payload[18:20] != bytes((1, 1))):
             raise LibraryUnavailableError('Library source changed or requires an owner snapshot')

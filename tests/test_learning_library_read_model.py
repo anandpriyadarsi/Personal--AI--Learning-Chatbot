@@ -154,6 +154,35 @@ def test_source_change_during_capture_fails_closed(library_db, monkeypatch):
         service(library_db).list_items(query())
 
 
+@pytest.mark.parametrize('descriptor_changed', [False, True])
+def test_windows_birthtime_and_handle_change_time_are_checked_separately(library_db, monkeypatch, descriptor_changed):
+    from pathlib import Path
+    from types import SimpleNamespace
+    from personal_learning_assistant.services.learning_library_service import LibraryUnavailableError
+    import os
+    actual_stat, actual_fstat = Path.stat, os.fstat
+    birth = actual_stat(library_db).st_ctime_ns - 1_000_000_000
+    reads = []
+    def proxy(info, **changes):
+        fields = {key: getattr(info, key) for key in dir(info) if key.startswith('st_')}
+        return SimpleNamespace(**(fields | {'st_birthtime_ns': birth} | changes))
+    def path_stat(path, *args, **kwargs):
+        info = actual_stat(path, *args, **kwargs)
+        return proxy(info, st_ctime_ns=birth) if path == library_db else info
+    def handle_stat(fd):
+        info = actual_fstat(fd)
+        reads.append(fd)
+        change = int(descriptor_changed and len(reads) > 1)
+        return proxy(info, st_ctime_ns=info.st_ctime_ns + change)
+    monkeypatch.setattr(Path, 'stat', path_stat)
+    monkeypatch.setattr(os, 'fstat', handle_stat)
+    if descriptor_changed:
+        with pytest.raises(LibraryUnavailableError):
+            service(library_db).list_items(query())
+    else:
+        assert service(library_db).list_items(query()).total == 3
+
+
 @pytest.mark.parametrize('suffix', ['?access_token=public/PRIVATE_SECRET', '#token=public/PRIVATE_SECRET'])
 def test_document_title_discards_credentials_before_basename(library_db, suffix):
     with sqlite3.connect(library_db) as con:
