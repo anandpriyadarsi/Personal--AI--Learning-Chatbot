@@ -19,6 +19,7 @@ Spec: user-provided UI V2 redesign brief (kept private). Execution: implementati
 - [x] U4 separate My Notes/vault labels; cards/readers/editor and knowledge source hierarchy; route/form/empty state checks.
 - [x] U5 selected Courses/Resources refinements; Calendar/Tutor internals deferred.
 - [x] U6 independent engineering + screenshot UX reviews, important finding fixes.
-- [ ] U7 full pytest/Node checks, Ubuntu/Windows workflow, push draft PR, exact outcomes and evidence archive.
+- [x] U7 implementation acceptance work executed: full pytest/Node checks, Ubuntu/Windows UI and Assessment workflows, pushed draft PR, exact outcomes and visual evidence archive.
+- [ ] Integration readiness BLOCKED: strict architecture zero-skip gate requires missing external Learning pilot evidence; do not waive it.
 
-U6 closure: separate engineering and UX reviewers accepted the repaired priority surfaces; no unresolved Critical/Important findings. Protected gate14 passes. No-JS/search/form purity checks preserve separate stores. U7 remains governed by actual hosted results, never inferred from local tests.
+U6 closure: separate engineering and UX reviewers accepted the repaired priority surfaces; no unresolved Critical/Important findings. Protected gate14 passes. No-JS/search/form purity checks preserve separate stores. U7 hosted UI/Assessment gates now pass on both platforms; the strict architecture aggregate fails only because its full-suite category is BLOCKED by four missing external pilot fixtures. Exact-source outcomes are in CROSS_PLATFORM_ACCEPTANCE. Integration remains NO; no merge/deployment.

@@ -1,6 +1,6 @@
 # Visual QA matrix and evidence index
 
-The evidence archive contains before/after manifests, actual PNGs, paired desktop/mobile captures, additional responsive proofs, protected-page screenshots, JUnit, logs and independent reviews. The paired corpus is nine surfaces at 390×844 and 1366×768: 18 before + 18 after. Both manifests report all HTTP200, zero page overflow and zero page errors. Current interactive responsive tests additionally cover 320/360/768/1024/1536/1920. These checks do not certify physical devices or every assistive technology.
+A compact set of original before/after images is committed in [the evidence index](README.md), so visual proof remains accessible independently of the archive. The evidence archive contains before/after manifests, actual PNGs, paired desktop/mobile captures, additional responsive proofs, protected-page screenshots, JUnit, logs and independent reviews. The paired corpus is nine surfaces at 390×844 and 1366×768: 18 before + 18 after. Both manifests report all HTTP200, zero page overflow and zero page errors. Current interactive responsive tests additionally cover 320/360/768/1024/1536/1920. These checks do not certify physical devices or every assistive technology.
 
 | Page | Before defect | Implemented change | File ownership | Browser proof | Reviewer disposition | Status |
 |---|---|---|---|---|---|---|
