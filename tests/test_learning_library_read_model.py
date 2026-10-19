@@ -213,3 +213,29 @@ def test_sort_uses_timestamp_then_case_insensitive_display_title_then_id(library
         con.execute("UPDATE knowledge_documents SET updated_at='2026-09-30' WHERE id='d0'")
     assert [i.key for i in service(library_db).list_items(query()).items] == [
         'document:d0', 'resource:r1', 'resource:r2']
+
+
+@pytest.mark.parametrize('suffix', ['-wal', '-shm', '-journal'])
+def test_unexpected_sqlite_sidecar_is_refused_without_modification(library_db, suffix):
+    from pathlib import Path
+    from personal_learning_assistant.services.learning_library_service import LibraryUnavailableError
+    sidecar = Path(str(library_db) + suffix)
+    sidecar.write_bytes(b'unchanged synthetic sidecar')
+    initial = (library_db.read_bytes(), sidecar.read_bytes())
+    with pytest.raises(LibraryUnavailableError):
+        service(library_db).list_items(query())
+    assert (library_db.read_bytes(), sidecar.read_bytes()) == initial
+
+
+def test_parent_path_alias_is_refused_before_sqlite_open(library_db, monkeypatch):
+    from pathlib import Path
+    from personal_learning_assistant.services.learning_library_service import LibraryUnavailableError
+    parent = library_db.absolute().parent
+    original_is_symlink = Path.is_symlink
+
+    def simulated_alias(path):
+        return path == parent or original_is_symlink(path)
+
+    monkeypatch.setattr(Path, 'is_symlink', simulated_alias)
+    with pytest.raises(LibraryUnavailableError):
+        service(library_db).list_items(query())
