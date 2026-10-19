@@ -56,6 +56,8 @@ def test_unavailable_503_empty_and_no_matches_are_different(library_db, tmp_path
     assert not missing.parent.exists()
     empty = tmp_path / 'empty.db'
     apply_migrations(empty)
+    with sqlite3.connect(empty) as con:
+        con.execute('PRAGMA journal_mode=DELETE')
     assert 'No registered material yet' in client(empty).get('/library').get_data(as_text=True)
     assert 'No matching material' in client(library_db).get('/library?course_id=absent').get_data(as_text=True)
 
