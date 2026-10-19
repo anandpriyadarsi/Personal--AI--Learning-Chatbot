@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block workspace_assets %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/workspace_v2.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/workspace_sources.css') }}">
+<script defer src="{{ url_for('static', filename='js/workspace_v2.js') }}"></script>
+{% endblock %}
+{% block body_class %}workspace-v2{% endblock %}
+{% block sidebar_contents %}
+<nav class="primary-nav" aria-label="Primary navigation">
+{% for label, links in [
+  ('Workspace', [('home','web.home','Home'),('learning','learning.library','Learning Studio'),('assessments','web.assessments','Assessments'),('agent','web.academic_agent','Tutor')]),
+  ('Library', [('notes','web.notes','My Notes'),('obsidian','web.obsidian','Obsidian'),('knowledge','web.knowledge','Knowledge'),('resources','web.resources','Resources')]),
+  ('Academics', [('planning','web.planning','Planning'),('analysis','web.analysis','Analysis'),('courses','web.courses','Courses'),('calendar','web.calendar','Calendar')])
+] %}
+<div class="nav-section">
+<p class="nav-section-label">{{ label }}</p>
+{% for key, endpoint, title in links %}
+<a class="nav-item{% if active_page == key %} is-active{% endif %}" href="{{ url_for(endpoint) }}"{% if active_page == key %} aria-current="page"{% endif %}><span>{{ title }}</span>{% if active_page == key %}<span aria-hidden="true">•</span>{% endif %}</a>
+{% endfor %}
+</div>
+{% endfor %}
+<details class="nav-more"><summary class="nav-more-summary">Coming later</summary><div class="nav-more-items">
+{% for title in ['Progress','Grades','Settings'] %}<span class="nav-item is-disabled" aria-disabled="true">{{ title }} <span class="nav-status">Soon</span></span>{% endfor %}
+</div></details>
+</nav>
+{% endblock %}
+
+{% block workspace_fallback_nav %}
+<noscript><details class="ws-fallback-nav"><summary>Navigate your workspace</summary><nav aria-label="Workspace navigation without JavaScript">
+{% for endpoint, title in [('web.home','Home'),('learning.library','Learning Studio'),('web.assessments','Assessments'),('web.notes','My Notes'),('web.obsidian','Obsidian'),('web.knowledge','Knowledge'),('web.planning','Planning'),('web.analysis','Analysis'),('web.academic_agent','Tutor'),('web.resources','Resources'),('web.courses','Courses'),('web.calendar','Calendar')] %}<a href="{{ url_for(endpoint) }}">{{ title }}</a>{% endfor %}
+</nav></details></noscript>
+{% endblock %}
+
+{% block global_search %}
+          <form class="global-search" role="search" method="get" action="{{ url_for('web.knowledge') }}">
+            <label class="visually-hidden" for="global-study-search">Search learning material</label>
+            <input
+              id="global-study-search"
+              name="q"
+              type="search"
+              maxlength="500"
+              placeholder="Search learning material"
+              data-search-url="{{ url_for('web.knowledge') }}"
+              aria-label="Search learning material"
+            >
+          </form>
+{% endblock %}

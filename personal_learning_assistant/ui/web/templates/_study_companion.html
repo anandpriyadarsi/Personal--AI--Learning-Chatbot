@@ -40,7 +40,8 @@
     {% else %}<p class="empty-state">No saved {{ title|lower }} yet.</p>{% endif %}
     <form method="post" action="{{ url_for('web.knowledge_companion_add', document_id=item.document_id, entry_type=entry_type) }}">
       <input type="hidden" name="version_hash" value="{{ item.version_hash }}">
-      <textarea name="entry_text" rows="3" maxlength="4000" required></textarea>
+      <label for="knowledge-entry-{{ entry_type }}">Add {{ title|lower }}</label>
+      <textarea id="knowledge-entry-{{ entry_type }}" name="entry_text" rows="3" maxlength="4000" required></textarea>
       <button class="button compact-button" type="submit">Save {{ title[:-1]|lower if title.endswith('s') else title|lower }}</button>
     </form>
   </section>

@@ -11,12 +11,12 @@
     <button id="notes-study-tools-close" class="notes-study-tools-close" type="button" aria-label="Close Study Tools">×</button>
   </header>
 
-  <div class="notes-study-tools-tabs">
-    <button class="is-active" type="button" data-study-tab="saved">Saved notes <span>{{ note_companion.saved_count }}</span></button>
-    <button type="button" data-study-tab="doubts">Doubts <span>{{ note_companion.doubt_count }}</span></button>
+  <div class="notes-study-tools-tabs" role="tablist" aria-label="Note companion sections">
+    <button id="personal-tab-saved" class="is-active" type="button" role="tab" aria-selected="true" aria-controls="personal-panel-saved" data-study-tab="saved">Saved notes <span>{{ note_companion.saved_count }}</span></button>
+    <button id="personal-tab-doubts" type="button" role="tab" aria-selected="false" aria-controls="personal-panel-doubts" data-study-tab="doubts">Doubts <span>{{ note_companion.doubt_count }}</span></button>
   </div>
 
-  <section class="notes-study-tools-panel is-active" data-study-panel="saved">
+  <section id="personal-panel-saved" class="notes-study-tools-panel is-active" role="tabpanel" aria-labelledby="personal-tab-saved" data-study-panel="saved">
     {% for entry in note_companion.saved_notes %}
     <article class="notes-study-entry">
       <p>{{ entry.text }}</p><small>{{ entry.created_label }}</small>
@@ -32,7 +32,7 @@
     </form>
   </section>
 
-  <section class="notes-study-tools-panel" data-study-panel="doubts" hidden>
+  <section id="personal-panel-doubts" class="notes-study-tools-panel" role="tabpanel" aria-labelledby="personal-tab-doubts" data-study-panel="doubts" hidden>
     {% for entry in note_companion.doubts %}
     <article class="notes-study-entry">
       <p>{{ entry.text }}</p><small>{{ entry.created_label }}</small>

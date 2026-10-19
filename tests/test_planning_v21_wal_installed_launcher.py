@@ -180,6 +180,11 @@ def test_default_assessment_enabled_startup_preserves_academics_with_backup_firs
     path, writer = _wal_fixture(tmp_path)
     writer.close()  # Installation activation owns the database before server startup.
     monkeypatch.setattr(installed_config, 'BACKUP_PATH', tmp_path / 'backups')
+    # Import-isolation tests deliberately reload config. Activation may retain
+    # the earlier module object; patch its actual dependency too so backups
+    # remain inside this test's disposable directory in the full suite.
+    from personal_learning_assistant.services import assessment_activation
+    monkeypatch.setattr(assessment_activation.config, 'BACKUP_PATH', tmp_path / 'backups')
     with sqlite3.connect(path) as connection:
         original_courses = connection.execute(
             'SELECT id,code,name FROM courses ORDER BY id'

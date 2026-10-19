@@ -1,160 +1,60 @@
-{% extends "base.html" %}
-
-{% block title %}Home · Personal AI Learning Assistant{% endblock %}
-
+{% extends "workspace_base.html" %}
+{% block title %}Home · ANVAYA{% endblock %}
 {% block content %}
-<section class="home-command-center" aria-labelledby="home-heading">
-  <div class="home-command-heading">
-    <div>
-      <p class="eyebrow">ANVAYA</p>
-      <h2 id="home-heading">What do you want to work on?</h2>
-      <p class="lede">Ask a question, open a study workspace, or continue with the academic item that needs your attention most.</p>
-    </div>
-    {% if dashboard.date %}
-      <p class="date-chip" aria-label="Academic brief date">{{ dashboard.date }}</p>
-    {% endif %}
-  </div>
-
-  <a class="anvaya-launch" href="{{ url_for('web.academic_agent') }}">
-    <span class="anvaya-launch-copy">
-      <strong class="anvaya-launch-title">Open ANVAYA Tutor</strong>
-      <span class="anvaya-launch-prompt">Ask questions, explain concepts, or continue a study conversation.</span>
-    </span>
-    <span class="anvaya-launch-action">Open Tutor <span aria-hidden="true">→</span></span>
-  </a>
-
-  <div class="quick-actions" aria-label="Quick academic actions">
-    <a class="quick-action" href="{{ url_for('web.notes') }}">Notes</a>
-    <a class="quick-action" href="{{ url_for('web.planning_tasks') }}">+ Task</a>
-    <a class="quick-action" href="{{ url_for('web.resources') }}">Resources</a>
-    <a class="quick-action" href="{{ url_for('web.assessments') }}">Assessments</a>
-    <a class="quick-action" href="{{ url_for('web.planning') }}">Planning</a>
-    <a class="quick-action" href="{{ url_for('web.knowledge') }}">Search knowledge</a>
-    <a class="quick-action" href="{{ url_for('web.analysis') }}">Check your analysis</a>
-  </div>
-</section>
-
-{% include "_home_operational_today.html" %}
-
-{% if not dashboard.available %}
-<section class="notice-panel" role="status" aria-live="polite">
-  <h3>Academic brief temporarily unavailable</h3>
-  <p>{{ dashboard.message }}</p>
-</section>
-{% else %}
-<section class="action-panel home-next-action" aria-labelledby="best-next-heading">
-  <div class="home-next-copy">
-    <p class="eyebrow">ANVAYA recommends</p>
-    <h3 id="best-next-heading">
-      {% if dashboard.best_next_action %}
-        {{ dashboard.best_next_action.title }}
-      {% else %}
-        No urgent action detected
-      {% endif %}
-    </h3>
-    <p>
-      {% if dashboard.best_next_action %}
-        {{ dashboard.best_next_action.reason }}
-      {% else %}
-        Use the available time for revision, projects, or rest.
-      {% endif %}
-    </p>
-  </div>
-  <div class="home-next-actions">
-    <a class="button" href="{{ url_for('web.academic_agent') }}">Ask ANVAYA</a>
-    <a class="button button-secondary" href="{{ url_for('web.planning') }}">Open planning</a>
-  </div>
-</section>
-
-<div class="home-section-heading">
-  <div>
-    <p class="eyebrow">Today</p>
-    <h3>Today at a glance</h3>
-  </div>
-</div>
-
-<section class="metric-grid home-summary" aria-label="Operational summary">
-  <article class="metric-card">
-    <span class="metric-label">Urgent deadlines</span>
-    <strong>{{ dashboard.summary.urgent_deadlines }}</strong>
-    <span>near-term</span>
-  </article>
-  <article class="metric-card">
-    <span class="metric-label">Study blocks</span>
-    <strong>{{ dashboard.summary.scheduled_minutes }} min</strong>
-    <span>scheduled today</span>
-  </article>
-  <article class="metric-card home-analysis-card">
-    <span class="metric-label">Analysis</span>
-    <strong>On demand</strong>
-    <span>Priority, risk and study-pattern details stay hidden until you open them.</span>
-    <a class="micro-link" href="{{ url_for('web.analysis') }}">Check your analysis →</a>
-  </article>
-</section>
-
-<div class="dashboard-grid home-detail-grid">
-  <section class="dashboard-panel" aria-labelledby="deadlines-heading">
-    <div class="panel-heading">
-      <div>
-        <p class="eyebrow">Near term</p>
-        <h3 id="deadlines-heading">Deadline alerts</h3>
-      </div>
-      <span class="count-badge">{{ dashboard.deadlines|length }}</span>
-    </div>
-    {% if dashboard.deadlines %}
-      <ul class="dashboard-list">
-        {% for item in dashboard.deadlines %}
-        <li>
-          <div class="list-main">
-            <strong>{{ item.course_code }} · {{ item.title }}</strong>
-            <span>{{ item.due_label }}</span>
-          </div>
-          {% if item.weightage_percent is not none %}
-            <span class="tag">{{ '%g'|format(item.weightage_percent) }}% weight</span>
-          {% endif %}
-        </li>
-        {% endfor %}
-      </ul>
+<header class="ws-header" aria-labelledby="home-heading">
+  <div><p class="eyebrow">Your academic workspace</p><h1 id="home-heading">A little clarity. A good next step.</h1><p class="lede">Your study material and the work ahead, in one place.</p></div>
+  {% if dashboard.date %}<time class="ws-date" datetime="{{ dashboard.date }}">{{ dashboard.date }}</time>{% endif %}
+</header>
+<div class="ws-home-grid">
+  <section class="ws-focus" aria-labelledby="best-next-heading">
+    <p class="eyebrow">Start here</p>
+    {% if dashboard.available and dashboard.best_next_action %}
+    <h2 id="best-next-heading">{{ dashboard.best_next_action.title }}</h2>
+    <p>{{ dashboard.best_next_action.reason }}</p>
+    <div class="ws-actions"><a class="button" href="{{ url_for('web.planning') }}">Open planning <span aria-hidden="true">→</span></a><a class="button secondary-button" href="{{ url_for('web.academic_agent') }}">Ask ANVAYA</a></div>
+    <p class="ws-basis">ANVAYA recommends · Provisional suggestion from the existing academic brief. Review it against your current plan.</p>
+    {% elif dashboard.available %}
+    <h2 id="best-next-heading">Choose what to learn next.</h2><p>No urgent action detected. Open your learning material or make room for revision, projects, or rest.</p>
+    <div class="ws-actions"><a class="button" href="{{ url_for('learning.library') }}">Open Learning Studio <span aria-hidden="true">→</span></a><a class="button secondary-button" href="{{ url_for('web.planning') }}">Open planning</a></div>
     {% else %}
-      <p class="empty-state">No assessment is due within the urgent window.</p>
+    <h2 id="best-next-heading">Your workspace is ready.</h2><p>Academic brief temporarily unavailable. {{ dashboard.message }}</p>
+    <div class="ws-actions"><a class="button" href="{{ url_for('learning.library') }}">Open Learning Studio <span aria-hidden="true">→</span></a></div>
     {% endif %}
   </section>
-
-  <section class="dashboard-panel" aria-labelledby="blocks-heading">
-    <div class="panel-heading">
-      <div>
-        <p class="eyebrow">Today</p>
-        <h3 id="blocks-heading">Study blocks</h3>
-      </div>
-      <span class="count-badge">{{ dashboard.study_blocks|length }}</span>
+  <aside class="ws-day" aria-labelledby="day-heading">
+    <div class="ws-day-head"><p class="eyebrow">Today</p><h2 id="day-heading">Today at a glance</h2></div>
+    {% if dashboard.available %}
+    <section aria-labelledby="deadlines-heading"><h3 id="deadlines-heading">Deadline alerts <span class="tag">{{ dashboard.summary.urgent_deadlines }} urgent</span></h3>
+      <span class="visually-hidden">Urgent deadlines</span>
+      {% if dashboard.deadlines %}<ul class="ws-agenda">{% for item in dashboard.deadlines %}<li><div><small class="ws-course">{{ item.course_code }}</small><strong>{{ item.title }}</strong><small>{{ item.due_label }}{% if item.weightage_percent is not none %} · {{ '%g'|format(item.weightage_percent) }}% weight{% endif %}</small></div></li>{% endfor %}</ul>
+      {% else %}<p class="empty-state">No assessment is due within the urgent window.</p>{% endif %}
+    </section>
+    <section aria-labelledby="blocks-heading"><h3 id="blocks-heading">Study blocks <span class="tag">{{ dashboard.summary.scheduled_minutes }} min</span></h3>
+      {% if dashboard.study_blocks %}<ul class="ws-agenda">{% for block in dashboard.study_blocks %}<li><div><small class="ws-course">{{ block.course_code }}</small><strong>{{ block.title }}</strong><small>{{ block.label }} · {{ block.due_label }}</small></div><span class="ws-minutes">{{ block.minutes }} min</span></li>{% endfor %}</ul>
+      {% else %}<p class="empty-state">No deadline-based study block is required today.</p>{% endif %}
+    </section>
+    {% else %}<section><p class="empty-state">Deadline and study-block information is unavailable. Open Planning to check your saved work.</p><a href="{{ url_for('web.planning') }}">Open planning →</a></section>{% endif %}
+  </aside>
+  <section class="ws-home-library" aria-labelledby="workspaces-heading">
+    <div class="ws-section-heading"><h2 id="workspaces-heading">Your study spaces</h2><p>Pick up where you need to</p></div>
+    <div class="ws-destinations">
+      {% for endpoint, icon, name, description in [
+      ('learning.library','▤','Learning Studio','Read a lesson, practise and revisit ideas.'),
+      ('web.assessments','✓','Assessments','Open a test or resume a saved attempt.'),
+      ('web.notes','✎','My Notes','Your own explanations and handwritten pages.'),
+      ('web.obsidian','◇','Obsidian','Explore your connected Markdown vault.'),
+      ('web.knowledge','⌕','Knowledge','Find evidence across your study sources.'),
+      ('web.academic_agent','↗','Open ANVAYA Tutor','Ask questions and work through concepts.')
+      ] %}<a class="ws-destination" href="{{ url_for(endpoint) }}"><span class="ws-icon" aria-hidden="true">{{ icon }}</span><span><strong>{{ name }}</strong><small>{{ description }}</small></span></a>{% endfor %}
     </div>
-    {% if dashboard.study_blocks %}
-      <ul class="dashboard-list">
-        {% for block in dashboard.study_blocks %}
-        <li>
-          <div class="list-main">
-            <strong>{{ block.course_code }} · {{ block.title }}</strong>
-            <span>{{ block.label }} · {{ block.due_label }}</span>
-          </div>
-          <span class="tag">{{ block.minutes }} min</span>
-        </li>
-        {% endfor %}
-      </ul>
-    {% else %}
-      <p class="empty-state">No deadline-based study block is required today.</p>
-    {% endif %}
-  </section>
-
-  <section class="dashboard-panel home-analysis-teaser" aria-labelledby="analysis-teaser-heading">
-    <div class="panel-heading">
-      <div>
-        <p class="eyebrow">Analysis</p>
-        <h3 id="analysis-teaser-heading">Check your analysis</h3>
-      </div>
-    </div>
-    <p class="empty-state">Detailed priorities, academic risk, study allocation and Notes patterns are available only when you open the Analysis Hub.</p>
-    <a class="button secondary-button" href="{{ url_for('web.analysis') }}">Open Analysis Hub</a>
+    <div class="ws-plan"><div><h3>Check your analysis</h3><p>Review your evidence and study patterns when you need them.</p></div><a href="{{ url_for('web.analysis') }}">Open Analysis Hub →</a></div>
   </section>
 </div>
-{% endif %}
+<section class="ws-plan" aria-labelledby="today-plan-heading">
+  <div><h3 id="today-plan-heading">Today plan</h3>
+  {% if operational_today and operational_today.available %}<p>{{ operational_today.task_summary.p0 }} P0 tasks · {{ operational_today.today_preview.summary.scheduled_focus_minutes }} min focus proposed · {{ operational_today.today_preview.summary.fixed_count }} fixed items · Review: {{ operational_today.daily_review_status|replace('_',' ') }}</p>
+  {% else %}<p>Today’s plan summary is unavailable. Open Planning to check or create your plan.</p>{% endif %}</div>
+  <a href="{% if operational_today and operational_today.available %}{{ url_for('web.planning_day', agenda_date=operational_today.today) }}{% else %}{{ url_for('web.planning') }}{% endif %}">Open Today Plan →</a>
+</section>
+<nav class="ws-utility-links" aria-label="More workspace actions"><a href="{{ url_for('web.planning_tasks') }}">+ Task</a><a href="{{ url_for('web.resources') }}">Resources</a><a href="{{ url_for('web.courses') }}">Courses &amp; topics</a></nav>
 {% endblock %}
