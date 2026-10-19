@@ -1,6 +1,6 @@
 {% extends "workspace_base.html" %}
 {% block title %}Resources · ANVAYA{% endblock %}
-{% block workspace_assets %}{{ super() }}<link rel="stylesheet" href="{{ url_for('static', filename='css/library.css') }}">{% endblock %}
+{% block workspace_assets %}{{ super() }}<link rel="stylesheet" href="{{ url_for('static', filename='css/library.css') }}"><script defer src="{{ url_for('static', filename='js/resources_v2.js') }}"></script>{% endblock %}
 {% block content %}
 <div class="ws-resources materials-workspace">
   <section class="materials-hero" aria-labelledby="resources-title">
