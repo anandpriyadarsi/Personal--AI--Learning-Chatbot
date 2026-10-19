@@ -19,14 +19,14 @@ def git(*args):
 def main():
     manifest_path = ROOT / "docs" / "maintenance" / "archive-manifest.json"
     records = json.loads(manifest_path.read_text(encoding="utf-8"))["renames"]
-    assert len(records) == 9, f"Unexpected archived report count: {len(records)}"
+    assert len(records) == 28, f"Unexpected archived report count: {len(records)}"
     unique_old = set()
     unique_new = set()
     for record in records:
         old, new, recorded_sha = record["original"], record["archive"], record["sha"]
         assert old not in unique_old and new not in unique_new, "Duplicate archive path"
         unique_old.add(old); unique_new.add(new)
-        assert old.startswith(("PHASE3_", "PHASE4_", "PHASE5_", "PHASE6_", "PHASE7_"))
+        assert old.startswith(("PHASE3_", "PHASE4_", "PHASE5_", "PHASE6_", "PHASE7_", "ANVAYA_", "ASSESSMENT_"))
         assert new.startswith("docs/archive/phase") and new.endswith("/" + old)
         assert not (ROOT / old).exists(), f"Obsolete root path still present: {old}"
         assert (ROOT / new).is_file(), f"Archived report absent: {new}"

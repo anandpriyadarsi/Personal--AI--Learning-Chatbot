@@ -12,7 +12,7 @@ The [project README](../README.md) is the entry point for setup and the current 
 
 ## Historical engineering archive
 
-- [Phases 3–6 migration, retrieval, and tutor implementation reports](archive/README.md)
+- [Historical engineering, validation, and implementation reports](archive/README.md)
 
 ## Maintenance guidance
 

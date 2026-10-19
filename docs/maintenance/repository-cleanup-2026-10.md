@@ -43,3 +43,9 @@ External bookmarks pointing at relocated report URLs are not automatically redir
 - Preserved tracked backups, sample assets, existing historical gate paths, application code, test suites and academic records. **No file was removed.**
 
 The branch may lag behind `main`. Reconcile and retest against the latest upstream commit before proposing a merge.
+
+## Second archive batch — verified candidate inventory
+
+A cross-platform hygiene inventory identified 27 additional root Markdown files with no references in tracked project text. From these, **19 clearly historical reports or superseded development prompts** were chosen for byte-identical archival. The archive manifest now contains **28 documented relocations** in total. Current authority references, canonical course catalogs, active migration gates and ambiguous specifications are deliberately not moved.
+
+These relocations are storage-neutral Git path changes; they do not erase commit history. Outside links to historical root URLs may require updating. Re-run both platform safety gates on the exact commit before accepting this batch.

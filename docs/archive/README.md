@@ -1,6 +1,6 @@
 # Historical ANVAYA engineering reports
 
-This directory contains only reports verified not to be referenced by active application sources, test modules, GitHub workflows or historical PowerShell gate scripts at cleanup time. Files are moved without changing their blob contents.
+This directory contains historical reports selected after checking for references in tracked project text. Original Git blobs are preserved exactly; a missing tracked reference does not prove a document is unimportant outside the repository. Files are moved without changing their blob contents.
 
 **Important:** 69 other report moves were reverted after automated dependency scanning found that the existing PowerShell gates refer to their original root paths. Those reports remain at the root until their callers can be updated and tested safely on Windows. See the [maintenance record](../maintenance/repository-cleanup-2026-10.md).
 
@@ -15,3 +15,44 @@ This directory contains only reports verified not to be referenced by active app
 - [PHASE3_FIX7_QUESTION_TOPIC_MAPPINGS_IMPORTER.md](phase3/PHASE3_FIX7_QUESTION_TOPIC_MAPPINGS_IMPORTER.md)
 - [PHASE3_FIX8_ATTEMPTS_PERFORMANCE_IMPORTER.md](phase3/PHASE3_FIX8_ATTEMPTS_PERFORMANCE_IMPORTER.md)
 - [PHASE3_FIX9_LEARNING_MEMORY_PROGRESS_IMPORTER.md](phase3/PHASE3_FIX9_LEARNING_MEMORY_PROGRESS_IMPORTER.md)
+
+## Additional archived documentation (October 2026)
+
+These 19 historical implementation reports, older handoff prompts and validation documents had no tracked text references in the new read-only hygiene inventory. They remain accessible here, not deleted.
+
+### assessment
+
+- [ANVAYA_ASSESSMENT_CODING_HELPER_2_VALIDATION.md](assessment/ANVAYA_ASSESSMENT_CODING_HELPER_2_VALIDATION.md)
+- [ANVAYA_ASSESSMENT_LIVE_UX_PLAN.md](assessment/ANVAYA_ASSESSMENT_LIVE_UX_PLAN.md)
+- [ASSESSMENT_RUNNER_MATH_FILLUP_IMPLEMENTATION_REPORT.md](assessment/ASSESSMENT_RUNNER_MATH_FILLUP_IMPLEMENTATION_REPORT.md)
+- [ASSESSMENT_STUDIO_AUTHORING_UX_IMPLEMENTATION_REPORT.md](assessment/ASSESSMENT_STUDIO_AUTHORING_UX_IMPLEMENTATION_REPORT.md)
+- [ASSESSMENT_STUDIO_AUTHORING_UX_REPAIR.md](assessment/ASSESSMENT_STUDIO_AUTHORING_UX_REPAIR.md)
+- [ASSESSMENT_STUDIO_BLIND_REVIEW_IMPLEMENTATION_REPORT.md](assessment/ASSESSMENT_STUDIO_BLIND_REVIEW_IMPLEMENTATION_REPORT.md)
+- [ASSESSMENT_STUDIO_BLIND_REVIEW_REPAIR.md](assessment/ASSESSMENT_STUDIO_BLIND_REVIEW_REPAIR.md)
+- [ASSESSMENT_STUDIO_NEXT_LEVEL_AUDIT.md](assessment/ASSESSMENT_STUDIO_NEXT_LEVEL_AUDIT.md)
+- [ASSESSMENT_STUDIO_NEXT_LEVEL_IMPLEMENTATION_PLAN.md](assessment/ASSESSMENT_STUDIO_NEXT_LEVEL_IMPLEMENTATION_PLAN.md)
+- [ASSESSMENT_STUDIO_SIMPLIFIED_AUTHORING_IMPLEMENTATION_REPORT.md](assessment/ASSESSMENT_STUDIO_SIMPLIFIED_AUTHORING_IMPLEMENTATION_REPORT.md)
+
+### validation
+
+- [ANVAYA_GATE_A_AUTOMATED_VALIDATION_REPORT.md](validation/ANVAYA_GATE_A_AUTOMATED_VALIDATION_REPORT.md)
+- [ANVAYA_GATE_B2_VALIDATION_REPORT.md](validation/ANVAYA_GATE_B2_VALIDATION_REPORT.md)
+
+### learning studio
+
+- [ANVAYA_LEARNING_STUDIO_V1_3_WINDOWS_QUICKSTART.md](learning_studio/ANVAYA_LEARNING_STUDIO_V1_3_WINDOWS_QUICKSTART.md)
+- [ANVAYA_LEARNING_STUDIO_V1_4_IMPLEMENTATION_REPORT.md](learning_studio/ANVAYA_LEARNING_STUDIO_V1_4_IMPLEMENTATION_REPORT.md)
+
+### topic intelligence
+
+- [ANVAYA_TOPIC_INTELLIGENCE_B1_REPORT.md](topic_intelligence/ANVAYA_TOPIC_INTELLIGENCE_B1_REPORT.md)
+- [ANVAYA_TOPIC_INTELLIGENCE_B2_READ_SAFETY_REPORT.md](topic_intelligence/ANVAYA_TOPIC_INTELLIGENCE_B2_READ_SAFETY_REPORT.md)
+
+### phase7
+
+- [PHASE7_5_12_3_LIVE_UX_FIX.md](phase7/PHASE7_5_12_3_LIVE_UX_FIX.md)
+
+### architecture
+
+- [ANVAYA_NEXT_B_IMPLEMENTATION_PROMPT.md](architecture/ANVAYA_NEXT_B_IMPLEMENTATION_PROMPT.md)
+- [ANVAYA_NEXT_WORK_IMPLEMENTATION_PROMPT.md](architecture/ANVAYA_NEXT_WORK_IMPLEMENTATION_PROMPT.md)
