@@ -60,7 +60,7 @@
           <label class="form-field form-field-full"><span>Link or path</span><input name="link" placeholder="https://… or a local reference path" autocomplete="off"></label>
         </div>
         <p class="materials-form-note">This stores a resource reference. It does not upload or import source files into the registered Library.</p>
-        <div class="form-actions"><button class="button" type="submit">Save resource</button></div>
+        <div class="form-actions"><button class="button" type="submit">Add resource</button></div>
       </form>
     </details>
 
@@ -79,7 +79,7 @@
           <li id="resource-{{ resource.position }}" class="materials-resource-card">
             <div class="materials-resource-glyph" aria-hidden="true">{{ (resource.resource_type or 'R')[:1]|upper }}</div>
             <div class="list-main materials-resource-body">
-              <div class="materials-resource-meta"><span class="materials-type">{{ resource.resource_type }}</span><span class="materials-separator" aria-hidden="true">·</span><span>#{{ resource.position }}</span><span class="materials-status materials-status-{{ resource.status|lower|replace(' ', '-') }}">{{ resource.status }}</span></div>
+              <div class="materials-resource-meta"><span class="materials-type">{{ resource.resource_type }}</span><span class="materials-separator" aria-hidden="true">·</span><span>Resource {{ resource.position }}</span><span class="materials-status materials-status-{{ resource.status|lower|replace(' ', '-') }}">{{ resource.status }}</span></div>
               <strong class="materials-resource-title">{{ resource.title }}</strong>
               {% if resource.link %}
                 {% if resource.link_url %}<a class="safe-resource-link materials-open" href="{{ resource.link_url }}" target="_blank" rel="noopener noreferrer">Open resource <span aria-hidden="true">↗</span></a>
