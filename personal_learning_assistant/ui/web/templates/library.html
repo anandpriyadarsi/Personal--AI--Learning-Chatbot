@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Library · ANVAYA{% endblock %}
+{% block page_scripts %}<link rel="stylesheet" href="{{ url_for('static', filename='css/library.css') }}">{% endblock %}
+{% block body_class %}library-page{% endblock %}
+{% block content %}
+<section class="workspace-header" aria-labelledby="library-title">
+  <div><p class="eyebrow">Learning workspace</p><h1 id="library-title">Library</h1>
+  <p class="lede">Your registered learning material, together in one place.</p></div>
+</section>
+<p class="library-coverage">This view shows registered material. <a href="{{ url_for('web.resources') }}">Existing Resources</a> remains available.<br>Extraction status is shown; retrieval availability is not checked on this page.</p>
+{% if error_message %}
+<section class="notice-panel" role="alert"><h2>{{ error_message }}</h2>
+<p>Existing workspaces are still available. Please try again later.</p></section>
+{% elif library %}
+<section class="dashboard-panel" aria-label="Filter Library">
+<form class="library-filters" method="get" action="{{ url_for('web.learning_library') }}">
+  <label class="form-field"><span>Course</span><select name="course_id">
+    <option value="">All courses</option>
+    {% if library.query.course_id and library.query.course_id not in library.courses|map(attribute='id')|list %}<option value="{{ library.query.course_id }}" selected>Selected course (unavailable)</option>{% endif %}
+    {% for course in library.courses %}<option value="{{ course.id }}"{% if library.query.course_id == course.id %} selected{% endif %}>{{ course.label }}</option>{% endfor %}
+  </select></label>
+  <label class="form-field"><span>Item kind</span><select name="item_kind">
+    {% for value, label in [('all','All material'), ('resource','Resources'), ('document','Ungrouped documents')] %}<option value="{{ value }}"{% if library.query.item_kind == value %} selected{% endif %}>{{ label }}</option>{% endfor %}
+  </select></label>
+  <input type="hidden" name="page_size" value="{{ library.query.page_size }}">
+  <div class="form-actions"><button class="button" type="submit">Apply filters</button><a href="{{ url_for('web.learning_library') }}">Clear filters</a></div>
+</form>
+</section>
+{% if library.state == 'empty' %}
+<section class="notice-panel"><h2>No registered material yet</h2><p>Your registered documents and active Resources 2 material will appear here.</p></section>
+{% elif library.state == 'no_matches' %}
+<section class="notice-panel"><h2>No matching material</h2><p>Try another filter or <a href="{{ url_for('web.learning_library') }}">return to the first page</a>.</p></section>
+{% else %}
+<p class="library-count">{{ library.total }} item{{ '' if library.total == 1 else 's' }} · Page {{ library.query.page }} of {{ library.total_pages }}</p>
+<div class="library-items">
+{% for item in library.items %}
+<article class="dashboard-panel library-card">
+  <div class="library-card-main">
+    <p class="eyebrow">{{ 'Resource' if item.reference.kind == 'resource' else 'Ungrouped document' }} · {{ item.item_type }}{% if item.provider %} · {{ item.provider }}{% endif %}</p>
+    <h2><a href="{{ item.open_target }}">{{ item.title }}</a></h2>
+    <div class="library-labels">{% for course in item.courses %}<span class="library-label">{{ course.label }}</span>{% endfor %}</div>
+    {% if item.learning_status %}<p class="library-status">{{ item.learning_status|replace('_', ' ')|capitalize }} · {{ item.document_count }} document{{ '' if item.document_count == 1 else 's' }} · {{ item.note_count }} related note{{ '' if item.note_count == 1 else 's' }}</p>{% endif %}
+    <p class="library-extraction">Extraction: {{ item.extraction_summary }}</p>
+  </div>
+  <a class="button secondary-button" href="{{ item.open_target }}">{{ 'View resource' if item.reference.kind == 'resource' else 'View source' }}</a>
+</article>
+{% endfor %}
+</div>
+{% endif %}
+{% if library.total_pages > 1 %}
+<nav class="library-pagination" aria-label="Library pages">
+{% if library.query.page > 1 %}<a class="button secondary-button" href="{{ url_for('web.learning_library', course_id=library.query.course_id or '', item_kind=library.query.item_kind, page=library.query.page-1, page_size=library.query.page_size) }}">Previous</a>{% endif %}
+{% if library.query.page < library.total_pages %}<a class="button secondary-button" href="{{ url_for('web.learning_library', course_id=library.query.course_id or '', item_kind=library.query.item_kind, page=library.query.page+1, page_size=library.query.page_size) }}">Next</a>{% endif %}
+</nav>
+{% endif %}
+{% endif %}
+{% endblock %}
