@@ -1,0 +1,65 @@
+{% extends "workspace_base.html" %}
+{% block title %}Library · ANVAYA{% endblock %}
+{% block workspace_assets %}{{ super() }}<link rel="stylesheet" href="{{ url_for('static', filename='css/library.css') }}">{% endblock %}
+{% block content %}
+<div class="library-hub materials-workspace">
+  <section class="materials-hero" aria-labelledby="library-title">
+    <div class="materials-hero-copy">
+      <p class="eyebrow">ANVAYA / Academic Library</p>
+      <h1 id="library-title">Your learning material, <em>connected.</em></h1>
+      <p class="materials-intro">Explore registered sources and their recorded course relationships. Open original documents without duplicating your academic data.</p>
+      <div class="materials-hero-actions"><a class="button" href="{{ url_for('web.knowledge') }}">Search knowledge ↗</a><a class="materials-subtle-link" href="{{ url_for('web.resources') }}">Manage saved Resources ↗</a></div>
+    </div><div class="materials-hero-symbol" aria-hidden="true"><span>L</span><small>ANVAYA / SOURCES</small></div>
+  </section>
+  <div class="materials-context-strip"><span class="materials-context-dot" aria-hidden="true"></span><span>Read-only registered material</span><span class="materials-context-divider">/</span><span>Extraction status is shown; retrieval availability is not checked on this page</span></div>
+  {% if error_message %}
+    <section class="notice-panel materials-empty" role="alert"><h2>{{ error_message }}</h2><p>Existing Notes, Knowledge and Resources remain available. The Library did not create or change any academic records.</p></section>
+  {% elif library %}
+    <section class="dashboard-panel materials-toolbar library-filter-panel" aria-label="Filter Library">
+      <div class="materials-section-title"><div><p class="eyebrow">Explore your sources</p><h2>Browse registered material</h2></div><span class="materials-result-count">{{ library.total }} matching</span></div>
+      <form class="library-filters materials-filter-grid" method="get" action="{{ url_for('web.learning_library') }}">
+        <label class="form-field"><span>Course</span><select name="course_id">
+          <option value="">All courses</option>
+          {% if library.query.course_id and library.query.course_id not in library.courses|map(attribute='id')|list %}<option value="{{ library.query.course_id }}" selected>Selected course (unavailable)</option>{% endif %}
+          {% for course in library.courses %}<option value="{{ course.id }}"{% if library.query.course_id == course.id %} selected{% endif %}>{{ course.label }}</option>{% endfor %}
+        </select></label>
+        <label class="form-field"><span>Material kind</span><select name="item_kind">
+          {% for value, label in [('all','All material'),('resource','Resources'),('document','Ungrouped documents')] %}<option value="{{ value }}"{% if library.query.item_kind == value %} selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select></label>
+        <input type="hidden" name="page_size" value="{{ library.query.page_size }}">
+        <div class="form-actions"><button class="button" type="submit">Apply filters</button><a class="button secondary-button" href="{{ url_for('web.learning_library') }}">Clear</a></div>
+      </form>
+    </section>
+    <section class="materials-results" aria-label="Registered library material">
+      <div class="materials-section-title"><div><p class="eyebrow">Verified identities, recorded metadata</p><h2>Available material</h2></div><span class="materials-result-count">{% if library.total_pages %}Page {{ library.query.page }} of {{ library.total_pages }}{% else %}0 items{% endif %}</span></div>
+      {% if library.state == 'empty' %}
+        <div class="dashboard-panel materials-empty"><h3>No registered material yet</h3><p>Once sources are registered in canonical Resources 2 or Knowledge, they can appear here.</p><a class="button secondary-button" href="{{ url_for('web.resources') }}">View existing Resources</a></div>
+      {% elif library.state == 'no_matches' %}
+        <div class="dashboard-panel materials-empty"><h3>No matching material</h3><p>No registered sources match these course or kind filters.</p><a class="button secondary-button" href="{{ url_for('web.learning_library') }}">Clear filters</a></div>
+      {% else %}
+        <div class="library-items">
+          {% for item in library.items %}
+          <article class="dashboard-panel library-card materials-resource-card">
+            <div class="materials-resource-glyph" aria-hidden="true">{{ 'R' if item.reference.kind == 'resource' else 'D' }}</div>
+            <div class="library-card-main">
+              <div class="materials-resource-meta"><span class="materials-type">{{ 'Resource' if item.reference.kind == 'resource' else 'Ungrouped document' }}</span><span class="materials-separator">·</span><span>{{ item.item_type }}</span>{% if item.provider %}<span class="materials-separator">·</span><span>{{ item.provider }}</span>{% endif %}</div>
+              <h3><a href="{{ item.open_target }}">{{ item.title }}</a></h3>
+              <div class="library-labels">{% for course in item.courses %}<span class="library-label">{{ course.label }}</span>{% endfor %}</div>
+              <p class="library-extraction">{{ item.extraction_summary }}{% if item.learning_status %}<span aria-hidden="true"> · </span>{{ item.learning_status|replace('_', ' ')|capitalize }} · {{ item.document_count }} document{{ '' if item.document_count == 1 else 's' }}{% endif %}</p>
+            </div>
+            <a class="button secondary-button library-view" href="{{ item.open_target }}">{{ 'View resource' if item.reference.kind == 'resource' else 'View source' }} <span aria-hidden="true">↗</span></a>
+          </article>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </section>
+    {% if library.total_pages > 1 %}
+      <nav class="library-pagination" aria-label="Library pages">
+      {% if library.query.page > 1 %}<a class="button secondary-button" href="{{ url_for('web.learning_library', course_id=library.query.course_id or '', item_kind=library.query.item_kind, page=library.query.page-1, page_size=library.query.page_size) }}">Previous</a>{% endif %}
+      {% if library.query.page < library.total_pages %}<a class="button secondary-button" href="{{ url_for('web.learning_library', course_id=library.query.course_id or '', item_kind=library.query.item_kind, page=library.query.page+1, page_size=library.query.page_size) }}">Next</a>{% endif %}
+      </nav>
+    {% endif %}
+  {% endif %}
+  <p class="materials-data-note">This view contains canonical registered resources and documents only. Existing legacy Resources, independent Notes, Obsidian vault files and Learning Studio content are not silently imported, rewritten or presented as verified material.</p>
+</div>
+{% endblock %}
