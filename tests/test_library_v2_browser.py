@@ -66,3 +66,29 @@ def test_library_read_and_detail_real_browser_no_overflow_or_errors(library_serv
             page.screenshot(path=str(output / f"library-{'detail' if path.endswith('r1') else 'index'}-{width}.png"), full_page=True)
         context.close()
         browser.close()
+
+
+def test_resources_primary_action_reveals_form_with_javascript_and_native_fallback(tmp_path):
+    from tests.ui_v2_fixtures import live_ui
+    from playwright.sync_api import sync_playwright
+    with live_ui(tmp_path) as ui:
+        with sync_playwright() as pw:
+            browser = pw.chromium.launch()
+            context = browser.new_context(reduced_motion="reduce")
+            page = context.new_page()
+            assert page.goto(ui["base"] + "/resources").status == 200
+            panel = page.locator("details#new-resource")
+            assert not panel.evaluate("el => el.open")
+            page.get_by_role("link", name="Add resource", exact=True).first.click()
+            assert panel.evaluate("el => el.open")
+            assert page.locator("input[name='title']").is_visible()
+            context.close()
+            no_js = browser.new_context(java_script_enabled=False)
+            fallback = no_js.new_page()
+            assert fallback.goto(ui["base"] + "/resources").status == 200
+            native_panel = fallback.locator("details#new-resource")
+            native_panel.locator("summary").click()
+            assert native_panel.evaluate("el => el.open")
+            assert fallback.locator("input[name='title']").is_visible()
+            no_js.close()
+            browser.close()
