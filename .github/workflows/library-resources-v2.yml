@@ -87,7 +87,7 @@ jobs:
           cases = ET.parse(root/'focused.xml').findall('.//testcase')
           assert cases and all(c.find('skipped') is None for c in cases), 'Focused gate must not skip tests'
       - name: Whole-project regression (inherited external skips disclosed)
-        if: ${{ !cancelled() }}
+        if: success()
         shell: python
         run: |
           import os, subprocess, sys, pathlib
