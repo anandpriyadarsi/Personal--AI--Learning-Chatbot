@@ -1853,14 +1853,14 @@ def assessment_test_start(assessment_id):
 
 @web_blueprint.get("/assessments/sessions/<session_id>")
 def assessment_session(session_id):
-    if _is_extended_session(session_id):
-        target = _extended_destination(session_id)
-        return redirect(target, code=303) if target else (
-            "Extended attempt is temporarily unavailable; answers are preserved.", 503
-        )
     from personal_learning_assistant.services.assessment_coding_helper import tool_options
     from personal_learning_assistant.services.coding_operations import OPERATION_CARDS
     try:
+        if _is_extended_session(session_id):
+            target = _extended_destination(session_id)
+            return redirect(target, code=303) if target else (
+                "Extended attempt is temporarily unavailable; answers are preserved.", 503
+            )
         ordinal = request.args.get("q", default=None, type=int)
         view = _assessment_runner_service().runner_view(
             session_id,
@@ -1879,6 +1879,9 @@ def assessment_session(session_id):
             operation_cards=OPERATION_CARDS,
         )
     except Exception as error:
+        if _assessment_runner_error_status(error) == 503:
+            current_app.logger.warning("Assessment attempt unavailable (%s).", type(error).__name__)
+            return "Assessment attempt is temporarily unavailable; answers are preserved.", 503
         return str(error), _assessment_runner_error_status(error)
 
 
@@ -2016,12 +2019,12 @@ def assessment_session_submit(session_id):
 
 @web_blueprint.get("/assessments/sessions/<session_id>/summary")
 def assessment_session_summary(session_id):
-    if _is_extended_session(session_id):
-        target = _extended_destination(session_id)
-        return redirect(target, code=303) if target else (
-            "Extended attempt is temporarily unavailable; answers are preserved.", 503
-        )
     try:
+        if _is_extended_session(session_id):
+            target = _extended_destination(session_id)
+            return redirect(target, code=303) if target else (
+                "Extended attempt is temporarily unavailable; answers are preserved.", 503
+            )
         summary = _assessment_runner_service().summary(session_id)
         return render_template(
             "assessment_test_summary.html",
@@ -2029,24 +2032,37 @@ def assessment_session_summary(session_id):
             summary=summary,
         )
     except Exception as error:
+        if _assessment_runner_error_status(error) == 503:
+            current_app.logger.warning("Assessment summary unavailable (%s).", type(error).__name__)
+            return "Assessment summary is temporarily unavailable; answers are preserved.", 503
         return str(error), _assessment_runner_error_status(error)
 
 
 @web_blueprint.post("/assessments/sessions/<session_id>/evaluate")
 def assessment_session_evaluate(session_id):
     try:
+        if _is_extended_session(session_id):
+            return "This private self-study attempt uses its own self-review. Open the attempt to review it.", 409
         _assessment_evaluation_service().create(session_id)
         return redirect(
             url_for("web.assessment_evaluation_results", session_id=session_id, created="1"),
             code=303,
         )
     except Exception as error:
+        if _assessment_evaluation_error_status(error) == 503:
+            current_app.logger.warning("Assessment evaluation unavailable (%s).", type(error).__name__)
+            return "Assessment evaluation is temporarily unavailable; answers are preserved.", 503
         return str(error), _assessment_evaluation_error_status(error)
 
 
 @web_blueprint.get("/assessments/sessions/<session_id>/evaluation")
 def assessment_evaluation_results(session_id):
     try:
+        if _is_extended_session(session_id):
+            target = _extended_destination(session_id)
+            return redirect(target, code=303) if target else (
+                "Extended attempt is temporarily unavailable; answers are preserved.", 503
+            )
         result = _assessment_evaluation_service().results(
             session_id, outcome=request.args.get("outcome", ""), question=request.args.get("question", "")
         )
@@ -2070,6 +2086,9 @@ def assessment_evaluation_results(session_id):
             error_message="",
         )
     except Exception as error:
+        if _assessment_evaluation_error_status(error) == 503:
+            current_app.logger.warning("Assessment results unavailable (%s).", type(error).__name__)
+            return "Assessment results are temporarily unavailable; answers are preserved.", 503
         return str(error), _assessment_evaluation_error_status(error)
 
 
@@ -2596,11 +2615,19 @@ def planning_month_plan_approve():
 def planning_day(agenda_date):
     try:
         day = _operational_planner_service().day_view(agenda_date)
+        from .planning_proposals import saved_proposal_context
+        context = saved_proposal_context(agenda_date)
+        needs_context = bool(day.get('existing') and day['existing']['status'] == 'draft' and any(
+            item['item_kind'] in {'task', 'study'} and (item.get('starts_at') or item.get('ends_at'))
+            for item in day['items']
+        ))
         return render_template(
             "planning_day.html",
             active_page="planning",
             day=day,
             error_message=request.args.get("error", "", type=str),
+            saved_proposal_context=context,
+            approval_context_unavailable=needs_context and context is None,
         )
     except (
         OperationalPlannerWebValidationError,
@@ -2627,11 +2654,23 @@ def planning_day_generate(agenda_date):
 
 @web_blueprint.post("/planning/day/<agenda_date>/approve")
 def planning_day_approve(agenda_date):
-    from .planning_approval_controls import valid_approval
+    from .planning_approval_controls import approval_context_revision, valid_approval
     if not valid_approval(agenda_date):
         return "Invalid or expired approval. Open the saved day and review it again.", 400
     try:
-        _operational_planner_service().approve_day(agenda_date)
+        from .planning_proposals import proposal_settings, saved_proposal_context
+        # Save and approval share this lock through the canonical transition;
+        # even an identical replacement must not swap its availability context
+        # after this request has checked the review token.
+        with current_app.extensions['planning_proposal_context_lock']:
+            context = saved_proposal_context(agenda_date)
+            intent = approval_context_revision()
+            if (intent['revision'] != (context.get('saved_fingerprint') if context else None)
+                    or intent['nonce'] != (context.get('nonce') if context else None)):
+                raise OperationalPlannerWebConflictError("The saved draft changed since review. Open and review it again.")
+            _operational_planner_service().approve_day(
+                agenda_date, proposal_context=context, **proposal_settings(),
+            )
         return redirect(url_for("web.planning_day", agenda_date=agenda_date), code=303)
     except (
         OperationalPlannerWebValidationError,
@@ -4382,3 +4421,62 @@ def healthz():
         service="personal-learning-assistant-web",
         status="ok",
     )
+
+
+# Bounded Library projection. Read-only and independent of the legacy Resources editor.
+def _learning_library_service():
+    from personal_learning_assistant.services.learning_library_service import LearningLibraryService
+    factory = current_app.config.get("LEARNING_LIBRARY_SERVICE_FACTORY")
+    if factory is not None:
+        return factory()
+    import config as installed_config
+    source = (current_app.config.get("LEARNING_LIBRARY_DATABASE_PATH")
+              or current_app.config.get("ACADEMIC_DATABASE_PATH")
+              or installed_config.DATABASE_PATH)
+    return LearningLibraryService(
+        database_path=source,
+        wal_snapshot_provider=current_app.config.get("ACADEMIC_WAL_SNAPSHOT_PROVIDER"))
+
+
+@web_blueprint.get("/library")
+def learning_library():
+    from flask import abort
+    from personal_learning_assistant.domain.learning_library_models import LibraryQuery
+    from personal_learning_assistant.services.learning_library_service import LibraryUnavailableError
+    if not current_app.config.get("LEARNING_LIBRARY_ENABLED", True):
+        abort(404)
+    try:
+        if any(len(request.args.getlist(key)) > 1 for key in
+               ("course_id", "item_kind", "page", "page_size")):
+            raise ValueError("Duplicate filters")
+        query = LibraryQuery(
+            course_id=request.args.get("course_id") or None,
+            item_kind=request.args.get("item_kind", "all"),
+            page=int(request.args.get("page", "1")),
+            page_size=int(request.args.get("page_size", "25")))
+    except ValueError:
+        return render_template("library.html", active_page="library", library=None,
+                               error_message="Choose a valid course, item kind and page."), 400
+    try:
+        page = _learning_library_service().list_items(query)
+    except LibraryUnavailableError:
+        return render_template("library.html", active_page="library", library=None,
+                               error_message="Library is temporarily unavailable"), 503
+    return render_template("library.html", active_page="library", library=page)
+
+
+@web_blueprint.get("/library/resources/<resource_id>")
+def learning_library_resource(resource_id):
+    from flask import abort
+    from personal_learning_assistant.services.learning_library_service import (
+        LibraryNotFoundError, LibraryUnavailableError)
+    if not current_app.config.get("LEARNING_LIBRARY_ENABLED", True):
+        abort(404)
+    try:
+        detail = _learning_library_service().resource_detail(resource_id)
+    except LibraryNotFoundError:
+        abort(404)
+    except LibraryUnavailableError:
+        return render_template("library.html", active_page="library", library=None,
+                               error_message="Library is temporarily unavailable"), 503
+    return render_template("library_resource.html", active_page="library", resource=detail)

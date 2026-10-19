@@ -1,0 +1,29 @@
+{% extends "workspace_base.html" %}
+{% block title %}{{ resource.title }} · Library · ANVAYA{% endblock %}
+{% block workspace_assets %}{{ super() }}<link rel="stylesheet" href="{{ url_for('static', filename='css/library.css') }}">{% endblock %}
+{% block content %}
+<div class="library-hub library-detail materials-workspace">
+  <a class="materials-back-link" href="{{ url_for('web.learning_library') }}">← Back to Library</a>
+  <section class="materials-hero" aria-labelledby="resource-title"><div class="materials-hero-copy">
+    <p class="eyebrow">Registered Library / Resource</p><h1 id="resource-title">{{ resource.title }}</h1>
+    <p class="materials-intro">{{ resource.resource_type }}{% if resource.provider %} · {{ resource.provider }}{% endif %}</p>
+    <div class="materials-hero-actions">{% if resource.external_url %}<a class="button" href="{{ resource.external_url }}" target="_blank" rel="noopener noreferrer">Open external resource ↗</a>{% endif %}<a class="materials-subtle-link" href="{{ url_for('web.knowledge') }}">Explore Knowledge ↗</a></div>
+  </div><div class="materials-hero-symbol" aria-hidden="true"><span>R</span><small>RESOURCE DETAIL</small></div></section>
+  <div class="materials-context-strip"><span class="materials-context-dot" aria-hidden="true"></span><span>{{ resource.learning_status|replace('_', ' ')|capitalize }}</span><span class="materials-context-divider">/</span><span>Last recorded update: {{ resource.updated_at }}</span></div>
+  <section class="dashboard-panel library-detail-panel" aria-labelledby="academic-links-title">
+    <p class="eyebrow">Academic context</p><h2 id="academic-links-title">Courses &amp; topics</h2>
+    <div class="library-labels">{% for course in resource.courses %}<span class="library-label">{{ course.label }}</span>{% else %}<span class="materials-muted">No course links recorded.</span>{% endfor %}</div>
+    <div class="library-topic-list">{% for topic in resource.topics %}<span class="library-topic">{{ topic.label }}</span>{% else %}<span class="materials-muted">No topic links recorded.</span>{% endfor %}</div>
+  </section>
+  <section class="materials-results" aria-labelledby="documents-title">
+    <div class="materials-section-title"><div><p class="eyebrow">Original registered sources</p><h2 id="documents-title">Documents <span class="library-count">({{ resource.documents|length }})</span></h2></div></div>
+    <p class="materials-section-note">View source opens the existing Knowledge reader. Extraction status does not indicate retrieval availability.</p>
+    {% for doc in resource.documents %}
+    <article class="dashboard-panel library-card materials-resource-card"><div class="materials-resource-glyph" aria-hidden="true">D</div><div class="library-card-main">
+      <div class="materials-resource-meta"><span class="materials-type">{{ doc.kind }}</span>{% if doc.mime_type %}<span class="materials-separator">·</span><span>{{ doc.mime_type }}</span>{% endif %}</div><h3>{{ doc.title }}</h3><p class="library-extraction">Extraction: {{ doc.extraction_status|replace('_', ' ') }}</p>
+    </div><a class="button secondary-button library-view" href="{{ doc.open_target }}">View source ↗</a></article>
+    {% else %}<div class="dashboard-panel materials-empty"><h3>No linked documents</h3><p>This registered resource does not have a document relationship yet.</p></div>{% endfor %}
+  </section>
+  {% if resource.notes %}<section class="dashboard-panel library-detail-panel" aria-labelledby="related-notes-title"><p class="eyebrow">Recorded relationships</p><h2 id="related-notes-title">Related Obsidian notes</h2><p class="materials-muted">These are recorded note references; no vault scan was performed.</p><div class="library-labels">{% for note in resource.notes %}<span class="library-label">{{ note.label }}</span>{% endfor %}</div></section>{% endif %}
+</div>
+{% endblock %}

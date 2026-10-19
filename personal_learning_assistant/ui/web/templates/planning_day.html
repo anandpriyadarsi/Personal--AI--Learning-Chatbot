@@ -17,7 +17,7 @@
 <section class="dashboard-panel">
   <p class="eyebrow">Review your proposal</p>
   <h3>Available {{ proposal_start }}–{{ proposal_end }} · {{ proposal_timezone }}</h3>
-  <p>Only your stated availability is used. Commitments and a 10-minute break buffer reduce capacity. Unscheduled tasks remain visible below.</p>
+  <p>Only your stated availability is used. Commitments and a {{ proposal_break_minutes }}-minute break buffer reduce capacity. Unscheduled tasks remain visible below.</p>
   <form method="post" action="{{ url_for('planning_proposals.proposal', agenda_date=day.date) }}">
     <input type="hidden" name="proposal_token" value="{{ proposal_token }}">
     <button class="button" type="submit">Save proposal as draft</button>
@@ -26,6 +26,12 @@
   <p>Review the saved draft before choosing Approve day. This preview expires after 15 minutes; changed sources require a new preview.</p>
 </section>
 {% else %}
+{% if saved_proposal_context %}
+<section class="notice-panel"><p>Saved availability: {{ saved_proposal_context.start }}–{{ saved_proposal_context.end }} · {{ saved_proposal_context.timezone }} · {{ saved_proposal_context.break_minutes }}-minute break buffer. This context is available for the current app session. Reopening after a restart requires a fresh preview.</p></section>
+{% endif %}
+{% if approval_context_unavailable %}
+<section class="notice-panel" role="alert"><p>Original availability context is unavailable. Preview and save a fresh draft before approval.</p></section>
+{% endif %}
 <section class="dashboard-panel">
   <p class="eyebrow">Your availability</p>
   <h3>Find time for your tasks</h3>
@@ -47,8 +53,8 @@
     {% if not proposal_token and (not agenda or agenda.status == 'draft') %}
     <form method="post" action="{{ url_for('web.planning_day_generate', agenda_date=day.date) }}"><button class="button" type="submit">{% if agenda %}Regenerate draft{% else %}Generate today{% endif %}</button></form>
     {% endif %}
-    {% if not proposal_token and agenda and agenda.status == 'draft' %}
-    <form method="post" action="{{ url_for('web.planning_day_approve', agenda_date=day.date) }}"><input type="hidden" name="approval_token" value="{{ planner_approval_token(day.date) }}"><button class="button button-secondary" type="submit">Approve day</button></form>
+    {% if not proposal_token and agenda and agenda.status == 'draft' and not approval_context_unavailable %}
+    <form method="post" action="{{ url_for('web.planning_day_approve', agenda_date=day.date) }}"><input type="hidden" name="approval_token" value="{{ planner_approval_token(day.date, saved_proposal_context.saved_fingerprint if saved_proposal_context else none, saved_proposal_context.nonce if saved_proposal_context else none) }}"><button class="button button-secondary" type="submit">Approve day</button></form>
     {% endif %}
   </div>
 </section>

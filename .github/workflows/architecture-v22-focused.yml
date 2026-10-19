@@ -1,0 +1,71 @@
+name: Architecture V2.2 focused development
+on:
+  push:
+    branches: ['feature/architecture-v2-2-iks-fixture-authority-2026-10']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: architecture-v22-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  focused:
+    name: V2.2 focused (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements-learning-studio.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: python -m pip install -r requirements.txt -r requirements-dev.txt -r requirements-assessment-browser.txt
+      - run: python scripts/architecture_checkout_eol.py --repo .
+      - run: python -m playwright install --with-deps chromium
+      - name: Focused synthetic regression and real browser gates
+        shell: python
+        env:
+          ANVAYA_BROWSER_TESTS: '1'
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: |
+          import json, os, pathlib, subprocess, sys, xml.etree.ElementTree as ET
+          out = pathlib.Path(os.environ['RUNNER_TEMP']) / 'anvaya-v22-focused'
+          out.mkdir()
+          env = {**os.environ, 'ANVAYA_VALIDATION_ARTIFACTS': str(out / 'screenshots')}
+          tests = ['tests/test_architecture_private_fixtures.py', 'tests/test_architecture_validation_harness.py', 'tests/test_topic_remediation_safety.py', 'tests/test_topic_evidence_repository.py', 'tests/test_architecture_characterization.py', 'tests/test_architecture_academic_result_boundaries.py', 'tests/test_architecture_planning_context.py', 'tests/test_planning_v21_wal_snapshot.py', 'tests/test_assessment_studio_phase_e.py', 'tests/test_assessment_studio_phase_f.py', 'tests/test_assessment_live_browser.py', 'tests/test_architecture_live_browser.py', 'tests/test_topic_read_safety_browser.py']
+          tests += ['tests/test_architecture_manual_academic_journey_browser.py', 'tests/test_assessment_studio_next_level_results.py', 'tests/test_phase7_5_operational_planner_routes.py']
+          xml = out / 'focused.xml'
+          with (out / 'focused.log').open('w', encoding='utf-8') as stream:
+              code = subprocess.call([sys.executable, '-m', 'pytest', '-q', *tests, '--junitxml=' + str(xml)], env=env, stdout=stream, stderr=subprocess.STDOUT)
+          print((out / 'focused.log').read_text(encoding='utf-8'))
+          cases = ET.parse(xml).findall('.//testcase') if xml.exists() else []
+          valid = code == 0 and cases and all(c.find('skipped') is None for c in cases)
+          report = {'source_sha': subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip(), 'platform': sys.platform, 'tests': len(cases), 'synthetic_development': 'PASS' if valid else 'FAIL', 'external_source_acceptance': 'BLOCKED: originals are absent on public hosted runners', 'installed_production_authority': 'BLOCKED'}
+          (out / 'authority.json').write_text(json.dumps(report, indent=2), encoding='utf-8')
+          with open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8') as stream:
+              stream.write('ANVAYA_V22_RESULTS=' + str(out) + '\n')
+          if not valid: sys.exit(code or 1)
+      - name: Node, compile and whitespace
+        if: ${{ !cancelled() }}
+        shell: python
+        run: |
+          import pathlib, subprocess, sys
+          subprocess.run(['node', '--test', *[str(p) for p in sorted(pathlib.Path('tests/js').glob('*.test.cjs'))]], check=True)
+          subprocess.run([sys.executable, '-m', 'compileall', '-q', 'personal_learning_assistant', 'tests', 'scripts'], check=True)
+          subprocess.run(['git', 'diff', '--check'], check=True)
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: architecture-v22-focused-${{ matrix.os }}-${{ github.sha }}
+          path: ${{ env.ANVAYA_V22_RESULTS }}/**
+          if-no-files-found: warn

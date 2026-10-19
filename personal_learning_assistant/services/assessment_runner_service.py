@@ -774,7 +774,16 @@ class AssessmentRunnerService:
             self._map_repository_error(error)
 
     def summary(self, session_id: str):
-        header, now = self._synchronize(str(session_id))
+        # Terminal history is a read. Opening a writer solely to rediscover a
+        # submitted header can change the database's journal mode on a GET.
+        with self._repository(write=False) as repository:
+            header = repository.get_session_header(str(session_id))
+        if header is None:
+            raise AssessmentRunnerNotFoundError("Test session not found.")
+        if str(header.get('status')) == 'active':
+            header, now = self._synchronize(str(session_id))
+        else:
+            now = self._now()
         with self._repository(write=False) as repository:
             session = repository.get_public_session(str(session_id))
         if session is None:

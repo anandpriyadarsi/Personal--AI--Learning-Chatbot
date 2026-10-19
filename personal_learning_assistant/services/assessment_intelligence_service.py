@@ -202,6 +202,11 @@ def _finalize_stats(stats):
         "session_count": len(stats["session_ids"]),
         "band": band,
         "band_label": _band_label(band),
+        # Descriptive aggregation never upgrades missing historical provenance.
+        # A separate qualified-evidence policy is required before remediation.
+        "automatic_remediation_eligible": False,
+        "qualified_recent_independent_question_count": 0,
+        "remediation_exclusion_reasons": ("mapping_snapshot_unknown", "independence_unknown"),
     }
 
 
@@ -439,7 +444,8 @@ class AssessmentIntelligenceService:
             if int(row.get("question_count") or 0) < 2:
                 signals.append("limited sample size")
             if not signals:
-                signals.append("lower relative observed performance")
+                signals.append("no recovery indicated by observed marks" if perf is not None and perf >= 80
+                               else "observed performance needs verification")
             row["recovery_order"] = index
             row["recovery_signals"] = tuple(signals)
             result.append(row)
@@ -821,8 +827,10 @@ class AssessmentIntelligenceService:
             "topics": self._recovery_order(decorated),
             "has_evidence": bool(evidence),
             "note": (
-                "This order uses confirmed assessment evidence only. It is not a "
-                "mastery score and does not change your planner."
+                "This order describes confirmed grading outcomes, not a mastery score. "
+                "Historical mapping review and independent-attempt provenance are unavailable. "
+                "Recent qualified independent evidence is required before remediation; "
+                "these observations do not establish a current weakness or change your planner."
             ),
         }
 
