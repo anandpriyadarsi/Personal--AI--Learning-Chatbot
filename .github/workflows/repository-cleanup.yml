@@ -28,3 +28,12 @@ jobs:
         run: python scripts/repository_cleanup_verify.py
       - name: Compile application and verification source
         run: python -m compileall -q personal_learning_assistant scripts tests
+      - name: Create non-destructive tracked-file and reference inventory
+        run: python scripts/repository_hygiene_report.py --output repository-hygiene-report.json
+      - name: Preserve inventory for engineering review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: repository-hygiene-${{ matrix.os }}-${{ github.sha }}
+          if-no-files-found: warn
+          path: repository-hygiene-report.json

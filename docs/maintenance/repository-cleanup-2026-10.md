@@ -33,3 +33,14 @@ The branch-specific safety job checks byte-for-byte Git blob identity, unapprove
 The safety job is **not** the full integration, browser, migration or local production-authority suite. Require those tests before any change to executable source or before merging the cleanup into `main`.
 
 External bookmarks pointing at relocated report URLs are not automatically redirected.
+
+## Follow-up hygiene improvements (non-destructive)
+
+- Deduplicated and grouped `.gitignore` without removing **any** baseline ignore pattern; added common Python, Node, browser-test, editor and environment-file exclusions.
+- Added `scripts/repository_hygiene_report.py` as a read-only, repeatable inventory of root documents, their tracked textual references, identical-content Git blobs, sizeable tracked assets and backup paths.
+- Extended the cross-platform cleanup workflow to publish the hygiene inventory as an artifact. These results are **review candidates**, not deletion approval.
+- Added a regression assertion that baseline `.gitignore` exclusions must remain in effect.
+- Preserved tracked backups, sample assets, existing historical gate paths, application code, test suites and academic records. **No file was removed.**
+
+The branch may lag behind `main`. Reconcile and retest against the latest upstream commit before proposing a merge.
+

@@ -40,10 +40,21 @@ def main():
         "docs/maintenance/repository-cleanup-2026-10.md",
         ".github/workflows/repository-cleanup.yml",
         "scripts/repository_cleanup_verify.py",
+        "scripts/repository_hygiene_report.py",
+        ".gitignore",
     }
     changes = git("diff", "--name-only", "--no-renames", BASE_SHA, "HEAD").splitlines()
     modified = set(changes) - unique_old - unique_new - allowed_additions
     assert not modified, f"Unapproved changes beyond archived documentation: {sorted(modified)}"
+    # Never weaken an existing exclusion during a hygiene-only cleanup.
+    def ignore_patterns(content):
+        return {line.strip() for line in content.splitlines()
+                if line.strip() and not line.lstrip().startswith("#")}
+    previous = ignore_patterns(git("show", BASE_SHA + ":.gitignore"))
+    current = ignore_patterns((ROOT / ".gitignore").read_text(encoding="utf-8"))
+    assert previous <= current, (
+        f"Existing private-data ignore rules removed: {sorted(previous - current)}"
+    )
     assert all((ROOT / x).is_file() for x in [
         "phase7_web.py", "requirements.txt", "pytest.ini",
         ".github/workflows/assessment-studio.yml",
@@ -75,7 +86,7 @@ def main():
         raise
     print(f"PASS: {len(records)} byte-identical documentation moves; "
           f"{len(changes)} changed paths within allowlist; "
-          "no application, academic, CI or test source was modified.")
+          "no application runtime, academic data or test source was modified.")
 
 if __name__ == "__main__":
     main()
