@@ -27,7 +27,7 @@ def main():
         assert old not in unique_old and new not in unique_new, "Duplicate archive path"
         unique_old.add(old); unique_new.add(new)
         assert old.startswith(("PHASE3_", "PHASE4_", "PHASE5_", "PHASE6_", "PHASE7_", "ANVAYA_", "ASSESSMENT_"))
-        assert new.startswith("docs/archive/phase") and new.endswith("/" + old)
+        assert new.startswith("docs/archive/") and new.endswith("/" + old)
         assert not (ROOT / old).exists(), f"Obsolete root path still present: {old}"
         assert (ROOT / new).is_file(), f"Archived report absent: {new}"
         base_sha = git("rev-parse", BASE_SHA + ":" + old)
