@@ -5,6 +5,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from datetime import datetime, timezone
 import sqlite3
+from personal_learning_assistant.services.academic_wal_snapshot import AcademicSnapshotUnavailable
 
 
 class LibraryUnavailableError(RuntimeError):
@@ -75,11 +76,12 @@ class LearningLibraryRepository:
             con.row_factory = sqlite3.Row
             con.create_function('library_document_title', 1, document_title, deterministic=True)
             con.execute('PRAGMA query_only=ON')
-            con.execute('BEGIN')
+            if not con.in_transaction:
+                con.execute('BEGIN')
             for table, columns in _COLUMNS.items():
                 con.execute(f'SELECT {columns} FROM {table} LIMIT 0')
             yield con
-        except (sqlite3.Error, OSError, ValueError) as exc:
+        except (sqlite3.Error, OSError, ValueError, AcademicSnapshotUnavailable) as exc:
             raise LibraryUnavailableError('Library is temporarily unavailable') from exc
         finally:
             if con is not None:
