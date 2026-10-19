@@ -79,7 +79,7 @@ def test_resources_primary_action_reveals_form_with_javascript_and_native_fallba
             assert page.goto(ui["base"] + "/resources").status == 200
             panel = page.locator("details#new-resource")
             assert not panel.evaluate("el => el.open")
-            page.get_by_role("link", name="Add resource", exact=True).first.click()
+            page.locator('.materials-hero-actions a[href="#new-resource"]').click()
             assert panel.evaluate("el => el.open")
             assert page.locator("input[name='title']").is_visible()
             context.close()
