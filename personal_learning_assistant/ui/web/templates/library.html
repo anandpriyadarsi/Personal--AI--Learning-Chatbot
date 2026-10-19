@@ -60,6 +60,16 @@
       </nav>
     {% endif %}
   {% endif %}
+  <section class="library-collections" aria-labelledby="library-collections-title">
+    <div class="materials-section-title"><div><p class="eyebrow">Continue across ANVAYA</p><h2 id="library-collections-title">Other learning workspaces</h2></div></div>
+    <p class="materials-section-note">These are separate study collections, not imported or counted as registered Library documents.</p>
+    <div class="library-collection-grid">
+      <a class="library-collection-link" href="{{ url_for('web.notes') }}"><span class="library-collection-symbol" aria-hidden="true">N</span><span><strong>My Notes</strong><small>Personal notes and reading</small></span><span aria-hidden="true">↗</span></a>
+      <a class="library-collection-link" href="{{ url_for('web.obsidian') }}"><span class="library-collection-symbol" aria-hidden="true">O</span><span><strong>Obsidian vault</strong><small>Connected Markdown knowledge</small></span><span aria-hidden="true">↗</span></a>
+      <a class="library-collection-link" href="{{ url_for('learning.library') }}"><span class="library-collection-symbol" aria-hidden="true">L</span><span><strong>Learning Studio</strong><small>Course learning and revision</small></span><span aria-hidden="true">↗</span></a>
+      <a class="library-collection-link" href="{{ url_for('web.knowledge') }}"><span class="library-collection-symbol" aria-hidden="true">K</span><span><strong>Knowledge</strong><small>Search and original source readers</small></span><span aria-hidden="true">↗</span></a>
+    </div>
+  </section>
   <p class="materials-data-note">This view contains canonical registered resources and documents only. Existing legacy Resources, independent Notes, Obsidian vault files and Learning Studio content are not silently imported, rewritten or presented as verified material.</p>
 </div>
 {% endblock %}
