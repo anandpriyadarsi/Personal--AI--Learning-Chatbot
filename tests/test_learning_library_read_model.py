@@ -18,6 +18,8 @@ def library_db(tmp_path):
     path = tmp_path / "academic.db"
     apply_migrations(path)
     with sqlite3.connect(path) as con:
+        # Explicit DELETE-mode read-model fixture; WAL has separate owner-snapshot tests.
+        assert con.execute("PRAGMA journal_mode=DELETE").fetchone()[0] == "delete"
         con.execute("PRAGMA foreign_keys=ON")
         for cid, code in (("c1", "MA103N"), ("c2", "UC100N")):
             con.execute("INSERT INTO courses(id,code,name,created_at,updated_at) VALUES (?,?,?,?,?)",
@@ -135,6 +137,8 @@ def test_models_are_immutable(library_db):
 def test_empty_schema_is_ready_not_unavailable(tmp_path):
     path = tmp_path / "empty.db"
     apply_migrations(path)
+    with sqlite3.connect(path) as con:
+        con.execute("PRAGMA journal_mode=DELETE")
     page = service(path).list_items(query())
     assert page.state == "empty"
     assert page.items == ()
