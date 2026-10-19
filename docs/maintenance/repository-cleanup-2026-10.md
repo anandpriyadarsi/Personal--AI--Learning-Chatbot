@@ -43,4 +43,3 @@ External bookmarks pointing at relocated report URLs are not automatically redir
 - Preserved tracked backups, sample assets, existing historical gate paths, application code, test suites and academic records. **No file was removed.**
 
 The branch may lag behind `main`. Reconcile and retest against the latest upstream commit before proposing a merge.
-
