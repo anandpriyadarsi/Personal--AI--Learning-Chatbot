@@ -128,3 +128,22 @@ def test_frozen_owner_connections_are_memory_query_only(owners):
         with pytest.raises(sqlite3.OperationalError):c.execute('CREATE TABLE forbidden(id)')
     with pytest.raises(Exception):
         with s.store.connection(write=True):pass
+
+@pytest.mark.parametrize('table,column',[(table,column) for table in ['assessment_response_evaluations','assessment_session_evaluations'] for column in ['created_at','updated_at','confirmed_at']])
+def test_future_grading_metadata_is_not_available_at_earlier_as_of(owners,tmp_path,table,column):
+    from datetime import timedelta
+    with closing(sqlite3.connect(owners[0])) as c,c:
+        if table=='assessment_response_evaluations':
+            c.execute('UPDATE '+table+' SET '+column+'=? WHERE id=?',((NOW+timedelta(days=1)).isoformat(),'ev-sq1'))
+        else:
+            c.execute('UPDATE '+table+' SET '+column+'=? WHERE session_id=?',((NOW+timedelta(days=1)).isoformat(),'s1'))
+    before=inventory(tmp_path)
+    r=next(r for r in service(owners).topic('course-ma','topic-lu').records if r.identifier=='assessment_response_evaluation:ev-sq1')
+    assert r.qualification=='blocked' and r.outcome=='unverified' and 'evaluation_after_as_of' in r.reasons
+    assert all(not ref.url for ref in r.source_refs) and inventory(tmp_path)==before
+
+@pytest.mark.parametrize('value',['bad','2026-10-19T00:00:00'])
+def test_invalid_grading_time_is_blocked(owners,value):
+    with closing(sqlite3.connect(owners[0])) as c,c:c.execute("UPDATE assessment_response_evaluations SET updated_at=? WHERE id='ev-sq1'",(value,))
+    r=next(r for r in service(owners).topic('course-ma','topic-lu').records if r.identifier=='assessment_response_evaluation:ev-sq1')
+    assert r.qualification=='blocked' and 'evaluation_timestamp_invalid' in r.reasons

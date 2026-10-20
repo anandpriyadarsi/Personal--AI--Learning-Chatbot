@@ -206,3 +206,21 @@ def test_owner_wal_snapshot_freshness_boundary_preserves_pending_result_link(tmp
         assert inventory(tmp_path) == before
     finally:
         writer.close()
+
+def test_unscheduled_replacement_requires_fresh_review(proposal_app):
+    app,path=proposal_app;client=app.test_client();base='/planning/day/2026-10-12'
+    assert client.post(base+'/generate').status_code==303
+    assert not app.extensions['planning_proposal_contexts']
+    old=re.search(r'name="approval_token" value="([^"]+)"',client.get(base).text).group(1)
+    with sqlite3.connect(path) as db:
+        assert db.execute("SELECT COUNT(*) FROM daily_agenda_items WHERE item_kind IN ('task','study') AND (starts_at IS NOT NULL OR ends_at IS NOT NULL)").fetchone()[0]==0
+        db.execute("UPDATE planner_tasks SET title='Replacement task needing new review' WHERE id='p0'")
+    assert client.post(base+'/generate').status_code==303
+    before=logical_state(path)
+    assert client.post(base+'/approve',data={'approval_token':old}).status_code==409
+    assert logical_state(path)==before
+    fresh_page=client.get(base)
+    assert 'Replacement task needing new review' in fresh_page.text
+    fresh=re.search(r'name="approval_token" value="([^"]+)"',fresh_page.text).group(1)
+    assert client.post(base+'/approve',data={'approval_token':fresh}).status_code==303
+    with sqlite3.connect(path) as db:assert db.execute('SELECT status FROM daily_agendas').fetchone()==('approved',)
