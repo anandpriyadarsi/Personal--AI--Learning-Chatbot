@@ -2665,11 +2665,11 @@ def planning_day_approve(agenda_date):
         with current_app.extensions['planning_proposal_context_lock']:
             context = saved_proposal_context(agenda_date)
             intent = approval_context_revision()
-            if (intent['revision'] != (context.get('saved_fingerprint') if context else None)
+            if ((context is not None and intent['revision'] != context.get('saved_fingerprint'))
                     or intent['nonce'] != (context.get('nonce') if context else None)):
                 raise OperationalPlannerWebConflictError("The saved draft changed since review. Open and review it again.")
             _operational_planner_service().approve_day(
-                agenda_date, proposal_context=context, **proposal_settings(),
+                agenda_date, expected_fingerprint=intent['revision'], proposal_context=context, **proposal_settings(),
             )
         return redirect(url_for("web.planning_day", agenda_date=agenda_date), code=303)
     except (

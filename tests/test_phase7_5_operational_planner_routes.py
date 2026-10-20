@@ -86,6 +86,7 @@ class FakePlanner:
         return {
             "available": True,
             "date": agenda_date,
+            "planning_fingerprint": "a"*64,
             "existing": None,
             "day_mode": "normal",
             "items": (),
@@ -241,10 +242,11 @@ def test_day_commands_use_explicit_post_and_prg():
             assert tuple(fake.calls) == before
             from personal_learning_assistant.ui.web.planning_approval_controls import approval_token
             with app.test_request_context():
-                data = {**data, 'approval_token': approval_token('2026-10-12')}
+                data = {**data, 'approval_token': approval_token('2026-10-12','a'*64)}
         assert client.post(path, data=data).status_code == 303
     approval = next(call for call in fake.calls if call[0] == 'approve_day')
     assert approval[2]['proposal_context'] is None
+    assert approval[2]['expected_fingerprint']=='a'*64
     assert approval[2]['local_timezone'] == 'Asia/Kolkata'
 
 

@@ -101,17 +101,34 @@ def register_academic_evidence(app):
         require(request.args.get('format','html') in {'html','json'},'Unsupported evidence format.')
         s,view,preview,_,_=context(module_id,revision)
         if request.args.get('format')=='json':return jsonify(view.to_dict())
-        from personal_learning_assistant.learning_studio.rendering import markdown
+        from personal_learning_assistant.learning_studio.rendering import markdown, trusted_graph, trusted_activity
+        def extension(block,widget_id):
+            original={'kind':block['kind'],'pages':block['pages'],**block['content']}
+            return trusted_graph(original) if block['kind']=='graph' else trusted_activity(original,widget_id)
         return render_template('academic_evidence.html',active_page='evidence',stage='lesson',
-            view=view,preview=preview,markdown=markdown,error_message='',
+            view=view,preview=preview,markdown=markdown,extension=extension,error_message='',
             review_token=signed(view,'review'))
 
     @bp.get('/academic-evidence/learning/<module_id>/<int:revision>/source.pdf')
     def source(module_id,revision):
         query(set())
-        _,_,preview,frozen,_=context(module_id,revision)
-        return send_file(BytesIO(frozen.source(module_id,revision)),mimetype='application/pdf',
+        s=service();frozen,cat=s.frozen_learning(module_id,revision)
+        preview=build_preview(frozen,module_id,revision,catalogue=cat,as_of=s.now())
+        response=send_file(BytesIO(frozen.source(module_id,revision)),mimetype='application/pdf',
             download_name=preview['source']['filename'],as_attachment=False)
+        response.headers['Content-Security-Policy']='sandbox'
+        return response
+
+    @bp.get('/academic-evidence/learning/<module_id>/<int:revision>/assets/<name>')
+    def asset(module_id,revision,name):
+        query(set())
+        import re
+        require(re.fullmatch(r'[A-Za-z0-9_.-]+\.(png|jpg|jpeg|webp)',name) is not None,'Unsupported owned image.',404)
+        s=service();frozen,cat=s.frozen_learning(module_id,revision)
+        build_preview(frozen,module_id,revision,catalogue=cat,as_of=s.now())
+        raw=frozen.asset(module_id,revision,'assets/'+name)
+        mime='image/jpeg' if name.endswith(('.jpg','.jpeg')) else 'image/'+name.rsplit('.',1)[1]
+        return send_file(BytesIO(raw),mimetype=mime)
 
     @bp.get('/academic-evidence/learning/<module_id>/<int:revision>/study-preview')
     def study_preview(module_id,revision):
@@ -136,9 +153,7 @@ def register_academic_evidence(app):
         from .routes import _operational_planner_service
         try:
             owner=_operational_planner_service().tasks
-            module_owner=service()
-            frozen,_=module_owner.frozen_learning(module_id,revision)
-            mapping=frozen.module(module_id,revision)['mapping']
+            mapping=preview['mapping']
             owner.create_manual_study_task(intent_id=payload['intent_id'],
                 title=('Manual practice: '+view.module_title)[:300],
                 description='Student-selected low-stakes practice. Module '+module_id+' revision '+str(revision)+

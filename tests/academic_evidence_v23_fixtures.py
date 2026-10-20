@@ -73,7 +73,7 @@ def uc_owners(tmp_path,monkeypatch):
     db=_database(tmp_path)
     with closing(sqlite3.connect(db)) as c,c:
         c.execute("INSERT INTO courses(id,code,name,created_at,updated_at) VALUES('v23-uc100n','UC100N','Synthetic data foundations',?,?)",(NOW.isoformat(),)*2)
-        c.execute("INSERT INTO topics(id,course_id,name,created_at,updated_at) VALUES('v23-data','v23-uc100n','Observations and variables',?,?)",(NOW.isoformat(),)*2)
+        c.execute("INSERT INTO topics(id,course_id,name,normalized_name,position,status,created_at,updated_at) VALUES('v23-data','v23-uc100n','Observations and variables','observations and variables',1,'not_started',?,?)",(NOW.isoformat(),)*2)
     cat={'available':True,'courses':[{'id':'v23-uc100n','code':'UC100N','name':'Synthetic data foundations',
         'topics':[{'id':'v23-data','name':'Observations and variables'}]}]}
     raw=source_pdf();p,assets=authored_sample(raw)

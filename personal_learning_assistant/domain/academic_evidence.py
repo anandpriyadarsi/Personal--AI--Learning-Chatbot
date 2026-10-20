@@ -28,6 +28,7 @@ class AcademicEvidenceRecord:
     question_revision: int | None = None
     grading_confidence: float | None = None
     actual_minutes: int | None = None
+    question_id: str | None = None
     assistance: str = 'unknown'
     independence: str = field(default='unknown', init=False)
     automatic_eligible: bool = field(default=False, init=False)

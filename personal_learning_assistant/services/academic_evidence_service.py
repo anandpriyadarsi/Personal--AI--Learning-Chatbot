@@ -81,15 +81,18 @@ def qualify_learning_events(package, events, *, as_of, mapping_status):
             None if reasons else '/academic-evidence/learning/'+quote(package['module_id'],safe='')+
             '/'+str(package['module_revision'])+'/source.pdf#page='+str(page))
             for page in (q['pages'] if q else ()))
-        if not refs:
-            refs=(Ref('learning_event',eid),)
+        refs += (Ref('learning_event',eid),)
+        if q:
+            refs += (Ref('learning_question',q['id'],revision=q['revision'],url=None if reasons else
+                '/learning/modules/'+quote(package['module_id'],safe='')+'/'+str(package['module_revision'])+
+                '?view=practice&question='+quote(q['id'],safe='')+'#question-'+quote(q['id'],safe='')),)
         records.append(Record('learning_practice','learning_attempt:'+eid,
             mapping.get('course_id'),mapping.get('topic_id'),
             'blocked' if reasons else 'study_signal','published_snapshot_validated',
             mapping_status,'deterministic_practice',
             'unverified' if reasons else ('correct' if row['correct'] else 'incorrect'),
             occurred,refs,tuple(sorted(reasons)),package['module_revision'],
-            q['revision'] if q else None))
+            q['revision'] if q else None,question_id=q['id'] if q else None))
     return tuple(records)
 
 class AcademicEvidenceService:
@@ -158,6 +161,20 @@ class AcademicEvidenceService:
         records=[]
         for e in observations:
             reasons=set(e.exclusion_reasons)
+            grading=con.execute("""SELECT ev.created_at,ev.updated_at,ev.confirmed_at,
+                se.created_at,se.updated_at,se.confirmed_at FROM assessment_response_evaluations ev
+                LEFT JOIN assessment_session_evaluations se ON se.id=ev.session_evaluation_id
+                WHERE ev.id=?""",(e.evidence_id,)).fetchone()
+            if grading is None:
+                reasons.add('evaluation_timestamp_invalid')
+            else:
+                for index,raw in enumerate(grading):
+                    # Confirmation is legitimately absent for provisional rows;
+                    # mandatory creation/update clocks cannot be absent.
+                    if raw is None and index in (2,5):continue
+                    clock_reasons=set();_stamp(raw,now,clock_reasons)
+                    if 'occurrence_after_as_of' in clock_reasons:reasons.add('evaluation_after_as_of')
+                    if 'occurrence_invalid' in clock_reasons:reasons.add('evaluation_timestamp_invalid')
             blocked=bool(reasons-{'mapping_snapshot_unknown','independence_unknown','self_reported_outcome'})
             refs=tuple(Ref(r.kind,r.identifier,url=(
                 '/assessments/sessions/'+quote(e.session_id,safe='')+'/evaluation'
@@ -179,7 +196,7 @@ class AcademicEvidenceService:
                 AND i.source_id=? AND i.status='completed' AND a.status IN ('approved','active','closed')
                 AND a.agenda_date<=?""",(task['id'],now.astimezone(self.zone).date().isoformat())).fetchone()[0]
             records.append(Record('planner_task','planner_task:'+task['id'],course_id,topic_id,
-                'blocked' if reasons else 'completion_signal','canonical_task','canonical_links',
+                'blocked' if reasons else ('completion_signal' if task['status']=='completed' else 'planning_intent'),'canonical_task','canonical_links',
                 'self_report',task['status'],stamp,
                 (Ref('planner_task',task['id'],url=None if reasons else '/planning/tasks?status='+task['status']+'&course_id='+quote(course_id,safe='')),),
                 tuple(sorted(reasons)),actual_minutes=minutes))

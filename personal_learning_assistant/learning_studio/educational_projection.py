@@ -24,6 +24,7 @@ def build_preview(studio,module_id,revision,*,catalogue=None,as_of=None):
         return [{'module_id':module_id,'module_revision':revision,'source_id':p['source']['source_id'],
             'source_sha256':p['source']['sha256'],'page':page,
             'semantic_status':p['pages'][page-1]['status'],
+            'review_flags':list(p['pages'][page-1]['review_flags']),
             'url':f'/academic-evidence/learning/{module_id}/{revision}/source.pdf#page={page}'} for page in pages]
     def blocks(values):
         return [{'kind':b['kind'],'pages':list(b['pages']),'content':{k:copy.deepcopy(v) for k,v in b.items() if k not in {'kind','pages','answer'}},
@@ -31,11 +32,11 @@ def build_preview(studio,module_id,revision,*,catalogue=None,as_of=None):
     return {'schema':'anvaya.educational-note-projection.v1','as_of':stamp.astimezone(timezone.utc).isoformat(),
         'module':{'id':module_id,'revision':revision,'title':p['title']},
         'source':{**p['source'],'validation':'published_snapshot_validated','registry_freshness':'not_checked'},
-        'mapping_status':status,'sections':[{'id':sec['id'],'title':sec['title'],'pages':sec['pages'],
+        'mapping':copy.deepcopy(p['mapping']),'mapping_status':status,'sections':[{'id':sec['id'],'title':sec['title'],'pages':sec['pages'],
             'blocks':blocks(sec['blocks'])} for sec in p['sections']],
         'revision':blocks(p['revision']),
         'questions':[{'id':q['id'],'revision':q['revision'],'prompt':q['prompt'],'pages':q['pages'],
-            'url':f'/learning/modules/{module_id}/{revision}?view=practice#question-{q["id"]}'} for q in p['questions']],
+            'url':f'/learning/modules/{module_id}/{revision}?view=practice&question={q["id"]}#question-{q["id"]}'} for q in p['questions']],
         'independence':'unknown','mastery':'unknown','semantic_review':'Authored fidelity flags are not an independent source certification.'}
 
 def tutor_handoff(studio,payload,*,catalogue=None,as_of=None):
@@ -44,8 +45,9 @@ def tutor_handoff(studio,payload,*,catalogue=None,as_of=None):
     preview=build_preview(studio,payload['module_id'],payload['module_revision'],catalogue=catalogue,as_of=as_of)
     require(payload['source_sha256']==preview['source']['sha256'],'Source revision changed.',409)
     pages=payload['pages']
-    require(isinstance(pages,list) and 1<=len(pages)<=20 and len(set(pages))==len(pages),'Choose 1–20 distinct source pages.')
+    require(isinstance(pages,list) and 1<=len(pages)<=20,'Choose 1–20 distinct source pages.')
     require(all(type(p) is int and 1<=p<=preview['source']['page_count'] for p in pages),'Invalid source page.')
+    require(len(set(pages))==len(pages),'Choose distinct source pages.')
     blocks=[]
     for section in preview['sections']:
         for b in section['blocks']:

@@ -54,7 +54,7 @@
     <form method="post" action="{{ url_for('web.planning_day_generate', agenda_date=day.date) }}"><button class="button" type="submit">{% if agenda %}Regenerate draft{% else %}Generate today{% endif %}</button></form>
     {% endif %}
     {% if not proposal_token and agenda and agenda.status == 'draft' and not approval_context_unavailable %}
-    <form method="post" action="{{ url_for('web.planning_day_approve', agenda_date=day.date) }}"><input type="hidden" name="approval_token" value="{{ planner_approval_token(day.date, saved_proposal_context.saved_fingerprint if saved_proposal_context else none, saved_proposal_context.nonce if saved_proposal_context else none) }}"><button class="button button-secondary" type="submit">Approve day</button></form>
+    <form method="post" action="{{ url_for('web.planning_day_approve', agenda_date=day.date) }}"><input type="hidden" name="approval_token" value="{{ planner_approval_token(day.date, day.planning_fingerprint, saved_proposal_context.nonce if saved_proposal_context else none) }}"><button class="button button-secondary" type="submit">Approve day</button></form>
     {% endif %}
   </div>
 </section>
