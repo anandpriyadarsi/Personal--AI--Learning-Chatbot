@@ -37,3 +37,25 @@ def test_mobile_source_anchor_keeps_strict_document_width(browser,live,repeat):
             print('MOBILE_SOURCE_AFTER_LAYOUT:'+json.dumps(page.evaluate(LAYOUT)),flush=True)
         assert state['scroll']<=state['width']+1,state
     finally:page.close()
+
+def test_source_layout_waits_for_its_delayed_stylesheet(browser,live):
+    url,_=live
+    page=browser.new_page(viewport={'width':390,'height':844})
+    held=[]
+    try:
+        page.goto(url+'/learning/modules/synthetic/1?view=learn')
+        page.route('**/static/css/learning_studio.css',lambda route:held.append(route))
+        page.locator('.ls-source-chips a').first.click()
+        page.wait_for_function("document.querySelector('#source-page-1') !== null")
+        initial=page.evaluate(LAYOUT)
+        initial['stylesheets']=page.evaluate("Array.from(document.querySelectorAll('link[rel=stylesheet]')).map(x=>({href:x.href,loaded:!!x.sheet}))")
+        initial['hashWrap']=page.locator('.ls-hash').evaluate("(e)=>getComputedStyle(e).overflowWrap")
+        print('MOBILE_SOURCE_DELAYED_STYLESHEET:'+json.dumps(initial),flush=True)
+        assert held,'Expected a controlled pending Learning stylesheet'
+        for route in held:route.continue_()
+        page.wait_for_load_state('load')
+        final=page.evaluate(LAYOUT)
+        final['hashWrap']=page.locator('.ls-hash').evaluate("(e)=>getComputedStyle(e).overflowWrap")
+        print('MOBILE_SOURCE_LOADED_STYLESHEET:'+json.dumps(final),flush=True)
+        assert final['scroll']<=final['width']+1,final
+    finally:page.close()
