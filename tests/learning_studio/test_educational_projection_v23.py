@@ -87,3 +87,27 @@ def test_intent_uses_one_learning_context_and_preserves_captured_topic_name(owne
         return original(self,*args,**kwargs)
     monkeypatch.setattr(AcademicEvidenceService,'frozen_learning',guarded)
     assert c.post('/academic-evidence/learning/synthetic/1/study-intent',data={'intent_token':t}).status_code==303
+
+@pytest.mark.parametrize('field,value,reason',[
+    ('completed_at','2026-10-21T10:00:01+00:00','effort_after_as_of'),
+    ('updated_at','2026-10-21T10:00:01+00:00','effort_after_as_of'),
+    ('created_at','2026-10-21T10:00:01+00:00','effort_after_as_of'),
+    ('completed_at','bad','effort_timestamp_invalid'),
+    ('updated_at','2026-10-21T09:00:00','effort_timestamp_invalid'),
+    ('completed_at',None,'effort_timestamp_invalid'),
+    ('completed_at',NOW.isoformat(),None)])
+def test_effort_is_qualified_by_event_clock_not_only_agenda_date(uc_owners,field,value,reason,tmp_path):
+    with closing(sqlite3.connect(uc_owners[0])) as c,c:
+        c.execute("""INSERT INTO planner_tasks(id,title,priority,status,estimated_minutes,course_id,topic_id,created_at,updated_at,completed_at)
+            VALUES('effort-task','Practice','P2','completed',30,'v23-uc100n','v23-data',?,?,?)""",(NOW.isoformat(),)*3)
+        c.execute("""INSERT INTO daily_agendas(id,agenda_date,status,generated_at,approved_at,created_at,updated_at)
+            VALUES('effort-day','2026-10-21','approved',?,?,?,?)""",(NOW.isoformat(),)*4)
+        c.execute("""INSERT INTO daily_agenda_items(id,agenda_id,ordinal,item_kind,source_type,source_id,title,planned_minutes,actual_minutes,status,created_at,updated_at,completed_at)
+            VALUES('effort-item','effort-day',1,'task','planner_task','effort-task','Practice',30,35,'completed',?,?,?)""",(NOW.isoformat(),)*3)
+        c.execute('UPDATE daily_agenda_items SET '+field+'=? WHERE id=?',(value,'effort-item'))
+    before=inventory(tmp_path)
+    r=next(r for r in service(uc_owners).learning('uc100n-demo',1).records if r.kind=='planner_task')
+    if reason:
+        assert r.actual_minutes is None and reason in r.reasons and r.qualification=='blocked'
+    else:assert r.actual_minutes==35 and r.qualification=='completion_signal'
+    assert inventory(tmp_path)==before
