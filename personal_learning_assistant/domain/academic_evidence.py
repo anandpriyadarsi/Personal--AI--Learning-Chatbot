@@ -47,6 +47,8 @@ class AcademicEvidenceView:
     module_title: str = ''
     historical_revision: bool = False
     manual_task_allowed: bool = False
+    source_id: str | None = None
+    source_sha256: str | None = None
     schema: str = field(default='anvaya.academic-evidence.v1', init=False)
     policy_version: str = field(default='academic-evidence-v2.3.1', init=False)
     production_authority: str = field(default='blocked', init=False)

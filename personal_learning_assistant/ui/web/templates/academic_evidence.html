@@ -1,0 +1,42 @@
+{% extends "workspace_base.html" %}
+{% block title %}Study evidence · ANVAYA{% endblock %}
+{% block workspace_assets %}{{ super() }}<link rel="stylesheet" href="{{ url_for('static',filename='css/academic_evidence.css') }}">{% endblock %}
+{% block content %}
+<div class="ae-workspace">
+  <header class="ae-hero">
+    <p class="eyebrow">ANVAYA / Learning with evidence</p>
+    <h1>{% if stage in ['lesson','preview'] %}{{ view.module_title }}{% else %}Understand what your evidence means.{% endif %}</h1>
+    <p>Read the source, practise deliberately, and choose your next step. Study signals help reflection; they do not prove independent mastery.</p>
+    <nav class="ae-actions" aria-label="Evidence navigation"><a href="{{ url_for('academic_evidence.index') }}">Study evidence</a><a href="{{ url_for('web.analysis') }}">Analysis</a><a href="{{ url_for('web.planning') }}">Planning</a></nav>
+  </header>
+  {% if error_message %}<section class="ae-card" role="alert"><h2>Evidence unavailable</h2><p>{{ error_message }}</p><p>Existing learning material and academic records remain unchanged.</p></section>{% endif %}
+  {% if stage=='index' %}
+    <section class="ae-card"><h2>Registered courses</h2><div class="ae-tags">{% for c in catalogue.courses %}<span>{{ c.code }} · {{ c.name }}</span>{% else %}<p>No current course catalogue is available.</p>{% endfor %}</div></section>
+    <section aria-labelledby="lessons-title"><h2 id="lessons-title">Explore a published lesson</h2><div class="ae-grid">{% for lesson in lessons %}<article class="ae-card"><p class="eyebrow">Published revision {{ lesson.revision }}</p><h3>{{ lesson.title }}</h3><a class="button" href="{{ url_for('academic_evidence.learning',module_id=lesson.module_id,revision=lesson.revision) }}">Open lesson and evidence</a></article>{% else %}<div class="ae-card"><p>No published lessons are available in this owner snapshot.</p><a href="{{ url_for('learning.library') }}">Open Learning Studio</a></div>{% endfor %}</div></section>
+  {% elif stage in ['lesson','preview'] %}
+    <section class="ae-metrics" aria-label="Evidence qualification">
+      <div class="ae-card"><span>Source snapshot</span><strong>Verified bytes</strong><small>Live registry freshness is not checked.</small></div>
+      <div class="ae-card"><span>Course/topic mapping</span><strong>{{ view.mapping_status|replace('_',' ') }}</strong></div>
+      <div class="ae-card"><span>Independent mastery</span><strong>Unknown</strong><small>Practice and completion do not change this label.</small></div>
+    </section>
+    {% if stage=='preview' %}
+      <section class="ae-card"><p class="eyebrow">Your explicit choice</p><h2>Preview a manual practice task</h2><p>{{ minutes }} minutes · P2 · course {{ view.course_id }} · topic {{ view.topic_id }}</p><p>This creates a linked backlog task. It does not schedule time, approve a day, create automatic recovery urgency, or alter grades.</p><form method="post" action="{{ url_for('academic_evidence.study_intent',module_id=view.module_id,revision=view.module_revision) }}"><input type="hidden" name="intent_token" value="{{ intent_token }}"><button type="submit">Create my manual practice task</button></form><a href="{{ url_for('academic_evidence.learning',module_id=view.module_id,revision=view.module_revision) }}">Return to lesson</a></section>
+    {% else %}
+      <section class="ae-card"><h2>Choose your next step</h2><div class="ae-actions">{% for q in preview.questions[:1] %}<a class="button" href="{{ q.url }}">Practise the exact question</a>{% endfor %}<a href="{{ url_for('academic_evidence.source',module_id=view.module_id,revision=view.module_revision) }}">Open original PDF</a></div><form method="get" action="{{ url_for('academic_evidence.study_preview',module_id=view.module_id,revision=view.module_revision) }}"><label for="practice-minutes">Practice estimate in minutes</label><input id="practice-minutes" name="minutes" type="number" min="1" max="180" value="30" required><button type="submit"{% if not view.manual_task_allowed %} disabled{% endif %}>Preview a manual practice task</button></form>{% if not view.manual_task_allowed %}<p>Current source and mapping context are required before creating a linked task.</p>{% endif %}</section>
+      <section aria-labelledby="notes-title"><h2 id="notes-title">A structured view of the authored lesson</h2><p>Original authored content and page references are preserved. Fidelity flags describe the owner package, not a new academic certification.</p>
+      {% for section in preview.sections %}<article class="ae-card" id="section-{{ section.id }}"><h3>{{ section.title }}</h3>
+        {% for block in section.blocks %}<div class="ae-block ae-block-{{ block.kind }}"><p class="ae-kind">{{ block.kind|replace('_',' ') }}</p>
+          {% if block.kind=='source' %}<details><summary>Original source excerpt</summary>{{ markdown(block.content.text) }}</details>
+          {% elif block.content.text is defined %}{{ markdown(block.content.text) }}
+          {% elif block.content.headers is defined %}<div class="ae-table-scroll"><table><thead><tr>{% for h in block.content.headers %}<th>{{ h }}</th>{% endfor %}</tr></thead><tbody>{% for row in block.content.rows %}<tr>{% for cell in row %}<td>{{ cell }}</td>{% endfor %}</tr>{% endfor %}</tbody></table></div>
+          {% elif block.content.nodes is defined %}<ol>{% for node in block.content.nodes %}<li>{{ node.label if node is mapping else node }}</li>{% endfor %}</ol>{% if block.content.alt is defined %}<p>{{ block.content.alt }}</p>{% endif %}
+          {% elif block.content.alt is defined %}<p>{{ block.content.alt }}</p>{% endif %}
+          <div class="ae-source-links">{% for ref in block.source_refs %}<a href="{{ ref.url }}">Original page {{ ref.page }}</a><span>{{ ref.semantic_status|replace('_',' ') }}</span>{% endfor %}</div>
+        </div>{% endfor %}
+      </article>{% endfor %}</section>
+      <section class="ae-card" aria-labelledby="signals-title"><h2 id="signals-title">Evidence and recheck explanation</h2><ul>{% for reason in view.explanations %}<li>{{ reason }}</li>{% endfor %}</ul><div class="ae-records">{% for record in view.records %}<article class="ae-record"><h3>{{ record.kind|replace('_',' ')|title }}</h3><p><strong>{{ record.qualification|replace('_',' ') }}</strong> · {{ record.outcome|replace('_',' ') }}</p><p>Independence: {{ record.independence }} · mapping: {{ record.mapping_status|replace('_',' ') }}</p>{% if record.actual_minutes is not none %}<p>Recorded actual effort: {{ record.actual_minutes }} min</p>{% endif %}{% if record.reasons %}<details><summary>Why qualification was withheld</summary><ul>{% for reason in record.reasons %}<li>{{ reason|replace('_',' ') }}</li>{% endfor %}</ul></details>{% endif %}<div class="ae-source-links">{% for ref in record.source_refs %}{% if ref.url %}<a href="{{ ref.url }}">Open {{ ref.kind|replace('_',' ') }}</a>{% endif %}{% endfor %}</div></article>{% else %}<p>No events in this scoped owner snapshot. Unknown evidence is not a failed grade.</p>{% endfor %}</div></section>
+      <section class="ae-card"><h2>Prepare a source-grounded Tutor handoff</h2><p>This read-only, offline handoff creates no Tutor session and makes no provider call.</p><form method="post" action="{{ url_for('academic_evidence.tutor_context',module_id=view.module_id,revision=view.module_revision) }}"><input type="hidden" name="review_token" value="{{ review_token }}"><label for="student-question">Your question</label><textarea id="student-question" name="student_question" maxlength="2000" required></textarea><label for="source-page">Original page</label><input id="source-page" name="page" type="number" min="1" max="{{ preview.source.page_count }}" value="1" required><button type="submit">Prepare read-only Tutor handoff</button></form></section>
+    {% endif %}
+  {% endif %}
+</div>
+{% endblock %}

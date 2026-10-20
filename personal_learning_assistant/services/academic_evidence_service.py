@@ -237,4 +237,5 @@ class AcademicEvidenceService:
                  'assessment':[asdict(r) for r in academic if r.kind=='assessment_evaluation'],'historical':historical}
         return View(now.isoformat(),_digest(context),course_id,topic_id,'published_snapshot_validated',
             mapping_status,records+academic,tuple(explanations),module_id,revision,p['title'],historical,
-            mapping_status=='reviewed_current_catalogue' and not historical)
+            mapping_status=='reviewed_current_catalogue' and not historical,
+            source_id=p['source']['source_id'],source_sha256=p['source']['sha256'])

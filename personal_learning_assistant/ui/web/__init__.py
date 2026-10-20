@@ -23,6 +23,7 @@ def create_app(config: Mapping[str, Any] | None = None) -> Flask:
         TESTING=False,
         LEARNING_LIBRARY_ENABLED=os.environ.get("ANVAYA_LIBRARY_ENABLED", "true").strip().lower() == "true",
         LEARNING_LIBRARY_DATABASE_PATH=os.environ.get("ANVAYA_LIBRARY_DATABASE_PATH") or None,
+        ACADEMIC_EVIDENCE_ENABLED=os.environ.get('ANVAYA_EVIDENCE_ENABLED','true').strip().lower()=='true',
         JSON_SORT_KEYS=False,
         ASSESSMENT_COLAB_URL=os.environ.get("ANVAYA_COLAB_URL", ""),
         ASSESSMENT_CODING_HELPER_ENABLED=os.environ.get("ANVAYA_CODING_HELPER_ENABLED", "true").lower() == "true",
@@ -62,5 +63,7 @@ def create_app(config: Mapping[str, Any] | None = None) -> Flask:
     from .planning_proposals import register_planning_proposals
     from .routes import _operational_planner_service
     register_planning_proposals(app, _operational_planner_service)
+    from .academic_evidence import register_academic_evidence
+    register_academic_evidence(app)
     register_error_handlers(app)
     return app
