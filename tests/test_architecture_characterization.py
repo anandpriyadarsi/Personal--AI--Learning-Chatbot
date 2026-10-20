@@ -1,4 +1,4 @@
-"""Repaired B/C/P01–P08 are desired regressions; A and D remain bounded defect witnesses."""
+"""Repaired A/B/C/D/P01–P08 are desired behavior regressions."""
 import json
 from pathlib import Path
 import subprocess
@@ -29,7 +29,7 @@ def evidence(tmp_path_factory, record_testsuite_property):
     directory = tmp_path_factory.mktemp('characterization')
     reports = {}
     for finding, (owner, future_test) in OWNERS.items():
-        status = 'DESIRED behavior PASS' if finding in {'B','C','P01','P02','P03','P04','P05','P06','P07','P08'} else 'REPRODUCED; desired behaviour FAIL'
+        status = 'DESIRED behavior PASS'
         record_testsuite_property(finding, status + '; owner ' + owner + '; ' + future_test)
     for name in ['topic', 'planning', 'read_routes']:
         output = directory / (name + '.json')
@@ -40,17 +40,24 @@ def evidence(tmp_path_factory, record_testsuite_property):
     return reports
 
 
-@pytest.mark.parametrize('finding', [pytest.param(f, marks=pytest.mark.known_defect) if f in {'A','D'} else f for f in OWNERS if f != 'C'])
+@pytest.mark.parametrize('finding', [f for f in OWNERS if f != 'C'])
 def test_current_defect_reproduction(evidence, finding):
     topic, planning = evidence['topic'], evidence['planning']
     if finding == 'A':
         assert topic['scenario_A']['strong_topic']['weighted_performance_percent'] == 100
-        assert topic['scenario_A']['recovery_candidate']['action_family'] == 'evidence_check'
+        assert topic['scenario_A']['recovery_candidate'] is None
+        diagnostic = topic['scenario_A']['unqualified_failure_diagnostic']
+        assert diagnostic['action_family'] == 'evidence_check' and diagnostic['suggested_priority'] == 'P2'
     elif finding == 'B':
         assert planning['scenario_B']['actual_placement'] is None
         assert planning['scenario_B']['future_task_excluded']
     elif finding == 'D':
         assert len(topic['scenario_D']['missing_mapping_snapshot_fields']) == 6
+        assert topic['scenario_D']['unknown_mapping_excluded_from_automatic_remediation']
+        sample = topic['scenario_D']['evidence_sample']
+        assert sample['mapping_id'] is None and sample['mapping_state'] == 'unknown'
+        assert sample['mapping_review_required'] is True and sample['mapping_reviewed_at'] is None
+        assert sample['automatic_remediation_eligible'] is False
     elif finding == 'P01':
         assert planning['scenario_B']['approved_title'] == planning['scenario_B']['above_saved_preview_title']
     elif finding == 'P02':
