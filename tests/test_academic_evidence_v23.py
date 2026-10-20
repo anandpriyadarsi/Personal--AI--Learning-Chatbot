@@ -1,4 +1,5 @@
 """Source-linked V2.3 tests use disposable canonical and Learning owner stores."""
+from contextlib import closing
 from datetime import datetime, timezone
 from pathlib import Path
 import hashlib
@@ -21,7 +22,12 @@ def inventory(root):
 def owners(tmp_path,monkeypatch):
     from personal_learning_assistant.learning_studio import service as owner
     monkeypatch.setattr(owner,'now',lambda:NOW.isoformat())
-    db=_database(tmp_path);raw=source_pdf();p=package(raw,mapped=True)
+    db=_database(tmp_path)
+    # This branch exercises the stable DELETE read contract. WAL is covered by
+    # its own owner-publication and fail-closed cases; never change a live source.
+    with closing(sqlite3.connect(db)) as c:
+        assert c.execute('PRAGMA journal_mode=DELETE').fetchone()[0]=='delete'
+    raw=source_pdf();p=package(raw,mapped=True)
     p['mapping'].update(course_id='course-ma',topic_id='topic-lu',topic_name='LU Factorization')
     cat={'available':True,'courses':[{'id':'course-ma','code':'MA103N','name':'Linear Algebra','topics':[{'id':'topic-lu','name':'LU Factorization'}]}]}
     studio=LearningStudioService(tmp_path/'learning_studio.sqlite3',source_loader=lambda _:raw,catalogue_loader=lambda:cat)
@@ -52,7 +58,7 @@ def test_absence_is_unknown_not_failed_grade(owners):
 
 @pytest.mark.parametrize('sql',["UPDATE topics SET deleted_at='2026-10-01' WHERE id='topic-lu'","UPDATE topics SET name='Changed' WHERE id='topic-lu'","UPDATE topics SET course_id='other-course' WHERE id='topic-lu'","UPDATE courses SET deleted_at='2026-10-01' WHERE id='course-ma'"])
 def test_stale_deleted_cross_course_mapping_never_qualifies(owners,sql):
-    with sqlite3.connect(owners[0]) as c:
+    with closing(sqlite3.connect(owners[0])) as c,c:
         c.execute("INSERT INTO courses(id,code,name,created_at,updated_at) VALUES('other-course','OTHER','Other',?,?)",(NOW.isoformat(),)*2);c.execute(sql)
     v=service(owners).learning('synthetic',1)
     assert v.mapping_status=='unverified' and not v.manual_task_allowed and v.mastery=='unknown'
@@ -86,7 +92,7 @@ def test_historical_assessment_mapping_and_source_are_unverified(owners):
     assert all(r.independence=='unknown' and r.qualification!='qualified' for r in rows)
 
 def test_wrong_namespaced_bridge_is_blocked(owners):
-    with sqlite3.connect(owners[0]) as c:
+    with closing(sqlite3.connect(owners[0])) as c,c:
         c.execute("INSERT INTO question_attempts(id,question_id,attempt_number,outcome,max_marks_milli,occurred_at,evaluation_ref) VALUES('bridge','q1',1,'incorrect',2000,?,'assessment_response_evaluation:wrong')",(NOW.isoformat(),))
         c.execute("UPDATE assessment_response_evaluations SET question_attempt_id='bridge' WHERE id='ev-sq1'")
     r=next(r for r in service(owners).topic('course-ma','topic-lu').records if r.identifier=='assessment_response_evaluation:ev-sq1')
