@@ -38,6 +38,12 @@ Real browser cases exercise 390, 768 and 1366 widths and a mobile no-JavaScript 
 
 Screenshots include the actual unchanged owner reader (`original-reader-*.png`), additional V2.3 lesson view (`v23-lesson-*.png`), completed evidence and a review contact sheet. These are browser captures of synthetic content, not generated mockups. Source and screenshot artifacts are linked from draft PR #31. The latest exact-head CI results, not historical totals, determine acceptance.
 
+## Browser lifecycle regression
+
+One exact-head Ubuntu full run found the inherited mobile source navigation test measuring a document before the reader stylesheet arrived. Independent UI and Library runs of the same tree passed. A controlled stylesheet delay then reproduced a 646-pixel document at a 390-pixel viewport (`readyState=interactive`, reader stylesheet absent, hash wrapping `normal`); after load, the same document measured 390 pixels with wrapping `anywhere`.
+
+The test now waits for navigation load before its unchanged `scrollWidth <= innerWidth + 1` assertion. Twelve repeated source navigations plus a controlled delayed-stylesheet regression run natively on both platforms with zero skips. No reader template, style or product behavior is changed for this synchronization. The original four private IKS acceptance functions remain untouched.
+
 ## Explicit blocked gates
 
 1. **Original private IKS cross-platform acceptance: BLOCKED.** Genuine trusted external fixture prerequisites are unavailable. Original tests remain intact; the strict architecture validator must not turn their absence into a pass. The private workflow remains dispatch-only and gated; no private PDF/package is uploaded or reconstructed.

@@ -1,4 +1,4 @@
-name: V2.3 mobile source investigation
+name: V2.3 mobile source navigation
 on:
   push:
     branches: ['feature/architecture-v2-3-academic-evidence-2026-10']
@@ -33,7 +33,7 @@ jobs:
       - run: python -m pip install -r requirements-learning-studio.txt -r requirements-assessment-browser.txt
       - run: python scripts/architecture_checkout_eol.py --repo .
       - run: python -m playwright install --with-deps chromium
-      - name: Native source-anchor repetition and layout diagnostics
+      - name: Native source-anchor repetition and controlled stylesheet regression
         shell: python
         run: |
           import os,pathlib,subprocess,sys
@@ -42,7 +42,9 @@ jobs:
           os.environ['ANVAYA_VALIDATION_ARTIFACTS']=str(out)
           with open(os.environ['GITHUB_ENV'],'a',encoding='utf-8') as stream:stream.write('SOURCE_DIAG='+str(out)+'\n')
           code=subprocess.call([sys.executable,'-m','pytest','-q','-s','tests/learning_studio/test_mobile_source_v23.py','--junitxml='+str(out/'source.xml')])
-          sys.exit(code)
+          import xml.etree.ElementTree as ET
+          cases=ET.parse(out/'source.xml').findall('.//testcase')
+          assert code==0 and len(cases)==13 and all(c.find('skipped') is None for c in cases),'Source navigation must pass all 13 cases with zero skips'
       - uses: actions/upload-artifact@v4
         if: always()
         with:
