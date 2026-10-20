@@ -6,7 +6,7 @@ This dedicated feature branch starts from merged main `dd10397ee373f07fd16f110c4
 
 - Selectively reconcile Architecture V2.2 onto the actual Library main: bounded private-fixture staging, conservative Topic A/D diagnostics, exact B3 recovery namespace, terminal Assessment result/error paths, and original availability/timezone/clock approval context.
 - Add immutable `anvaya.academic-evidence.v1` projection with explicit policy version, module/source SHA/page and exact question/revision/event references. Source integrity means published snapshot bytes; live registry freshness and semantic correctness are separate unknowns.
-- Practice remains a low-stakes study signal with unknown assistance/independence. Repetition, self-scores and task completion never establish independent mastery, official grades or automatic recovery eligibility. Historical Assessment source/mapping remains unverified. Future or malformed grading clocks block affected evidence.
+- Practice remains a low-stakes study signal with unknown assistance/independence. Repetition, self-scores and task completion never establish independent mastery, official grades or automatic recovery eligibility. Historical Assessment source/mapping remains unverified. Future or malformed grading clocks block affected evidence. Actual effort is admitted only when each contributing completed event has valid created/update/completion clocks at or before the snapshot; an unqualified event withholds the total rather than producing a misleading partial sum.
 - Read canonical and Learning stores only through bounded RAM snapshots. DELETE captures reuse the merged Library descriptor/header/sidecar/stability guards. WAL requires the existing owner-authorized in-memory publication. No live SQLite connection, checkpoint, migration or source-loader call is introduced by the new read projection.
 - Add a separate dark Study Evidence workspace: faithful authored definitions, tables, worked examples, graph relationships, owned images, ungraded activities, recall prompts and revision material with page review reasons. Recall answers and assessment keys are withheld. Original source/owned images remain accessible independently of evidence inventory problems.
 - Add a signed, expiring manual study preview. GET does not write. Explicit confirmation calls the existing canonical task owner with an idempotent UUID receipt and exact active course/topic/name revalidation inside the writer transaction. It creates one P2 backlog task and preserves completed receipts on retry.
@@ -54,8 +54,10 @@ Use an isolated checkout of the dedicated branch and Python 3.12. Install the tr
 ```sh
 python -m pip install -r requirements-learning-studio.txt -r requirements-assessment-browser.txt
 python -m playwright install chromium
-python phase7_web.py
+ANVAYA_ASSESSMENT_EXTENDED=false python phase7_web.py
 ```
+
+The normal main launcher already supports optional Assessment activation. The command above disables that existing activation while reviewing this feature; it does not apply migration 0015. In PowerShell set `$env:ANVAYA_ASSESSMENT_EXTENDED='false'` before `python phase7_web.py`. Read pages can remain unavailable until an existing authorized owner is configured; do not create an academic database to satisfy a read.
 
 For automated validation set `ANVAYA_BROWSER_TESTS=1` (PowerShell: `$env:ANVAYA_BROWSER_TESTS='1'`) and run `python -m pytest -q`. The focused file list is explicit in the V2.3 workflow. All new fixtures use temporary databases; do not point fixture or validation commands at installed academic records. Normal read-only pages report unavailable when an authorized source snapshot is absent. Do not run migrations or import a pilot merely to make a read page appear available.
 

@@ -63,6 +63,8 @@ def test_source_practice_evidence_choice_availability_approval_completion(browse
         assert page.get_by_role('link',name='Original page 2',exact=True).first.get_attribute('href').endswith('/source.pdf#page=2')
         fits(page)
         shot(page,f'v23-lesson-{width}.png')
+        folder=os.environ.get('ANVAYA_VALIDATION_ARTIFACTS')
+        if folder:page.locator('#section-data-meaning').screenshot(path=str(Path(folder)/f'v23-authored-blocks-{width}.png'))
         page.get_by_role('link',name='Practise the exact question').click()
         expect(page.locator('.ls-question')).to_have_attribute('data-question-id','mean-score')
         page.locator('.ls-question input[value="0"]').check()
@@ -108,6 +110,8 @@ def test_source_practice_evidence_choice_availability_approval_completion(browse
         expect(page.locator('.ae-metrics')).to_contain_text('Unknown')
         fits(page);assert not errors and not external
         shot(page,f'v23-completed-evidence-{width}.png')
+        folder=os.environ.get('ANVAYA_VALIDATION_ARTIFACTS')
+        if folder:page.locator('section[aria-labelledby=signals-title]').screenshot(path=str(Path(folder)/f'v23-evidence-signals-{width}.png'))
         folder=os.environ.get('ANVAYA_VALIDATION_ARTIFACTS')
         if folder:
             (Path(folder)/f'v23-journey-{width}.json').write_text(json.dumps({

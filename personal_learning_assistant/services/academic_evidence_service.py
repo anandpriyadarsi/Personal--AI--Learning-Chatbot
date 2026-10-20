@@ -186,18 +186,36 @@ class AcademicEvidenceService:
                 'unverified' if blocked else e.outcome,
                 e.occurred_at_utc.isoformat() if e.occurred_at_utc else None,
                 refs,tuple(sorted(reasons)),grading_confidence=e.grading_confidence))
-        tasks=con.execute('SELECT id,status,completed_at,updated_at FROM planner_tasks WHERE course_id=? AND topic_id=? ORDER BY id LIMIT 101',(course_id,topic_id)).fetchall()
+        tasks=con.execute('SELECT id,status,created_at,completed_at,updated_at FROM planner_tasks WHERE course_id=? AND topic_id=? ORDER BY id LIMIT 101',(course_id,topic_id)).fetchall()
         require(len(tasks)<=100,'Task inventory exceeds the evidence bound.',503)
         for task in tasks:
             reasons=set()
             stamp=_stamp(task['completed_at'] or task['updated_at'],now,reasons)
-            minutes=con.execute("""SELECT SUM(i.actual_minutes) FROM daily_agenda_items i
-                JOIN daily_agendas a ON a.id=i.agenda_id WHERE i.source_type='planner_task'
-                AND i.source_id=? AND i.status='completed' AND a.status IN ('approved','active','closed')
-                AND a.agenda_date<=?""",(task['id'],now.astimezone(self.zone).date().isoformat())).fetchone()[0]
+            for key in ('created_at','updated_at'):_stamp(task[key],now,reasons)
+            efforts=con.execute("""SELECT i.actual_minutes,i.created_at,i.updated_at,i.completed_at
+                FROM daily_agenda_items i JOIN daily_agendas a ON a.id=i.agenda_id
+                WHERE i.source_type='planner_task' AND i.source_id=? AND i.status='completed'
+                AND a.status IN ('approved','active','closed') AND a.agenda_date<=?
+                ORDER BY i.id LIMIT 501""",(task['id'],now.astimezone(self.zone).date().isoformat())).fetchall()
+            require(len(efforts)<=500,'Actual-effort inventory exceeds the evidence bound.',503)
+            minutes=None;effort_reasons=set()
+            for item in efforts:
+                if item['actual_minutes'] is None:continue
+                if type(item['actual_minutes']) is not int or not 0<=item['actual_minutes']<=1440:
+                    effort_reasons.add('effort_value_invalid')
+                for key in ('created_at','updated_at','completed_at'):
+                    clocks=set();_stamp(item[key],now,clocks)
+                    if 'occurrence_after_as_of' in clocks:effort_reasons.add('effort_after_as_of')
+                    if 'occurrence_invalid' in clocks:effort_reasons.add('effort_timestamp_invalid')
+                if not effort_reasons:minutes=(minutes or 0)+item['actual_minutes']
+            # A partial sum could look complete. Withhold the total when any
+            # contributing event is invalid, future or otherwise unqualified.
+            if effort_reasons:minutes=None
+            reasons.update(effort_reasons)
+            if reasons:minutes=None
             records.append(Record('planner_task','planner_task:'+task['id'],course_id,topic_id,
                 'blocked' if reasons else ('completion_signal' if task['status']=='completed' else 'planning_intent'),'canonical_task','canonical_links',
-                'self_report',task['status'],stamp,
+                'self_report','unverified' if reasons else task['status'],stamp,
                 (Ref('planner_task',task['id'],url=None if reasons else '/planning/tasks?status='+task['status']+'&course_id='+quote(course_id,safe='')),),
                 tuple(sorted(reasons)),actual_minutes=minutes))
         return tuple(records)

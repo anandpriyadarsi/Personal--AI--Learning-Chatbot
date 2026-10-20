@@ -111,3 +111,13 @@ def test_effort_is_qualified_by_event_clock_not_only_agenda_date(uc_owners,field
         assert r.actual_minutes is None and reason in r.reasons and r.qualification=='blocked'
     else:assert r.actual_minutes==35 and r.qualification=='completion_signal'
     assert inventory(tmp_path)==before
+
+@pytest.mark.parametrize('field',['created_at','updated_at'])
+def test_future_task_state_cannot_use_an_older_completion_clock(uc_owners,field):
+    with closing(sqlite3.connect(uc_owners[0])) as c,c:
+        c.execute("""INSERT INTO planner_tasks(id,title,priority,status,estimated_minutes,course_id,topic_id,created_at,updated_at,completed_at)
+            VALUES('future-task','Practice','P2','completed',30,'v23-uc100n','v23-data',?,?,?)""",(NOW.isoformat(),)*3)
+        c.execute('UPDATE planner_tasks SET '+field+"='2026-10-21T10:00:01+00:00'")
+    r=next(r for r in service(uc_owners).learning('uc100n-demo',1).records if r.kind=='planner_task')
+    assert r.qualification=='blocked' and r.outcome=='unverified' and 'occurrence_after_as_of' in r.reasons
+    assert r.actual_minutes is None and all(not ref.url for ref in r.source_refs)

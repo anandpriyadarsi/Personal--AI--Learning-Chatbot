@@ -67,7 +67,7 @@ jobs:
           import base64,io,os,pathlib
           from PIL import Image,ImageOps,ImageDraw
           out=pathlib.Path(os.environ['ANVAYA_V23_RESULTS'])
-          names=['original-reader-390.png','v23-lesson-390.png','v23-lesson-1366.png','v23-completed-evidence-390.png']
+          names=['original-reader-390.png','v23-lesson-390.png','v23-authored-blocks-1366.png','v23-evidence-signals-390.png']
           files=[out/'screenshots'/name for name in names]
           if all(path.is_file() for path in files):
               sheet=Image.new('RGB',(1600,1320),'#101c24')

@@ -9,10 +9,15 @@ from tests.test_academic_evidence_v23 import owners, NOW, event, inventory, serv
 def app(owners, **extra):
     from personal_learning_assistant.ui.web import create_app
     from personal_learning_assistant.services.operational_planner_web_service import build_operational_planner_web_service
+    def planner():
+        owner=build_operational_planner_web_service(owners[0])
+        owner.tasks._now=lambda:NOW.isoformat()
+        owner.daily._now=lambda:NOW.isoformat()
+        return owner
     return create_app({'TESTING':True,'ACADEMIC_EVIDENCE_ENABLED':True,
         'ACADEMIC_EVIDENCE_SERVICE_FACTORY':lambda:service(owners),
         'LEARNING_STUDIO_SERVICE_FACTORY':lambda:owners[1],
-        'OPERATIONAL_PLANNER_WEB_SERVICE_FACTORY':lambda:build_operational_planner_web_service(owners[0]),
+        'OPERATIONAL_PLANNER_WEB_SERVICE_FACTORY':planner,
         'PLANNING_LOCAL_TIMEZONE':'UTC','ACADEMIC_TIMEZONE':'UTC','PLANNING_NOW':lambda:NOW.isoformat(),**extra})
 
 def token(response, name='intent_token'):
