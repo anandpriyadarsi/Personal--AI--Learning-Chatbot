@@ -669,3 +669,41 @@ def test_reconciled_tutor_page_formats_only_assistant_markdown_without_provider_
     assert "<strong>user</strong>" not in html
     assert "<img src=x onerror=bad()>" not in html
     assert fake.llm_calls == 0
+
+
+def test_tutor_feedback_requires_explicit_csrf_protected_post():
+    fake = FakeWebService()
+    observed = []
+    fake.record_feedback = lambda session_id, turn_id, *, helpful: observed.append(
+        (session_id, turn_id, helpful)
+    )
+    fake.session["turns"] = [{
+        "turn_id": "assistant-1", "ordinal": 1, "role": "assistant",
+        "content": "An answer", "support_level": "mixed",
+        "provider_name": "", "provider_model": "",
+        "created_at": "2026-09-17T10:00:00Z", "evidence": [],
+    }]
+    app = fake_web_app(fake)
+    client = app.test_client()
+    page = client.get("/agent/sessions/session-1")
+    assert page.status_code == 200
+    assert "Not helpful" in page.get_data(as_text=True)
+    assert observed == []
+    target = "/agent/sessions/session-1/turns/assistant-1/feedback"
+    assert client.get(target).status_code == 405
+    assert client.post(target, data={"helpful": "1"}).status_code == 403
+    assert client.post(target, data={
+        "helpful": "1", "csrf_token": "invalid",
+    }).status_code == 403
+    assert client.post(target, data={
+        "helpful": "not-a-choice",
+        "csrf_token": app.extensions["tutor_action_csrf"],
+    }).status_code == 400
+    assert observed == []
+    submitted = client.post(target, data={
+        "helpful": "0",
+        "csrf_token": app.extensions["tutor_action_csrf"],
+    })
+    assert submitted.status_code == 303
+    assert observed == [("session-1", "assistant-1", False)]
+    assert fake.llm_calls == 0
