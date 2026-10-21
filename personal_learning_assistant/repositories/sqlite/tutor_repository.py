@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from contextlib import contextmanager
 from typing import Iterable, Optional, Sequence
 
 from personal_learning_assistant.domain.tutor_models import (
@@ -44,6 +45,7 @@ class SQLiteTutorRepository:
         if not isinstance(connection, sqlite3.Connection):
             raise TypeError("connection must be an explicit sqlite3.Connection")
         self.connection = connection
+        self._exchange = None
         self.connection.row_factory = sqlite3.Row
         if validate_schema:
             self.validate_schema()
@@ -78,6 +80,61 @@ class SQLiteTutorRepository:
             raise TutorRepositoryError(
                 "Phase 6.1 tutor schema incomplete: {}".format("; ".join(issues))
             )
+
+    def memory_candidates_available(self):
+        """Read optional schema availability; never create it during a GET."""
+        return self.connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' "
+            "AND name='tutor_memory_candidates'"
+        ).fetchone() is not None
+
+    def _exchange_snapshot(self, session_id):
+        row = self.connection.execute(
+            "SELECT metadata_json,status,updated_at,"
+            "(SELECT COALESCE(MAX(ordinal),0) FROM tutor_turns WHERE session_id=s.id) "
+            "FROM tutor_sessions s WHERE id=?", (session_id,),
+        ).fetchone()
+        if row is None:
+            raise TutorRepositoryError("tutor session not found")
+        return tuple(row)
+
+    @contextmanager
+    def atomic_exchange(self, session_id):
+        """Commit both turns and their state together, with no provider-time lock.
+
+        Snapshot before generation. Acquire a write lock only at the first
+        persistence call and reject a competing answer/status/metadata change.
+        Shared SQLite transaction semantics remain unchanged for other owners.
+        """
+        if self._exchange is not None or self.connection.in_transaction:
+            raise TutorRepositoryError("Tutor exchange cannot nest")
+        self._exchange = {
+            "session_id": session_id,
+            "snapshot": self._exchange_snapshot(session_id), "started": False,
+        }
+        try:
+            yield
+            if self._exchange["started"]:
+                self.connection.commit()
+        except Exception:
+            if self._exchange["started"]:
+                self.connection.rollback()
+            raise
+        finally:
+            self._exchange = None
+
+    @contextmanager
+    def _write_transaction(self):
+        if self._exchange is None:
+            with transaction(self.connection, immediate=True):
+                yield
+            return
+        if not self._exchange["started"]:
+            self.connection.execute("BEGIN IMMEDIATE")
+            self._exchange["started"] = True
+            if self._exchange_snapshot(self._exchange["session_id"]) != self._exchange["snapshot"]:
+                raise TutorRepositoryError("Tutor session changed; refresh before retrying")
+        yield
 
     def resolve_course_id(self, identifier: Optional[str]) -> Optional[str]:
         """Resolve a canonical SQLite course id from id or human course code."""
@@ -275,7 +332,7 @@ class SQLiteTutorRepository:
         )
 
     def update_session_metadata(self, session_id, metadata_json, updated_at):
-        with transaction(self.connection, immediate=True):
+        with self._write_transaction():
             cursor = self.connection.execute(
                 "UPDATE tutor_sessions SET metadata_json=?,updated_at=? WHERE id=?",
                 (str(metadata_json), str(updated_at), str(session_id)),
@@ -317,7 +374,7 @@ class SQLiteTutorRepository:
         created_at,
         evidence: Sequence[TutorEvidence] = (),
     ) -> TutorTurn:
-        with transaction(self.connection, immediate=True):
+        with self._write_transaction():
             session = self.connection.execute(
                 "SELECT status FROM tutor_sessions WHERE id=?",
                 (session_id,),
@@ -448,6 +505,38 @@ class SQLiteTutorRepository:
         created_at,
     ) -> TutorFeedback:
         with transaction(self.connection, immediate=True):
+            if rating is None and not feedback_text and helpful is not None:
+                # The browser's two buttons represent one current opinion.
+                # A toggle updates that opinion; richer historical feedback
+                # (ratings/free text) keeps its established append semantics.
+                current = self.connection.execute(
+                    "SELECT * FROM tutor_feedback WHERE turn_id=? AND rating IS NULL "
+                    "AND feedback_text='' ORDER BY created_at DESC,id DESC LIMIT 1", (turn_id,),
+                ).fetchone()
+                if current is not None:
+                    changed = current["helpful"] != int(bool(helpful))
+                    if changed:
+                        self.connection.execute(
+                            "UPDATE tutor_feedback SET helpful=?,created_at=? WHERE id=?",
+                            (int(bool(helpful)), created_at, current["id"]),
+                        )
+                    return TutorFeedback(
+                        feedback_id=str(current["id"]), turn_id=turn_id,
+                        rating=None, helpful=helpful, feedback_text="",
+                        created_at=created_at if changed else str(current["created_at"]),
+                    )
+            # Retrying an identical browser POST must not multiply feedback.
+            existing = self.connection.execute(
+                "SELECT * FROM tutor_feedback WHERE turn_id=? AND rating IS ? "
+                "AND helpful IS ? AND feedback_text=? ORDER BY created_at,id LIMIT 1",
+                (turn_id, rating, None if helpful is None else int(bool(helpful)), feedback_text),
+            ).fetchone()
+            if existing is not None:
+                return TutorFeedback(
+                    feedback_id=str(existing["id"]), turn_id=turn_id,
+                    rating=rating, helpful=helpful, feedback_text=feedback_text,
+                    created_at=str(existing["created_at"]),
+                )
             self.connection.execute(
                 "INSERT INTO tutor_feedback("
                 "id,turn_id,rating,helpful,feedback_text,created_at) "

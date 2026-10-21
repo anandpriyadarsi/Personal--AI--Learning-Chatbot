@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import hashlib
 
 from personal_learning_assistant.domain.grounded_tutor_models import (
     GroundedTutorResult,
@@ -148,8 +149,9 @@ def _enforce_required_math_verification(question, verification):
 def _process_provider_content(plan, raw_content):
     answer_evaluation = None
     content = str(raw_content or "").strip()
+    content, extracted_evaluation = extract_answer_evaluation(content)
     if plan.teaching_intent == "quiz_answer":
-        content, answer_evaluation = extract_answer_evaluation(content)
+        answer_evaluation = extracted_evaluation
     content, math_verification = extract_and_verify_math(content)
     content = sanitize_correctness_prose(content)
     return content, answer_evaluation, math_verification
@@ -225,7 +227,45 @@ class GroundedTutorService:
         *,
         top_k=None,
         max_chars=None,
+        request_id="",
     ):
+        request_id = str(request_id or "").strip()
+        if request_id and not re.fullmatch(r"[A-Za-z0-9_-]{16,80}", request_id):
+            raise GroundedTutorError("Tutor request identity is invalid")
+        repository = self.tutor_session_service.repository
+        with self.tutor_session_service.repository.atomic_exchange(session_id):
+            digest = hashlib.sha256(str(question or "").strip().encode('utf-8')).hexdigest()
+            receipts = dict(repository.get_session(session_id).metadata.get("tutor_request_receipts") or {})
+            if request_id and request_id in receipts:
+                receipt = receipts[request_id]
+                if receipt["question_sha256"] != digest:
+                    raise GroundedTutorError("Tutor request identity belongs to a different question")
+                user = repository.get_turn(receipt["user_turn_id"])
+                assistant = repository.get_turn(receipt["assistant_turn_id"])
+                if user.session_id != session_id or assistant.session_id != session_id:
+                    raise GroundedTutorError("Tutor request identity has invalid scope")
+                return GroundedTutorResult(
+                    question=user.content, user_turn=user, assistant_turn=assistant,
+                    citations=tuple(item.citation_label for item in assistant.evidence),
+                    retrieved_chunk_ids=tuple(item.chunk_id for item in assistant.evidence),
+                    provider_request_id="",
+                )
+            result = self._answer(session_id, question, top_k=top_k, max_chars=max_chars)
+            if request_id:
+                metadata = dict(repository.get_session(session_id).metadata)
+                receipts[request_id] = {
+                    "question_sha256": digest,
+                    "user_turn_id": result.user_turn.turn_id,
+                    "assistant_turn_id": result.assistant_turn.turn_id,
+                    "ordinal": result.assistant_turn.ordinal,
+                }
+                metadata["tutor_request_receipts"] = dict(sorted(
+                    receipts.items(), key=lambda item: item[1].get("ordinal", 0)
+                )[-32:])
+                self.tutor_session_service.update_session_metadata(session_id, metadata)
+            return result
+
+    def _answer(self, session_id, question, *, top_k=None, max_chars=None):
         session = self.tutor_session_service.repository.get_session(session_id)
         if session.status != "active":
             raise GroundedTutorError("tutor session is not active")
@@ -284,13 +324,10 @@ class GroundedTutorService:
                 plan,
                 now=assistant_turn.created_at,
             )
-            try:
-                self.tutor_session_service.update_session_metadata(
-                    session_id,
-                    metadata,
-                )
-            except Exception:
-                pass
+            self.tutor_session_service.update_session_metadata(
+                session_id,
+                metadata,
+            )
             return GroundedTutorResult(
                 question=plan.question,
                 user_turn=user_turn,
@@ -352,13 +389,10 @@ class GroundedTutorService:
                 plan,
                 now=assistant_turn.created_at,
             )
-            try:
-                self.tutor_session_service.update_session_metadata(
-                    session_id,
-                    metadata,
-                )
-            except Exception:
-                pass
+            self.tutor_session_service.update_session_metadata(
+                session_id,
+                metadata,
+            )
             return GroundedTutorResult(
                 question=plan.question,
                 user_turn=user_turn,
@@ -382,18 +416,15 @@ class GroundedTutorService:
                 ),
                 support_level="insufficient",
             )
-            try:
-                metadata = _commit_orchestration_metadata(
-                    session.metadata,
-                    plan,
-                    now=assistant_turn.created_at,
-                )
-                self.tutor_session_service.update_session_metadata(
-                    session_id,
-                    metadata,
-                )
-            except Exception:
-                pass
+            metadata = _commit_orchestration_metadata(
+                session.metadata,
+                plan,
+                now=assistant_turn.created_at,
+            )
+            self.tutor_session_service.update_session_metadata(
+                session_id,
+                metadata,
+            )
             return GroundedTutorResult(
                 question=plan.question,
                 user_turn=user_turn,
@@ -437,18 +468,15 @@ class GroundedTutorService:
                     provider_name=str(retry_response.provider_name or ""),
                     provider_model=str(retry_response.provider_model or ""),
                 )
-                try:
-                    metadata = _commit_orchestration_metadata(
-                        session.metadata,
-                        plan,
-                        now=assistant_turn.created_at,
-                    )
-                    self.tutor_session_service.update_session_metadata(
-                        session_id,
-                        metadata,
-                    )
-                except Exception:
-                    pass
+                metadata = _commit_orchestration_metadata(
+                    session.metadata,
+                    plan,
+                    now=assistant_turn.created_at,
+                )
+                self.tutor_session_service.update_session_metadata(
+                    session_id,
+                    metadata,
+                )
                 return GroundedTutorResult(
                     question=plan.question,
                     user_turn=user_turn,
@@ -551,13 +579,10 @@ class GroundedTutorService:
                     plan,
                     now=assistant_turn.created_at,
                 )
-                try:
-                    self.tutor_session_service.update_session_metadata(
-                        session_id,
-                        blocked_metadata,
-                    )
-                except Exception:
-                    pass
+                self.tutor_session_service.update_session_metadata(
+                    session_id,
+                    blocked_metadata,
+                )
 
                 return GroundedTutorResult(
                     question=plan.question,
@@ -670,15 +695,10 @@ class GroundedTutorService:
             now=assistant_turn.created_at,
             adaptive_state=next_state,
         )
-        try:
-            self.tutor_session_service.update_session_metadata(
-                session_id,
-                metadata,
-            )
-        except Exception:
-            # The tutoring exchange is already safely persisted. Adaptive state
-            # is auxiliary and must not turn a valid answer into a 500 response.
-            pass
+        self.tutor_session_service.update_session_metadata(
+            session_id,
+            metadata,
+        )
 
         return GroundedTutorResult(
             question=plan.question,

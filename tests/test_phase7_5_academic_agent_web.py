@@ -507,6 +507,7 @@ def test_agent_routes_are_get_safe_and_ask_is_explicit_post():
     assert client.get("/agent?course=MA103N").status_code == 200
     assert fake.llm_calls == 0
     created = client.post("/agent/sessions", data={
+        "csrf_token": client.application.extensions['tutor_action_csrf'],
         "course_id": "course-1",
         "mode": "concept",
         "source_policy": "source_only",
@@ -517,7 +518,7 @@ def test_agent_routes_are_get_safe_and_ask_is_explicit_post():
     assert fake.llm_calls == 0
     assert client.get("/agent/sessions/session-1").status_code == 200
     assert fake.llm_calls == 0
-    asked = client.post("/agent/sessions/session-1/ask", data={"question": "Why does elimination produce L and U?", "mode": "exam", "source_policy": "source_first"})
+    asked = client.post("/agent/sessions/session-1/ask", data={"csrf_token": client.application.extensions['tutor_action_csrf'], "question": "Why does elimination produce L and U?", "mode": "exam", "source_policy": "source_first"})
     assert asked.status_code == 303
     assert fake.ask_calls == 1
     assert fake.llm_calls == 1
@@ -557,6 +558,7 @@ def test_ask_route_ignores_posted_scope_fields():
     response = client.post(
         "/agent/sessions/session-1/ask",
         data={
+            "csrf_token": client.application.extensions['tutor_action_csrf'],
             "question": "Explain rank",
             "course_id": "other-course",
             "mode": "exam",

@@ -26,7 +26,7 @@ STATE_KEY = "adaptive_tutor_state"
 STATE_VERSION = 7
 _MAX_TEXT = 700
 _EVAL_PATTERN = re.compile(
-    r"^\s*<!--ANVAYA_EVAL\s+(\{.*?\})\s*-->\s*",
+    r"^\s*<!--ANVAYA_EVAL\s+(.{0,4096}?)\s*-->\s*",
     re.DOTALL,
 )
 
@@ -415,14 +415,18 @@ def extract_answer_evaluation(content):
         "misconception": "",
         "present": False,
     }
+    # Private markers must never become transcript prose, even when malformed
+    # or emitted outside an answer turn. Only one leading bounded JSON object
+    # can supply an evaluation; all other occurrences are display-only removal.
+    visible = re.sub(r"<!--ANVAYA_EVAL\b.*?(?:-->|$)", "", raw, flags=re.DOTALL).strip()
     if match is None:
-        return raw.strip(), fallback
+        return visible, fallback
     try:
         payload = json.loads(match.group(1))
     except (TypeError, ValueError, json.JSONDecodeError):
-        return raw[match.end():].strip(), fallback
+        return visible, fallback
     if not isinstance(payload, dict):
-        return raw[match.end():].strip(), fallback
+        return visible, fallback
 
     status = _clean(payload.get("status"), 40).casefold()
     if status not in {"correct", "partial", "incorrect", "unclear"}:
@@ -433,7 +437,7 @@ def extract_answer_evaluation(content):
         "misconception": _clean(payload.get("misconception"), 240),
         "present": True,
     }
-    return raw[match.end():].strip(), evaluation
+    return visible, evaluation
 
 
 def mark_math_blocked(
@@ -502,7 +506,9 @@ def _last_question(text):
     matches = re.findall(r"([^?\n]{4,700}\?)", clean)
     if not matches:
         return ""
-    return _clean(matches[-1])
+    # Provider replies often put a short explanation and the next question on
+    # one line. Persist the question itself, not the preceding assertion.
+    return _clean(re.split(r"(?<=[.!])\s+(?=[A-Z])", matches[-1])[-1])
 
 
 def _last_practice_task(text):
@@ -518,7 +524,23 @@ def _last_practice_task(text):
         for item in re.split(r"\n\s*\n|\n", clean)
         if _clean(item, 700)
     ]
-    return blocks[-1] if blocks else ""
+    # A declarative explanation or refusal is not an unanswered exercise.
+    # Accept an imperative only at the start of a block, including a numbered
+    # task label. Keep following lines (e.g. a matrix) as part of that task.
+    task_start = re.compile(
+        r"^(?:(?:\d+[.)]|[-•])\s*)?(?:(?:task|problem|exercise)\s*:\s*)?"
+        r"(?:compute|calculate|find|determine|evaluate|solve|factor[ij]?[sz]e|"
+        r"write|predict|identify|show|prove|explain|try)\b", re.IGNORECASE,
+    )
+    for index in range(len(blocks) - 1, -1, -1):
+        if task_start.match(blocks[index]):
+            task = _clean(" ".join(blocks[index:]), 700)
+            # Reject a solution supplied after the task. Task givens such as
+            # "Find x if the determinant is 4" must remain answerable.
+            if re.search(r"(?:\b(?:answer|solution)\s*:|[.!]\s+(?:the\s+)?(?:answer|solution|result|multiplier|determinant)\s*(?:is\b|=))", task, re.IGNORECASE):
+                return ""
+            return task
+    return ""
 
 
 def evolve_adaptive_state(

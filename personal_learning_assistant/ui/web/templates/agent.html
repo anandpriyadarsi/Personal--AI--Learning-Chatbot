@@ -67,6 +67,7 @@
       <span class="tag">Source First default</span>
     </div>
     <form method="post" action="{{ url_for('web.academic_agent_create_session') }}">
+      <input type="hidden" name="csrf_token" value="{{ tutor_action_csrf }}">
       <p>
         <label for="session-course">Course</label><br>
         <select id="session-course" name="course_id">

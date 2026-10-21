@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from importlib import import_module
 from pathlib import Path
 import sqlite3
+import re
 from urllib.parse import quote
 
 
@@ -98,6 +99,7 @@ def _evidence_view(evidence):
 
 def _turn_view(turn):
     return {
+        "cited_labels": tuple(dict.fromkeys(re.findall(r"\[(S\d+)\]", turn.content))),
         "turn_id": turn.turn_id,
         "ordinal": turn.ordinal,
         "role": turn.role,
@@ -456,6 +458,7 @@ class AcademicAgentWebService:
                     "Tutor session history is temporarily unavailable."
                 ) from error
             view = _session_view(session, turns)
+            view["course"] = repository.course_identity(session.course_id)
             # Existing academic memory and progress are projected as read-only,
             # course-scoped teaching context. No mastery inference or write.
             from personal_learning_assistant.tutor.student_model import (
@@ -469,10 +472,7 @@ class AcademicAgentWebService:
             # No table is created by this GET; private student data stays local.
             view["memory_candidates"] = []
             view["memory_candidates_available"] = False
-            if session.course_id and connection.execute(
-                "SELECT 1 FROM sqlite_master WHERE type='table' "
-                "AND name='tutor_memory_candidates'"
-            ).fetchone():
+            if session.course_id and repository.memory_candidates_available():
                 candidate_module = import_module(
                     "personal_learning_assistant.tutor.memory_candidates"
                 )
@@ -678,7 +678,7 @@ class AcademicAgentWebService:
         finally:
             connection.close()
 
-    def ask(self, session_id, question):
+    def ask(self, session_id, question, *, request_id=""):
         clean_question = str(question or "").strip()
         if not clean_question:
             raise AcademicAgentWebValidationError("Question cannot be empty.")
@@ -736,7 +736,7 @@ class AcademicAgentWebService:
                     retrieval_service=retrieval,
                     provider=provider,
                 )
-                engine.answer(session.session_id, clean_question)
+                engine.answer(session.session_id, clean_question, request_id=request_id)
             except runtime_module.UnifiedSearchStaleIndexError as error:
                 raise AcademicAgentWebUnavailableError(
                     "Learning material changed. Rebuild the knowledge index before asking ANVAYA."
@@ -763,6 +763,11 @@ class AcademicAgentWebService:
             ) as error:
                 raise AcademicAgentWebUnavailableError(
                     "The AI tutor could not complete this request. Your academic data was not changed."
+                ) from error
+            except (repository_module.TutorRepositoryError,
+                    session_service_module.TutorSessionError, sqlite3.Error) as error:
+                raise AcademicAgentWebUnavailableError(
+                    "Tutor answer could not be saved. Refresh the session and try again."
                 ) from error
         finally:
             if store is not None:

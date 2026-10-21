@@ -18,6 +18,7 @@
   <div class="tag-row">
     {% if item.open_original_url %}<a class="button secondary-button" href="{{ item.open_original_url }}" target="_blank" rel="noopener noreferrer">Open original ↗</a>{% endif %}
     <form method="post" action="{{ url_for('web.knowledge_ask_source', document_id=item.document_id) }}">
+      <input type="hidden" name="csrf_token" value="{{ tutor_action_csrf }}">
       <input type="hidden" name="version_hash" value="{{ item.version_hash }}">
       <button class="button" type="submit">Ask ANVAYA</button>
     </form>

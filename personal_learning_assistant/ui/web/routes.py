@@ -4255,6 +4255,8 @@ def knowledge_companion_archive(document_id, entry_id):
 
 @web_blueprint.post("/knowledge/item/<document_id>/ask")
 def knowledge_ask_source(document_id):
+    if not _tutor_action_token_matches():
+        return "Tutor action token is invalid.", 403
     try:
         session_id = _academic_agent_service().create_source_session(
             document_id=document_id,
@@ -4305,6 +4307,8 @@ def academic_agent():
 @web_blueprint.post("/agent/sessions")
 def academic_agent_create_session():
     """Create tutor conversation scope without invoking the tutor provider."""
+    if not _tutor_action_token_matches():
+        return "Tutor action token is invalid.", 403
     service = _academic_agent_service()
     try:
         session_id = service.create_session(
@@ -4375,8 +4379,14 @@ def academic_agent_session(session_id):
 def academic_agent_ask(session_id):
     """Run one explicit grounded tutor question and redirect to the transcript."""
     service = _academic_agent_service()
+    if not _tutor_action_token_matches():
+        return _render_session_error(service, session_id, "Tutor action token is invalid.", 403)
     try:
-        service.ask(session_id, request.form.get("question", ""))
+        request_id = request.form.get("request_id", "")
+        if request_id:
+            service.ask(session_id, request.form.get("question", ""), request_id=request_id)
+        else:
+            service.ask(session_id, request.form.get("question", ""))
         return redirect(
             url_for("web.academic_agent_session", session_id=session_id),
             code=303,
@@ -4397,6 +4407,7 @@ def academic_agent_ask(session_id):
         )
     except AcademicAgentWebUnavailableError as error:
         safe_messages = {
+            "Tutor answer could not be saved. Refresh the session and try again.",
             "AI tutor is not configured on this machine.",
             "The AI tutor could not complete this request. Your academic data was not changed.",
             "Grounded academic sources are temporarily unavailable.",

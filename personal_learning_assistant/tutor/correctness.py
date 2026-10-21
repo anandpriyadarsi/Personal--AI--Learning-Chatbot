@@ -314,6 +314,11 @@ def extract_and_verify_math(content):
     raw = str(content or "")
     matches = list(_MATH_PATTERN.finditer(raw))
     if not matches:
+        if '<!--ANVAYA_MATH' in raw:
+            return re.sub(r'<!--ANVAYA_MATH\b.*?(?:-->|$)', '', raw, flags=re.DOTALL).strip(), MathVerification(
+                applicable=True, passed=False, checked_claims=0,
+                issues=('malformed ANVAYA_MATH marker',), marker_present=True,
+            )
         return raw.strip(), MathVerification(
             applicable=False,
             passed=True,

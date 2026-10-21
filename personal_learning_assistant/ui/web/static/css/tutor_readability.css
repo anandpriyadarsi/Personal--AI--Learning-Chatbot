@@ -110,3 +110,13 @@
   color: inherit; cursor: pointer;
 }
 .tutor-memory-item button:focus-visible { outline: 2px solid rgba(109, 211, 197, .6); }
+
+/* Reuse the bounded local Assessment math DOM, scoped to Tutor content. */
+.tutor-markdown [data-assessment-math] { font-family: Georgia, serif; }
+.tutor-markdown .tutor-display-math { display: block; overflow-x: auto; padding-block: .65rem; white-space: nowrap; }
+.tutor-markdown .assessment-matrix { display: inline-flex; align-items: center; gap: .3em; vertical-align: middle; margin: .25em; }
+.tutor-markdown .assessment-matrix-grid { display: grid; grid-template-columns: repeat(var(--matrix-columns), max-content); gap: .15em .8em; padding: .3em; text-align: center; }
+.tutor-markdown .assessment-matrix-bracket { font-size: 2.5em; font-weight: 300; }
+.tutor-markdown .assessment-math-sup, .tutor-markdown .assessment-math-sub { font-size: .72em; line-height: 0; }
+.tutor-markdown .assessment-big-operator { display: inline-grid; grid-template-rows: auto auto auto; text-align: center; vertical-align: middle; margin-inline: .25em; }
+.tutor-markdown .assessment-big-operator-upper, .tutor-markdown .assessment-big-operator-lower { font-size: .65em; }

@@ -53,7 +53,8 @@ def create_app(config: Mapping[str, Any] | None = None) -> Flask:
     def _tutor_action_context():
         # Never expose an application secret as a reusable browser CSRF token.
         # This is a process-local random token for explicit local-only actions.
-        return {"tutor_action_csrf": app.extensions["tutor_action_csrf"]}
+        return {"tutor_action_csrf": app.extensions["tutor_action_csrf"],
+                "tutor_request_id": token_urlsafe(24)}
     from .learning_studio import learning_blueprint
     app.register_blueprint(learning_blueprint)
     if app.config.get("ASSESSMENT_EXTENDED_ENABLED") is True:

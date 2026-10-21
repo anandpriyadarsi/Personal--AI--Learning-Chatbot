@@ -1,80 +1,98 @@
-# ANVAYA Tutor V2.0–V2.3 audit and controlled integration (21 October 2026)
+# Tutor V2.0–V2.3 integration: implementation and acceptance
 
-## Authority and exact baseline
+Updated 21 October 2026. PR #32 remains **DRAFT / NOT MERGE-READY**. No merge or deployment.
 
-- Reviewed current protected `main`: `bf3ca0e7eb1bf6f51d900ab4a6cc69ca83a61eae` (merged Architecture V2.3).
-- Legacy heads remain untouched:
-  - `anvaya/tutor-2.0` @ `c4b2b9a9ec54d3c046c8be744a01c3e5d04e0711`.
-  - `anvaya/tutor-2.1-adaptive-intelligence` @ `76be911c01b5a6e526f4a38e0bc3722c8f8887f7`.
-  - `anvaya/tutor-2.2-student-model` @ `8c65f661c2a5c031a693c43836af5f6dae69bf77`.
-  - `anvaya/tutor-2.3-teaching-orchestration` @ `7fd24eb6695d7e1a904494756aa333fee274427b`.
-- Current `main` is 575 commits ahead of legacy 2.0/2.1/2.2 merge base and 443 ahead of 2.3 merge base. All four versions diverge. A naïve merge/replacement of legacy routes/templates/services would discard newer Learning, Assessment, UI, Library, Evidence and Planning changes.
-- No Tutor V2.0–2.3 pull request currently targets main. Branch existence and local historical gate results do **not** establish current-main compatibility.
+## Baselines and parallel ownership
 
-## What exists and what is proven
+Continued the existing integration branch at `37cdf8c6825fcab6583e49862f7304fd383d911b`, preserving all 42 integration commits. Main remains `bf3ca0e7eb1bf6f51d900ab4a6cc69ca83a61eae`. Architecture V2.4 PR #33 remains separate at `951e0c75733a4c2f5528b73c7f63c84ff9431361`. Neither branch was overwritten or merged.
 
-| Historical version | Implemented on historical branch | Current-main acceptance |
+Historical read-only references retained:
+
+| Version | Original branch head | Current implementation | Fresh acceptance |
+|---|---|---|---|
+| 2.0 | `c4b2b9a9ec54d3c046c8be744a01c3e5d04e0711` | Tutor Markdown, followup drafts, feedback, agent routes/templates | Readability, HTTP, CSRF and Chromium suites |
+| 2.1 | `76be911c01b5a6e526f4a38e0bc3722c8f8887f7` | Adaptive state, rational verifier, retrieval planner, atomic exchange | Original adaptive/correctness/retrieval suites plus new failure/replay regressions |
+| 2.2 | `8c65f661c2a5c031a693c43836af5f6dae69bf77` | Read-only scoped student model, stable signals, policy, optional memory 0016 | Original model/signal/policy/memory suites; new optional-schema matrix |
+| 2.3 | `7fd24eb6695d7e1a904494756aa333fee274427b` | Goals, diagnostics, prerequisite repair, adaptive practice, exit checks | Original orchestration suites and real-service browser journey; live A–K BLOCKED |
+
+No stale whole-file replacement of routes, global CSS, Assessment, Learning Studio, Planning, Topic Intelligence, Library or Obsidian. V2.4's offline lesson assistance is not treated as a durable Tutor session/evidence API. No invented V2.4 adapter, broad migration or cross-owner writer was added. Reconcile both PRs explicitly before integration; shared app/Knowledge templates may need line-level composition.
+
+## Actual fixes in this continuation
+
+- Reproduced eight baseline integration failures: seven missing UI teaching/history contracts and SQL schema probing placed in the web adapter. Restored visible diagnostic/prerequisite/practice/exit/history information, with session-local/non-mastery labels, and moved optional-schema probing into the canonical Tutor repository. Original assertions remain; valid browser POST tests now supply the required CSRF token.
+- Reproduced Scenario D false positives: explanation/refusal paragraphs became pending practice. Pending imperative tasks now require an explicit task; solved-task suffixes are rejected while task givens and a previous answer followed by a new task remain supported. Scenario C now persists the actual question, without a preceding same-line explanation.
+- Strip malformed/private answer-evaluation markers without inventing correctness; reject malformed/unclosed math metadata. Existing supported rational matrix/vector/determinant checks and one bounded repair remain intact.
+- Persist both turns, evidence and adaptive metadata in one Tutor-owned transaction. No SQLite lock is held while generating. At the first write, compare the session snapshot under an immediate lock; reject stale concurrent generation. Failed assistant/state writes roll back both turns. Repository/storage failures become a safe recoverable web response.
+- Actual browser forms carry request identities and CSRF tokens. The last 32 persisted request receipts reuse the saved answer on retry without another provider call; hashes bind a receipt to its question and session. Eviction uses turn ordinal, surviving sorted JSON serialization. This is a bounded retry window, not indefinite deduplication.
+- Helpful buttons maintain one current helpful-only vote per turn; identical retries are idempotent and toggles update that opinion. Rich rating/free-text feedback retains its established owner and append behavior.
+- Require CSRF for create, ask, feedback, memory actions and Knowledge Reader Tutor handoffs. Optional memory remains disabled. Provider-authored raw HTML remains escaped and Markdown images remain inert alt text, preventing automatic external image requests.
+- Parse explicit LaTeX without Markdown consuming backslashes. Reuse the existing bounded local math DOM renderer for matrices/symbols/indices; preserve code/student literals. Fix complete-command replacement so infinity and unsupported commands remain accurate. Explicit TeX unbraced indices are grouped without changing Assessment's legacy multi-character plain-text index contract. Unsupported LaTeX remains literal and is disclosed; no CDN/remote math dependency.
+- Display canonical course code, distinguish uncited general explanations from retrieved context, and link exact evidence identities to the original Knowledge Reader. Retrieved chunks are context, not proof of provider fidelity or academic authority.
+- Repair invalid job-level `runner.temp` context in Tutor CI, retain every restored suite, add new integration/browser/schema cases, and name artifacts by the checked-out feature SHA. Native environment and SQLite state evidence accompany captures.
+
+## Fresh deterministic and browser evidence
+
+Local acceptance uses disposable synthetic databases and fake providers, with the real Flask service, repository and Chromium. It is not configured-provider certification. Logs/XML and unedited captures are supplied in the evidence archive; the PR links exact-head native runs when available.
+
+New suites: `tests/test_tutor_final_integration.py`, `tests/test_tutor_final_browser.py`, `tests/test_tutor_optional_schema.py`. Existing suites are retained. Real browser coverage includes create → prerequisite question → refresh → draft hint → answer `3` → computational practice → incorrect answer with one-level reduction → topic shift → mixed understanding question → one-shot exit check → likely_met → reopened confusion → duplicate/toggled feedback → invalid CSRF. The read-only inspector agrees with persisted metadata. Exact-source navigation and strict handoff are separately exercised. Matrix cells, subscripts, infinity, escaped injection, no unexpected external requests, literal code and viewport overflow are asserted at 390/768/1366.
+
+Baseline before fixes: 190 passed, 8 failed, 3 browser-disabled skips. The earlier native head failed full regression on the same eight integration cases (Ubuntu UI full: 2941 passed, 8 failed, 4 private skips). Earlier native Assessment acceptance passed. Those historical results are not current-head certification.
+
+## Live A–K gate
+
+No `LLM_API_URL`, `LLM_API_KEY` or `LLM_MODEL` was configured. No real-provider call or charge was made.
+
+| Scenario | Required observed behavior | Configured-provider result |
 |---|---|---|
-| 2.0 | Teaching prompts, safe Markdown renderer, source-first UI option, persistent tutor feedback, intent routing and UX controls | **Not certified** on merged V2.3 main |
-| 2.1 | Session adaptive quiz state, hidden answer evaluation, bounded rational math checking, context-aware retrieval and topic-shift handling | **Not certified** on merged V2.3 main |
-| 2.2 | Cross-session read-only student model, personalized policy, signals, explicit memory candidates and acceptance workflow | **Not certified**; schema/migration collision |
-| 2.3 | Session goals, diagnostics, Socratic continuation, prerequisite repair, practice levels and exit checks | **Not certified**; incomplete live scenario acceptance |
+| A | One diagnostic for vague LU gap | BLOCKED |
+| B | Hint preserves question and answer loop | BLOCKED |
+| C | Scoped prerequisite repair, answer `3`, return to goal | BLOCKED |
+| D | One unsolved computational task, stored pending, bounded adaptation | BLOCKED |
+| E | Explicit easier/harder overrides historical policy | BLOCKED |
+| F | Topic shift clears obsolete practice/goal anchors | BLOCKED |
+| G | Mixed understanding plus basis question remains teaching | BLOCKED |
+| H | One exit check, qualified likely_met only after evaluation | BLOCKED |
+| I | New confusion reopens qualified session goal | BLOCKED |
+| J | Neutral deterministic strict-source exit question | BLOCKED |
+| K | Readable 3×3 LU, supported verification, repair/blocking and persistence | BLOCKED |
 
-The legacy `ANVAYA_TUTOR_2_3_LIVE_VALIDATION.md` describes a local automated *readiness* gate on 24 September 2026 (1,474 passed / 5 skipped / 1 deselected). It explicitly says the full live gate was **not** complete: scenarios A/B passed, scenario C fix needs live retest, and scenarios D–K were pending. The historical report is evidence of work done, not today's green integration gate. The earlier D false-positive repair and C follow-up work must be recovered and independently verified; do not presume the remote legacy head contains all uncommitted local patches.
+Original diagnostic/prerequisite/practice/goal/correctness tests and synthetic browser results support these behaviors independently but cannot convert any row into a live pass. Use `ANVAYA_TUTOR_2_3_LIVE_VALIDATION.md` and `tutor23_live_inspect.py` on a disposable course-scoped database once the owner configures a provider. Capture actual conversation, metadata, counts and outcomes per scenario.
 
-## Hard integration blockers
+## Data safety and rollback
 
-1. **Conflicting migration identity.** Legacy Tutor 2.2 adds `personal_learning_assistant/repositories/sqlite/migrations/0009_tutor_memory_candidates.sql`, while current `main` already contains `0009_assessment_studio_foundation.sql` and later 0010–0014 Assessment migrations. Do not graft the old migration or renumber it casually. Review current migration ledger/runner and introduce any needed memory candidate schema only in a separately approved, reversible, migration-safe design (or keep it disabled).
-2. **Large stale shared files.** Historical Tutor 2.3 `routes.py` has ~2,698 lines; current main has ~4,501. The historical Tutor templates, `__init__.py`, grounded service and academic agent service also differ. Never overwrite these wholesale; port only bounded changes with exact-route regression coverage.
-3. **Missing live acceptance.** Reproduce C waiting-state correctness and D computational practice false-positive, then test all original A–K scenarios through actual browser/provider with disposable DB. Visible question and persisted pending answer state must agree. A practice sequence must never misclassify a normal explanation as a pending graded exercise.
-4. **Source policy and evidence authority.** Maintain strict Source Only fail-closed behaviour; Source First general explanation must never acquire fabricated source or grade authority. V2.3 evidence is read-only source provenance, not Tutor automatic consumer consent.
-5. **Record preservation.** Never point tests at installed DB, vault or indexes. Tutor 2.2 explicit memory approvals are not automatically authorized by this integration. Do not add uncontrolled LLM/provider calls during GET, silent global learning writes, migrations or import tasks.
-6. **No current-head CI.** Historical PowerShell gate totals were run before dozens of newer features; require exact new-head Ubuntu + Windows, entire pytest and browser suite, source/fixture handling per current V2.3 public-private IKS split.
+No installed database, vault, academic source or retrieval index was available/used for these changes. Consequently installed-data hash certification is unavailable, rather than fabricated. All test databases live under temporary test paths. The real-service browser test compares every pre-existing non-Tutor table count before/after the journey. The inspector is independently hash-tested as read-only.
 
-## Integration approach
+Mandatory migrations remain 0001–0014. Tests exercise neither option, Assessment 0015 alone, Tutor 0016 alone, both, default restart after prior optional application, checksum drift, and failed optional DDL rollback. No historical migration changed. Normal startup does not apply 0016; `TUTOR_MEMORY_ENABLED` defaults false. Existing explicit proposal/review domain tests retain source/course checks and one-time approval behavior. Installed memory activation still requires separately reviewed backup and owner authorization.
 
-Create fresh integration changes from current main. Keep historical Tutor branches unchanged. Stage independently:
+Code rollback is a revert of this continuation while 0016 stays unapplied; retain all user Tutor rows. Never delete academic records to roll back code, drop optional installed tables, or rewrite checksum history. If 0016 was explicitly applied outside this work, preserve its schema/ledger and perform a separate reviewed compatibility decision.
 
-1. **2.0 readability (this draft's implemented safe slice):** port local HTML-escaped Mistune formatting for assistant turns alone. Keep source labels as text, keep user content escaped, add page-scoped responsive formatting. No DB/schema, provider, route, academic evidence or source trust changes. Unit tests guard output and isolation.
-2. **2.0 conversation and feedback:** integrate Tutor-owned feedback APIs and controls after verifying current routes/service schema, CSRF protections, provider isolation, form behaviour and original source policy. Browser-run login/session and persisted feedback cases. Do not merge untested UI.
-3. **2.1 adaptation/correctness:** port pure state/verifier/retrieval components, make session-local metadata changes transaction-safe, run adversarial answer/malformed-marker tests and the specific 3x3 LU determinant/matrix checks. Provider failure must fail closed without hiding valid previous transcript.
-4. **2.2 student model:** read-only projection first with source scopes, stale-state/consent limits and strict identity checking. Separately design migration and approval for durable memory candidates. Never infer mastery from Tutor session self-reports.
-5. **2.3 pedagogy:** port and repair all A–K live scenarios (including C/D), ensure one pending question, explicit topic-shift cancellation, bounded adaptive difficulty, verified exit checks and visible persisted state alignment.
-6. **V2.4 evidence bridge:** wire only documented, explicit opt-in source-bound Tutor handoff after V2.4 schema review; don't create automatic writes to other academic owners. Preserve modularity for parallel V2.4 work.
+## Independent review and limits
 
-## Acceptance and merge decision
+An independent reviewer reproduced stale writes, malformed state, receipt ordering, CSRF omission, remote Markdown images, feedback toggles and math DOM defects, driving regression fixes. Final review found no unresolved critical/important defect in the reviewed changes. Practice detection is conservative heuristic parsing; provider obedience and calculation/citation fidelity remain live acceptance responsibilities. The math renderer intentionally supports a bounded subset, not arbitrary LaTeX or symbolic verification.
 
-- The branch now contains the historical Tutor 2.1–2.3 backend and isolated regression suites, but **current-main cross-platform and live A–K acceptance is still unverified**. Being committed is not the same as being accepted.
-- Require tests for every implemented slice, head-SHA Ubuntu/Windows matrix plus real Playwright source/feedback/question scenarios, hard failure of any unrelated regression, and independent security/data-safety review.
-- The public Architecture V2.3 gate may omit only its four exact genuine IKS external test identities under the already merged split. They remain individually BLOCKED under private certification; do not delete, disguise or treat them as passes.
-- Full Tutor 2.3 cannot be declared complete without A–K real UI/provid​​er checks, C/D regression fixes, safe migration design and owner-data protection.
-- **NO GO for wholesale legacy branch merge or deployment.** Do not merge this initial read-only subset into main until exact-head CI, review and browser checks are green. Merge later slices only when independently safe.
-- If an approval or source validation cannot run, report it as blocked rather than inventing proof.
+The four original private IKS test identities remain intact and individually BLOCKED without the genuine owner-controlled ZIPs. The merged public skip allowance is unchanged. Hosted Windows is a native synthetic test environment; it does not grant student-installed Windows/B3/WAL authority.
 
-## Useful manual scenario after verified integration
+## Safe Windows review commands
 
-Run a disposable MA103N LU session: diagnose missing elimination-multiplier concept, preserve a hint/pending question, solve one bounded multiplier practice, refuse an invented mastery conclusion, ask a one-shot exit check, then reopen when student reports new confusion. Verify persisted session state after refresh and no changes to grades, planning, Learning resources or installed database.
+Use a fresh disposable review worktree, not the folder holding the installed academic database:
 
-## Development performed on the dedicated reconciliation branch
+```powershell
+git fetch origin
+git worktree add ..\ANVAYA-Tutor-review origin/integration/tutor-v2-0-2-3-safe-reconciliation-2026-10-21
+Set-Location ..\ANVAYA-Tutor-review
+py -3.12 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt -r requirements-dev.txt -r requirements-assessment-browser.txt
+python -m playwright install chromium
+$env:ANVAYA_BROWSER_TESTS='1'
+$env:ANVAYA_TUTOR_MEMORY_ENABLED='false'
+python -m pytest -q tests/test_tutor*.py tests/test_phase7_5_academic_agent_web.py tests/test_phase7_5_12_2_web.py
+```
 
-The implementation has progressed beyond the initial read-only 2.0 slice:
+Normal local launch remains `python phase7_web.py` in the normal configured installation. Do not use it as a source-only test: the existing launcher can activate Assessment 0015 and its authorized WAL publisher. This continuation did not run that launcher against installed records or enable Tutor memory. A provider configuration or optional-migration approval is not included in these review commands.
 
-- Restored the legacy 2.1 adaptive state, bounded deterministic correctness, retrieval planning, and 2.3 teaching orchestration components as separate Python modules.
-- Ported the legacy runtime contracts to current Tutor-owned `grounded_tutor_service.py`, `TutorSessionService`, `SQLiteTutorRepository`, and grounding models without replacing the current ANVAYA Flask route map, Home, Learning Studio, Assessment, Planning, Library, or architecture V2.3 evidence UI.
-- Added session-state and read-only historical model visibility to the current Tutor route; follow-up buttons populate a draft but **never submit it without explicit student action**.
-- Restored a narrow feedback endpoint and secured its POST form with a process-local CSRF token. Feedback does not write grades, plans, mastery or progress.
-- Preserved legacy Tutor 2.2 candidate-domain logic but relocated the conflicting `0009_tutor_memory_candidates.sql` to reserved **optional 0016**. The default `apply_migrations(...)` still applies mandatory 0001–0014 only. Assessment optional 0015 and Tutor optional 0016 have separate flags and checksum histories. **Tutor 0016 is never applied by normal startup**. Student memory review routes also require `TUTOR_MEMORY_ENABLED` and a valid CSRF token. Do not enable either in an installed database without a separately approved backup and migration procedure.
-- Restored original Tutor 2.1–2.3 regression suites and legacy Tutor 2.3 read-only inspector/Windows live readiness reference. Added a focused native Ubuntu/Windows Actions workflow and a three-width real Chromium Tutor interaction test with fake source/provider and disposable state.
-- Changed only the browser new-session choice to Source First by default, with Strict Source Only still available; Knowledge Reader handoffs retain their strict source policy.
+## Merge decision and next phase
 
-### Outstanding acceptance and data-safety checks
+**NOT MERGE-READY.** Require green mandatory native jobs on the exact final head, configured-provider A–K, reviewed V2.4 composition, and owner approval before merging. Never use old green jobs as a substitute. Report genuinely blocked private/installed authority separately.
 
-1. The current branch's exact SHA must pass **both** Tutor-focused native GitHub runners, architecture synthetic validation, UI V2, Assessment, Learning/Library and real Chromium screen checks. Historical 2026-09 totals are not present-day results.
-2. The historical 2.3.7 live A–K script is only a *readiness* protocol. Scenario C must be rerun against the current stack, and D–K require observed sessions. C's provider-generated pending question and D's computational-practice classification must agree with persisted Tutor state. Real configured-provider acceptance is distinct from synthetic browser checks.
-3. Independent privacy/identity review for optional 0016 memory candidates, callback CSRF and safe escaping is required before installed opt-in. Do not apply optional schema 0016 or write long-term memory to the user's installed ANVAYA database while validating this branch.
-4. Check the current main checkout and all concurrently evolving Architecture V2.4 branches before any merge. This PR is deliberately **draft** and the owner requested to review integration before merging.
-5. Cross-studio academic evidence is not automatic Tutor state mutation; a future V2.4 consumer must use explicit source identities and consent. No deployment or personal-data import is authorized.
-
-### Recommended Windows source-only evaluation
-
-Run full tests in a freshly cloned, disposable worktree, with requirements pinned and real Chromium installed. Do **not** run the historical 2.3.7 script against the installed academic database without reviewing its expected source paths. Use `ANVAYA_BROWSER_TESTS=1` for native browser tests. Review all A–K outcomes before changing Tutor memory opt-ins. A branch rollback needs only code changes while optional 0016 remains unapplied.
+After stable integration, consider new Tutor 2.4 work only against reviewed versioned V2.4 handoff contracts: explicit source-bound assistance attribution, calibrated rechecks and accessible wider math support. No training/fine-tuning or automatic mastery/planner writes are part of this phase.
