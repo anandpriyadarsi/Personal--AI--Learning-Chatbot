@@ -24,7 +24,10 @@ jobs:
   focused:
     name: Tutor reconciliation (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 25
+    timeout-minutes: 40
+    env:
+      ANVAYA_BROWSER_TESTS: '1'
+      ANVAYA_VALIDATION_ARTIFACTS: ${{ runner.temp }}/tutor-screenshots
     strategy:
       fail-fast: false
       matrix:
@@ -41,8 +44,15 @@ jobs:
           cache-dependency-path: |
             requirements.txt
             requirements-dev.txt
+            requirements-assessment-browser.txt
       - name: Install pinned dependencies
-        run: python -m pip install -r requirements.txt -r requirements-dev.txt
+        run: python -m pip install -r requirements.txt -r requirements-dev.txt -r requirements-assessment-browser.txt
+      - name: Install Chromium Linux
+        if: runner.os == 'Linux'
+        run: python -m playwright install --with-deps chromium
+      - name: Install Chromium Windows
+        if: runner.os == 'Windows'
+        run: python -m playwright install chromium
       - name: Compile integrated Tutor without executing provider
         run: python -m compileall -q personal_learning_assistant/tutor personal_learning_assistant/services/grounded_tutor_service.py personal_learning_assistant/services/tutor_session_service.py personal_learning_assistant/ui/web/tutor_rendering.py
       - name: Validate original Tutor teaching contracts and current web safety
@@ -62,6 +72,7 @@ jobs:
           tests/test_tutor23_adaptive_practice.py
           tests/test_tutor23_goal_exit_check.py
           tests/test_tutor23_live_validation.py
+          tests/test_tutor23_live_browser_integration.py
           tests/test_phase7_5_academic_agent_web.py
           --junitxml=tutor-reconciliation.xml
       - name: Preserve acceptance report
@@ -70,4 +81,6 @@ jobs:
         with:
           name: tutor-v2-reconciliation-${{ matrix.os }}-${{ github.sha }}
           if-no-files-found: ignore
-          path: tutor-reconciliation.xml
+          path: |
+            tutor-reconciliation.xml
+            ${{ env.ANVAYA_VALIDATION_ARTIFACTS }}/*.png
