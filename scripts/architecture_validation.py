@@ -106,7 +106,7 @@ def export_source(repo: Path, target: Path) -> dict:
             'snapshot_fingerprint': hashlib.sha256(json.dumps(hashes, sort_keys=True).encode()).hexdigest()}
 
 
-def test_status(exit_code: int, xml: Path) -> dict:
+def test_status(exit_code: int, xml: Path, *, allow_external_skips: bool = False) -> dict:
     result = {'status': 'FAIL' if exit_code else 'BLOCKED', 'exit_code': exit_code,
               'tests': 0, 'failures': [], 'errors': [], 'skips': []}
     if xml.exists():
@@ -119,11 +119,31 @@ def test_status(exit_code: int, xml: Path) -> dict:
                 element = case.find(tag)
                 if element is not None:
                     result[field].append({'id': name, 'message': element.get('message', '')})
-        if exit_code or result['failures'] or result['errors']:
+        approved = {'::'.join(parts) for parts in EXTERNAL_TEST_IDS} if allow_external_skips else set()
+        result['unexpected_skips'] = [s for s in result['skips'] if s['id'] not in approved]
+        if exit_code or result['failures'] or result['errors'] or result['unexpected_skips']:
             result['status'] = 'FAIL'
-        elif cases and not result['skips']:
+        elif cases:
             result['status'] = 'PASS'
     return result
+
+
+def development_gate_status(categories: dict, *, private_fixtures: bool = False) -> str:
+    """Allow ONLY explicitly recorded private skips in public synthetic CI.
+
+    A genuine failure, an unexpected skip, a missing original test identity, or
+    a failed runnable category still rejects the development gate. Private
+    certification is stricter: every original IKS case must actually pass.
+    """
+    pilot = categories.get('external_pilots', {})
+    outcomes = pilot.get('outcomes', {})
+    expected = {'::'.join(identity) for identity in EXTERNAL_TEST_IDS}
+    if set(outcomes) != expected or any(value not in ('PASS', 'SKIP') for value in outcomes.values()):
+        return 'FAIL'
+    if private_fixtures and pilot.get('status') != 'PASS':
+        return 'FAIL'
+    tested = {name: result for name, result in categories.items() if name != 'external_pilots'}
+    return 'PASS' if tested and all(result.get('status') == 'PASS' for result in tested.values()) else 'FAIL'
 
 
 def external_pilot_acceptance(xml: Path) -> dict:
@@ -154,7 +174,10 @@ def write_summary(directory: Path, report: dict) -> None:
              '| Category | Status | Exit | Reproduce |', '|---|---|---:|---|']
     for name, value in report['categories'].items():
         lines.append(f"| {name} | {value['status']} | {value.get('exit_code', '')} | `{value.get('reproduce', '')}` |")
-    lines += ['', f"GATE_A_DEV_PLATFORM: **{report.get('GATE_A_DEV_PLATFORM', 'NOT RUN')}**",
+    lines += ['', 'Public synthetic CI may PASS when the four *named* private tests SKIP, but those cases remain BLOCKED and are never certified.',
+              'Unexpected skips, missing private-test identities, or any test failure still FAIL. Private certification requires all four real tests PASS.',
+              f"EXTERNAL_IKS_CERTIFICATION: **{report.get('EXTERNAL_IKS_CERTIFICATION', 'BLOCKED')}**",
+              f"GATE_A_DEV_PLATFORM: **{report.get('GATE_A_DEV_PLATFORM', 'NOT RUN')}**",
               f"GATE_A_DEV_AUTOMATED: **{report['GATE_A_DEV_AUTOMATED']}** (requires matching Ubuntu and Windows jobs)",
               f"GATE_A_LOCAL_PRODUCTION_AUTHORITY: **{report['GATE_A_LOCAL_PRODUCTION_AUTHORITY']}**",
               '', 'Known desired product behavior (a reproduced defect is not fixed):',
@@ -234,7 +257,7 @@ def run_command(name: str, command: list[str], source: Path, run: Path, env: dic
             log.write_text('Private-fixture run: stdout withheld to protect source payloads.\n'
                            + 'Exit code: ' + str(code) + '\n', encoding='utf-8')
             private_directory.cleanup()
-    result = test_status(code, xml) if xml else {'status': 'PASS' if code == 0 else 'FAIL', 'exit_code': code}
+    result = test_status(code, xml, allow_external_skips=(name == 'full_pytest' and not private)) if xml else {'status': 'PASS' if code == 0 else 'FAIL', 'exit_code': code}
     public_command = list(command)
     if private and '-c' in public_command:
         index = public_command.index('-c') + 1
@@ -259,6 +282,7 @@ def main(argv=None) -> int:
               'validation_scope': 'Single platform. Cross-platform acceptance is emitted by the CI aggregate job only after both matrix jobs pass.',
               'require_clean_source': args.require_clean,
               'GATE_A_LOCAL_PRODUCTION_AUTHORITY': 'BLOCKED',
+              'EXTERNAL_IKS_CERTIFICATION': 'BLOCKED',
               'known_product_behaviour': {key: 'FAIL' for key in ['A', 'B', 'C', 'D', *['P%02d' % n for n in range(1, 9)]]}}
     source = run / 'source'
     staging = None
@@ -286,6 +310,7 @@ def main(argv=None) -> int:
         # headroom, without changing selection, assertions or exit handling.
         pytest('full_pytest', timeout=1800)
         report['categories']['external_pilots'] = external_pilot_acceptance(run / 'full_pytest.xml')
+        report['EXTERNAL_IKS_CERTIFICATION'] = report['categories']['external_pilots']['status']
         pytest('focused', ['tests/test_phase7_5_progress_planning.py', 'tests/test_phase7_5_operational_planner_routes.py',
                           'tests/test_assessment_studio_phase_e.py', 'tests/test_assessment_studio_phase_f.py', 'tests/test_phase7_5_15_14_focus_companion_analysis.py'])
         order = ['tests/test_phase7_5_academic_agent_web.py', 'tests/test_phase7_5_anvaya_shell.py', 'tests/test_phase2_closure_architecture.py']
@@ -306,7 +331,8 @@ def main(argv=None) -> int:
         # Also check the actual feature delta; export cleanliness cannot hide whitespace errors.
         report['categories']['feature_diff_check'] = run_command('feature_diff_check', ['git', 'diff', '--check'], ROOT, run, env)
         report['categories']['feature_cached_diff_check'] = run_command('feature_cached_diff_check', ['git', 'diff', '--cached', '--check'], ROOT, run, env)
-        report['GATE_A_DEV_PLATFORM'] = 'PASS' if all(r['status'] == 'PASS' for r in report['categories'].values()) else 'FAIL'
+        report['GATE_A_DEV_PLATFORM'] = development_gate_status(
+            report['categories'], private_fixtures=args.private_fixtures)
     except Exception as error:
         report['categories']['setup'] = {'status': 'BLOCKED', 'error': type(error).__name__ + ': ' + str(error)}
         report['GATE_A_DEV_PLATFORM'] = 'BLOCKED'
