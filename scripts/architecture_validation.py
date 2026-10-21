@@ -121,8 +121,13 @@ def test_status(exit_code: int, xml: Path, *, allow_external_skips: bool = False
                     result[field].append({'id': name, 'message': element.get('message', '')})
         approved = {'::'.join(parts) for parts in EXTERNAL_TEST_IDS} if allow_external_skips else set()
         result['unexpected_skips'] = [s for s in result['skips'] if s['id'] not in approved]
-        if exit_code or result['failures'] or result['errors'] or result['unexpected_skips']:
+        if exit_code or result['failures'] or result['errors']:
             result['status'] = 'FAIL'
+        elif result['unexpected_skips']:
+            # Preserve the original harness contract: an ordinary omitted
+            # test is BLOCKED, never passed. Public full-suite validation
+            # treats any non-approved skip as a hard merge-gate failure.
+            result['status'] = 'FAIL' if allow_external_skips else 'BLOCKED'
         elif cases:
             result['status'] = 'PASS'
     return result
