@@ -74,3 +74,15 @@
 @media (max-width: 450px) {
   .tutor-quick-prompts button { font-size: .76rem; }
 }
+
+.tutor-turn-feedback { display: flex; align-items: center; flex-wrap: wrap; gap: .45rem; margin-top: .8rem; }
+.tutor-turn-feedback button {
+  color: inherit; font: inherit; font-size: .78rem; cursor: pointer;
+  padding: .32rem .65rem; border-radius: .6rem;
+  background: rgba(148, 163, 184, .08);
+  border: 1px solid rgba(148, 163, 184, .35);
+}
+.tutor-turn-feedback button:hover, .tutor-turn-feedback button:focus-visible {
+  outline: 2px solid rgba(109, 211, 197, .55);
+  outline-offset: 2px;
+}
