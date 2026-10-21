@@ -106,7 +106,18 @@ def _turn_view(turn):
 
 
 def _session_view(session, turns):
+    # Tutor 2.1–2.3 state is read from Tutor-owned session metadata only.
+    # It does not represent grades, mastery or independently certified progress.
+    # Imports are intentionally lazy: starting ANVAYA must not load AI engines.
+    from personal_learning_assistant.tutor.adaptive_state import load_adaptive_state
+    from personal_learning_assistant.tutor.session_goal import load_session_goal
+    from personal_learning_assistant.tutor.teaching_orchestrator import load_teaching_plan
+
+    metadata = dict(session.metadata or {})
     return {
+        "adaptive_state": load_adaptive_state(metadata),
+        "session_goal": load_session_goal(metadata),
+        "teaching_plan": load_teaching_plan(metadata),
         "session_id": session.session_id,
         "course_id": session.course_id,
         "topic_id": session.topic_id,
