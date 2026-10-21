@@ -39,6 +39,22 @@ def _stamp(raw, now, reasons):
         reasons.add('occurrence_after_as_of')
     return value.isoformat()
 
+def _ordered_clocks(row, keys, now, reasons):
+    """Optional confirmations stay absent; every present clock must be ordered."""
+    previous = None
+    for key in keys:
+        raw = row[key]
+        if raw is None:
+            continue
+        value = _stamp(raw, now, reasons)
+        if value is None:
+            continue
+        clock = datetime.fromisoformat(value)
+        if previous is not None and clock < previous:
+            reasons.add('timestamp_order_invalid')
+        previous = clock
+
+
 def _digest(value):
     return hashlib.sha256(json.dumps(value,sort_keys=True,ensure_ascii=False,allow_nan=False,
         separators=(',',':')).encode()).hexdigest()
@@ -175,6 +191,9 @@ class AcademicEvidenceService:
                     clock_reasons=set();_stamp(raw,now,clock_reasons)
                     if 'occurrence_after_as_of' in clock_reasons:reasons.add('evaluation_after_as_of')
                     if 'occurrence_invalid' in clock_reasons:reasons.add('evaluation_timestamp_invalid')
+                for offset in (0,3):
+                    clocks=dict(zip(('created_at','updated_at','confirmed_at'),grading[offset:offset+3]))
+                    _ordered_clocks(clocks, ('created_at','confirmed_at','updated_at'), now, reasons)
             blocked=bool(reasons-{'mapping_snapshot_unknown','independence_unknown','self_reported_outcome'})
             refs=tuple(Ref(r.kind,r.identifier,url=(
                 '/assessments/sessions/'+quote(e.session_id,safe='')+'/evaluation'
@@ -192,6 +211,7 @@ class AcademicEvidenceService:
             reasons=set()
             stamp=_stamp(task['completed_at'] or task['updated_at'],now,reasons)
             for key in ('created_at','updated_at'):_stamp(task[key],now,reasons)
+            _ordered_clocks(task, ('created_at','completed_at','updated_at'), now, reasons)
             efforts=con.execute("""SELECT i.actual_minutes,i.created_at,i.updated_at,i.completed_at
                 FROM daily_agenda_items i JOIN daily_agendas a ON a.id=i.agenda_id
                 WHERE i.source_type='planner_task' AND i.source_id=? AND i.status='completed'
@@ -207,6 +227,7 @@ class AcademicEvidenceService:
                     clocks=set();_stamp(item[key],now,clocks)
                     if 'occurrence_after_as_of' in clocks:effort_reasons.add('effort_after_as_of')
                     if 'occurrence_invalid' in clocks:effort_reasons.add('effort_timestamp_invalid')
+                _ordered_clocks(item, ('created_at','completed_at','updated_at'), now, effort_reasons)
                 if not effort_reasons:minutes=(minutes or 0)+item['actual_minutes']
             # A partial sum could look complete. Withhold the total when any
             # contributing event is invalid, future or otherwise unqualified.
@@ -261,6 +282,8 @@ class AcademicEvidenceService:
                 # A disappearing/changeable second owner never grants authority.
                 mapping_status='unverified'
         records=qualify_learning_events(p,events,as_of=now,mapping_status=mapping_status)
+        from .learning_study_signals import project
+        records += project(studio,p,as_of=now,mapping_status=mapping_status)
         historical=bool(history and max(history)!=revision)
         explanations=['Practice is low-stakes; assistance/independence are unknown. Repetition does not prove mastery.',
             'Source integrity validates the published snapshot, not live registry freshness or semantic correctness.',

@@ -1,0 +1,108 @@
+name: Architecture V2.4 learning intelligence acceptance
+on:
+  push:
+    branches: ['feature/architecture-v2-4-learning-intelligence-2026-10']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: learning-intelligence-v24-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  acceptance:
+    name: V2.4 intelligence (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    env:
+      ANVAYA_BROWSER_TESTS: '1'
+      PYTHONDONTWRITEBYTECODE: '1'
+      PYTHONUTF8: '1'
+      PYTHONIOENCODING: 'utf-8'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements-learning-studio.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: python -m pip install -r requirements-learning-studio.txt -r requirements-assessment-browser.txt
+      - run: python scripts/architecture_checkout_eol.py --repo .
+      - run: python -m playwright install --with-deps chromium
+      - name: Record exact source and evidence directory
+        shell: python
+        run: |
+          import json,os,pathlib,subprocess,sys
+          out=pathlib.Path(os.environ['RUNNER_TEMP'])/'learning-intelligence-v24'
+          out.mkdir()
+          source={'head':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),'tree':subprocess.check_output(['git','rev-parse','HEAD^{tree}'],text=True).strip(),'platform':sys.platform,'private_iks':'BLOCKED: originals unavailable','installed_windows_b3_wal':'BLOCKED: no installed authority'}
+          (out/'source.json').write_text(json.dumps(source,indent=2),encoding='utf-8')
+          with open(os.environ['GITHUB_ENV'],'a',encoding='utf-8') as stream:
+              stream.write('ANVAYA_V24_RESULTS='+str(out)+'\n')
+              stream.write('ANVAYA_VALIDATION_ARTIFACTS='+str(out/'screenshots')+'\n')
+      - uses: actions/checkout@v4
+        with:
+          ref: bf3ca0e7eb1bf6f51d900ab4a6cc69ca83a61eae
+          persist-credentials: false
+      - name: Capture actual merged-main before screens
+        shell: python
+        run: |
+          import os,pathlib,subprocess,sys
+          out=pathlib.Path(os.environ['ANVAYA_V24_RESULTS'])
+          env={**os.environ,'ANVAYA_VALIDATION_ARTIFACTS':str(out/'before')}
+          subprocess.run([sys.executable,'scripts/architecture_checkout_eol.py','--repo','.'],check=True)
+          subprocess.run([sys.executable,'-m','pytest','-q','tests/test_academic_evidence_v23_browser.py','--junitxml='+str(out/'before.xml')],env=env,check=True)
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - run: python scripts/architecture_checkout_eol.py --repo .
+      - name: Versioned evidence contract; zero skips
+        shell: python
+        run: |
+          import os,pathlib,subprocess,sys,xml.etree.ElementTree as ET
+          out=pathlib.Path(os.environ['ANVAYA_V24_RESULTS'])
+          tests=['tests/test_learning_intelligence_v24.py','tests/test_tutor_grounding_v24.py','tests/test_note_draft_v24.py','tests/test_reader_v24.py','tests/test_learning_intelligence_v24_browser.py','tests/test_academic_evidence_v23.py','tests/test_academic_evidence_v23_web.py','tests/test_academic_evidence_v23_browser.py','tests/learning_studio/test_educational_projection_v23.py','tests/test_manual_study_intent_v23.py','tests/test_architecture_planning_context.py','tests/learning_studio/test_mobile_source_v23.py']
+          assert all(pathlib.Path(path).is_file() for path in tests),'Required acceptance file missing'
+          with (out/'focused.log').open('w',encoding='utf-8') as stream:
+              code=subprocess.call([sys.executable,'-m','pytest','-q',*tests,'--junitxml='+str(out/'focused.xml')],stdout=stream,stderr=subprocess.STDOUT)
+          print((out/'focused.log').read_text(encoding='utf-8'))
+          cases=ET.parse(out/'focused.xml').findall('.//testcase') if (out/'focused.xml').exists() else []
+          assert code==0 and cases and all(c.find('skipped') is None for c in cases),'Focused contract must pass with zero skips'
+      - name: Whole repository regression; approved private skips disclosed
+        shell: python
+        run: |
+          import os,pathlib,subprocess,sys,xml.etree.ElementTree as ET
+          out=pathlib.Path(os.environ['ANVAYA_V24_RESULTS'])
+          with (out/'full.log').open('w',encoding='utf-8') as stream:
+              code=subprocess.call([sys.executable,'-m','pytest','-q','--junitxml='+str(out/'full.xml')],stdout=stream,stderr=subprocess.STDOUT)
+          print((out/'full.log').read_text(encoding='utf-8'))
+          allowed={('tests.learning_studio.test_browser','test_external_recovered_pilot_real_browser'),('tests.learning_studio.test_pilot','test_external_bad_v3_source_is_rejected'),('tests.learning_studio.test_recovered_pilot','test_external_recovered_pilot_strict_import_and_durable_evidence'),('tests.learning_studio.test_recovered_pilot','test_external_pilot_demo_does_not_fabricate_course_mappings')}
+          cases=ET.parse(out/'full.xml').findall('.//testcase') if (out/'full.xml').exists() else []
+          skipped={(c.get('classname'),c.get('name')) for c in cases if c.find('skipped') is not None}
+          print('Unavailable external private checks, not passes:',sorted(skipped))
+          assert code==0 and cases and skipped<=allowed,'Full regression failed or unexpected skips'
+          from scripts.architecture_validation import test_status, external_pilot_acceptance, development_gate_status
+          gate={'full':test_status(code,out/'full.xml',allow_external_skips=True),'external_pilots':external_pilot_acceptance(out/'full.xml')}
+          assert development_gate_status(gate)=='PASS', 'Public identity/skip gate rejected results'
+      - name: Node, compilation and source hygiene
+        shell: python
+        run: |
+          import pathlib,subprocess,sys
+          subprocess.run(['node','--test',*[str(p) for p in sorted(pathlib.Path('tests/js').glob('*.test.cjs'))]],check=True)
+          subprocess.run([sys.executable,'-m','compileall','-q','personal_learning_assistant','tests','scripts'],check=True)
+          subprocess.run(['git','diff','--check'],check=True)
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: learning-intelligence-v24-${{ matrix.os }}-${{ github.sha }}
+          path: ${{ env.ANVAYA_V24_RESULTS }}/**
+          if-no-files-found: warn

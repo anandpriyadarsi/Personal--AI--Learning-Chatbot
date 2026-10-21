@@ -166,6 +166,34 @@ def register_academic_evidence(app):
             raise PackageError('The Planner owner is unavailable; no study approval is claimed.',503) from error
         return redirect('/planning/tasks?created=1&course_id='+view.course_id,code=303)
 
+    @bp.post('/academic-evidence/learning/<module_id>/<int:revision>/note-draft')
+    def note_draft(module_id,revision):
+        query(set())
+        require(set(request.form)=={'review_token'} and len(request.form.getlist('review_token'))==1,
+            'Unsupported draft review request.')
+        payload=verified(request.form['review_token'],module_id,revision,'review')
+        _,view,_,frozen,_=context(module_id,revision)
+        require(payload.get('fingerprint')==view.fingerprint,'Academic context changed. Reload before conversion.',409)
+        from personal_learning_assistant.learning_studio.note_draft import convert
+        draft=convert(frozen.source(module_id,revision),media_type='application/pdf')
+        return render_template('note_draft.html',active_page='evidence',view=view,draft=draft)
+
+    @bp.post('/academic-evidence/learning/<module_id>/<int:revision>/tutor-help')
+    def tutor_help(module_id,revision):
+        query(set())
+        fields={'review_token','event_id','question_id','level'}
+        require(set(request.form)==fields and all(len(request.form.getlist(k))==1 for k in fields),
+            'Unsupported offline help request.')
+        payload=verified(request.form['review_token'],module_id,revision,'review')
+        _,view,preview,_,_=context(module_id,revision)
+        require(payload.get('fingerprint')==view.fingerprint,'Academic context changed. Reload before help.',409)
+        from personal_learning_assistant.learning_studio.grounded_help import consume, LEVELS
+        from personal_learning_assistant.learning_studio.rendering import markdown
+        help_view=consume(preview,view,event_id=request.form['event_id'],question_id=request.form['question_id'],
+            level=request.form['level'],explicit_action=True)
+        return render_template('grounded_help.html',active_page='evidence',view=view,help=help_view,
+            levels=LEVELS,review_token=signed(view,'review'),markdown=markdown)
+
     @bp.post('/academic-evidence/learning/<module_id>/<int:revision>/tutor-handoff')
     def tutor_context(module_id,revision):
         require(set(request.form)=={'review_token','student_question','page'} and
