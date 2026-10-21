@@ -4,6 +4,7 @@
 
 {% block page_scripts %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/tutor_readability.css') }}">
+<script defer src="{{ url_for('static', filename='js/tutor_chat.js') }}"></script>
 {% endblock %}
 
 {% block content %}
@@ -50,6 +51,36 @@
     <span>Session course identity</span>
   </article>
 </section>
+
+{% if session.adaptive_state is defined %}
+{% set adaptive = session.adaptive_state %}
+{% set goal = session.session_goal if session.session_goal is defined else {} %}
+{% set teaching = session.teaching_plan if session.teaching_plan is defined else {} %}
+<section class="tutor-learning-status dashboard-panel" aria-label="Tutor session learning state">
+  <div class="panel-heading">
+    <div><p class="eyebrow">Tutor 2.3 · Session state</p><h3>Learning journey</h3></div>
+    <span class="tag">Session evidence, not mastery</span>
+  </div>
+  {% if goal.goal %}
+    <p class="tutor-goal-line"><strong>Current goal:</strong> {{ goal.goal }}</p>
+    <p class="microcopy">Goal state: {{ (goal.status or 'active')|replace('_', ' ')|title }}. Even “Likely Met” is a session-local check, not a grade.</p>
+  {% endif %}
+  {% if adaptive.awaiting_student_answer and adaptive.pending_question %}
+    <div class="tutor-pending-question" role="status">
+      <strong>Question waiting for your answer</strong>
+      <p>{{ adaptive.pending_question }}</p>
+      <span class="microcopy">You can answer it, request a hint or change the topic.</span>
+    </div>
+  {% endif %}
+  <div class="tutor-state-summary">
+    {% if adaptive.last_misconception %}<span class="tag">Possible misconception: {{ adaptive.last_misconception }}</span>{% endif %}
+    {% if adaptive.practice_active and adaptive.practice_level %}
+      <span class="tag">Practice level {{ adaptive.practice_level }} of 5 · not mastery</span>
+    {% endif %}
+    {% if teaching.next_move %}<span class="tag">Next teaching move: {{ teaching.next_move|replace('_', ' ')|title }}</span>{% endif %}
+  </div>
+</section>
+{% endif %}
 
 <section class="dashboard-panel" aria-labelledby="transcript-title">
   <div class="panel-heading">
@@ -102,6 +133,13 @@
   <h3 id="ask-tutor-title">Ask grounded tutor</h3>
   <form method="post" action="{{ url_for('web.academic_agent_ask', session_id=session.session_id) }}">
     <label for="agent-question">Question</label>
+    <div class="tutor-quick-prompts" aria-label="Teaching follow-ups">
+      <button type="button" data-tutor-prompt="Give me one hint only; do not reveal the solution.">Hint only</button>
+      <button type="button" data-tutor-prompt="Ask me one question at a time and wait for my answer.">Quiz me</button>
+      <button type="button" data-tutor-prompt="Check my understanding with one question.">Check me</button>
+      <button type="button" data-tutor-prompt="Explain the previous concept differently with an intuitive example.">Explain differently</button>
+      <button type="button" data-tutor-prompt="Show one worked example and verify the calculation.">Worked example</button>
+    </div>
     <p><textarea id="agent-question" name="question" rows="5" maxlength="4000" required placeholder="Ask about a concept using your indexed academic sources.">{{ session.prefill_question or "" }}</textarea></p>
     <button type="submit">Ask tutor</button>
   </form>
