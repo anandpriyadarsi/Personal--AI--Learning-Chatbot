@@ -45,6 +45,7 @@ def create_app(config: Mapping[str, Any] | None = None) -> Flask:
     app.register_blueprint(assessment_tools_blueprint)
     from secrets import token_urlsafe
     app.extensions['learning_studio_csrf'] = token_urlsafe(32)
+    app.extensions['tutor_action_csrf'] = token_urlsafe(32)
     from .learning_studio import learning_blueprint
     app.register_blueprint(learning_blueprint)
     if app.config.get("ASSESSMENT_EXTENDED_ENABLED") is True:
