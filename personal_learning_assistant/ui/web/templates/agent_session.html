@@ -2,6 +2,10 @@
 
 {% block title %}Tutor Session · Academic Agent{% endblock %}
 
+{% block page_scripts %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/tutor_readability.css') }}">
+{% endblock %}
+
 {% block content %}
 <section class="hero dashboard-hero" aria-labelledby="agent-session-title">
   <div>
@@ -66,7 +70,11 @@
         </div>
         {% if turn.role == 'assistant' %}<span class="tag">Support: {{ turn.support_level|replace('_', ' ')|title }}</span>{% endif %}
       </div>
+      {% if turn.role == 'assistant' %}
+      <div class="agent-message tutor-markdown">{{ turn.content|tutor_markdown }}</div>
+      {% else %}
       <div class="agent-message">{{ turn.content }}</div>
+      {% endif %}
       {% if turn.role == 'assistant' %}
         <p class="empty-state">Support: {{ turn.support_level|replace('_', ' ')|title }}</p>
         {% if turn.provider_model %}
