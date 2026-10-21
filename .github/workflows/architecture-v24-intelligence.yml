@@ -2,12 +2,16 @@ name: Architecture V2.4 learning intelligence acceptance
 on:
   push:
     branches: ['feature/architecture-v2-4-learning-intelligence-2026-10']
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 permissions:
   contents: read
 concurrency:
   group: learning-intelligence-v24-${{ github.ref }}
   cancel-in-progress: true
+env:
+  V24_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 jobs:
   acceptance:
     name: V2.4 intelligence (${{ matrix.os }})
@@ -25,6 +29,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ env.V24_SOURCE_SHA }}
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
@@ -62,7 +67,7 @@ jobs:
           subprocess.run([sys.executable,'-m','pytest','-q','tests/test_academic_evidence_v23_browser.py','--junitxml='+str(out/'before.xml')],env=env,check=True)
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ env.V24_SOURCE_SHA }}
           persist-credentials: false
       - run: python scripts/architecture_checkout_eol.py --repo .
       - name: Versioned evidence contract; zero skips
@@ -103,6 +108,6 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: learning-intelligence-v24-${{ matrix.os }}-${{ github.sha }}
+          name: learning-intelligence-v24-${{ matrix.os }}-${{ env.V24_SOURCE_SHA }}
           path: ${{ env.ANVAYA_V24_RESULTS }}/**
           if-no-files-found: warn
