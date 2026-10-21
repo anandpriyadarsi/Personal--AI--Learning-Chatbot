@@ -657,7 +657,7 @@ def test_reconciled_tutor_page_formats_only_assistant_markdown_without_provider_
     fake = FakeWebService()
     fake.session["turns"] = [
         {"turn_id": "u1", "ordinal": 1, "role": "user", "content": "**user** <img src=x onerror=bad()>", "support_level": "not_evaluated", "provider_name": "", "provider_model": "", "created_at": "2026-09-17T10:01:00Z", "evidence": []},
-        {"turn_id": "a1", "ordinal": 2, "role": "assistant", "content": "## Explain LU\\n\\n**Pivot** [S1]\\n\\n<script>bad()</script>", "support_level": "grounded", "provider_name": "", "provider_model": "", "created_at": "2026-09-17T10:02:00Z", "evidence": []},
+        {"turn_id": "a1", "ordinal": 2, "role": "assistant", "content": "## Explain LU\n\n**Pivot** [S1]\n\n<script>bad()</script>", "support_level": "grounded", "provider_name": "", "provider_model": "", "created_at": "2026-09-17T10:02:00Z", "evidence": []},
     ]
     response = fake_web_app(fake).test_client().get("/agent/sessions/session-1")
     html = response.get_data(as_text=True)
