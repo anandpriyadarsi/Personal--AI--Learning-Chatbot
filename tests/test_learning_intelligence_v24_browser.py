@@ -151,6 +151,7 @@ def test_text_size_focus_and_cross_owner_navigation(browser,live_v24):
         expect(prose).to_have_css('font-size','24px')
         assert prose.evaluate('(p)=>parseFloat(getComputedStyle(p).fontSize)')>before
         page.get_by_role('button',name='Focus Reading',exact=True).click()
+        page.locator('.ls-v24-outline > summary').click()
         link=page.locator('.ls-v24-journey').get_by_role('link',name='03 Review evidence and choose a next step')
         href=link.get_attribute('href')
         assert 'focus=' not in href and 'nav=' not in href
