@@ -24,6 +24,8 @@ def create_app(config: Mapping[str, Any] | None = None) -> Flask:
         LEARNING_LIBRARY_ENABLED=os.environ.get("ANVAYA_LIBRARY_ENABLED", "true").strip().lower() == "true",
         LEARNING_LIBRARY_DATABASE_PATH=os.environ.get("ANVAYA_LIBRARY_DATABASE_PATH") or None,
         ACADEMIC_EVIDENCE_ENABLED=os.environ.get('ANVAYA_EVIDENCE_ENABLED','true').strip().lower()=='true',
+        # Explicit opt-in: candidate actions require owner-applied optional 0016.
+        TUTOR_MEMORY_ENABLED=os.environ.get("ANVAYA_TUTOR_MEMORY_ENABLED", "false").strip().lower() == "true",
         JSON_SORT_KEYS=False,
         ASSESSMENT_COLAB_URL=os.environ.get("ANVAYA_COLAB_URL", ""),
         ASSESSMENT_CODING_HELPER_ENABLED=os.environ.get("ANVAYA_CODING_HELPER_ENABLED", "true").lower() == "true",
