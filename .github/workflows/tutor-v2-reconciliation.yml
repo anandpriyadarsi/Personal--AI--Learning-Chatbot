@@ -8,6 +8,8 @@ on:
       - 'personal_learning_assistant/services/tutor_session_service.py'
       - 'personal_learning_assistant/services/academic_agent_web_service.py'
       - 'personal_learning_assistant/repositories/sqlite/tutor_repository.py'
+      - 'personal_learning_assistant/repositories/sqlite/migration_runner.py'
+      - 'personal_learning_assistant/repositories/sqlite/optional_migrations/**'
       - 'personal_learning_assistant/domain/grounded_tutor_models.py'
       - 'personal_learning_assistant/ui/web/**'
       - 'tests/test_tutor*.py'
@@ -52,6 +54,7 @@ jobs:
           tests/test_tutor21_retrieval_planner.py
           tests/test_tutor21_live_validation_fixes.py
           tests/test_tutor22_student_model.py
+          tests/test_tutor22_memory_candidates.py
           tests/test_tutor22_signal_aggregation.py
           tests/test_tutor22_personalized_policy.py
           tests/test_tutor23_diagnostic_questioning.py
