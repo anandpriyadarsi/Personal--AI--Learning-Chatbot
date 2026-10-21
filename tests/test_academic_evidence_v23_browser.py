@@ -49,9 +49,17 @@ def test_source_practice_evidence_choice_availability_approval_completion(browse
         # source/template to main. The V23 view is an additional scoped preview.
         page.goto(base+'/learning/modules/uc100n-demo/1?view=learn')
         expect(page.locator('#ls-reading-column')).to_contain_text('Cases, variables')
+        # The inherited Learning reader asynchronously persists viewing progress.
+        # Finish its actual HTTP work before asking the strict DELETE-mode owner
+        # for a new immutable snapshot; otherwise Windows can honestly show
+        # 'evidence unavailable' while the previous reader request is writing.
+        # Keep the snapshot safety guard and every downstream assertion intact.
+        page.wait_for_load_state('networkidle')
         shot(page,f'original-reader-{width}.png')
         page.goto(base+'/academic-evidence')
-        page.locator('.ae-grid').get_by_role('link',name='Open lesson and evidence').click()
+        lesson_link=page.locator('.ae-grid').get_by_role('link',name='Open lesson and evidence')
+        expect(lesson_link).to_be_visible()
+        lesson_link.click()
         evidence_url=page.url
         expect(page.locator('.ae-metrics')).to_contain_text('Unknown')
         expect(page.locator('.ls-relationship-graph')).to_contain_text('sum 14 then divide by 2')
