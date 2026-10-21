@@ -97,6 +97,53 @@
 </section>
 {% endif %}
 
+{% if config.get('TUTOR_MEMORY_ENABLED', False) %}
+<section class="dashboard-panel tutor-memory-review" aria-labelledby="tutor-memory-title">
+  <div class="panel-heading">
+    <div><p class="eyebrow">Tutor 2.2 · Optional learning memory</p><h3 id="tutor-memory-title">Review study patterns</h3></div>
+    <span class="tag">Approval required</span>
+  </div>
+  <p class="microcopy">Stable patterns become long-term memory only after explicit acceptance. Tutor suggestions are not verified mastery or official academic records.</p>
+  {% if not session.memory_candidates_available %}
+  <p class="empty-state">Private memory review is unavailable until optional migration 0016 is approved and applied by the owner. No changes were made to your academic records.</p>
+  {% else %}
+    {% if session.persistent_student_model is defined and session.persistent_student_model.stable_signals %}
+    <h4>Possible patterns from earlier sessions</h4>
+    {% for signal in session.persistent_student_model.stable_signals[:5] %}
+    <article class="tutor-memory-item">
+      <p><strong>{{ signal.kind|replace('_', ' ')|title }}</strong> · {{ signal.text }}</p>
+      <span class="microcopy">Observed across {{ signal.session_count }} sessions; review the evidence before saving.</span>
+      <form method="post" action="{{ url_for('web.academic_agent_memory_candidate_propose', session_id=session.session_id) }}">
+        <input type="hidden" name="csrf_token" value="{{ tutor_action_csrf }}">
+        <input type="hidden" name="signal_index" value="{{ loop.index0 }}">
+        <button type="submit">Propose memory</button>
+      </form>
+    </article>
+    {% endfor %}
+    {% endif %}
+    {% if session.memory_candidates %}
+    <h4>Memory candidates for your review</h4>
+    {% for candidate in session.memory_candidates %}
+    <article class="tutor-memory-item">
+      <p><strong>{{ candidate.status|title }}</strong> · {{ candidate.candidate_text }}</p>
+      {% if candidate.status == 'proposed' %}
+      <form method="post" action="{{ url_for('web.academic_agent_memory_candidate_review', session_id=session.session_id, candidate_id=candidate.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ tutor_action_csrf }}">
+        <label for="tutor-memory-note-{{ loop.index }}">Optional review note</label>
+        <input id="tutor-memory-note-{{ loop.index }}" name="review_note" type="text" maxlength="400" placeholder="Why should this be remembered?">
+        <div class="tutor-memory-actions">
+          <button type="submit" name="action" value="accept">Accept memory</button>
+          <button type="submit" name="action" value="reject">Reject</button>
+        </div>
+      </form>
+      {% endif %}
+    </article>
+    {% endfor %}
+    {% endif %}
+  {% endif %}
+</section>
+{% endif %}
+
 <section class="dashboard-panel" aria-labelledby="transcript-title">
   <div class="panel-heading">
     <div>
