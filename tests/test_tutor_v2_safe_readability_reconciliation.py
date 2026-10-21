@@ -43,3 +43,18 @@ def test_student_messages_are_not_parsed_as_markdown_in_session_template():
     assert "turn.content|tutor_markdown" in template
     assert "{{ turn.content }}" in template
     assert "{% if turn.role == 'assistant' %}" in template
+
+
+def test_flask_jinja_filter_registration_and_escaping():
+    from flask import render_template_string
+    from personal_learning_assistant.ui.web import create_app
+
+    app = create_app({"TESTING": True})
+    with app.app_context():
+        result = render_template_string(
+            '{{ answer|tutor_markdown }}',
+            answer="**Important** <script>bad()</script>",
+        )
+    assert "<strong>Important</strong>" in result
+    assert "<script>" not in result
+    assert "&lt;script&gt;" in result
