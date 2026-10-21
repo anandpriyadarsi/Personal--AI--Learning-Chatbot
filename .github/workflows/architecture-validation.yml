@@ -22,6 +22,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -79,13 +81,14 @@ jobs:
         shell: python
         env:
           MATRIX_RESULT: ${{ needs.development.result }}
+          VALIDATED_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           import json, os
           from pathlib import Path
           result = 'PASS' if os.environ['MATRIX_RESULT'] == 'success' else 'FAIL'
-          report = {'source_sha': os.environ['GITHUB_SHA'], 'required_platforms': ['ubuntu-latest', 'windows-latest'], 'matrix_result': os.environ['MATRIX_RESULT'], 'GATE_A_DEV_AUTOMATED': result, 'GATE_A_LOCAL_PRODUCTION_AUTHORITY': 'BLOCKED'}
+          report = {'source_sha': os.environ['VALIDATED_SOURCE_SHA'], 'required_platforms': ['ubuntu-latest', 'windows-latest'], 'matrix_result': os.environ['MATRIX_RESULT'], 'GATE_A_DEV_AUTOMATED': result, 'EXTERNAL_IKS_CERTIFICATION': 'BLOCKED: separate private runner required', 'GATE_A_LOCAL_PRODUCTION_AUTHORITY': 'BLOCKED'}
           Path('CROSS_PLATFORM_ACCEPTANCE.json').write_text(json.dumps(report, indent=2), encoding='utf-8')
-          Path('CROSS_PLATFORM_ACCEPTANCE.md').write_text(f"Source: {report['source_sha']}\n\nUbuntu + Windows development: {result}\n\nLocal production authority: BLOCKED\n", encoding='utf-8')
+          Path('CROSS_PLATFORM_ACCEPTANCE.md').write_text(f"Source: {report['source_sha']}\n\nUbuntu + Windows synthetic regression: {result}\n\nOriginal external IKS: BLOCKED (separate private certification, not passed)\n\nLocal production authority: BLOCKED\n", encoding='utf-8')
       - uses: actions/upload-artifact@v4
         with:
           name: cross-platform-acceptance-${{ github.sha }}

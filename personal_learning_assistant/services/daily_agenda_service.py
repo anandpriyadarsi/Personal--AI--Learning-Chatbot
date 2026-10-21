@@ -370,7 +370,14 @@ class DailyAgendaService:
         tasks = {task["id"]: task for task in self._open_tasks()}
         study = {row["id"]: row for row in self.calendar_repository.list_study_items(day)}
         fixed = tuple(i for i in self.calendar.day_items(day) if i.get("source") != "task")
-        windows = _free_windows(fixed, [("06:00", "22:10")], 0, self.break_minutes)
+        windows = _free_windows(fixed, self.free_windows.get(day, ()), 0, self.break_minutes)
+        if not self.free_windows.get(day) and any(
+            item['item_kind'] in {'task', 'study'} and (item.get('starts_at') or item.get('ends_at'))
+            for item in agenda['items']
+        ):
+            raise DailyAgendaConflictError(
+                "Original availability context is unavailable. Preview and save a fresh draft before approval."
+            )
         clock = datetime.fromisoformat(str(self._now()).replace("Z", "+00:00"))
         if clock.tzinfo is None:
             raise DailyAgendaConflictError("Approval clock must include a timezone.")
@@ -431,11 +438,13 @@ class DailyAgendaService:
         except DailyAgendaRepositoryError as error:
             raise DailyAgendaUnavailableError("Daily agenda could not be saved.") from error
 
-    def approve_day(self, agenda_date):
+    def approve_day(self, agenda_date, *, expected_fingerprint=None):
         day = _parse_date(agenda_date).isoformat()
         now = self._now()
         try:
             fingerprint = self.agendas.planning_fingerprint()
+            if expected_fingerprint is not None and fingerprint != expected_fingerprint:
+                raise DailyAgendaConflictError("Planner sources changed. Preview again before approval.")
             agenda = self.agendas.get_agenda(day)
             if agenda is None or agenda["status"] != "draft":
                 raise DailyAgendaConflictError("Only a draft agenda can be approved.")

@@ -99,6 +99,7 @@ def test_mobile_navigation_source_revision_and_practice(browser, live):
     page.click('#ls-close-contents'); page.keyboard.press('Escape')
     screenshot(page, 'mobile-learn.png')
     page.locator('.ls-source-chips a').first.click()
+    page.wait_for_load_state('load')
     assert 'view=source' in page.url and page.locator('#source-page-1').count() == 1
     no_overflow(page)
     page.goto(url + '/learning/modules/synthetic/1?view=revision')
