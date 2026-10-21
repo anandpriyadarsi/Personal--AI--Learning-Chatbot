@@ -79,6 +79,42 @@ class SQLiteTutorRepository:
                 "Phase 6.1 tutor schema incomplete: {}".format("; ".join(issues))
             )
 
+    def resolve_course_id(self, identifier: Optional[str]) -> Optional[str]:
+        """Resolve a canonical SQLite course id from id or human course code."""
+        if identifier is None:
+            return None
+        clean = str(identifier or "").strip()
+        if not clean:
+            return None
+        row = self.connection.execute(
+            "SELECT id FROM courses "
+            "WHERE deleted_at IS NULL "
+            "AND (id=? OR lower(code)=lower(?)) "
+            "ORDER BY CASE WHEN id=? THEN 0 ELSE 1 END,id LIMIT 1",
+            (clean, clean, clean),
+        ).fetchone()
+        return None if row is None else str(row[0])
+
+    def course_identity(self, course_id: Optional[str]):
+        """Return canonical human course identity for Tutor presentation."""
+        if course_id is None:
+            return None
+        clean = str(course_id or "").strip()
+        if not clean:
+            return None
+        row = self.connection.execute(
+            "SELECT id,code,name FROM courses "
+            "WHERE id=? AND deleted_at IS NULL",
+            (clean,),
+        ).fetchone()
+        if row is None:
+            return None
+        return {
+            "id": str(row["id"]),
+            "code": str(row["code"]),
+            "name": str(row["name"]),
+        }
+
     def entity_exists(self, table: str, entity_id: Optional[str]) -> bool:
         if entity_id is None:
             return True
@@ -100,6 +136,53 @@ class SQLiteTutorRepository:
             (topic_id,),
         ).fetchone()
         return None if row is None else str(row[0])
+
+    def topic_identity(self, topic_id: Optional[str], course_id: Optional[str] = None):
+        """Return canonical Tutor topic identity, optionally constrained to a course."""
+        if topic_id is None:
+            return None
+        clean_topic = str(topic_id or "").strip()
+        if not clean_topic:
+            return None
+        if course_id is None:
+            row = self.connection.execute(
+                "SELECT id,course_id,name FROM topics "
+                "WHERE id=? AND deleted_at IS NULL",
+                (clean_topic,),
+            ).fetchone()
+        else:
+            row = self.connection.execute(
+                "SELECT id,course_id,name FROM topics "
+                "WHERE id=? AND course_id=? AND deleted_at IS NULL",
+                (clean_topic, str(course_id)),
+            ).fetchone()
+        if row is None:
+            return None
+        return {
+            "id": str(row["id"]),
+            "course_id": str(row["course_id"]),
+            "name": str(row["name"]),
+        }
+
+    def list_course_topics(self, course_id: str):
+        """Return canonical active Tutor topic choices for one course."""
+        clean_course = str(course_id or "").strip()
+        if not clean_course:
+            return ()
+        rows = self.connection.execute(
+            "SELECT id,course_id,name FROM topics "
+            "WHERE course_id=? AND deleted_at IS NULL "
+            "ORDER BY position,name,id",
+            (clean_course,),
+        ).fetchall()
+        return tuple(
+            {
+                "id": str(row["id"]),
+                "course_id": str(row["course_id"]),
+                "name": str(row["name"]),
+            }
+            for row in rows
+        )
 
     def assessment_course_id(self, assessment_id: str) -> Optional[str]:
         row = self.connection.execute(
@@ -190,6 +273,18 @@ class SQLiteTutorRepository:
                 None if row["completed_at"] is None else str(row["completed_at"])
             ),
         )
+
+    def update_session_metadata(self, session_id, metadata_json, updated_at):
+        with transaction(self.connection, immediate=True):
+            cursor = self.connection.execute(
+                "UPDATE tutor_sessions SET metadata_json=?,updated_at=? WHERE id=?",
+                (str(metadata_json), str(updated_at), str(session_id)),
+            )
+            if cursor.rowcount != 1:
+                raise TutorRepositoryError(
+                    "tutor session not found: {}".format(session_id)
+                )
+        return self.get_session(str(session_id))
 
     def list_sessions(self, limit: int = 20):
         limit = int(limit)
