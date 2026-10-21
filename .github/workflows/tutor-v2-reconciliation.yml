@@ -61,6 +61,7 @@ jobs:
           tests/test_tutor23_prerequisite_reasoning.py
           tests/test_tutor23_adaptive_practice.py
           tests/test_tutor23_goal_exit_check.py
+          tests/test_tutor23_live_validation.py
           tests/test_phase7_5_academic_agent_web.py
           --junitxml=tutor-reconciliation.xml
       - name: Preserve acceptance report
