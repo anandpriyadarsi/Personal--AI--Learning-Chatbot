@@ -33,6 +33,9 @@ def create_app(config: Mapping[str, Any] | None = None) -> Flask:
     if config:
         app.config.update(config)
 
+    from .tutor_rendering import render_tutor_markdown
+    app.jinja_env.filters["tutor_markdown"] = render_tutor_markdown
+
     # Process-local key: short-lived helper context becomes invalid on restart.
     from secrets import token_bytes
     from personal_learning_assistant.services.coding_helper_context import context_signer
