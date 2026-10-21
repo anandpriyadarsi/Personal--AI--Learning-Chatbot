@@ -4413,6 +4413,35 @@ def academic_agent_ask(session_id):
         return _render_session_error(service, session_id, message, 503)
 
 
+
+def _tutor_action_token_matches():
+    """Check a process-local token for state-changing Tutor POSTs."""
+    from hmac import compare_digest
+    supplied = str(request.form.get("csrf_token") or "")
+    expected = str(current_app.extensions.get("tutor_action_csrf") or "")
+    return bool(expected and supplied and compare_digest(supplied, expected))
+
+
+@web_blueprint.post("/agent/sessions/<session_id>/turns/<turn_id>/feedback")
+def academic_agent_feedback(session_id, turn_id):
+    """Explicit optional feedback, never a mastery or academic progress event."""
+    service = _academic_agent_service()
+    if not _tutor_action_token_matches():
+        return _render_session_error(service, session_id, "Tutor action token is invalid.", 403)
+    raw = str(request.form.get("helpful", "")).strip().casefold()
+    if raw not in {"1", "0"}:
+        return _render_session_error(service, session_id, "Tutor feedback value is invalid.", 400)
+    try:
+        service.record_feedback(session_id, turn_id, helpful=raw == "1")
+        return redirect(url_for("web.academic_agent_session", session_id=session_id), code=303)
+    except AcademicAgentWebValidationError:
+        return _render_session_error(service, session_id, "Tutor feedback target is invalid.", 400)
+    except AcademicAgentWebNotFoundError:
+        return _render_session_error(service, session_id, "Tutor answer was not found.", 404)
+    except AcademicAgentWebUnavailableError:
+        return _render_session_error(service, session_id, "Tutor feedback could not be saved.", 503)
+
+
 @web_blueprint.get("/healthz")
 def healthz():
     """Return a side-effect-free health response for local startup checks."""
