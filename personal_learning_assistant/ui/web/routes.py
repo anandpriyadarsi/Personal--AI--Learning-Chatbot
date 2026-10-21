@@ -4422,6 +4422,50 @@ def _tutor_action_token_matches():
     return bool(expected and supplied and compare_digest(supplied, expected))
 
 
+@web_blueprint.post("/agent/sessions/<session_id>/memory-candidates")
+def academic_agent_memory_candidate_propose(session_id):
+    """Student-initiated proposal from stable Tutor signals only."""
+    service = _academic_agent_service()
+    if not current_app.config.get("TUTOR_MEMORY_ENABLED", False):
+        return _render_session_error(service, session_id, "Tutor memory review is not enabled.", 404)
+    if not _tutor_action_token_matches():
+        return _render_session_error(service, session_id, "Tutor action token is invalid.", 403)
+    try:
+        service.propose_memory_candidate(session_id, request.form.get("signal_index", ""))
+        return redirect(url_for("web.academic_agent_session", session_id=session_id), code=303)
+    except AcademicAgentWebValidationError:
+        return _render_session_error(service, session_id, "The selected study pattern is not eligible for memory review.", 400)
+    except AcademicAgentWebNotFoundError:
+        return _render_session_error(service, session_id, "Tutor session was not found.", 404)
+    except AcademicAgentWebUnavailableError:
+        return _render_session_error(service, session_id, "Tutor memory review is unavailable; check optional database authorization.", 503)
+
+
+@web_blueprint.post("/agent/sessions/<session_id>/memory-candidates/<candidate_id>/review")
+def academic_agent_memory_candidate_review(session_id, candidate_id):
+    """Explicit one-time acceptance or rejection of a scoped memory candidate."""
+    service = _academic_agent_service()
+    if not current_app.config.get("TUTOR_MEMORY_ENABLED", False):
+        return _render_session_error(service, session_id, "Tutor memory review is not enabled.", 404)
+    if not _tutor_action_token_matches():
+        return _render_session_error(service, session_id, "Tutor action token is invalid.", 403)
+    action = str(request.form.get("action", "")).strip().lower()
+    if action not in {"accept", "reject"}:
+        return _render_session_error(service, session_id, "Choose Accept or Reject.", 400)
+    try:
+        service.review_memory_candidate(
+            session_id, candidate_id,
+            action=action, review_note=request.form.get("review_note", ""),
+        )
+        return redirect(url_for("web.academic_agent_session", session_id=session_id), code=303)
+    except AcademicAgentWebValidationError:
+        return _render_session_error(service, session_id, "Memory review was not valid or was already completed.", 400)
+    except AcademicAgentWebNotFoundError:
+        return _render_session_error(service, session_id, "Memory candidate was not found in this course.", 404)
+    except AcademicAgentWebUnavailableError:
+        return _render_session_error(service, session_id, "Tutor memory review could not be saved.", 503)
+
+
 @web_blueprint.post("/agent/sessions/<session_id>/turns/<turn_id>/feedback")
 def academic_agent_feedback(session_id, turn_id):
     """Explicit optional feedback, never a mastery or academic progress event."""
