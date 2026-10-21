@@ -651,3 +651,21 @@ def test_real_session_get_is_read_only_when_a_session_exists(tmp_path):
     assert response.status_code == 200
     assert file_hash(database) == before
     assert provider.calls == 0
+
+
+def test_reconciled_tutor_page_formats_only_assistant_markdown_without_provider_call():
+    fake = FakeWebService()
+    fake.session["turns"] = [
+        {"turn_id": "u1", "ordinal": 1, "role": "user", "content": "**user** <img src=x onerror=bad()>", "support_level": "not_evaluated", "provider_name": "", "provider_model": "", "created_at": "2026-09-17T10:01:00Z", "evidence": []},
+        {"turn_id": "a1", "ordinal": 2, "role": "assistant", "content": "## Explain LU\\n\\n**Pivot** [S1]\\n\\n<script>bad()</script>", "support_level": "grounded", "provider_name": "", "provider_model": "", "created_at": "2026-09-17T10:02:00Z", "evidence": []},
+    ]
+    response = fake_web_app(fake).test_client().get("/agent/sessions/session-1")
+    html = response.get_data(as_text=True)
+    assert response.status_code == 200
+    assert "<h2>Explain LU</h2>" in html
+    assert "<strong>Pivot</strong> [S1]" in html
+    assert "<script>bad()</script>" not in html
+    assert "&lt;script&gt;bad()&lt;/script&gt;" in html
+    assert "<strong>user</strong>" not in html
+    assert "<img src=x onerror=bad()>" not in html
+    assert fake.llm_calls == 0
