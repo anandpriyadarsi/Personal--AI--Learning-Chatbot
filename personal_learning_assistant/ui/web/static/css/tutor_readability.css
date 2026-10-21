@@ -86,3 +86,27 @@
   outline: 2px solid rgba(109, 211, 197, .55);
   outline-offset: 2px;
 }
+
+.tutor-previous-study { margin: .85rem 0; }
+.tutor-previous-study summary { cursor: pointer; font-weight: 600; }
+.tutor-previous-study ul { margin-top: .4rem; }
+.tutor-memory-review { margin-block: 1.2rem; }
+.tutor-memory-item {
+  margin: .8rem 0;
+  padding: .85rem 1rem;
+  border: 1px solid rgba(148, 163, 184, .3);
+  border-radius: .75rem;
+  overflow-wrap: anywhere;
+}
+.tutor-memory-item p { line-height: 1.55; }
+.tutor-memory-item form { margin-top: .6rem; }
+.tutor-memory-item input[name="review_note"] { max-width: 100%; }
+.tutor-memory-actions { display: flex; flex-wrap: wrap; gap: .6rem; margin-top: .6rem; }
+.tutor-memory-item button {
+  border-radius: .55rem;
+  padding: .46rem .85rem;
+  border: 1px solid rgba(148, 163, 184, .35);
+  background: rgba(148, 163, 184, .09);
+  color: inherit; cursor: pointer;
+}
+.tutor-memory-item button:focus-visible { outline: 2px solid rgba(109, 211, 197, .6); }
