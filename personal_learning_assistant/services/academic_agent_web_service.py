@@ -465,6 +465,27 @@ class AcademicAgentWebService:
             view["persistent_student_model"] = student_model_mapping(
                 build_persistent_student_model(repository, session)
             )
+            # A database without explicit optional Tutor 0016 remains readable.
+            # No table is created by this GET; private student data stays local.
+            view["memory_candidates"] = []
+            view["memory_candidates_available"] = False
+            if session.course_id and connection.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' "
+                "AND name='tutor_memory_candidates'"
+            ).fetchone():
+                candidate_module = import_module(
+                    "personal_learning_assistant.tutor.memory_candidates"
+                )
+                view["memory_candidates_available"] = True
+                view["memory_candidates"] = list(
+                    candidate_module.list_memory_candidates(
+                        connection,
+                        course_id=session.course_id,
+                        topic_id=session.topic_id,
+                        include_reviewed=True,
+                        limit=30,
+                    )
+                )
             metadata_module = import_module(
                 "personal_learning_assistant.repositories.sqlite.search_metadata_repository"
             )
