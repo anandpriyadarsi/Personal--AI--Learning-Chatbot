@@ -1,5 +1,5 @@
 /* V2.4 reading composition: authored semantics, no content replacement. */
-.learning-reader #ls-reading-column{line-height:1.8;max-width:960px;margin-inline:auto;color:#dbe8ed}
+.learning-reader #ls-reading-column{line-height:1.8;color:#dbe8ed}
 .ls-v24-intro{padding:30px 32px;border:1px solid #34504e;border-radius:20px;background:linear-gradient(120deg,#142d31,#13212c);margin-bottom:20px}
 .ls-v24-intro h2{font-size:clamp(1.6rem,2.7vw,2.3rem);line-height:1.25;margin:12px 0;letter-spacing:-.025em;color:#f1f6f7}
 .ls-v24-intro p{color:#b4c9cc}.ls-v24-intro .eyebrow,.ls-v24-checkpoint .eyebrow{color:#8ae3c8;font-size:.74rem;letter-spacing:.14em;text-transform:uppercase}
