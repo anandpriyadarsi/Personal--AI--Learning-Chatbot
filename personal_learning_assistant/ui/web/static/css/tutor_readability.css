@@ -46,3 +46,31 @@
 @media (max-width: 600px) {
   .agent-turn .agent-message { font-size: .95rem; }
 }
+
+/* Tutor V2.3 session-learning metadata: helpful, never a mastery claim. */
+.tutor-learning-status { margin-block: 1.1rem; }
+.tutor-goal-line { overflow-wrap: anywhere; line-height: 1.6; }
+.tutor-pending-question {
+  padding: .9rem 1rem; margin-block: .85rem;
+  border-left: 3px solid var(--accent, #6cc9b7);
+  border-radius: .5rem;
+  background: rgba(100, 116, 139, .12);
+}
+.tutor-pending-question p { margin-block: .45rem; overflow-wrap: anywhere; }
+.tutor-state-summary { display: flex; flex-wrap: wrap; gap: .5rem; }
+.tutor-state-summary .tag { max-width: 100%; overflow-wrap: anywhere; white-space: normal; }
+.tutor-quick-prompts { display: flex; flex-wrap: wrap; gap: .45rem; margin: .65rem 0 1rem; }
+.tutor-quick-prompts button {
+  border: 1px solid rgba(148, 163, 184, .36);
+  background: rgba(148, 163, 184, .09); color: inherit;
+  border-radius: 999px; padding: .42rem .72rem;
+  font: inherit; font-size: .82rem; cursor: pointer;
+}
+.tutor-quick-prompts button:hover, .tutor-quick-prompts button:focus-visible {
+  outline: 2px solid rgba(109, 211, 197, .6);
+  outline-offset: 2px;
+  background: rgba(109, 211, 197, .14);
+}
+@media (max-width: 450px) {
+  .tutor-quick-prompts button { font-size: .76rem; }
+}
