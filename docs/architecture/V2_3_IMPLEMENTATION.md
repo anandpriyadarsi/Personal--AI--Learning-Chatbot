@@ -44,6 +44,14 @@ One exact-head Ubuntu full run found the inherited mobile source navigation test
 
 The test now waits for navigation load before its unchanged `scrollWidth <= innerWidth + 1` assertion. Twelve repeated source navigations plus a controlled delayed-stylesheet regression run natively on both platforms with zero skips. No reader template, style or product behavior is changed for this synchronization. The original four private IKS acceptance functions remain untouched.
 
+## Two independent acceptance gates (2026-10-21)
+
+**Public synthetic regression gate (merge qualification):** the unchanged full pytest suite must pass on Ubuntu and Windows. The only accepted skips are the four exact original external IKS pilot test identities, which must all be collected and individually recorded as `SKIP` or `PASS`. Any failure, unknown skip, missing test identity, duplicated pilot outcome, source/hygiene problem, or other failing category keeps the public gate red. CI results must match the exact PR head. The public gate never certifies a private fixture.
+
+**Private IKS source certification (separate optional gate):** remains `BLOCKED` until the exact two owner-controlled original ZIPs are available on an authorized private runner. This gate requires **all four original tests to PASS**, uses the existing strict digest/path validator, never uploads original assets, and never counts a skipped test as a pass. No IKS student course is imported by this PR. The absence of unrelated private inputs does not prevent merging an independently passing, non-importing V2.3 feature slice.
+
+The synthetic gate is not permission for an installed academic migration, installed Windows/B3/WAL authority, an IKS pilot import, automatic Tutor consumption, independent course-fidelity certification, or deployment. The feature keeps its read-only owner boundaries and original-data preservation requirements.
+
 ## Explicit blocked gates
 
 1. **Original private IKS cross-platform acceptance: BLOCKED.** Genuine trusted external fixture prerequisites are unavailable. Original tests remain intact; the strict architecture validator must not turn their absence into a pass. The private workflow remains dispatch-only and gated; no private PDF/package is uploaded or reconstructed.
