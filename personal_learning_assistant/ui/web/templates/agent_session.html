@@ -123,6 +123,12 @@
       {% endif %}
       {% if turn.role == 'assistant' %}
         <p class="empty-state">Support: {{ turn.support_level|replace('_', ' ')|title }}</p>
+        <form class="tutor-turn-feedback" method="post" action="{{ url_for('web.academic_agent_feedback', session_id=session.session_id, turn_id=turn.turn_id) }}">
+          <input type="hidden" name="csrf_token" value="{{ tutor_action_csrf }}">
+          <span class="microcopy">Was this explanation useful?</span>
+          <button type="submit" name="helpful" value="1">Helpful</button>
+          <button type="submit" name="helpful" value="0">Not helpful</button>
+        </form>
         {% if turn.provider_model %}
           <p class="microcopy">{{ turn.provider_name }} · {{ turn.provider_model }}</p>
         {% endif %}
