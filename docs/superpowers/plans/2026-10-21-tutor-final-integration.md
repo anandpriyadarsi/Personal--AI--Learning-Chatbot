@@ -21,5 +21,5 @@ Explanatory prose misclassified as practice; malformed hidden provider metadata;
 - [x] Add transactional exchange persistence with rollback and stale-state protection; test injected failures without changing shared SQLite transaction semantics.
 - [x] Reuse the existing local bounded math renderer for explicit Tutor math spans; preserve code/student literals and disclose unsupported LaTeX. Verify in real Chromium at 390/768/1366.
 - [x] Extend disposable real-service browser acceptance (create, ask, refresh, answer, hint, feedback, invalid CSRF, source review), migration combinations and protected-table checks.
-- [ ] Repair native workflow validation and report exact source SHA, environment, test totals, screenshots and full regression results. Push non-forced commits to existing PR.
+- [x] Repair native workflow validation and push non-forced commits to existing PR. Final-head full regression and evidence aggregation remain pending until actual job completion.
 - [ ] Review engineering/pedagogy/security, recheck main and V2.4, update audit and PR with exact blockers. Only declare merge-ready after every mandatory gate, including live provider, passes.

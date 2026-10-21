@@ -62,8 +62,14 @@ def test_practice_identity_revision_event_and_time_are_traceable(owners):
 
 def test_backlog_is_planning_intent_and_completion_is_self_report(uc_owners):
     from personal_learning_assistant.services.operational_planner_web_service import build_operational_planner_web_service
+    from personal_learning_assistant.services.operational_task_service import OperationalTaskService
     from uuid import uuid4
-    task=build_operational_planner_web_service(uc_owners[0]).tasks.create_manual_study_task(
+    owner=build_operational_planner_web_service(uc_owners[0]).tasks
+    # Use the projection's frozen clock for the canonical writer too. A real
+    # creation time after NOW must correctly be blocked, not backdated by
+    # changing only updated_at in this fixture.
+    writer=OperationalTaskService(owner.repository,now=lambda:NOW.isoformat())
+    task=writer.create_manual_study_task(
         intent_id=str(uuid4()),title='Review source',description='',course_id='v23-uc100n',topic_id='v23-data',
         topic_name='Observations and variables',estimated_minutes=30)
     with closing(sqlite3.connect(uc_owners[0])) as c,c:

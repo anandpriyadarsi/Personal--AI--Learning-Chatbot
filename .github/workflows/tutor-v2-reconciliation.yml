@@ -14,6 +14,7 @@ on:
       - 'personal_learning_assistant/ui/web/**'
       - 'tests/test_tutor*.py'
       - 'tests/test_phase7_5_academic_agent_web.py'
+      - 'tests/learning_studio/test_educational_projection_v23.py'
       - '.github/workflows/tutor-v2-reconciliation.yml'
   workflow_dispatch:
 
@@ -89,6 +90,7 @@ jobs:
           tests/test_tutor23_live_validation.py
           tests/test_tutor23_live_browser_integration.py
           tests/test_phase7_5_academic_agent_web.py
+          tests/learning_studio/test_educational_projection_v23.py
           --junitxml=tutor-reconciliation.xml
       - name: Preserve acceptance report
         if: always()
