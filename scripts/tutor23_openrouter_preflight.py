@@ -1,54 +1,83 @@
-"""One synthetic OpenRouter availability check with a bounded, sanitized error.
+"""Bounded synthetic preflight for allow-listed, zero-price OpenRouter models.
 
-No secrets, request headers, or generated text are ever printed.
+Only one successful model is used for the entire follow-up browser acceptance.
+Never emit credentials, headers, personal records, or model-generated text.
 """
+from __future__ import annotations
+
+import json
 import os
-import re
+from pathlib import Path
 import sys
+
 import requests
 
 ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
-MODEL = "nvidia/nemotron-3-super-120b-a12b:free"
-assert os.environ.get("LLM_API_URL") == ENDPOINT, "Endpoint mismatch"
-assert os.environ.get("LLM_MODEL") == MODEL, "Model mismatch"
+CANDIDATES = (
+    "nvidia/nemotron-3-ultra-550b-a55b:free",
+    "cohere/north-mini-code:free",
+    "openrouter/free",
+)
+assert os.environ.get("LLM_API_URL") == ENDPOINT, "Unexpected API endpoint"
+assert os.environ.get("LLM_MODEL") in CANDIDATES, "Unexpected initial free model"
 key = os.environ.get("LLM_API_KEY", "")
 assert key, "BLOCKED: OpenRouter Actions secret unavailable"
-payload = {
-    "model": MODEL,
-    "messages": [{"role": "user", "content": "Answer only OK, with no explanation."}],
-    "temperature": 0.1,
-    "max_tokens": 80,
-}
-try:
-    response = requests.post(
-        ENDPOINT,
-        headers={"Authorization": "Bearer " + key, "Content-Type": "application/json"},
-        json=payload,
-        timeout=70,
-    )
-except requests.RequestException as exc:
-    print("BLOCKED: OpenRouter request: " + type(exc).__name__)
-    sys.exit(2)
-if response.status_code != 200:
-    message = ""
+results = []
+selected = None
+for model in CANDIDATES:
     try:
-        error = response.json().get("error", {})
-        message = str(error.get("message", ""))[:220] if isinstance(error, dict) else ""
-    except (ValueError, TypeError):
-        pass
-    message = message.replace(key, "[REDACTED]")
-    message = re.sub(r"sk-or-v1-[A-Za-z0-9_-]+", "[REDACTED]", message)
-    message = re.sub(r"Bearer\\s+\\S+", "[REDACTED]", message, flags=re.I)
-    print("BLOCKED: OpenRouter HTTP " + str(response.status_code) + ". " + message)
+        response = requests.post(
+            ENDPOINT,
+            headers={"Authorization": "Bearer " + key, "Content-Type": "application/json"},
+            json={
+                "model": model,
+                "messages": [{"role": "user", "content": "Reply with only the word OK."}],
+                "max_tokens": 180,
+            },
+            timeout=65,
+        )
+    except requests.RequestException as exc:
+        results.append({"model": model, "status": "network_error", "error_type": type(exc).__name__})
+        print("BLOCKED: " + model + " network " + type(exc).__name__)
+        continue
+
+    result = {"model": model, "http_status": response.status_code}
+    results.append(result)
+    if response.status_code == 200:
+        try:
+            content = response.json()["choices"][0]["message"]["content"]
+        except (ValueError, KeyError, IndexError, TypeError):
+            content = None
+        if isinstance(content, str) and content.strip():
+            selected = model
+            result["status"] = "response_verified"
+            print("PASS: Genuine synthetic completion from " + model)
+            break
+        result["status"] = "empty_or_unreadable_response"
+        print("BLOCKED: " + model + " response content empty/incompatible")
+    else:
+        result["status"] = "provider_error"
+        print("BLOCKED: " + model + " HTTP " + str(response.status_code))
+        # Account-level authorization, billing and rate-limit errors must not
+        # trigger a burst of requests to other endpoints.
+        if response.status_code in (401, 402, 403, 429):
+            break
+
+artifact_dir = Path(os.environ.get("ANVAYA_LIVE_ARTIFACTS", "tutor-openrouter-artifacts"))
+artifact_dir.mkdir(parents=True, exist_ok=True)
+(artifact_dir / "openrouter-preflight.json").write_text(
+    json.dumps({"source": "synthetic API requests only", "attempts": results, "selected_model": selected}, indent=2),
+    encoding="utf-8",
+)
+if not selected:
+    print("BLOCKED: No allowed zero-price model returned an eligible response; live scenarios not run.")
     sys.exit(2)
-try:
-    result = response.json()
-    answer = result["choices"][0]["message"]["content"]
-except (ValueError, TypeError, KeyError, IndexError):
-    print("BLOCKED: Model response shape incompatible with Tutor HTTP adapter")
+
+# GITHUB_ENV scopes the chosen model to later steps in THIS SAME trusted job.
+github_env = os.environ.get("GITHUB_ENV")
+if not github_env:
+    print("BLOCKED: Missing GitHub Actions environment file")
     sys.exit(2)
-if not isinstance(answer, str) or not answer.strip():
-    print("BLOCKED: Model returned empty content")
-    sys.exit(2)
-print("PASS: OpenRouter returned a genuine chat completion for a synthetic prompt.")
-print("Model: " + MODEL)
+with open(github_env, "a", encoding="utf-8") as stream:
+    stream.write("LLM_MODEL=" + selected + "\n")
+print("PASS: Pinned one verified free model for subsequent Tutor acceptance.")
