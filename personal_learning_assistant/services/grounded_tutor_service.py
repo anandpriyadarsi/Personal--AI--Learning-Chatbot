@@ -157,6 +157,41 @@ def _process_provider_content(plan, raw_content):
     return content, answer_evaluation, math_verification
 
 
+
+_EXIT_CLOSURE_CLAIM = re.compile(
+    r"(?i)\b(?:session|learning|current(?:-session)?)\s+goal\b"
+    r"[^\n]{0,120}\b(?:likely\s+met|fully\s+met|already\s+met|achieved|mastered)\b"
+)
+
+
+def _align_exit_feedback_with_evaluation(content, plan, evaluation, math_verification):
+    """Do not show a model's claim of goal completion when its grade rejects it.
+
+    The Tutor's session-local evaluation is authoritative; a provider may
+    simultaneously emit "partial" metadata and optimistic prose.
+    This is a bounded presentation safety net, never a substitute for grading.
+    """
+    if dict(plan.teaching_plan or {}).get("reason") != "pending_exit_check_answer":
+        return content
+    result = dict(evaluation or {})
+    status = str(result.get("status") or "unclear").strip().casefold()
+    misconception = str(result.get("misconception") or "").strip()
+    if status == "correct" and not misconception and (
+        not math_verification.applicable or math_verification.passed
+    ):
+        return content
+
+    lines = str(content or "").splitlines()
+    safe_lines = [line for line in lines if not _EXIT_CLOSURE_CLAIM.search(line)]
+    if len(safe_lines) == len(lines):
+        return content
+    clean = "\n".join(safe_lines).strip()
+    return (
+        clean + "\n\nThe current session goal is not confirmed yet. "
+        "Please address the remaining misconception before moving on."
+    ).strip()
+
+
 def _correctness_repair_request(request, raw_content, verification):
     issues = "; ".join(verification.issues) or "unknown verification failure"
     repair_message = (
@@ -619,6 +654,10 @@ class GroundedTutorService:
                         repaired_response.request_id or response.request_id or ""
                     ),
                 )
+
+        content = _align_exit_feedback_with_evaluation(
+            content, plan, answer_evaluation, math_verification,
+        )
 
         available = {
             item.citation_label for item in plan.evidence
