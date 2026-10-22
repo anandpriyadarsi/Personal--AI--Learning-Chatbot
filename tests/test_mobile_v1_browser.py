@@ -148,8 +148,11 @@ def test_update_waits_without_reloading_active_page(protected_browser,mobile_liv
     from flask import Response
     a=mobile_live['app'];version={'value':'1'}
     def versioned_worker():
+        import re
         source=(Path(a.static_folder)/'js/mobile-sw.js').read_text()
-        return Response(source.replace('2026-10-22-1','2026-10-22-'+version['value']),
+        source=re.sub(r"const CACHE = '[^']+';",
+            "const CACHE = 'anvaya-mobile-update-test-"+version['value']+"';",source)
+        return Response(source,
                         mimetype='application/javascript',headers={'Cache-Control':'no-store','Service-Worker-Allowed':'/'})
     a.view_functions['mobile.worker']=versioned_worker
     with protected_browser.new_context(viewport={'width':390,'height':844}) as ctx:
@@ -206,6 +209,7 @@ def test_real_tutor_repository_conversation_resume(protected_browser,mobile_live
         page.close();page=ctx.new_page();page.goto(session_url)
         expect(page.locator('.agent-turn-assistant')).to_contain_text('retrieved source supports')
         assert provider.calls==1
+        assert page.locator('#transcript-title').bounding_box()['y']<550, 'Tutor conversation is pushed below mobile metadata'
         capture(page,'mobile-tutor-persisted-390')
 
 

@@ -102,3 +102,12 @@ body.mobile-assessment {padding-bottom:env(safe-area-inset-bottom)}
 :root[data-theme="light"] .assessment-runner.is-time-low .exam-timer-panel strong {color:#9e2431}
 :root[data-theme="light"] body.learning-page .content .ls-workspace-primary,
 :root[data-theme="light"] body.learning-page .content .ls-workspace-primary span {background:#12675e;color:#fff}
+@media(max-width:860px) {
+ /* Keep scope legible while bringing the conversation onto the first screen. */
+ .tutor-session-page .hero {padding:16px;margin-bottom:12px;gap:10px}
+ .tutor-session-page .hero .lede {font-size:14px;line-height:1.5}
+ .tutor-session-page .metric-grid {gap:8px;margin-bottom:14px}
+ .tutor-session-page .metric-card {min-height:0;padding:10px;gap:4px}
+ .tutor-session-page .metric-card strong {font-size:15px;line-height:1.35}
+ .tutor-session-page .metric-card>span {font-size:11px;line-height:1.35}
+}

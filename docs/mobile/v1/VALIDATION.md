@@ -23,6 +23,8 @@ No GitHub Actions provider secrets are consumed.
 
 ## Acceptance registry
 
+Local full regression: **2,942 passed, four expected private IKS skips**. Final mobile gate: **32 passed**, JavaScript: **29 passed**. Raw logs/source hashes: [`evidence/local-results.json`](evidence/local-results.json).
+
 Final exact-head CI results live in the draft PR checks and the
 **Mobile V1 private PWA acceptance** artifacts. Pending runs are not passes.
 The initial full-suite run exposed nine failures and was not accepted; the
@@ -47,7 +49,7 @@ corrections below preserve the original responsive/academic assertions.
 | Browser outbound network | PASS: matrix blocks and records any nonlocal request; no third-party request observed |
 | PWA metadata / eligibility | PASS: Chromium CDP reports no manifest or installability errors; local 192/512 icons and standalone manifest. BLOCKED: actual Android launcher installation/splash acceptance |
 | Frontend worker / existing JS | PASS: 29 Node tests, including cache namespace, forbidden paths, offline navigation and mutation noninterception |
-| Python regression | Full suite rerun after fixes; exact results in PR/CI. Exactly four unavailable private IKS fixture tests may skip; they remain BLOCKED rather than passed |
+| Python regression | PASS: 2,942 passed, four exact private IKS skips, zero failures/errors (611.21s). Final Tutor presentation also passes all 32 mobile contracts. Raw cloud logs and source hashes are in `evidence/`; exact-head native CI remains queued. Exactly four unavailable private IKS fixture tests may skip; they remain BLOCKED rather than passed |
 | Native Ubuntu / Windows | CI workflow implemented with zero-skip focused gate; final run results and artifacts linked from PR. A queued job is BLOCKED/pending |
 | Existing installed records/backups | No real stores opened in cloud. No new migration/schema/academic owner. Existing backup-first normal startup preserved; installed-device restoration certification remains BLOCKED without that device |
 | Authenticated encrypted phone-to-host access | BLOCKED: no validated private gateway provisioned; private prototype deliberately accepts loopback peers only |

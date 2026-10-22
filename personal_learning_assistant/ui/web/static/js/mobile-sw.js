@@ -1,7 +1,7 @@
 /* Reviewed app assets only. Never store academic pages, API responses or mutations. */
 'use strict';
 // Bump this version whenever a listed shell asset changes.
-const CACHE = 'anvaya-mobile-v1-2026-10-22-1';
+const CACHE = 'anvaya-mobile-v1-2026-10-22-2';
 const ASSETS = ['/mobile/offline', '/static/css/mobile_v1.css', '/static/js/mobile_v1.js',
   '/static/brand/anvaya-mobile-192.png', '/static/brand/anvaya-mobile-512.png'];
 self.addEventListener('install', event => {

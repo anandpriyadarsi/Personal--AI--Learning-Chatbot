@@ -96,3 +96,14 @@ hosting is created by this branch.
   passed. Final full and native gates are recorded separately in PR checks.
 - Worker refinement: non-GET requests are never intercepted; application/native
   network failure handling retains authority. Generic navigation fallback only.
+
+- Final mobile polish: compacted only Tutor metadata/hero on phones so the
+  conversation appears before 550px; original scope/details remain visible. The
+  browser assertion failed before this adjustment and passed after it. Bumped
+  generic-shell cache version to 2. All 32 mobile HTTP/Chromium tests pass after
+  this final presentation change; desktop styles and Tutor engines unchanged.
+
+- Final validation: full cloud suite 2,942 passed, exactly four unavailable
+  private IKS skips, zero failures/errors, public gate PASS. Final mobile gate
+  32 passed; JavaScript 29 passed. Raw logs/source hashes are in evidence/.
+  Native Ubuntu/Windows jobs remain queued; no native pass is inferred.
