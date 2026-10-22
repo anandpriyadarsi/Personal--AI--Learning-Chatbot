@@ -310,10 +310,10 @@ def main(argv=None) -> int:
             xml = run / (name + '.xml')
             command(name, [sys.executable, '-m', 'pytest', '-q', *files, '--junitxml=' + str(xml)], xml=xml, timeout=timeout)
         # Full unchanged suite, including existing browser tests; no selection flags.
-        # A complete Windows run reached 861s; a slower runner was killed at
-        # 900s before XML/failure details. Keep a finite full-suite budget with
-        # headroom, without changing selection, assertions or exit handling.
-        pytest('full_pytest', timeout=1800)
+        # Windows full-suite evidence on 22 Oct reached 94% before the 1800s
+        # subprocess deadline. Allow bounded completion without weakening
+        # selection, assertions, skip policy or exit handling.
+        pytest('full_pytest', timeout=2100)
         report['categories']['external_pilots'] = external_pilot_acceptance(run / 'full_pytest.xml')
         report['EXTERNAL_IKS_CERTIFICATION'] = report['categories']['external_pilots']['status']
         pytest('focused', ['tests/test_phase7_5_progress_planning.py', 'tests/test_phase7_5_operational_planner_routes.py',
