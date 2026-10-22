@@ -29,14 +29,14 @@ from tests.test_tutor23_cloud_acceptance import (
 
 ENABLED = os.getenv("ANVAYA_TUTOR_OPENROUTER_LIVE") == "1"
 OPENROUTER_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
-EXPECTED_MODEL = "openai/gpt-oss-120b:free"
+EXPECTED_MODEL = "nvidia/nemotron-3-super-120b-a12b:free"
 OUTPUT = Path(os.getenv("ANVAYA_LIVE_ARTIFACTS", "tutor-live-artifacts"))
 
 pytestmark = pytest.mark.skipif(not ENABLED, reason="Real OpenRouter acceptance is explicit opt-in only.")
 
 
 class RealOpenRouter:
-    quota_limited = False
+    provider_unavailable = False
     calls = 0
     last_call = 0.0
     max_calls = 24
@@ -59,8 +59,8 @@ class RealOpenRouter:
         # Cloud API 503 is availability, not a teaching error. A maximum of two
         # short retries preserves the request budget and does not hide failures.
         for attempt in range(2):
-            if RealOpenRouter.quota_limited:
-                raise RuntimeError("OpenRouter quota unavailable (previous 429/402); no more requests")
+            if RealOpenRouter.provider_unavailable:
+                raise RuntimeError("OpenRouter provider unavailable after previous 401/402/403/404/429; no more requests")
             if RealOpenRouter.calls >= RealOpenRouter.max_calls:
                 raise RuntimeError("Real-provider run-wide limit of 24 calls reached")
             elapsed = time.monotonic() - RealOpenRouter.last_call
@@ -77,8 +77,8 @@ class RealOpenRouter:
                 raw = str(error)
                 secret = os.getenv("LLM_API_KEY", "")
                 self.last_error = raw.replace(secret, "[REDACTED]")[:300] if secret else raw[:300]
-                if "429" in raw or "402" in raw:
-                    RealOpenRouter.quota_limited = True
+                if any(code in raw for code in ("401", "402", "403", "404", "429")):
+                    RealOpenRouter.provider_unavailable = True
                 if "503" in raw and attempt < 1:
                     print("OpenRouter returned HTTP 503; retrying after short backoff.")
                     time.sleep(12 * (attempt + 1))
@@ -237,7 +237,7 @@ def test_real_openrouter_A_to_K(label, live_journey):
         cause = j.provider.last_error or str(exc)
         cause = cause.replace(secret,"[REDACTED]") if secret else cause
         report["reason"] = cause[:350]
-        report["result"] = "BLOCKED" if any(v in cause.lower() for v in ("429","402","503","quota","rate limit","call cap","not configured","403")) else "FAIL"
+        report["result"] = "BLOCKED" if any(v in cause.lower() for v in ("429","402","503","404","401","quota","rate limit","call cap","not configured","403","provider unavailable")) else "FAIL"
         raise
     finally:
         report["real_provider_calls"] = len(j.provider.requests)
@@ -246,8 +246,8 @@ def test_real_openrouter_A_to_K(label, live_journey):
         report["browser_errors"] = j.errors
         report["retrieval_requests"] = len(j.retrieval.queries)
         try:
-            j.page.screenshot(path=str(OUTPUT / f"tutor-GEMINI-{label}-1366.png"),full_page=True)
+            j.page.screenshot(path=str(OUTPUT / f"tutor-OPENROUTER-{label}-1366.png"),full_page=True)
         except Exception:
             pass
-        (OUTPUT / f"tutor-GEMINI-{label}-report.json").write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding="utf-8")
+        (OUTPUT / f"tutor-OPENROUTER-{label}-report.json").write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding="utf-8")
         print(f"Genuine model scenario {label}: {report['result']} (calls={report['real_provider_calls']})")
