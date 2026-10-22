@@ -145,8 +145,6 @@ jobs:
             requirements-assessment-browser.txt
       - name: Install pinned dependencies
         run: python -m pip install -r requirements.txt -r requirements-dev.txt -r requirements-assessment-browser.txt
-      - name: Install Chromium
-        run: python -m playwright install --with-deps chromium
       - name: Check secret presence without sending a billable request
         shell: bash
         env:
@@ -161,6 +159,8 @@ jobs:
         env:
           LLM_API_KEY: ${{ secrets.ANVAYA_TUTOR_LIVE_OPENROUTER_KEY }}
         run: python scripts/tutor23_openrouter_preflight.py
+      - name: Install Chromium
+        run: python -m playwright install --with-deps chromium
       - name: Run genuine A–K with Flask Chromium and SQLite
         env:
           LLM_API_KEY: ${{ secrets.ANVAYA_TUTOR_LIVE_OPENROUTER_KEY }}
