@@ -251,6 +251,27 @@ def test_partial_exit_check_marks_goal_unresolved():
     )
 
 
+def test_positive_only_misconception_cannot_close_lu_exit_goal():
+    # Reproduces genuine OpenRouter I artifact: the student captured the
+    # reconstruction idea but incorrectly assumed multipliers are positive.
+    goal = evaluate_goal_after_turn(
+        _goal(),
+        teaching_plan={"reason": "pending_exit_check_answer"},
+        adaptive_state={
+            "answer_status": "partial",
+            "last_evaluation_reason": (
+                "L reconstructs A from U, but multipliers may have any sign."
+            ),
+            "last_misconception": "Multipliers are always positive",
+            "last_math_verification": "not_applicable",
+        },
+    )
+
+    assert goal["status"] == "unresolved"
+    assert not any(item.startswith("exit_check_correct") for item in goal["goal_evidence"])
+    assert any(item.startswith("exit_check_partial") for item in goal["goal_evidence"])
+
+
 def test_incorrect_exit_check_marks_goal_unresolved():
     goal = evaluate_goal_after_turn(
         _goal(),
