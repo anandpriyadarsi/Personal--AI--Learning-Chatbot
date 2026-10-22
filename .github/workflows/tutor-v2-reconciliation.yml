@@ -128,7 +128,7 @@ jobs:
       PYTHONPATH: ${{ github.workspace }}/tests:${{ github.workspace }}
       ANVAYA_LIVE_ARTIFACTS: ${{ github.workspace }}/tutor-openrouter-artifacts
       LLM_API_URL: https://openrouter.ai/api/v1/chat/completions
-      LLM_MODEL: nvidia/nemotron-3-super-120b-a12b:free
+      LLM_MODEL: nvidia/nemotron-3-ultra-550b-a55b:free
     steps:
       - uses: actions/checkout@v4
         with:
@@ -156,7 +156,7 @@ jobs:
             exit 1
           fi
           echo "OpenRouter key available; fixed free model, synthetic academic test data."
-      - name: Verify alternate free-model availability (one synthetic HTTP request)
+      - name: Verify bounded free-model availability (at most three synthetic requests)
         env:
           LLM_API_KEY: ${{ secrets.ANVAYA_TUTOR_LIVE_OPENROUTER_KEY }}
         run: python scripts/tutor23_openrouter_preflight.py
@@ -172,5 +172,6 @@ jobs:
           if-no-files-found: ignore
           path: |
             tutor-openrouter-live.xml
+            ${{ env.ANVAYA_LIVE_ARTIFACTS }}/openrouter-preflight.json
             ${{ env.ANVAYA_LIVE_ARTIFACTS }}/*.png
             ${{ env.ANVAYA_LIVE_ARTIFACTS }}/*.json
