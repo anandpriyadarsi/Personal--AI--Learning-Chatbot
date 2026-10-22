@@ -15,6 +15,7 @@ on:
       - 'tests/test_tutor*.py'
       - 'scripts/tutor23_gemini_live_cases.py'
       - 'scripts/tutor23_openrouter_live_cases.py'
+      - 'scripts/tutor23_openrouter_preflight.py'
       - 'tests/test_phase7_5_academic_agent_web.py'
       - 'tests/learning_studio/test_educational_projection_v23.py'
       - '.github/workflows/tutor-v2-reconciliation.yml'
@@ -127,7 +128,7 @@ jobs:
       PYTHONPATH: ${{ github.workspace }}/tests:${{ github.workspace }}
       ANVAYA_LIVE_ARTIFACTS: ${{ github.workspace }}/tutor-openrouter-artifacts
       LLM_API_URL: https://openrouter.ai/api/v1/chat/completions
-      LLM_MODEL: openai/gpt-oss-120b:free
+      LLM_MODEL: nvidia/nemotron-3-super-120b-a12b:free
     steps:
       - uses: actions/checkout@v4
         with:
@@ -155,6 +156,10 @@ jobs:
             exit 1
           fi
           echo "OpenRouter key available; fixed free model, synthetic academic test data."
+      - name: Verify alternate free-model availability (one synthetic HTTP request)
+        env:
+          LLM_API_KEY: ${{ secrets.ANVAYA_TUTOR_LIVE_OPENROUTER_KEY }}
+        run: python scripts/tutor23_openrouter_preflight.py
       - name: Run genuine B C D E F I K with Flask Chromium and SQLite
         env:
           LLM_API_KEY: ${{ secrets.ANVAYA_TUTOR_LIVE_OPENROUTER_KEY }}
