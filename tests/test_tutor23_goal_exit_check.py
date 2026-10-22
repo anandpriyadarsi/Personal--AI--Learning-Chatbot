@@ -551,6 +551,37 @@ def test_real_service_exit_check_then_correct_answer_marks_likely_met(tmp_path):
     connection.close()
 
 
+def test_partial_exit_grade_cannot_visibly_claim_goal_met(tmp_path):
+    # Reproduces the genuine OpenRouter I inconsistency: the model returned
+    # partial evaluation metadata yet claimed likely-met in its visible prose.
+    connection, repository, _sessions, session, provider, engine = _environment(
+        tmp_path,
+        responses=(
+            '<!--ANVAYA_EVAL {"status":"partial",'
+            '"reason":"Multipliers are signed, not always positive.",'
+            '"misconception":"Multipliers are always positive"}-->\n'
+            "The multipliers reconstruct A through LU.\n\n"
+            "With that clarification, the session goal appears likely met based on this session.",
+        ),
+    )
+    first = engine.answer(session.session_id, "I understand it now.")
+    assert first.assistant_turn.content.startswith("Before we close")
+    response = engine.answer(
+        session.session_id,
+        "L stores only positive multipliers to reconstruct A.",
+    )
+    stored = repository.get_session(session.session_id)
+    state = load_adaptive_state(stored.metadata)
+    goal = load_session_goal(stored.metadata)
+    assert state["answer_status"] == "partial"
+    assert goal["status"] == "unresolved"
+    assert "likely met" not in response.assistant_turn.content.lower()
+    assert "not confirmed yet" in response.assistant_turn.content
+    assert "Multipliers are always positive" in state["last_misconception"]
+    assert len(provider.requests) == 1
+    connection.close()
+
+
 def test_mixed_understanding_followup_reaches_normal_provider_flow(tmp_path):
     (
         connection,
