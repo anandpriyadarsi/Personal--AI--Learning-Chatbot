@@ -393,6 +393,37 @@ def test_scenario_K_lu_math_and_repair(journey, verification):
         assert len(journey.provider.requests) == (1 if verification == "passed" else 2)
 
 
+
+def test_scenario_K_ascii_rows_render_as_matrices_in_browser(journey):
+    """A genuine provider can emit bracketed ASCII rows instead of TeX."""
+    with journey.scenario(
+        "K-ascii",
+        "3x3 ASCII A/L/U rows render as readable math, across all viewports and refresh",
+    ):
+        # Reuse the already-correct deterministic matrix-product claim, but
+        # deliberately replace the visible TeX with model-style ASCII rows.
+        verified_claim = lu_answer().split("-->", 1)[0] + "-->"
+        provider_text = (
+            "## Verified LU factorization\n\n"
+            "A = [2 1 1]\n[4 3 3]\n[8 7 9]\n\n"
+            "L = [1 0 0]\n[2 1 0]\n[4 3 1]\n\n"
+            "U = [2 1 1]\n[0 1 1]\n[0 0 2]\n\n"
+            "The product LU reproduces A."
+        )
+        state = journey.ask(PROMPTS["K"], verified_claim + provider_text)
+        assert state["current_learning_state"]["last_math_verification"] == "passed"
+        matrices = journey.page.locator(".tutor-markdown .assessment-matrix")
+        assert matrices.count() == 3, "The ASCII A, L and U blocks must become DOM matrices"
+        assert matrices.nth(1).locator(".assessment-matrix-cell").all_text_contents() == [
+            "1", "0", "0", "2", "1", "0", "4", "3", "1",
+        ]
+        assert matrices.nth(2).locator(".assessment-matrix-cell").all_text_contents() == [
+            "2", "1", "1", "0", "1", "1", "0", "0", "2",
+        ]
+        assert r"\begin{bmatrix}" not in journey.steps[-1]["visible_response"]
+        assert not journey.errors
+
+
 def test_unconfigured_http_provider_is_truthful_in_browser(browser, tmp_path):
     from personal_learning_assistant.tutor.http_provider import OpenAICompatibleTutorProvider
     # Use the actual HTTP adapter, explicitly unconfigured, without a network mock.
