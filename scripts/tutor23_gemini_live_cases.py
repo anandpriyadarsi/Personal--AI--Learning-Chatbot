@@ -55,21 +55,30 @@ class RealGemini:
         return self.inner.configured
 
     def complete(self, request):
-        if RealGemini.calls >= RealGemini.max_calls:
-            raise RuntimeError("Real-provider run-wide limit of 26 calls reached")
-        elapsed = time.monotonic() - RealGemini.last_call
-        if RealGemini.last_call and elapsed < 8:
-            time.sleep(8 - elapsed)
-        RealGemini.calls += 1
-        RealGemini.last_call = time.monotonic()
-        self.requests.append({"number": RealGemini.calls, "mode": request.mode})
-        try:
-            return self.inner.complete(request)
-        except Exception as error:
-            raw = str(error)
-            secret = os.getenv("LLM_API_KEY", "")
-            self.last_error = raw.replace(secret, "[REDACTED]")[:300] if secret else raw[:300]
-            raise
+        # Cloud API 503 is availability, not a teaching error. A maximum of two
+        # short retries preserves the request budget and does not hide failures.
+        for attempt in range(3):
+            if RealGemini.calls >= RealGemini.max_calls:
+                raise RuntimeError("Real-provider run-wide limit of 26 calls reached")
+            elapsed = time.monotonic() - RealGemini.last_call
+            if RealGemini.last_call and elapsed < 8:
+                time.sleep(8 - elapsed)
+            RealGemini.calls += 1
+            RealGemini.last_call = time.monotonic()
+            self.requests.append({"number": RealGemini.calls, "mode": request.mode})
+            try:
+                answer = self.inner.complete(request)
+                self.last_error = ""
+                return answer
+            except Exception as error:
+                raw = str(error)
+                secret = os.getenv("LLM_API_KEY", "")
+                self.last_error = raw.replace(secret, "[REDACTED]")[:300] if secret else raw[:300]
+                if "503" in raw and attempt < 2:
+                    print("Gemini returned HTTP 503; retrying after short backoff.")
+                    time.sleep(12 * (attempt + 1))
+                    continue
+                raise
 
 
 @pytest.fixture
@@ -99,6 +108,8 @@ def live_journey(browser, tmp_path):
     thread = Thread(target=server.serve_forever, daemon=True)
     thread.start()
     page = browser.new_page(viewport={"width": 1366, "height": 950})
+    page.set_default_timeout(90000)
+    page.set_default_navigation_timeout(90000)
     journey = Journey(page, f"http://127.0.0.1:{server.server_port}", db_path, provider, None, 1366)
     journey.retrieval = retrieval
     try:
@@ -221,7 +232,7 @@ def test_real_gemini_A_to_K(label, live_journey):
         cause = j.provider.last_error or str(exc)
         cause = cause.replace(secret,"[REDACTED]") if secret else cause
         report["reason"] = cause[:350]
-        report["result"] = "BLOCKED" if any(v in cause.lower() for v in ("429","quota","rate limit","call cap","not configured","403")) else "FAIL"
+        report["result"] = "BLOCKED" if any(v in cause.lower() for v in ("429","503","quota","rate limit","call cap","not configured","403")) else "FAIL"
         raise
     finally:
         report["real_provider_calls"] = len(j.provider.requests)
