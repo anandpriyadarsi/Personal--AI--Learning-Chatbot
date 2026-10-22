@@ -48,6 +48,8 @@ def test_native_practice_metadata_review_stage_publish_and_discovery(browser,com
     original=studio.source('uc100n-demo',1)
     try:
         page.goto(lesson+'?view=practice&question=mean-score')
+        expect(page.locator('#ls-pause')).not_to_be_visible()
+        expect(page.locator('.ls-reading-controls')).not_to_be_visible()
         page.locator('.ls-question input[type=radio][value="0"]').check()
         page.locator('.ls-question button[type=submit]').focus();page.keyboard.press('Enter')
         expect(page.locator('.ls-feedback')).to_contain_text('Incorrect')
