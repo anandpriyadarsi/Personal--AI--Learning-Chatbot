@@ -127,6 +127,14 @@ class Journey:
         else:
             assert self.page.locator(".tutor-pending-question").count() == 0
         assert self.page.evaluate("document.documentElement.scrollWidth <= innerWidth + 1")
+        # Visual acceptance: never ship a tiny 150px Tutor input in a wide form.
+        # Inspect actual layout after Chromium paints, not just source CSS.
+        assert self.page.locator("#agent-question").evaluate(
+            "(el) => { const form = el.closest('form');"
+            " const width = el.getBoundingClientRect().width;"
+            " const available = form.getBoundingClientRect().width;"
+            " return width >= 0.85 * available && width <= available + 1; }"
+        )
         return state
 
     def snapshot(self, label):
