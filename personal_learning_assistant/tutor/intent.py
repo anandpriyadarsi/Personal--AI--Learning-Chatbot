@@ -21,6 +21,35 @@ def _normalize(value):
     return " ".join(str(value or "").casefold().split())
 
 
+def active_teaching_request(question):
+    """Ignore a leading cancelled task and a trailing negative continuation.
+
+    Only explicit command clauses are removed. Academic prose that merely
+    mentions skipping a pivot/question is left intact. The provider still
+    receives the original student text; this view is for local planning.
+    """
+    clean = " ".join(str(question or "").split())
+    replacement = re.sub(
+        r"^(?:please\s+)?(?:skip|cancel|stop)\s+"
+        r"(?:(?:the|this|that|current|previous|old)\s+)?"
+        r"(?:(?:practice|diagnostic|socratic|exit[- ]check)\s+)?"
+        r"(?:question|problem|task|practice|quiz|diagnostic|hint|exit[- ]check)\b"
+        r"[\s.!;,:]*(?:(?:and|now|instead|then)[,\s]+)*",
+        "", clean, flags=re.IGNORECASE,
+    ).strip()
+    # A cancellation alone is still the complete request. Do not invent a
+    # replacement teaching instruction when there is no affirmative clause.
+    if replacement and re.match(
+        r"(?:explain|teach|show|tell|give|quiz|test|help|compute|calculate|summari[sz]e)\b",
+        replacement, re.IGNORECASE,
+    ):
+        clean = replacement
+    return re.sub(
+        r"(?:[.!;]\s*|\s+(?:and|but)\s+)(?:do not|don't)\s+continue\b[^.!?;]*[.!?;]?\s*$",
+        "", clean, flags=re.IGNORECASE,
+    ).strip()
+
+
 _PATTERNS = (
     (
         "hint",
@@ -117,7 +146,7 @@ _PATTERNS = (
 
 
 def classify_tutor_intent(question):
-    clean = _normalize(question)
+    clean = _normalize(active_teaching_request(question))
     for name, patterns, instruction in _PATTERNS:
         if any(re.search(pattern, clean) for pattern in patterns):
             return TutorIntent(name=name, instruction=instruction)

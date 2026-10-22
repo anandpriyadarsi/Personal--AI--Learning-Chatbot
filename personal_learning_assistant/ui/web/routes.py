@@ -4311,11 +4311,15 @@ def academic_agent_create_session():
         return "Tutor action token is invalid.", 403
     service = _academic_agent_service()
     try:
+        topic_scope = {}
+        if request.form.get("topic_id", "").strip():
+            topic_scope["topic_id"] = request.form["topic_id"]
         session_id = service.create_session(
             course_id=request.form.get("course_id", ""),
             mode=request.form.get("mode", "concept"),
             source_policy=request.form.get("source_policy", "source_only"),
             title=request.form.get("title", ""),
+            **topic_scope,
         )
         return redirect(
             url_for("web.academic_agent_session", session_id=session_id),

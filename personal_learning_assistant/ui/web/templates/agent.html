@@ -2,6 +2,10 @@
 
 {% block title %}Academic Agent · Personal AI Learning Assistant{% endblock %}
 
+{% block page_scripts %}
+<script defer src="{{ url_for('static', filename='js/tutor_chat.js') }}"></script>
+{% endblock %}
+
 {% block content %}
 <section class="hero dashboard-hero" aria-labelledby="agent-title">
   <div>
@@ -78,6 +82,15 @@
         </select>
       </p>
       <p>
+        <label for="session-topic">Topic (optional)</label><br>
+        <select id="session-topic" name="topic_id">
+          <option value="">Whole selected course</option>
+          {% for topic in workspace.tutor_topics|default([]) %}
+          <option value="{{ topic.id }}" data-course-id="{{ topic.course_id }}">{{ topic.name }}</option>
+          {% endfor %}
+        </select>
+      </p>
+      <p>
         <label for="session-mode">Tutor mode</label><br>
         <select id="session-mode" name="mode">
           {% for mode in workspace.modes %}
@@ -100,7 +113,7 @@
       <button type="submit">Create tutor session</button>
     </form>
     <p class="empty-state">Source First uses project materials when available and clearly labels general explanations. Choose Source Only when you want no unsupported outside material.</p>
-    <p class="empty-state">Creating a session only stores its tutor scope. It does not call the LLM. Course, mode, and source policy stay fixed after creation.</p>
+    <p class="empty-state">Creating a session only stores its tutor scope. It does not call the LLM. Course, topic, mode, and source policy stay fixed after creation. Choose the whole course if you plan to switch topics.</p>
   </article>
 </section>
 

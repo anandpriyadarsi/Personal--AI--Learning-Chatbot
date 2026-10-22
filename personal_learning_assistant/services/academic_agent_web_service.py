@@ -253,6 +253,11 @@ class AcademicAgentWebService:
                 "personal_learning_assistant.repositories.sqlite.tutor_repository"
             )
             repository = repository_module.SQLiteTutorRepository(connection)
+            tutor_topics = [
+                topic
+                for course in courses
+                for topic in repository.list_course_topics(str(course.get("id", "")))
+            ]
             sessions = [
                 _session_summary(item)
                 for item in repository.list_sessions(limit=20)
@@ -315,6 +320,7 @@ class AcademicAgentWebService:
                 "message": message,
                 "provider_configured": provider_configured,
                 "courses": courses,
+                "tutor_topics": tutor_topics,
                 "selected_course_code": selected_course_code,
                 "mentor": mentor,
                 "sessions": sessions,
@@ -328,10 +334,15 @@ class AcademicAgentWebService:
         self,
         *,
         course_id,
+        topic_id="",
         mode="concept",
         source_policy="source_only",
         title="",
     ):
+        selected_course = str(course_id or "").strip()
+        selected_topic = str(topic_id or "").strip()
+        if selected_topic and not selected_course:
+            raise AcademicAgentWebValidationError("Choose a course before a topic.")
         connection = _open_database(self.database_path, writable=True)
         try:
             models_module = import_module(
@@ -348,7 +359,8 @@ class AcademicAgentWebService:
             spec = models_module.TutorSessionSpec(
                 mode=str(mode or "concept").strip().casefold(),
                 source_policy=str(source_policy or "source_only").strip().casefold(),
-                course_id=str(course_id or "").strip() or None,
+                course_id=selected_course or None,
+                topic_id=selected_topic or None,
                 title=str(title or "").strip(),
                 metadata={"origin": "phase7.5.9_web"},
             )
@@ -459,6 +471,7 @@ class AcademicAgentWebService:
                 ) from error
             view = _session_view(session, turns)
             view["course"] = repository.course_identity(session.course_id)
+            view["topic"] = repository.topic_identity(session.topic_id, session.course_id)
             # Existing academic memory and progress are projected as read-only,
             # course-scoped teaching context. No mastery inference or write.
             from personal_learning_assistant.tutor.student_model import (

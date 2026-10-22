@@ -9,6 +9,8 @@ from __future__ import annotations
 import re
 from typing import Mapping
 
+from personal_learning_assistant.tutor.intent import active_teaching_request
+
 
 SESSION_GOAL_KEY = "tutor23_session_goal"
 GOAL_VERSION = 1
@@ -16,6 +18,7 @@ GOAL_STATUSES = ("active", "likely_met", "unresolved")
 _MAX_GOAL = 360
 
 _SHIFT_CUES = (
+    r"^(?:please\s+)?(?:skip|cancel|stop)\b",
     r"\bnow\b",
     r"\binstead\b",
     r"\bmove (?:on|to)\b",
@@ -33,6 +36,7 @@ _CONTINUITY_CUES = (
 )
 
 _STOPWORDS = {
+    "practice", "computational", "problem", "question", "task",
     "about", "again", "also", "and", "answer", "because", "but", "can",
     "could", "do", "does", "explain", "for", "from", "give", "how", "into",
     "just", "me", "more", "now", "of", "on", "only", "please", "show",
@@ -88,7 +92,7 @@ def load_session_goal(metadata):
 
 
 def _subject_text(question):
-    clean = _clean(question)
+    clean = _clean(active_teaching_request(question))
     if not clean:
         return ""
 
@@ -159,9 +163,11 @@ def is_explicit_goal_shift(question, current_goal):
     if not any(re.search(pattern, lowered) for pattern in _SHIFT_CUES):
         return False
 
-    question_terms = _terms(clean)
+    active_request = active_teaching_request(clean)
+    question_terms = _terms(active_request)
     goal_terms = _terms(goal)
-    if len(question_terms) < 2 or not goal_terms:
+    minimum_terms = 1 if active_request != clean else 2
+    if len(question_terms) < minimum_terms or not goal_terms:
         return False
     return len(question_terms & goal_terms) == 0
 

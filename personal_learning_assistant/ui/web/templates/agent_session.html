@@ -49,7 +49,7 @@
   <article class="metric-card">
     <span class="metric-label">Course scope</span>
     <strong>{{ session.course.code if session.course else (session.course_id or 'Unscoped') }}</strong>
-    <span>Session course identity</span>
+    <span>{% if session.topic %}Topic: {{ session.topic.name }}{% else %}Whole course · no fixed topic{% endif %}</span>
   </article>
 </section>
 

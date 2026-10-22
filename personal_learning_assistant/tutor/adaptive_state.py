@@ -10,7 +10,9 @@ import json
 import re
 from typing import Mapping
 
-from personal_learning_assistant.tutor.intent import TutorIntent, classify_tutor_intent
+from personal_learning_assistant.tutor.intent import (
+    TutorIntent, active_teaching_request, classify_tutor_intent,
+)
 from personal_learning_assistant.tutor.practice_sequencer import (
     clamp_level,
     next_level_for_status,
@@ -241,6 +243,7 @@ def adaptive_state_prompt(state):
 
 
 _TOPIC_STOPWORDS = {
+    "practice", "computational", "problem", "question", "task",
     "about", "again", "also", "and", "answer", "because", "but", "can",
     "could", "does", "explain", "for", "from", "give", "how", "into", "just",
     "me", "more", "now", "only", "please", "show", "that", "the", "then",
@@ -248,6 +251,7 @@ _TOPIC_STOPWORDS = {
 }
 
 _TOPIC_SHIFT_CUES = (
+    r"^(?:please\s+)?(?:skip|cancel|stop)\b",
     r"\bnow\b",
     r"\binstead\b",
     r"\bmove (?:on|to)\b",
@@ -270,7 +274,7 @@ _CONTINUITY_PHRASES = (
 _PENDING_OVERRIDE_CUES = (
     r"\bjust explain\b",
     r"\bexplain (?:it|this|the topic)\b",
-    r"\bskip (?:the )?(?:question|diagnostic|quiz)\b",
+    r"(?:^|[.!?;]\s*)(?:please\s+)?(?:skip|cancel|stop) (?:the )?(?:(?:practice|diagnostic|socratic|exit[- ]check) )?(?:question|problem|task|diagnostic|quiz|practice|hint|exit[- ]check)\b",
     r"\bdo not ask\b",
     r"\bdon't ask\b",
     r"\bgive me (?:the )?(?:answer|explanation)\b",
@@ -321,17 +325,20 @@ def is_explicit_topic_shift(question, state):
         return False
 
     current = load_adaptive_state({STATE_KEY: state})
-    anchor = (
-        current["pending_question"]
-        if current["awaiting_student_answer"] and current["pending_question"]
-        else current["unresolved_doubt"] or current["last_misconception"]
-    )
+    # A numeric pending question may omit its subject ("What multiplier...?").
+    # Include the recorded gap before deciding that a replacement is unrelated.
+    anchor = " ".join(filter(None, (
+        current["pending_question"] if current["awaiting_student_answer"] else "",
+        current["unresolved_doubt"], current["last_misconception"],
+    )))
     if not anchor:
         return False
 
-    question_terms = _topic_terms(clean)
+    active_request = active_teaching_request(clean)
+    question_terms = _topic_terms(active_request)
     anchor_terms = _topic_terms(anchor)
-    if len(question_terms) < 2 or not anchor_terms:
+    minimum_terms = 1 if active_request != clean else 2
+    if len(question_terms) < minimum_terms or not anchor_terms:
         return False
 
     return len(question_terms & anchor_terms) == 0
@@ -341,10 +348,9 @@ def contextualize_adaptive_state(question, state):
     """Drop stale conversational anchors on explicit student override/topic shift."""
     current = load_adaptive_state({STATE_KEY: state})
 
-    if is_pending_override_request(question, current):
-        return _clear_pending_question(current)
-
     if not is_explicit_topic_shift(question, current):
+        if is_pending_override_request(question, current):
+            return _clear_pending_question(current)
         return current
 
     updated = _clear_pending_question(current)

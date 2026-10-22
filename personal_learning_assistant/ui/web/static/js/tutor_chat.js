@@ -3,6 +3,22 @@
 (() => {
   'use strict';
   function installTutorFollowups() {
+    const course = document.getElementById('session-course');
+    const topic = document.getElementById('session-topic');
+    if (course && topic) {
+      const filterTopics = () => {
+        for (const option of topic.options) {
+          if (!option.value) continue;
+          const matches = option.getAttribute('data-course-id') === course.value;
+          option.hidden = !matches;
+          option.disabled = !matches;
+          if (!matches && option.selected) topic.value = '';
+        }
+        topic.disabled = !course.value;
+      };
+      course.addEventListener('change', filterTopics);
+      filterTopics();
+    }
     const composer = document.getElementById('agent-question');
     if (!composer) return;
     document.querySelectorAll('[data-tutor-prompt]').forEach(button => {

@@ -256,6 +256,7 @@ def test_workspace_lists_courses_sessions_and_provider_status(tmp_path):
     assert set(view) == {
         "available", "message", "provider_configured", "courses",
         "selected_course_code", "mentor", "sessions", "modes", "source_policies",
+        "tutor_topics",
     }
     assert view["available"] is True
     assert view["provider_configured"] is False

@@ -1,6 +1,12 @@
 # Tutor V2.0–V2.3 integration: implementation and acceptance
 
-Updated 21 October 2026. PR #32 remains **DRAFT / NOT MERGE-READY**. No merge or deployment.
+Updated 22 October 2026. PR #32 remains **DRAFT / NOT MERGE-READY**. No merge or deployment.
+
+The [22 October cloud A–K continuation](TUTOR_V2_3_7_CLOUD_ACCEPTANCE_2026_10_22.md)
+supersedes the execution status below. It adds all-scenario Chromium/state
+evidence, fixes the exact Scenario F cancellation defect and connects normal
+UI creation to canonical topic scope. Configured-provider certification is
+still blocked. The original integration history and boundaries below are retained.
 
 ## Baselines and parallel ownership
 

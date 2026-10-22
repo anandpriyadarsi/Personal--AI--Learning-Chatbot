@@ -1,6 +1,15 @@
 # ANVAYA Tutor 2.3.7 — Live Teaching-Orchestration Validation
 
-**Status:** AUTOMATED READINESS PASS — manual live validation pending.
+**Status:** Cloud browser continuation added; configured-provider live validation BLOCKED.
+
+Current evidence: [22 October cloud acceptance](docs/architecture/TUTOR_V2_3_7_CLOUD_ACCEPTANCE_2026_10_22.md).
+The cloud runner uses actual Flask, Chromium and disposable SQLite, with
+explicitly scripted provider boundaries for reproducible A–K regressions.
+It does not require the student's laptop or installed database. Normal Tutor
+creation now accepts a canonical topic. Full configured-provider certification
+still requires securely available provider configuration; scripted tests are
+not a substitute. The results below are historical: **manual live validation pending**
+was the September status and must not be read as a current October pass.
 
 Tutor 2.3.7 is the final acceptance stage for Tutor 2.3. It adds no new
 teaching behavior. It validates the complete chain through the real local web
