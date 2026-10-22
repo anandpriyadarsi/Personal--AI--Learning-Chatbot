@@ -101,13 +101,13 @@ def _subject_text(question):
     # This only changes session-local goal wording; the provider still sees
     # the unmodified current student question for context.
     contrast = re.match(
-        r"^i\\s+understand\\b.+?\\bbut\\b\\s+(.+)$",
+        r"^i\s+understand\b.+?\bbut\b\s+(.+)$",
         clean,
         flags=re.IGNORECASE,
     )
     if contrast:
         clean = re.split(
-            r"(?<=[.!?])\\s+(?=[A-Z])",
+            r"(?<=[.!?])\s+(?=[A-Z])",
             contrast.group(1),
             maxsplit=1,
         )[0]
