@@ -119,8 +119,8 @@ def live_journey(browser, tmp_path):
     thread = Thread(target=server.serve_forever, daemon=True)
     thread.start()
     page = browser.new_page(viewport={"width": 1366, "height": 950})
-    page.set_default_timeout(90000)
-    page.set_default_navigation_timeout(90000)
+    page.set_default_timeout(180000)
+    page.set_default_navigation_timeout(180000)
     journey = Journey(page, f"http://127.0.0.1:{server.server_port}", db_path, provider, None, 1366)
     journey.retrieval = retrieval
     try:
@@ -204,8 +204,9 @@ def teaching_case(label, j):
         a = s["current_learning_state"]
         check(a["pending_question_kind"] == "exit_check" and a["exit_check_count"] == 1, "Exit check was not unique")
         check(s["session_goal"]["status"] != "likely_met", "Self-report was accepted as mastery")
-        s = j.ask("L stores positive multipliers because LU reverses elimination subtractions to reconstruct A.")
-        check(s["session_goal"]["status"] == "likely_met", "Evaluated correct exit answer not accepted")
+        s = j.ask("L records the signed multipliers m_ik = a_ik / pivot (positive, negative, or zero). Elimination subtracts m_ik times pivot row, and L stores the same signed multipliers so multiplying L by U reverses those elimination subtractions to reconstruct A.")
+        check(s["current_learning_state"]["answer_status"] == "correct", "Real model did not evaluate the mathematically correct exit answer as correct")
+        check(s["session_goal"]["status"] == "likely_met", "Correct evaluated exit answer did not mark session goal likely met")
         if label == "I":
             s = j.ask(PROMPTS["I"])
             check(s["session_goal"]["status"] == "unresolved", "Fresh confusion did not reopen goal")
@@ -226,9 +227,9 @@ def teaching_case(label, j):
     check(not j.errors, "Browser errors: " + repr(j.errors))
 
 
-@pytest.mark.parametrize("label", list("BCDEFIK"))
+@pytest.mark.parametrize("label", list("ABCDEFGHIJK"))
 def test_real_openrouter_A_to_K(label, live_journey):
-    """Seven Gemini-blocked scenarios with genuine, fixed free OpenRouter model."""
+    """All A-K scenarios with genuine OpenRouter completion where a provider call is required."""
     j = live_journey
     report = {
         "scenario": label, "source_sha": subprocess.check_output(["git","rev-parse","HEAD"],text=True).strip(),
