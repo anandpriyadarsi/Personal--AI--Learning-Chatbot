@@ -12,3 +12,13 @@
 .ls-v24-checkpoint{padding:28px;border:1px solid #416058;background:#112c29;border-radius:18px;margin:28px 0}.ls-v24-checkpoint h2{font-size:1.4rem}.ls-v24-checkpoint p{color:#c2d6d2}.ls-v24-checkpoint a{display:inline-block;margin:8px 18px 8px 0;color:#96e7cf}.learning-reader #ls-reading-column :focus-visible{outline:3px solid #f2ce73;outline-offset:4px}
 @media(max-width:767px){.ls-v24-intro,.ls-v24-checkpoint{padding:22px 18px}.ls-v24-outline{padding:14px 16px}.ls-v24-outline nav{grid-template-columns:1fr}.learning-reader .ls-block{padding:20px 16px}.ls-v24-journey{display:grid}.learning-reader #ls-reading-column{font-size:17px}.learning-reader .ls-block td,.learning-reader .ls-block th{padding:10px 12px}}
 @media print{.ls-v24-journey,.ls-v24-outline{display:none}.ls-v24-intro,.learning-reader .ls-block,.ls-v24-checkpoint{background:white;color:black;border-color:#aaa;break-inside:avoid}}
+/* Keep the first concept visible on phones while retaining all authored prose. */
+@media(max-width:767px){
+  .learning-reader.learning-view-learn .ls-v24-outline{padding:8px 16px;margin:8px 0 12px}
+  .learning-reader.learning-view-learn .ls-lesson-navigation p{flex-basis:auto}
+  .learning-reader.learning-view-learn .ls-lesson>h2{margin-block:8px 10px}
+  .learning-reader.learning-view-learn .ls-block{margin-block:14px;padding:16px}
+  .learning-reader.learning-view-learn .ls-block p{margin-block:10px}
+  .learning-reader.learning-view-learn .ls-block .eyebrow{margin-block:.3rem}
+  .learning-reader.learning-view-learn .ls-block h2,.learning-reader.learning-view-learn .ls-block h3{margin-block:10px}
+}

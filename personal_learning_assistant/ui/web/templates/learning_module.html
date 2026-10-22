@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block title %}{{ module.title }} · ANVAYA Learning Studio{% endblock %}
-{% block body_class %}learning-page learning-reader{% endblock %}
+{% block body_class %}learning-page learning-reader learning-view-{{ view }}{% endblock %}
 {% block page_scripts %}<link rel="stylesheet" href="{{ url_for('static', filename='css/learning_studio.css') }}"><script defer src="{{ url_for('static', filename='js/learning_studio.js') }}"></script>{% if view=='learn' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/learning_reader_v24.css') }}">{% endif %}{% endblock %}
 {% macro refs(pages,question_id=none,section_id=none) %}<span class="ls-source-chips">{% for page in pages %}<a href="{{ url_for('learning.preview' if staged else 'learning.module', module_id=module.module_id, revision=module.module_revision, view='source',page=page,section=question_lessons.get(question_id,selected_section.id) if question_id else (section_id or page_lessons.get(page,selected_section.id)),question=question_id or pending_question) }}#source-page-{{ page }}">Source p{{ page }}</a>{% endfor %}</span>{% endmacro %}
 {% macro block(b,section_id=none,block_index=none,block_scope="section",anchor_prefix="ls-block-",interactive=true) %}
