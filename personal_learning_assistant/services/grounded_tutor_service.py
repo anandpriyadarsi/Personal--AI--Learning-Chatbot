@@ -280,6 +280,29 @@ class GroundedTutorService:
         )
 
         teaching_plan = dict(plan.teaching_plan or {})
+        if plan.teaching_intent == "cancel_pending":
+            # A workflow cancellation needs no generated academic content.
+            # Persist the acknowledgement and cleared state in the existing
+            # atomic exchange, including when no provider/source is available.
+            message = "The question is skipped. You can choose what to study next."
+            user_turn = self.tutor_session_service.add_user_turn(session_id, plan.question)
+            assistant_turn = self.tutor_session_service.add_assistant_turn(
+                session_id, message,
+                support_level="insufficient" if session.source_policy == "source_only" else "mixed",
+            )
+            state = evolve_adaptive_state(
+                plan.adaptive_state, student_message=plan.question,
+                assistant_message=message, teaching_intent=plan.teaching_intent,
+                teaching_move="explain",
+            )
+            metadata = dict(session.metadata or {})
+            metadata[STATE_KEY] = state
+            metadata = _commit_orchestration_metadata(metadata, plan, now=assistant_turn.created_at)
+            self.tutor_session_service.update_session_metadata(session_id, metadata)
+            return GroundedTutorResult(
+                question=plan.question, user_turn=user_turn, assistant_turn=assistant_turn,
+                citations=(), retrieved_chunk_ids=(), provider_request_id="",
+            )
         if (
             teaching_plan.get("next_move") == "ask_diagnostic"
             and str(teaching_plan.get("diagnostic_question") or "").strip()

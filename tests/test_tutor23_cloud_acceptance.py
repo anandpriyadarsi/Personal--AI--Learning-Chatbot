@@ -293,6 +293,26 @@ def test_scenario_F_topic_shift(journey):
         assert adaptive["pending_question"] == adaptive["pending_question_kind"] == ""
         assert "cofactor" in state["session_goal"]["goal"].lower()
         assert state["teaching_plan"]["next_move"] != "practice"
+        journey.snapshot("F-topic-shift")
+        journey.create(topic="")
+        begin_practice(journey)
+        state = journey.ask(
+            "Skip the practice question. Please explain determinant expansion by cofactors. Do not continue LU.",
+            "Cofactor expansion combines entries with their signed minors.",
+        )
+        assert state["current_learning_state"]["last_intent"] == "explain"
+        assert state["teaching_plan"]["next_move"] != "practice"
+        assert "cofactor" in state["session_goal"]["goal"].lower()
+        journey.snapshot("F-polite")
+        journey.create(topic="")
+        goal = begin_practice(journey)["session_goal"]["goal"]
+        calls = len(journey.provider.requests)
+        state = journey.ask("Skip the practice question.")
+        assert len(journey.provider.requests) == calls
+        assert not state["current_learning_state"]["practice_active"]
+        assert state["current_learning_state"]["pending_question"] == ""
+        assert state["session_goal"]["goal"] == goal
+        assert state["teaching_plan"]["reason"] == "student_cancelled_pending"
 
 
 def test_scenario_G_mixed_understanding_remains_teaching(journey):

@@ -111,6 +111,12 @@ def build_teaching_plan(
     state = dict(adaptive_state or {})
     goal = session_goal_mapping(session_goal)
 
+    if intent == "cancel_pending":
+        return TeachingPlan(
+            next_move="explain", reason="student_cancelled_pending",
+            goal=goal["goal"], goal_status=goal["status"],
+        )
+
     move = _INTENT_MOVES.get(intent, "explain")
     reason = "current_teaching_intent"
     student_action_expected = move in {"quiz", "practice", "check_understanding"}

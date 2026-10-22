@@ -45,6 +45,16 @@ recorded gap. The reviewer exhausted its available runtime before a complete
 final review; these findings are addressed, but no complete independent
 sign-off is claimed. A separate author review checks the remaining delta.
 
+A second available independent reviewer completed the scoped review and
+identified two further Important cases: polite replacement requests and
+cancellation without a replacement. Five new regressions reproduced both.
+The fix accepts ordinary polite instruction prefixes and handles cancellation
+as a deterministic workflow acknowledgement: no new task, provider call or
+invented goal. The browser F scenario also checks both variants at every
+width. Source First and Source Only cancellation work without a provider.
+The review found no additional Critical/Important source-scope or security
+defect; its two findings are tracked by the red-to-green tests and final suite.
+
 ## Browser evidence and honest certification
 
 `tests/test_tutor23_cloud_acceptance.py` launches the **actual Flask

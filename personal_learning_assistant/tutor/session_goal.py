@@ -179,6 +179,8 @@ def resolve_session_goal(
     teaching_intent="",
 ):
     current = load_session_goal(metadata)
+    if teaching_intent == "cancel_pending":
+        return current
     inferred = infer_session_goal(question, teaching_intent)
     if not current["goal"]:
         next_state = dict(current)

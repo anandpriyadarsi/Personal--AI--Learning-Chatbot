@@ -21,6 +21,22 @@ def _normalize(value):
     return " ".join(str(value or "").casefold().split())
 
 
+_CANCEL_TASK_PREFIX = re.compile(
+    r"^(?:please\s+)?(?:skip|cancel|stop)\s+"
+    r"(?:(?:the|this|that|current|previous|old)\s+)?"
+    r"(?:(?:practice|diagnostic|socratic|exit[- ]check)\s+)?"
+    r"(?:question|problem|task|practice|quiz|diagnostic|hint|exit[- ]check)\b"
+    r"[\s.!;,:]*(?:(?:and|now|instead|then)[,\s]+)*",
+    re.IGNORECASE,
+)
+
+
+def is_cancellation_only(question):
+    clean = " ".join(str(question or "").split())
+    match = _CANCEL_TASK_PREFIX.match(clean)
+    return bool(match and re.fullmatch(r"(?:please[.!?]*)?", clean[match.end():], re.IGNORECASE))
+
+
 def active_teaching_request(question):
     """Ignore a leading cancelled task and a trailing negative continuation.
 
@@ -29,23 +45,17 @@ def active_teaching_request(question):
     receives the original student text; this view is for local planning.
     """
     clean = " ".join(str(question or "").split())
-    replacement = re.sub(
-        r"^(?:please\s+)?(?:skip|cancel|stop)\s+"
-        r"(?:(?:the|this|that|current|previous|old)\s+)?"
-        r"(?:(?:practice|diagnostic|socratic|exit[- ]check)\s+)?"
-        r"(?:question|problem|task|practice|quiz|diagnostic|hint|exit[- ]check)\b"
-        r"[\s.!;,:]*(?:(?:and|now|instead|then)[,\s]+)*",
-        "", clean, flags=re.IGNORECASE,
-    ).strip()
+    replacement = _CANCEL_TASK_PREFIX.sub("", clean).strip()
     # A cancellation alone is still the complete request. Do not invent a
     # replacement teaching instruction when there is no affirmative clause.
     if replacement and re.match(
+        r"(?:please\s+)?(?:(?:can|could|would)\s+you\s+)?(?:please\s+)?"
         r"(?:explain|teach|show|tell|give|quiz|test|help|compute|calculate|summari[sz]e)\b",
         replacement, re.IGNORECASE,
     ):
         clean = replacement
     return re.sub(
-        r"(?:[.!;]\s*|\s+(?:and|but)\s+)(?:do not|don't)\s+continue\b[^.!?;]*[.!?;]?\s*$",
+        r"(?:[.!?;]\s*|\s+(?:and|but)\s+)(?:do not|don't)\s+continue\b[^.!?;]*[.!?;]?\s*$",
         "", clean, flags=re.IGNORECASE,
     ).strip()
 
@@ -146,6 +156,11 @@ _PATTERNS = (
 
 
 def classify_tutor_intent(question):
+    if is_cancellation_only(question):
+        return TutorIntent(
+            name="cancel_pending",
+            instruction="Acknowledge the cancelled task without starting another question or changing the learning goal.",
+        )
     clean = _normalize(active_teaching_request(question))
     for name, patterns, instruction in _PATTERNS:
         if any(re.search(pattern, clean) for pattern in patterns):
