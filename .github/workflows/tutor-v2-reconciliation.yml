@@ -114,7 +114,7 @@ jobs:
   openrouter_live:
     # Never give the secret to forks or arbitrary PRs.
     if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'integration/tutor-v2-0-2-3-safe-reconciliation-2026-10-21' && github.event.pull_request.user.login == 'anandpriyadarsi' }}
-    name: Real OpenRouter unresolved A–K (Ubuntu)
+    name: Real OpenRouter A–K (Ubuntu)
     runs-on: ubuntu-latest
     timeout-minutes: 38
     permissions:
@@ -160,7 +160,7 @@ jobs:
         env:
           LLM_API_KEY: ${{ secrets.ANVAYA_TUTOR_LIVE_OPENROUTER_KEY }}
         run: python scripts/tutor23_openrouter_preflight.py
-      - name: Run genuine B C D E F I K with Flask Chromium and SQLite
+      - name: Run genuine A–K with Flask Chromium and SQLite
         env:
           LLM_API_KEY: ${{ secrets.ANVAYA_TUTOR_LIVE_OPENROUTER_KEY }}
         run: python -m pytest -q scripts/tutor23_openrouter_live_cases.py --junitxml=tutor-openrouter-live.xml
