@@ -241,6 +241,10 @@ def test_editor_supports_delete_existing_and_remove_new_media_without_wrong_indi
         / "anvaya_notes_editor.html"
     ).read_text(encoding="utf-8")
 
+    assert "js/anvaya_notes_editor.js" in editor
+    # Executable editor behavior is a local asset under the private CSP.
+    editor += (root / "personal_learning_assistant/ui/web/static/js/anvaya_notes_editor.js").read_text(encoding="utf-8")
+
     for token in (
         "Delete file",
         'name="remove_asset_ids"',

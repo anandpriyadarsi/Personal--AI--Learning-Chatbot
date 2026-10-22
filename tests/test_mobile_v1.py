@@ -24,7 +24,7 @@ def test_manifest_and_reviewed_assets_are_locally_available():
 def test_private_responses_are_no_store_and_same_origin(path):
     r = app().test_client().get(path)
     assert r.headers['Cache-Control'] == 'no-store'
-    assert r.headers['Referrer-Policy'] == 'no-referrer'
+    assert r.headers['Referrer-Policy'] == 'same-origin'
     assert "connect-src 'self'" in r.headers['Content-Security-Policy']
     assert "frame-ancestors 'none'" in r.headers['Content-Security-Policy']
 
@@ -39,8 +39,10 @@ def test_private_mode_rejects_remote_and_cross_site_requests():
 def test_cloud_provider_is_denied_even_with_keys(monkeypatch):
     from personal_learning_assistant.tutor.http_provider import OpenAICompatibleTutorProvider
     from personal_learning_assistant.tutor.provider import TutorProviderUnavailableError
-    import requests
-    monkeypatch.setattr(requests, 'post', lambda *a, **k: pytest.fail('Outbound AI call'))
+    import sys
+    from types import SimpleNamespace
+    monkeypatch.setitem(sys.modules, 'requests', SimpleNamespace(
+        post=lambda *a, **k: pytest.fail('Outbound AI call')))
     p = OpenAICompatibleTutorProvider(api_url='https://provider.invalid', api_key='synthetic', model='synthetic')
     with app().app_context():
         assert p.configured is False

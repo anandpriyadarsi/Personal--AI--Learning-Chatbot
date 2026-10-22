@@ -75,12 +75,13 @@ def register_mobile(app):
     def private_response_boundary(response):
         if app.config.get('PRIVATE_MOBILE_MODE'):
             response.headers['Cache-Control'] = 'no-store'
-            response.headers['Referrer-Policy'] = 'no-referrer'
+            # Retain same-origin form Origin headers; suppress external referrers.
+            response.headers['Referrer-Policy'] = 'same-origin'
             response.headers['X-Content-Type-Options'] = 'nosniff'
             response.headers['Permissions-Policy'] = 'camera=(), microphone=(), geolocation=()'
             response.headers['Content-Security-Policy'] = (
                 "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
-                "img-src 'self' data:; font-src 'self'; connect-src 'self'; worker-src 'self'; "
+                "img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; worker-src 'self'; "
                 "manifest-src 'self'; frame-src 'self'; frame-ancestors 'none'; object-src 'none'; "
                 "base-uri 'none'; form-action 'self'")
         if request.endpoint in ('mobile.manifest', 'mobile.worker', 'mobile.offline'):

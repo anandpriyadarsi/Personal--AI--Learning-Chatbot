@@ -13,6 +13,12 @@
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', resolved === 'light' ? '#f4f7f8' : '#0b0f14');
   };
   applyTheme();
+  const composing = () => {
+    const field = document.activeElement;
+    document.body.classList.toggle('mobile-composing', !!field?.matches('textarea,input:not([type=radio]):not([type=checkbox]):not([type=button]):not([type=submit])'));
+  };
+  document.addEventListener('focusin', composing);
+  document.addEventListener('focusout', () => requestAnimationFrame(composing));
   if (choice) {
     choice.value = theme;
     choice.addEventListener('change', () => {

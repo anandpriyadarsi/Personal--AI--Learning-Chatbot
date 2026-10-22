@@ -12,7 +12,7 @@ progressively enhanced shell adds Today / Learn / Tutor / Practice / Library
 navigation on phones, an accessible secondary menu, themes and installation
 help. Existing Today projections provide deadlines, proposed study and tasks;
 empty and unavailable states retain their honest meanings. No mobile domain API,
-new account system, database migration or duplicated academic calculation.
+new account system, new database migration or duplicated academic calculation. Existing backup-first local startup activation is preserved.
 
 PWA selected over a JavaScript rewrite or embedded Python APK: it reuses working
 academic engines and their persistence gates. A native rewrite would introduce
@@ -67,10 +67,32 @@ hosting is created by this branch.
 - A: threat model written before product edits. 8 HTTP contracts observed failing
   for absent manifest, policies and cloud-AI gate; then passed after implementation.
 - Baseline: 19 web foundation / V2.3 HTTP tests passed before mobile shell changes.
-- A/B: 17 mobile/foundation contracts pass. Existing optional HTTP provider gains
+- A/B: 17 mobile/foundation contracts passed at the first increment. Existing optional HTTP provider gains
   only a lazy private-mode check; provider protocol and academic engines unchanged.
 - Ruling: execute the owner-specified A–E plan inline without additional approval
   gates. The owner explicitly requested immediate implementation and a draft PR.
 - Ruling: supported private prototype remains loopback-only. No safe, authenticated
   encrypted cross-device deployment is preconfigured; widening binding would
   expose private records. Phone access without an authorized host stays blocked.
+- C/D: actual host shutdown/restart verifies generic fallback and failed POST
+  rejection without replay. Browser installation reports no manifest errors and
+  no installability errors; this is Chromium, not physical Android installation.
+- C/D: real native forms reproduced Origin:null under no-referrer; changed to
+  same-origin Referrer-Policy while retaining cross-origin rejection. Explicit
+  Tutor exchange now persists and reopens through real SQLite with a labelled
+  deterministic provider, not a live model.
+- Final review: independent reviewer reproduced blocked Notes editor inline
+  scripts under strict CSP. Extracted both unchanged scripts into local assets;
+  permits blob image previews only (not third-party images), with an end-to-end
+  formatting/template/media/save regression. No unsafe-inline script exception.
+- Documentation clarification: existing display/navigation preferences remain;
+  legacy session-palette preference keys include IDs, but no answer text is stored.
+
+- Regression pass: 9 failures in the initial full run (2922 passed, four exact
+  unavailable private IKS skips). Original assertions exposed generic-wrap,
+  first-fold, offline-write proxy and accessible-name issues; all were fixed.
+  Notes source checks were updated to follow the extracted asset, not removed.
+- Targeted final first-fold: 2 passed. Intermediate protected/mobile gate: 118
+  passed. Final full and native gates are recorded separately in PR checks.
+- Worker refinement: non-GET requests are never intercepted; application/native
+  network failure handling retains authority. Generic navigation fallback only.

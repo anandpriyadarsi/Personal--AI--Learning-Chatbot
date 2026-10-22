@@ -31,9 +31,10 @@
  .mobile-dock svg {width:23px;height:23px}
  .mobile-dock a[aria-current] {background:var(--accent-soft,rgba(85,194,184,.12));color:var(--accent,#55c2b8)}
  .mobile-dock a:focus-visible {outline:3px solid var(--accent);outline-offset:-3px}
- body:is(.ls-focus,.workspace-focus,.nav-open) .mobile-dock {display:none}
+ body:is(.ls-focus,.workspace-focus,.nav-open,.mobile-composing) .mobile-dock {display:none}
  .app-footer {padding-bottom:16px}
- .content :is(h1,h2,h3,p,article,section,div,form,li,fieldset,legend,details) {min-width:0;overflow-wrap:anywhere}
+ .content :is(h1,h2,h3,p,article,section,div,form,li,fieldset,legend,details) {min-width:0}
+ body:not(.learning-reader) .content :is(h1,h2,h3,p,article,section,div,form,li,fieldset,legend,details) {overflow-wrap:anywhere}
  .content :is(input,select,textarea) {font-size:16px;max-width:100%}
  .content :is(button,.button,summary,select,input:not([type=radio]):not([type=checkbox])) {min-height:44px}
  .content :is(input[type=radio],input[type=checkbox]) {min-width:20px;min-height:20px}
@@ -44,9 +45,10 @@
  .content .agent-turn {padding:16px;border-radius:16px}
  .content .agent-turn-user {border-left:3px solid var(--accent)}
  .content .metric-grid {grid-template-columns:repeat(2,minmax(0,1fr))}
- .content .ls-reader-content {line-height:1.85}
- .content .ls-source-chips a {padding:8px 12px;min-height:40px}
- .content .ls-reading-controls {gap:6px;top:68px}
+ .content .ls-reader-content {line-height:1.8}
+ .content .ls-reading-controls {gap:6px;top:64px;flex-wrap:nowrap;overflow-x:auto;width:100%}
+ .content .ls-reading-controls>* {flex-shrink:0}
+ body.learning-reader .topbar {min-height:56px}
  body.ls-focus .content .ls-reading-controls {top:4px}
  .content .ws-home-grid {display:flex;flex-direction:column;gap:18px}
  .content .ws-home-grid>* {width:100%;margin:0}
@@ -76,3 +78,27 @@
 }
 @media(prefers-reduced-motion:reduce) {.mobile-dock * {transition:none!important;animation:none!important}}
 @media print {.mobile-dock,.mobile-connection {display:none!important}body {padding-bottom:0}}
+/* Authored Learning Studio styles predate themes and include fixed dark colors. */
+:root[data-theme="light"] body.learning-page :is(.ls-workspace-hero,.ls-v24-intro,.ls-v24-outline,.ls-study-template,.ls-study-pathways>div,.ls-course-filters,.ls-chemistry-track,.ls-empty-workspace,.ls-diagram li,.ls-v24-journey a,.ls-course-quicklinks a) {background:#edf4f3;color:#182b35;border-color:#b8d0ca}
+:root[data-theme="light"] body.learning-page .content :is(h1,h2,h3,h4,p,span,strong,li,summary,figcaption,blockquote,math) {color:#273f49}
+:root[data-theme="light"] body.learning-page .content :is(a,.ls-subject-code,.ls-subject-footer strong,.ls-pathway-number,.eyebrow,.ls-workspace-overline) {color:#12675e}
+:root[data-theme="light"] body.learning-page .ls-subject-chemistry {background:#edf4f3!important}
+:root[data-theme="light"] body.learning-reader #ls-reading-column {color:#273f49}
+:root[data-theme="light"] body.learning-reader .ls-block {background:#fff;border-color:#b8d0ca}
+:root[data-theme="light"] body.learning-reader .ls-v24-checkpoint {background:#e3f2ed;border-color:#b8d0ca}
+@media(max-width:860px) {.content .ws-destinations {grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:360px) {.content .ws-destinations {grid-template-columns:minmax(0,1fr)}}
+/* Dedicated assessment workspace keeps its native palette and save controls. */
+body.mobile-assessment {padding-bottom:env(safe-area-inset-bottom)}
+:root[data-theme="light"] body.mobile-assessment {background:#f4f7f8;color:#182b35}
+:root[data-theme="light"] body.mobile-assessment :is(.question,.status,.clock,.guide,.notice,.study-palette,.option) {background:#fff;color:#273f49;border-color:#c3d1d7}
+:root[data-theme="light"] body.mobile-assessment :is(.muted,.question-head,.eyebrow,.brand,.brand span,.clock strong,.preview,.mark-state,header a,nav a) {color:#273f49}
+@media(max-width:860px) {
+ /* Preserve the established first-concept reading budget; trim chrome, not prose. */
+ body.learning-reader .content {padding-top:8px}
+ body.learning-reader .ls-module-header {margin:.25rem 0}
+ body.learning-reader .ls-reading-controls {margin-bottom:.5rem}
+}
+:root[data-theme="light"] .assessment-runner.is-time-low .exam-timer-panel strong {color:#9e2431}
+:root[data-theme="light"] body.learning-page .content .ls-workspace-primary,
+:root[data-theme="light"] body.learning-page .content .ls-workspace-primary span {background:#12675e;color:#fff}

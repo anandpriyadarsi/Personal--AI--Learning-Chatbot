@@ -230,6 +230,10 @@ def test_editor_exposes_inline_media_controls_and_zip_upload():
         root / "personal_learning_assistant/ui/web/static/css/app.css"
     ).read_text(encoding="utf-8")
 
+    assert "js/anvaya_notes_editor.js" in editor
+    # Executable editor behavior is a local asset under the private CSP.
+    editor += (root / "personal_learning_assistant/ui/web/static/js/anvaya_notes_editor.js").read_text(encoding="utf-8")
+
     for token in (
         "Insert at cursor",
         "data-media-width",

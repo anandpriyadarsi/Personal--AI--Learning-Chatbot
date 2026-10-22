@@ -1,5 +1,6 @@
 /* Reviewed app assets only. Never store academic pages, API responses or mutations. */
 'use strict';
+// Bump this version whenever a listed shell asset changes.
 const CACHE = 'anvaya-mobile-v1-2026-10-22-1';
 const ASSETS = ['/mobile/offline', '/static/css/mobile_v1.css', '/static/js/mobile_v1.js',
   '/static/brand/anvaya-mobile-192.png', '/static/brand/anvaya-mobile-512.png'];
@@ -22,12 +23,7 @@ self.addEventListener('fetch', event => {
   const request = event.request;
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
-  if (request.method !== 'GET') {
-    event.respondWith(fetch(request).catch(() => new Response(
-      'Connection unavailable. This change was not saved. Reconnect and check saved state before retrying.',
-      {status: 503, headers: {'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store'}})));
-    return;
-  }
+  if (request.method !== 'GET') return; // Preserve native failure and retry behavior; never proxy writes.
   if (!url.search && ASSETS.includes(url.pathname)) {
     event.respondWith(caches.open(CACHE).then(async cache =>
       (await cache.match(url.pathname)) || fetch(request)));
