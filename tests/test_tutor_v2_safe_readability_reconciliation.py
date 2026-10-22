@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from html import unescape
+
 from personal_learning_assistant.ui.web.tutor_rendering import render_tutor_markdown
 
 
@@ -40,7 +42,9 @@ def test_ascii_lu_matrices_render_as_safe_structured_math():
     result = str(render_tutor_markdown(response))
     assert result.count('data-assessment-math') == 3
     assert result.count(r"\begin{bmatrix}") == 3
-    assert r"1&0&0\\2&1&0\\4&3&1" in result
+    # The safe HTML boundary escapes '&' but textContent decodes it for math rendering.
+    assert r"1&amp;0&amp;0\\2&amp;1&amp;0\\4&amp;3&amp;1" in result
+    assert r"1&0&0\\2&1&0\\4&3&1" in unescape(result)
 
 
 def test_ascii_matrix_promotion_rejects_untrusted_html_and_ragged_rows():
