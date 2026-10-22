@@ -55,6 +55,14 @@ width. Source First and Source Only cancellation work without a provider.
 The review found no additional Critical/Important source-scope or security
 defect; its two findings are tracked by the red-to-green tests and final suite.
 
+The final full regression also exposed transient Assessment palette overflow:
+at 50% and 75% of its real closing transition, the document could grow to
+1941 px in a 1920 px viewport. An intermediate-frame Chromium reproduction
+failed deterministically. A scoped `overflow-x: clip` rule contains that
+animation without creating a scrolling ancestor for sticky controls; the
+original no-overflow assertion is retained. Its regression runs in native
+Tutor acceptance as well as the full Assessment suite.
+
 ## Browser evidence and honest certification
 
 `tests/test_tutor23_cloud_acceptance.py` launches the **actual Flask
