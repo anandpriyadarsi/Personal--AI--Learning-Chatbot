@@ -227,7 +227,7 @@ def teaching_case(label, j):
     check(not j.errors, "Browser errors: " + repr(j.errors))
 
 
-@pytest.mark.parametrize("label", list("ABCDEFGHIJK"))
+@pytest.mark.parametrize("label", ("E", "I", "A", "B", "C", "D", "F", "G", "H", "J", "K"))
 def test_real_openrouter_A_to_K(label, live_journey):
     """All A-K scenarios with genuine OpenRouter completion where a provider call is required."""
     j = live_journey

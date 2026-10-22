@@ -94,6 +94,7 @@ jobs:
           tests/test_tutor23_live_browser_integration.py
           tests/test_tutor23_cloud_acceptance.py
           tests/test_tutor23_topic_cancellation.py
+          tests/test_tutor23_openrouter_quota.py
           tests/test_tutor_topic_scope_web.py
           tests/test_assessment_live_browser.py::test_palette_animation_does_not_expand_document
           tests/test_phase7_5_academic_agent_web.py
