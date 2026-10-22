@@ -1,5 +1,19 @@
 """Versioned immutable academic facts; never grade/mastery write authority."""
 from dataclasses import asdict, dataclass, field
+import hashlib
+import json
+
+def canonical_topic_reference(course_id, topic_id):
+    """Stable tuple encoding; registry names cannot silently remap identity."""
+    if course_id is None or topic_id is None:
+        return None
+    from personal_learning_assistant.learning_studio.validation import identity
+    identity(course_id); identity(topic_id)
+    encoded = json.dumps([course_id, topic_id], separators=(",", ":")).encode()
+    return {"schema": "anvaya.topic-reference.v1", "owner": "academic_registry",
+            "course_id": course_id, "topic_id": topic_id,
+            "key": "academic-topic:" + hashlib.sha256(encoded).hexdigest()}
+
 
 @dataclass(frozen=True)
 class SourceReference:
@@ -57,4 +71,4 @@ class AcademicEvidenceView:
     automatic_eligible: bool = field(default=False, init=False)
 
     def to_dict(self):
-        return asdict(self)
+        return {**asdict(self), "topic_reference": canonical_topic_reference(self.course_id, self.topic_id)}

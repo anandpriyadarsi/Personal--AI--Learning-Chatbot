@@ -58,7 +58,12 @@
     }
     try { history.replaceState(history.state, '', decorate(new URL(location.href))); } catch (_error) { /* URL fallback below still works. */ }
     document.querySelectorAll('.ls-tabs a,.ls-lesson-rail a,.ls-source-chips a,#ls-contents-dialog a,.ls-related-lesson,.ls-practice-link,.ls-lesson-navigation a,.ls-reader-content nav a,#ls-resume,#ls-return-question,.ls-review-answer').forEach(link => {
-      link.href = decorate(new URL(link.href, location.href)).href;
+      const destination = new URL(link.href, location.href);
+      // Reading preferences belong only to Learning reader routes. Cross-owner
+      // evidence endpoints intentionally reject unrelated query parameters.
+      if (destination.origin === location.origin && /^\/learning\/(modules|staged)\//.test(destination.pathname)) {
+        link.href = decorate(destination).href;
+      }
     });
   }
   let remembered = null;

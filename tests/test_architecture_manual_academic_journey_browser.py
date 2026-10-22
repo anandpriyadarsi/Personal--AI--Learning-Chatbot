@@ -136,7 +136,7 @@ def test_student_manually_chooses_study_then_rechecks_exact_revision(browser, ac
         signals.get_by_role('link', name='Recheck', exact=True).click()
         assert '/learning/modules/synthetic/1' in page.url and '#question-q1' in page.url
         expect(page.locator('.ls-question')).to_have_attribute('data-question-id', 'q1')
-        page.locator('.ls-question input[value="1"]').check()
+        page.locator('.ls-question input[type=radio][value="1"]').check()
         page.locator('.ls-question button[type=submit]').click()
         expect(page.locator('.ls-question-state')).to_contain_text('recovered needs recheck')
         page.reload()

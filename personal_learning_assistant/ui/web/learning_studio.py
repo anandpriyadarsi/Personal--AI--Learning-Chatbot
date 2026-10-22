@@ -3,6 +3,7 @@ from __future__ import annotations
 import hmac
 import io
 import os
+import uuid
 from flask import Blueprint, current_app, jsonify, redirect, render_template, request, send_file, url_for
 from werkzeug.exceptions import RequestEntityTooLarge
 
@@ -89,12 +90,18 @@ def course(course_id):
 
 def module_view(module_id, revision, *, staged=False):
     from personal_learning_assistant.learning_studio.validation import require
-    from personal_learning_assistant.learning_studio.rendering import markdown, trusted_graph, trusted_activity
+    from personal_learning_assistant.learning_studio.rendering import markdown, inline_markdown, trusted_graph, trusted_activity
     from personal_learning_assistant.learning_studio.review_brief import format_review_brief
     view = request.args.get('view', 'overview')
     require(view in VIEWS, 'Unknown reader view.', 404)
     s = service()
     p = s.module(module_id, revision, staged=staged)
+    attempt_feedback = None
+    if request.args.get('attempt'):
+        require(view == 'practice' and not staged and request.args.get('question'),
+                'Recorded feedback requires an exact published practice question.', 404)
+        attempt_feedback = s.attempt_feedback(module_id, revision, request.args['attempt'],
+                                              question_id=request.args['question'])
     from personal_learning_assistant.learning_studio.reader import select
     weak=[] if staged else s.weak(module_id,revision)
     reader=select(p,request.args,weak)
@@ -124,8 +131,9 @@ def module_view(module_id, revision, *, staged=False):
     if mapping and course is None:
         course = {'id': 'unavailable', 'code': 'Course unavailable / needs review'}
     return render_template('learning_module.html', active_page='learning', module=p, view=view, staged=staged,
-        course=course, mapping_current=mapping_current, markdown=markdown, trusted_graph=trusted_graph, trusted_activity=trusted_activity, **reader,
+        course=course, mapping_current=mapping_current, markdown=markdown, inline_markdown=inline_markdown, trusted_graph=trusted_graph, trusted_activity=trusted_activity, **reader,
         practice_state={} if staged else s.practice_state(module_id,revision), source_element=source_element,quality_questions=quality_questions,
+        attempt_feedback=attempt_feedback, attempt_event_ids={q['id']: str(uuid.uuid4()) for q in reader['practice_questions']},
         pending_question=request.args.get('question') or (reader['practice_questions'][0]['id'] if view=='practice' and reader['practice_questions'] else None),
         reading_state=None if staged else s.reading_state(module_id,revision), weak=weak,
         csrf_token=current_app.extensions['learning_studio_csrf'],
@@ -157,9 +165,34 @@ def publish(module_id, revision):
 def attempt(module_id, revision):
     from personal_learning_assistant.learning_studio.validation import require
     request.max_content_length = 20000
-    payload = request.get_json(silent=True)
+    native = not request.is_json
+    if native:
+        from personal_learning_assistant.learning_studio.reader import select
+        fields = {'event_id', 'module_revision', 'source_sha256', 'question_id', 'question_revision', 'selection',
+                  'csrf_token', 'section', 'mode'}
+        require(not (set(request.form) - fields) and all(len(request.form.getlist(k)) == 1 for k in request.form),
+                'Invalid practice form fields.')
+        payload = {key: request.form.get(key, '') for key in
+                   ('event_id', 'module_revision', 'source_sha256', 'question_id', 'question_revision', 'selection')}
+        for key in ('module_revision', 'question_revision', 'selection'):
+            value = payload[key]
+            require(value.isascii() and value.isdigit() and len(value) <= 7, 'Invalid practice number.')
+            payload[key] = int(value)
+    else:
+        payload = request.get_json(silent=True)
     require(isinstance(payload, dict) and payload.get('module_revision') == revision, 'Route and attempt revisions disagree.', 409)
-    s=service();result=s.attempt(module_id,payload);states=s.practice_state(module_id,revision)
+    s = service()
+    if native:
+        # Validate the return location before recording an attempt; URL state owns no grading data.
+        return_state = select(s.module(module_id, revision),
+            {'section': request.form.get('section', ''), 'mode': request.form.get('mode', ''),
+             'question': payload['question_id']}, s.weak(module_id, revision))
+    result = s.attempt(module_id, payload)
+    if native:
+        return redirect(url_for('learning.module', module_id=module_id, revision=revision, view='practice',
+            section=return_state['selected_section']['id'], mode=return_state['practice_mode'],
+            question=payload['question_id'], attempt=result['event_id'], _anchor='question-' + payload['question_id']), code=303)
+    states = s.practice_state(module_id, revision)
     return jsonify(dict(result,practice_state=states[payload['question_id']],
                         practised_questions=sum(state['status']!='never_practised' for state in states.values()),total_questions=len(states)))
 

@@ -65,5 +65,11 @@ def create_app(config: Mapping[str, Any] | None = None) -> Flask:
     register_planning_proposals(app, _operational_planner_service)
     from .academic_evidence import register_academic_evidence
     register_academic_evidence(app)
+    from .learning_conversion_v24 import register_learning_conversion_v24
+    register_learning_conversion_v24(app)
+    from .learning_tutor_v24 import register_learning_tutor_v24
+    register_learning_tutor_v24(app)
+    from .learning_source_links_v24 import register_learning_source_links_v24
+    register_learning_source_links_v24(app)
     register_error_handlers(app)
     return app

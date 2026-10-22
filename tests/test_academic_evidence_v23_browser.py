@@ -32,6 +32,9 @@ def shot(page,name):
         page.screenshot(path=str(out/name),full_page=True)
 
 def fits(page):
+    # DOM text can appear before the navigated document's styles finish loading.
+    # Assert the real layout at the load lifecycle; retain the overflow check.
+    page.wait_for_load_state('load')
     assert page.evaluate('document.documentElement.scrollWidth<=innerWidth+1')
 
 @pytest.mark.parametrize('width',[390,768,1366])

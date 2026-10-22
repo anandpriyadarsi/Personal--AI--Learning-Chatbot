@@ -21,7 +21,7 @@
     <div class="library-items">
     {% for doc in resource.documents %}
     <article class="dashboard-panel library-card materials-resource-card"><div class="materials-resource-glyph" aria-hidden="true">D</div><div class="library-card-main">
-      <div class="materials-resource-meta"><span class="materials-type">{{ doc.kind }}</span>{% if doc.mime_type %}<span class="materials-separator">·</span><span>{{ doc.mime_type }}</span>{% endif %}</div><h3>{{ doc.title }}</h3><p class="library-extraction">Extraction: {{ doc.extraction_status|replace('_', ' ') }}</p>
+      <div class="materials-resource-meta"><span class="materials-type">{{ doc.kind }}</span>{% if doc.mime_type %}<span class="materials-separator">·</span><span>{{ doc.mime_type }}</span>{% endif %}</div><h3>{{ doc.title }}</h3><p class="library-extraction">Extraction: {{ doc.extraction_status|replace('_', ' ') }}</p>{% set lesson_target=source_lesson_target(doc.document_id,doc.content_hash) %}{% if lesson_target %}<p><a href="{{ lesson_target }}">Find source-linked lessons</a></p>{% endif %}
     </div>{% if source_reader_available %}<a class="button secondary-button library-view" href="{{ doc.open_target }}">View source ↗</a>{% else %}<span class="materials-muted library-view">Source reader unavailable</span>{% endif %}</article>
     {% else %}<div class="dashboard-panel materials-empty"><h3>No linked documents</h3><p>This registered resource does not have a document relationship yet.</p></div>{% endfor %}
     </div>

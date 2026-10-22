@@ -26,14 +26,17 @@ def build_preview(studio,module_id,revision,*,catalogue=None,as_of=None):
             'semantic_status':p['pages'][page-1]['status'],
             'review_flags':list(p['pages'][page-1]['review_flags']),
             'url':f'/academic-evidence/learning/{module_id}/{revision}/source.pdf#page={page}'} for page in pages]
-    def blocks(values):
+    def blocks(values, *, transformed=False):
         return [{'kind':b['kind'],'pages':list(b['pages']),'content':{k:copy.deepcopy(v) for k,v in b.items() if k not in {'kind','pages','answer'}},
-            'source_refs':refs(b['pages']),'authority':'authored_owner_content'} for b in values]
+            'source_refs':[{**ref, 'semantic_status':'needs_review', 'semantic_confidence':'unknown',
+                'review_flags':ref['review_flags']+['Transformed reviewed notes; source fidelity is not independently certified.']} for ref in refs(b['pages'])] if transformed else refs(b['pages']),
+            'authority':'reviewed_transformed_notes' if transformed else 'authored_owner_content',
+            **({'transformation_method':'pypdf extraction followed by human review/edit; see section source map', 'semantic_confidence':'unknown'} if transformed else {})} for b in values]
     return {'schema':'anvaya.educational-note-projection.v1','as_of':stamp.astimezone(timezone.utc).isoformat(),
         'module':{'id':module_id,'revision':revision,'title':p['title']},
         'source':{**p['source'],'validation':'published_snapshot_validated','registry_freshness':'not_checked'},
         'mapping':copy.deepcopy(p['mapping']),'mapping_status':status,'sections':[{'id':sec['id'],'title':sec['title'],'pages':sec['pages'],
-            'blocks':blocks(sec['blocks'])} for sec in p['sections']],
+            'blocks':blocks(sec['blocks'],transformed=sec['id'].startswith('reviewed-conversion-r'))} for sec in p['sections']],
         'revision':blocks(p['revision']),
         'questions':[{'id':q['id'],'revision':q['revision'],'prompt':q['prompt'],'pages':q['pages'],
             'url':f'/learning/modules/{module_id}/{revision}?view=practice&question={q["id"]}#question-{q["id"]}'} for q in p['questions']],

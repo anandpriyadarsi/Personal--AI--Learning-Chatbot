@@ -105,9 +105,10 @@ def register_academic_evidence(app):
         def extension(block,widget_id):
             original={'kind':block['kind'],'pages':block['pages'],**block['content']}
             return trusted_graph(original) if block['kind']=='graph' else trusted_activity(original,widget_id)
+        from personal_learning_assistant.services.learning_tutor_session_v24 import project_session_metadata_snapshot
         return render_template('academic_evidence.html',active_page='evidence',stage='lesson',
             view=view,preview=preview,markdown=markdown,extension=extension,error_message='',
-            review_token=signed(view,'review'))
+            review_token=signed(view,'review'),history=project_session_metadata_snapshot(s,view))
 
     @bp.get('/academic-evidence/learning/<module_id>/<int:revision>/source.pdf')
     def source(module_id,revision):
@@ -165,6 +166,36 @@ def register_academic_evidence(app):
         except (OperationalTaskUnavailableError,ZoneInfoNotFoundError) as error:
             raise PackageError('The Planner owner is unavailable; no study approval is claimed.',503) from error
         return redirect('/planning/tasks?created=1&course_id='+view.course_id,code=303)
+
+    @bp.post('/academic-evidence/learning/<module_id>/<int:revision>/note-draft')
+    def note_draft(module_id,revision):
+        query(set())
+        require(set(request.form)=={'review_token'} and len(request.form.getlist('review_token'))==1,
+            'Unsupported draft review request.')
+        payload=verified(request.form['review_token'],module_id,revision,'review')
+        _,view,_,frozen,_=context(module_id,revision)
+        require(payload.get('fingerprint')==view.fingerprint,'Academic context changed. Reload before conversion.',409)
+        from personal_learning_assistant.learning_studio.note_draft import convert
+        draft=convert(frozen.source(module_id,revision),media_type='application/pdf')
+        return render_template('note_draft.html',active_page='evidence',view=view,draft=draft)
+
+    @bp.post('/academic-evidence/learning/<module_id>/<int:revision>/tutor-help')
+    def tutor_help(module_id,revision):
+        query(set())
+        fields={'review_token','event_id','question_id','level'}
+        require(set(request.form)==fields and all(len(request.form.getlist(k))==1 for k in fields),
+            'Unsupported offline help request.')
+        payload=verified(request.form['review_token'],module_id,revision,'review')
+        _,view,preview,_,_=context(module_id,revision)
+        require(payload.get('fingerprint')==view.fingerprint,'Academic context changed. Reload before help.',409)
+        from personal_learning_assistant.learning_studio.grounded_help import consume, LEVELS
+        from personal_learning_assistant.learning_studio.rendering import markdown
+        help_view=consume(preview,view,event_id=request.form['event_id'],question_id=request.form['question_id'],
+            level=request.form['level'],explicit_action=True)
+        from .learning_tutor_v24 import learning_tutor_v24_url
+        return render_template('grounded_help.html',active_page='evidence',view=view,help=help_view,
+            levels=LEVELS,review_token=signed(view,'review'),markdown=markdown,
+            save_help_url=learning_tutor_v24_url(module_id,revision,help_view['event_id'],help_view['question']['id'],help_view['assistance_level']))
 
     @bp.post('/academic-evidence/learning/<module_id>/<int:revision>/tutor-handoff')
     def tutor_context(module_id,revision):
