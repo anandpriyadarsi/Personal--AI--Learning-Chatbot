@@ -14,6 +14,7 @@ on:
       - 'personal_learning_assistant/ui/web/**'
       - 'tests/test_tutor*.py'
       - 'scripts/tutor23_gemini_live_cases.py'
+      - 'scripts/tutor23_openrouter_live_cases.py'
       - 'tests/test_phase7_5_academic_agent_web.py'
       - 'tests/learning_studio/test_educational_projection_v23.py'
       - '.github/workflows/tutor-v2-reconciliation.yml'
@@ -109,25 +110,24 @@ jobs:
             ${{ env.ANVAYA_VALIDATION_ARTIFACTS }}/*.png
             ${{ env.ANVAYA_VALIDATION_ARTIFACTS }}/*.json
 
-  gemini_live:
-    # This is a trusted, in-repository PR only. Never expose a repo secret to
-    # fork pull requests, arbitrary branches or PR code from another author.
+  openrouter_live:
+    # Never give the secret to forks or arbitrary PRs.
     if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'integration/tutor-v2-0-2-3-safe-reconciliation-2026-10-21' && github.event.pull_request.user.login == 'anandpriyadarsi' }}
-    name: Real Gemini A–K (trusted PR, Ubuntu)
+    name: Real OpenRouter unresolved A–K (Ubuntu)
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 38
     permissions:
       contents: read
     concurrency:
-      group: tutor-gemini-live-${{ github.event.pull_request.number }}
+      group: tutor-openrouter-live-${{ github.event.pull_request.number }}
       cancel-in-progress: true
     env:
       ANVAYA_BROWSER_TESTS: '1'
-      ANVAYA_TUTOR_GEMINI_LIVE: '1'
+      ANVAYA_TUTOR_OPENROUTER_LIVE: '1'
       PYTHONPATH: ${{ github.workspace }}/tests:${{ github.workspace }}
-      ANVAYA_LIVE_ARTIFACTS: ${{ github.workspace }}/tutor-gemini-artifacts
-      LLM_API_URL: https://generativelanguage.googleapis.com/v1beta/openai/chat/completions
-      LLM_MODEL: gemini-3.8-flash
+      ANVAYA_LIVE_ARTIFACTS: ${{ github.workspace }}/tutor-openrouter-artifacts
+      LLM_API_URL: https://openrouter.ai/api/v1/chat/completions
+      LLM_MODEL: openai/gpt-oss-120b:free
     steps:
       - uses: actions/checkout@v4
         with:
@@ -145,45 +145,27 @@ jobs:
         run: python -m pip install -r requirements.txt -r requirements-dev.txt -r requirements-assessment-browser.txt
       - name: Install Chromium
         run: python -m playwright install --with-deps chromium
-      - name: Authenticated real-Gemini preflight (only synthetic data, key never printed)
+      - name: Check secret presence without sending a billable request
         shell: bash
         env:
-          LLM_API_KEY: ${{ secrets.ANVAYA_TUTOR_LIVE_GEMINI_KEY }}
+          LLM_API_KEY: ${{ secrets.ANVAYA_TUTOR_LIVE_OPENROUTER_KEY }}
         run: |
-          python - <<'PY'
-          from personal_learning_assistant.domain.tutor_models import TutorProviderRequest
-          from personal_learning_assistant.tutor.http_provider import OpenAICompatibleTutorProvider
-          provider = OpenAICompatibleTutorProvider(timeout_seconds=65)
-          assert provider.configured, "BLOCKED: Gemini Actions secret not available"
-          request = TutorProviderRequest(
-              session_id="synthetic-smoke", mode="concept", source_policy="source_first",
-              messages=({"role":"user","content":"Reply with exactly ANVAYA TEST READY"},), metadata={}
-          )
-          import time
-          from personal_learning_assistant.tutor.http_provider import TutorProviderRequestError
-          for attempt in range(1, 4):
-              try:
-                  response = provider.complete(request)
-                  assert response.content.strip(), "BLOCKED: configured Gemini produced empty content"
-                  print("PASS: real Gemini HTTP response received; model=" + provider.model)
-                  break
-              except TutorProviderRequestError as error:
-                  if "503" not in str(error) or attempt == 3:
-                      raise
-                  print("Provider reported 503; retrying the limited preflight")
-                  time.sleep(15 * attempt)
-          PY
-      - name: Run actual Flask/Chromium/Gemini A–K on disposable DBs
+          if [ -z "$LLM_API_KEY" ]; then
+            echo "::error::BLOCKED: OpenRouter Actions secret unavailable"
+            exit 1
+          fi
+          echo "OpenRouter key available; fixed free model, synthetic academic test data."
+      - name: Run genuine B C D E F I K with Flask Chromium and SQLite
         env:
-          LLM_API_KEY: ${{ secrets.ANVAYA_TUTOR_LIVE_GEMINI_KEY }}
-        run: python -m pytest -q scripts/tutor23_gemini_live_cases.py --junitxml=tutor-gemini-live.xml
-      - name: Upload genuine per-scenario evidence and verdicts
+          LLM_API_KEY: ${{ secrets.ANVAYA_TUTOR_LIVE_OPENROUTER_KEY }}
+        run: python -m pytest -q scripts/tutor23_openrouter_live_cases.py --junitxml=tutor-openrouter-live.xml
+      - name: Preserve model-specific browser evidence (without secrets)
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: tutor-real-gemini-${{ github.event.pull_request.head.sha }}
+          name: tutor-real-openrouter-${{ github.event.pull_request.head.sha }}
           if-no-files-found: ignore
           path: |
-            tutor-gemini-live.xml
+            tutor-openrouter-live.xml
             ${{ env.ANVAYA_LIVE_ARTIFACTS }}/*.png
             ${{ env.ANVAYA_LIVE_ARTIFACTS }}/*.json
