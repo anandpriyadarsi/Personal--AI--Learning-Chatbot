@@ -93,6 +93,8 @@ jobs:
           skipped={(c.get('classname'),c.get('name')) for c in cases if c.find('skipped') is not None}
           print('Unavailable external private checks, not passes:',sorted(skipped))
           assert code==0 and cases and skipped<=allowed,'Full regression failed or unexpected skips'
+          # Python shell steps execute a temporary script outside the checkout.
+          sys.path.insert(0, str(pathlib.Path.cwd()))
           from scripts.architecture_validation import test_status, external_pilot_acceptance, development_gate_status
           gate={'full':test_status(code,out/'full.xml',allow_external_skips=True),'external_pilots':external_pilot_acceptance(out/'full.xml')}
           assert development_gate_status(gate)=='PASS', 'Public identity/skip gate rejected results'
