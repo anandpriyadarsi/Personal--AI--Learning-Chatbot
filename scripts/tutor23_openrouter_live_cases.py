@@ -29,7 +29,13 @@ from tests.test_tutor23_cloud_acceptance import (
 
 ENABLED = os.getenv("ANVAYA_TUTOR_OPENROUTER_LIVE") == "1"
 OPENROUTER_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
-EXPECTED_MODEL = "nvidia/nemotron-3-super-120b-a12b:free"
+ALLOWED_MODELS = frozenset({
+    "nvidia/nemotron-3-ultra-550b-a55b:free",
+    "cohere/north-mini-code:free",
+    "openrouter/free",
+})
+# Selected by a successful synthetic preflight; never permit a paid model.
+EXPECTED_MODEL = os.getenv("LLM_MODEL", "")
 OUTPUT = Path(os.getenv("ANVAYA_LIVE_ARTIFACTS", "tutor-live-artifacts"))
 
 pytestmark = pytest.mark.skipif(not ENABLED, reason="Real OpenRouter acceptance is explicit opt-in only.")
@@ -44,8 +50,8 @@ class RealOpenRouter:
     def __init__(self):
         if os.getenv("LLM_API_URL") != OPENROUTER_ENDPOINT:
             raise RuntimeError("Disallowed provider endpoint; refusing to send GitHub secret")
-        if os.getenv("LLM_MODEL") != EXPECTED_MODEL:
-            raise RuntimeError("Unexpected model; refusing provider request")
+        if EXPECTED_MODEL not in ALLOWED_MODELS or os.getenv("LLM_MODEL") != EXPECTED_MODEL:
+            raise RuntimeError("Unapproved free model; refusing provider request")
         self.inner = OpenAICompatibleTutorProvider(timeout_seconds=65)
         self.requests = []
         self.responses = []  # Journey interface only; never consumed as scripted responses.
