@@ -15,7 +15,7 @@
     <p class="microcopy">{{ (item.course_labels + item.topic_labels)|join(' · ') }}</p>
     {% endif %}
   </div>
-  <div class="tag-row">
+  <div class="tag-row">{% set lesson_target=source_lesson_target(item.document_id,item.version_hash) %}{% if lesson_target %}<a class="button secondary-button" href="{{ lesson_target }}">Find source-linked lessons</a>{% endif %}
     {% if item.open_original_url %}<a class="button secondary-button" href="{{ item.open_original_url }}" target="_blank" rel="noopener noreferrer">Open original ↗</a>{% endif %}
     <form method="post" action="{{ url_for('web.knowledge_ask_source', document_id=item.document_id) }}">
       <input type="hidden" name="version_hash" value="{{ item.version_hash }}">

@@ -105,9 +105,10 @@ def register_academic_evidence(app):
         def extension(block,widget_id):
             original={'kind':block['kind'],'pages':block['pages'],**block['content']}
             return trusted_graph(original) if block['kind']=='graph' else trusted_activity(original,widget_id)
+        from personal_learning_assistant.services.learning_tutor_session_v24 import project_session_metadata_snapshot
         return render_template('academic_evidence.html',active_page='evidence',stage='lesson',
             view=view,preview=preview,markdown=markdown,extension=extension,error_message='',
-            review_token=signed(view,'review'))
+            review_token=signed(view,'review'),history=project_session_metadata_snapshot(s,view))
 
     @bp.get('/academic-evidence/learning/<module_id>/<int:revision>/source.pdf')
     def source(module_id,revision):
@@ -191,8 +192,10 @@ def register_academic_evidence(app):
         from personal_learning_assistant.learning_studio.rendering import markdown
         help_view=consume(preview,view,event_id=request.form['event_id'],question_id=request.form['question_id'],
             level=request.form['level'],explicit_action=True)
+        from .learning_tutor_v24 import learning_tutor_v24_url
         return render_template('grounded_help.html',active_page='evidence',view=view,help=help_view,
-            levels=LEVELS,review_token=signed(view,'review'),markdown=markdown)
+            levels=LEVELS,review_token=signed(view,'review'),markdown=markdown,
+            save_help_url=learning_tutor_v24_url(module_id,revision,help_view['event_id'],help_view['question']['id'],help_view['assistance_level']))
 
     @bp.post('/academic-evidence/learning/<module_id>/<int:revision>/tutor-handoff')
     def tutor_context(module_id,revision):

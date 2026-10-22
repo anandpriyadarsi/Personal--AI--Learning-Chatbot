@@ -47,7 +47,8 @@ def test_responsive_surfaces_have_one_main_no_overflow_or_js_errors(context, ui,
     page.set_viewport_size({'width': width, 'height': height})
     errors = []
     page.on('pageerror', lambda error: errors.append(str(error)))
-    response = page.goto(ui['base'] + ui['routes'][surface], wait_until='networkidle')
+    # Static layout is ready at load; tracking heartbeats do not define page readiness.
+    response = page.goto(ui['base'] + ui['routes'][surface], wait_until='load')
     assert response.status == 200
     assert page.locator('main').count() == 1
     assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), f'{surface} overflows at {width}px'

@@ -1,0 +1,17 @@
+{% extends "workspace_base.html" %}
+{% block title %}Review learning help · ANVAYA{% endblock %}
+{% block workspace_assets %}{{ super() }}<link rel="stylesheet" href="{{ url_for('static',filename='css/academic_evidence.css') }}">{% endblock %}
+{% block content %}
+<div class="ae-workspace ae-tutor">
+{% if error_message %}<section class="ae-card" role="alert"><h1>Learning help review unavailable</h1><p>{{ error_message }}</p><a href="/academic-evidence">Return to academic evidence</a></section>
+{% else %}
+<header class="ae-hero"><p class="eyebrow">Optional Tutor receipt</p><h1>Review this help before saving</h1><p>{{ view.module_title }}</p><p>This page has not created a Tutor session. Saving records only the source and assistance metadata shown below.</p></header>
+<section class="ae-card"><h2>Exact learning context</h2><p>{{ help.question.prompt }}</p><dl><dt>Practice event</dt><dd>{{ help.event_id }}</dd><dt>Question</dt><dd>{{ help.question.id }} · revision {{ help.question.revision }}</dd><dt>Assistance level</dt><dd>{{ help.assistance_level|replace('_',' ') }}</dd><dt>Module</dt><dd>{{ view.module_id }} · revision {{ view.module_revision }}</dd><dt>Source</dt><dd>{{ view.source_id }} · SHA256 {{ view.source_sha256 }}</dd><dt>Course / topic</dt><dd>{{ view.course_id }} / {{ view.topic_id }}</dd><dt>Evidence fingerprint</dt><dd>{{ view.fingerprint }}</dd><dt>Review time</dt><dd>{{ view.as_of }}</dd></dl><div class="ae-source-links">{% for ref in help.source_refs %}<a href="{{ ref.url }}">Original page {{ ref.page }}</a>{% endfor %}</div></section>
+<section class="ae-card"><h2>Choose whether to save</h2><p>No transcript, answer text, provider details, or study task will be stored. This receipt records the reviewed assistance level. Assistance on historical and future attempts, independence and mastery remain unknown.</p>
+{% if receipt_token %}<form method="post" action="{{ url_for('learning_tutor_v24.save',module_id=view.module_id,revision=view.module_revision) }}"><input type="hidden" name="receipt_token" value="{{ receipt_token }}"><label><input type="checkbox" name="confirm_save" value="yes" required> I approve saving this minimal source-bound learning help metadata in Tutor.</label><p><button type="submit">Save approved metadata</button></p></form>
+{% else %}<p role="status">Saving is unavailable because the canonical Tutor owner or its receipt history could not be verified. No session was created.</p>{% endif %}
+<a href="{{ url_for('academic_evidence.learning',module_id=view.module_id,revision=view.module_revision) }}#tutor-session-history">Return to learning evidence</a></section>
+{% if history %}{% include '_learning_help_history_v24.html' %}{% endif %}<aside class="ae-card"><h2>Limits of this receipt</h2><p>No provider was called. Source fidelity and individual misunderstanding still need review. A saved receipt does not revise practice history or establish independent mastery.</p></aside>
+{% endif %}
+</div>
+{% endblock %}

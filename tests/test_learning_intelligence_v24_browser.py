@@ -45,7 +45,7 @@ def test_complete_learning_help_and_effort_journey(browser,live_v24,width):
         expect(page.locator('.ls-v24-checkpoint')).to_contain_text('Check your understanding')
         fits(page);shot(page,f'v24-reader-{width}.png')
         page.goto(lesson+'?view=practice&question=mean-score')
-        page.locator('.ls-question input[value="0"]').check()
+        page.locator('.ls-question input[type=radio][value="0"]').check()
         with page.expect_response(lambda r:r.url.endswith('/attempts') and r.request.method=='POST') as response:
             page.locator('.ls-question button[type=submit]').click()
         assert response.value.json()['correct'] is False
@@ -67,7 +67,7 @@ def test_complete_learning_help_and_effort_journey(browser,live_v24,width):
         page.get_by_role('button',name='Self Check',exact=True).click()
         expect(page.locator('#help-level')).to_have_text('Self Check')
         page.get_by_role('link',name='Try the exact self-check').click()
-        page.locator('.ls-question input[value="1"]').check()
+        page.locator('.ls-question input[type=radio][value="1"]').check()
         with page.expect_response(lambda r:r.url.endswith('/attempts') and r.request.method=='POST') as response:
             page.locator('.ls-question button[type=submit]').click()
         assert response.value.json()['correct'] is True

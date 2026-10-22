@@ -1,67 +1,78 @@
-# Architecture V2.4 — reviewed learning-intelligence increment
+# Architecture V2.4 — integrated academic learning intelligence
 
-Base: merged main `bf3ca0e7eb1bf6f51d900ab4a6cc69ca83a61eae` (PR31). This branch is not permission to merge or deploy.
+Base: main `bf3ca0e7eb1bf6f51d900ab4a6cc69ca83a61eae`, PR31. Dedicated PR33; parallel Tutor reconciliation is preserved. Merge/deploy requires separate owner authorization after final mandatory acceptance.
 
-## Implemented ownership and contracts
+## Owner boundaries
 
 ```mermaid
 flowchart TD
-  L["Learning owner: immutable modules and attempts"] --> R["Bounded RAM evidence projection"]
-  A["Academic owner: registry, assessments, tasks"] --> R
-  R --> H["Explicit offline help and source review"]
-  R --> C["Signed student task choice"]
-  C --> T["Canonical task owner"]
-  T --> P["Existing Planner: availability, draft, approval, actual effort"]
-  P --> R
+  L["Learning: immutable sources, modules, attempts"] --> E["Bounded RAM evidence projection"]
+  A["Academic: registry, assessment, task and effort"] --> E
+  E --> H["Explicit source-bound offline help"]
+  H --> T["Consented canonical Tutor metadata"]
+  E --> C["Signed manual task choice"]
+  C --> P["Planner: availability, draft, approval, actual effort"]
+  P --> E
+  K["Library and Knowledge source identity"] --> L
 ```
 
-`anvaya.topic-reference.v1` encodes the canonical `(course_id,topic_id)` tuple with a SHA256 key and `academic_registry` owner. Display names never determine identity. This is an adapter, not a new registry. It is additive to `anvaya.academic-evidence.v1`; existing evidence policy and unknown mastery fields remain intact.
+`anvaya.topic-reference.v1` binds canonical course/topic IDs, never display names, with a stable SHA256 tuple key. It adds no registry/store. `anvaya.academic-evidence.v1` distinguishes practice, assessment, subjective self-evaluation, revision, reflection, planned tasks and actual effort. No grade or independent mastery is inferred from reading, help, retries or time.
 
-The Learning side of a response is captured once through the existing bounded stable DELETE/RAM owner adapter. The academic owner is independently captured; no atomic transaction across owners is claimed. Existing task writer validates the active course/topic/name in its own transaction. Signed expiring previews bind the evidence fingerprint. Changes to attempts, mappings, source revision, or revision/reflection metadata require a new preview. An idempotent task retry still uses the existing canonical UUID receipt; no new table or migration exists.
+Academic and Learning owners are independently captured through existing guarded RAM snapshot adapters; no cross-owner atomic transaction is claimed. Exact source/module/question/event identity, revision, evidence fingerprint and distinct clocks bind actions. Stale/reversed/future context fails closed. Revision-open events cannot identify exact rendered selections, so page attribution remains unknown and document-level; opening revision is not a completed recheck. Reflection metadata excludes private response text. Existing task owner revalidates the canonical mapping in its transaction.
 
-Revision-view events now appear separately as `learning_revision`/`revision_signal`, with exact event identity, immutable module revision, original source hash and timestamp. The owner event does not persist its actual rendered budget selection. Page-level attribution is therefore unknown (`rendered_revision_selection_not_recorded`), with a document link rather than guessed section-page citations. Opening revision is not a completed recheck. The budget is not actual effort. Reflection/recall metadata uses `learning_reflection`/`self_reflection_signal`; private reflection text is never projected. Assessment, task and effort clock order now fails closed, in addition to individual clock/as-of validation.
+## Reader and complete practice journey
 
-## Student experience
+The actual Flask/Jinja reader presents authored definitions, examples, semantic headings, callouts, figures/captions, tables, native collapsed outline, source citations and selected-lesson practice/evidence navigation. Original files, assets, modules, templates and completed activities remain preserved. Mobile spacing keeps the first concept visible, text preferences remain inherited, and sidebar/Focus Reading expansion stays fluid.
 
-The actual Learning Studio Learn page gains a readable dark lesson composition, a native authored-content outline, source-linked definition/example/misconception blocks, a local lesson practice checkpoint and a direct evidence journey. It preserves the same authored text, original images, equations-as-authored, Markdown tables, module IDs, templates and progress controls. Text-size preference remains inherited. Focus Reading only carries its preferences to Learning reader URLs, never to strict cross-owner routes. Staged navigation stays staged and cannot practise before publication.
+Explicit authored math uses bounded local MathML, with arithmetic, Greek/comparison symbols, fractions, roots and scripts. Unsupported, oversized or malformed syntax is escaped and visibly requires review. No external renderer/provider is used. Long equations scroll in a keyboard-focusable region within reader/evidence/help pages.
 
-After a qualified exact practice mistake, the learner can explicitly request a source-grounded hint. `anvaya.grounded-offline-help.v1` contains the exact event/question/revision, stable topic reference, evidence fingerprint, as-of clock and source page links. Hint → concept → example → self-check are separate native POST actions. Generic prompts are domain-neutral and labeled deterministic; authored excerpts remain labeled authored/untrusted, scoped to the exact question pages. No guessed diagnosis is presented. Missing matching content is visible. The self-check returns to the exact question; a later correct retry does not certify independence.
+Practice supports the original JSON interface plus native POST/303/GET forms. Server validation binds CSRF/origin, module/source/question revisions, selection and retry ID. Read-only `attempt_feedback` verifies the actual owner event, question and stored outcome against immutable authored content; no pre-attempt grading key is revealed. Links preserve exact lesson/question/practice context.
 
-This is a stateless offline consumer of the frozen educational projection. It deliberately does **not** claim compatibility with automatic course-scoped Tutor sessions, consume arbitrary client handoff JSON, call a provider, store assistance metadata, or retroactively mark practice attempts independent/assisted. Previous and future attempt assistance remains unknown. Automatic session integration is unfinished V2.4 scope, requiring an immutable source-bound canonical session owner contract.
+An exact eligible mistake can explicitly request `anvaya.grounded-offline-help.v1`: hint, concept, example, then self-check. Prompts are domain-neutral and deterministic; authored excerpts are untrusted and scoped to exact question pages. Missing context stays explicit. A retry does not establish independence.
 
-## Review-first conversion slice
+The unchanged canonical task workflow continues: selected source-grounded action → genuine user-supplied availability → preview → draft → separate approval → actual effort → refreshed evidence/Analysis. Assessment question-palette pause/resume, stopped timer, saved answers and last-question resume remain guarded by existing full-suite browser tests.
 
-An explicit signed POST extracts the already-published original PDF into temporary `anvaya.note-draft.v1`. A separate parser process receives bytes through stdin, inherits no provider/credential variables, has a 12-second timeout, and reads no application stores. Input: <=8 MB and <=50 pages. Text: <=30,000 characters/page and <=100,000 total; output bounded. POSIX applies CPU/address-space limits; Windows has timeout/input/output bounds, not a memory limit. This is process isolation, **not** an OS sandbox for arbitrary malicious uploads. The route only accepts existing registered published source bytes; no new public upload surface is added.
+## Optional canonical Tutor receipts
 
-Each page preserves extraction order/text, exact source SHA, extracted-text SHA, parser/method and unknown semantic confidence. Original page links, incomplete/OCR/figure/math/table warnings and a review outline accompany it. Native forms work without JavaScript. The preview cannot stage or publish; human source comparison/re-authoring must use the existing owner preflight → stage → publication flow. Automated structured conversion approval/publication, PPT/PPTX parsing, complete math/figure reconstruction and scanned-page OCR remain unfinished. No private IKS import or background conversion occurs.
+A separate signed review and consent checkbox saves minimal `anvaya.learning-tutor-session.v1` metadata through the existing Tutor owner. It includes exact module/source/question/event/topic identities, assistance level, review time and fingerprint; no answer, source text, private notes, transcript or provider call is stored.
 
-## Verification and rollback
+Every configured/default writer verifies its actual `PRAGMA database_list` main identity against the academic database; foreign colliding IDs, aliases, in-memory/attached stores and unsupported owners fail closed. Default explicit POST reuses the existing canonical file in `mode=rw`, with no bootstrap/migration. Its precise UTC clock avoids whole-second truncation ordering errors. Mapping validation and deterministic receipt handling occur in the existing owner transaction; exact retries return one record and conflicting retries fail.
 
-Focused test files are listed in `.github/workflows/architecture-v24-intelligence.yml`. It records the exact head/tree/platform, runs the unchanged main V2.3 browser journey to capture genuine before screens, restores exact feature source, then runs new contracts/browser tests and the full suite on Ubuntu/Windows. Public acceptance uses the existing strict test-status/external-pilot identity functions; exactly the four original external private identities may be skipped. Missing, duplicate or unexpected identities/skips cannot pass. Private original certification and installed Windows/B3/WAL authority remain BLOCKED, not synthetic passes.
+GET uses the guarded RAM image, never a writer. Saved help observations are an evidence sidecar outside the academic fingerprint, so saving does not invalidate its own retry. History is bounded before JSON parsing and revalidates actual eligible event/question/revision/source/page/time association. Unavailable or over-bound history is explicit. Receipt assistance describes that approved help view only; historical and future attempt assistance, independence and mastery remain unknown.
 
-Browser journey: actual Learn → wrong answer → exact evidence → offline hint/concept/example → self-check retry → PDF draft inspection → explicit task preview/creation → student-supplied availability → draft → separate approval → 35 actual minutes → updated evidence/Analysis. Viewports: 390,768,1366. Includes no-JS help/draft, text-size/Focus Reading regression and full inherited Assessment palette pause/resume browser coverage. Practice submission still needs JavaScript, inherited from its owner; no full no-JS learning loop is claimed.
+## Review-first PDF conversion
 
-Local Chromium download succeeded but this container denies browser Unix sockets (process singleton), so local browser launch is BLOCKED. Native GitHub runners are the actual browser/Windows verification authority. Local unit/HTTP, Node and compile results are separate; final run URLs and counts belong in ACCEPTANCE.md and the PR after the runs finish.
+Native forms explicitly extract an existing published PDF, show page-ordered editable notes with exact original-page fallback links, require per-page comparison/review and separate staging consent, then open the existing staged preview for independent publication approval. No arbitrary upload/private import/background conversion is introduced.
 
-No database migrations, WAL checkpoints, imports or installed-data writes are introduced. Original-file access remains independent. `ANVAYA_EVIDENCE_ENABLED=0`/app `ACADEMIC_EVIDENCE_ENABLED=False` disables the evidence/help/draft routes. The original `python phase7_web.py` startup remains. Revert the branch through normal Git review to undo code; canonical tasks explicitly created by the student remain ordinary owner tasks and must not be deleted by rollback.
+The existing parser subprocess is bounded to 8 MB/50 pages, 12 seconds, limited text/output and no inherited credentials. POSIX adds CPU/memory limits; Windows uses timeout/input/output bounds. This is process isolation, not an operating-system sandbox. OCR, PPT/PPTX, faithful figures and complete math/table reconstruction remain explicitly unsupported.
 
-## Independent review and fixed findings
+`anvaya.note-draft.v1` and the appended immutable source map retain original SHA, page order, extraction/edited hashes, method/parser and unknown confidence. Review uses an independent private signing key, expiry, CSRF digest and source/parent/mapping binding. Request caps apply before parsing; repeated scalar controls, unknown fields, duplicate JSON keys and query ambiguity are rejected.
 
-Three separate reviewers inspected engineering/data safety, academic provenance, and frontend/accessibility. Their findings led to red→green regressions for revision page uncertainty, generic hint domain neutrality, and reversed assessment clocks; fixes also preserve text-size inheritance, focus URL boundaries, lesson-mode question selection and staged routing. Browser tests verify the dynamic control fixes on native CI. Reviews do not certify private course fidelity or installed authority.
+Learning `stage(expected_parent=...)` checks the published parent digest, exact original bytes and next revision before writing in the existing transaction. Exact immutable receipt retries work; changed parent/target conflicts fail. Original pages, sections, questions, assets, source bytes and history are preserved. Human-reviewed transformed notes are appended, explicitly not verbatim, with unknown confidence and `needs_review` references even if the original page was verified. Publication revalidates through its existing owner; no cross-owner atomic registry claim is made.
 
-## Remaining V2.4 / V2.5 handoff
+## Existing Library and Knowledge discovery
 
-These items are **unfinished V2.4 capabilities**, not completed features relabelled as V2.5:
+Exact visible PDF ID/hash links from Library resource documents and the Knowledge reader find active published lessons and evidence. Existing Knowledge search continues through its canonical reader; no alternate vault/index is introduced. The bridge uses one academic registry/catalogue snapshot and one frozen Learning image, validates actual reader namespaces, current topic mapping and original source integrity, and bounds inventory/pagination. Archived-only, stale, hidden and cross-database sources cannot acquire links through name matching.
 
-| Capability | Owner/prerequisite | Next acceptance |
-|---|---|---|
-| Durable Tutor assistance attribution | Tutor/learning owners: immutable module/source/question session binding and approved metadata write | explicit consent + retry receipt + bounded history + assistance event → evidence |
-| Complete reviewed content conversion/publication | Learning owner and academic reviewer: structured transformation/source-map contract | PDF/PPTX figures/math/OCR, exact page mapping, human edits/approval → separate publish |
-| Independent recheck | Assessment owner: authenticated independence/evaluator provenance | help-aware repeated rechecks remain distinct from unaided results |
-| Registry freshness/re-import lifecycle | Source registry/Library owners: versioned current-vs-published identity | stale original/re-import comparison and provenance-preserving migration |
-| Live installed Windows/B3/WAL acceptance | installed owner-authorized publication and genuine backup/restore evidence | trusted private native runner, no live checkpoint |
-| Real-course source certification | private original fixtures and academic review | all four unchanged original IKS tests pass privately; no actual course import implied |
-| Deeper Library/search integration | existing Library/Knowledge adapters after this slice is accepted | discover exact lesson/evidence links without a parallel index |
-| Native no-JS practice submission and rendered math | Learning reader owner, separate exact source formatting contract | keyboard/server submission + offline math rendering + overflow/semantic tests |
+## Verification, reviews and rollback
 
-V2.5 should begin with owner decisions for these interfaces and new tests, preserving this increment's read-only and consent boundaries.
+The V2.4 workflow checks out the exact PR head, records head/tree/platform, captures genuine merged-main before screens, restores feature source, then runs zero-skip focused acceptance, full regression and Node/compile/hygiene on native Ubuntu/Windows. The four original IKS test bodies remain unchanged; public acceptance permits only their exact missing-private skips, with strict missing/duplicate/unexpected identity rejection. Final counts/SHA/run URLs are recorded in PR/evidence only after real runs finish.
+
+The cloud workspace was pruned during an earlier unpublished full run; that interrupted run is not acceptance. Changes were rebuilt from published source, retested and independently reviewed. Native Chromium now works locally. Actual no-JS journeys at 390/768/1366 cover mistake → help → consented receipt → correct retry → edited PDF notes → stage → separate publication → Knowledge discovery. Long-math keyboard/overflow checks and the original seven-width reader regression are included. All demonstrations use disposable synthetic stores.
+
+Independent engineering review found and fixed conversion parse-limit ordering and ambiguous request fields; its original >500 KB exploit now returns413. Academic review fixed transformed-note fidelity and forged receipt/event attribution. Browser/UX checks fixed mobile first-screen spacing, long math containment, real Tutor form action and obsolete pending-help copy. Original functional assertions remain substantive. UI responsive tests wait for the page load lifecycle rather than unrelated background tracking network-idle.
+
+No migrations, checkpoints, database replacement, installed-data test writes or provider calls occur. Existing `python phase7_web.py` startup remains. `ACADEMIC_EVIDENCE_ENABLED`, `LEARNING_TUTOR_V24_ENABLED` and `LEARNING_SOURCE_LINKS_V24_ENABLED`/`LEARNING_LIBRARY_ENABLED` preserve feature boundaries. Rollback is a reviewed code revert; explicitly created canonical records must not be deleted as part of rollback.
+
+## Later scope and external authority
+
+| Capability | Prerequisite and next real acceptance |
+|---|---|
+| PPT/PPTX, scanned OCR, faithful figures/math reconstruction | Format-specific parser/source-map contract; adversarial extraction, human edits and separate publication |
+| Independent recheck certification | Assessment owner authenticated evaluator/independence provenance; help-aware retries stay distinct |
+| Provider-backed source-bound Tutor | Separate Tutor branch and configured permission; source/question/privacy/injection tests and genuine provider evidence |
+| Re-import/revision comparison/course migration | Registry/Library/Learning lifecycle ownership, side-by-side immutable provenance and rollback proof |
+| Installed Windows/B3/WAL authority | Owner-authorized trusted runner and genuine backup/restore without live checkpoint |
+| Real-course certification | Genuine private originals; all four unchanged IKS cases pass privately |
+
+These external/later capabilities remain separate from public V2.4 synthetic development acceptance. No passing synthetic check certifies them.
