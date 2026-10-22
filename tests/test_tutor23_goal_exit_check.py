@@ -605,3 +605,20 @@ def test_template_exposes_exit_check_and_goal_evidence():
     assert "Goal evidence" in template
     assert "Current-session evidence only · not mastery." in template
     assert "Exit checks asked:" in template
+
+
+def test_contrastive_student_statement_sets_goal_to_actual_unresolved_concept():
+    from personal_learning_assistant.tutor.session_goal import infer_session_goal
+
+    goal = infer_session_goal(
+        "I understand Gaussian elimination, but I do not understand elimination "
+        "multipliers in LU factorization. Explain only what I need so I can return to LU."
+    )
+    assert goal == "Understand elimination multipliers in LU factorization"
+    assert "Gaussian elimination" not in goal
+
+    followup = infer_session_goal(
+        "I understand span but why does a basis need linear independence?"
+    )
+    assert "basis need linear independence" in followup
+    assert "span" not in followup
