@@ -96,6 +96,22 @@ def _subject_text(question):
     if not clean:
         return ""
 
+    # "I understand X, but I don't understand Y" describes Y as the new
+    # learning need. Never freeze the already-understood X into the goal.
+    # This only changes session-local goal wording; the provider still sees
+    # the unmodified current student question for context.
+    contrast = re.match(
+        r"^i\\s+understand\\b.+?\\bbut\\b\\s+(.+)$",
+        clean,
+        flags=re.IGNORECASE,
+    )
+    if contrast:
+        clean = re.split(
+            r"(?<=[.!?])\\s+(?=[A-Z])",
+            contrast.group(1),
+            maxsplit=1,
+        )[0]
+
     patterns = (
         r"^(?:please\s+)?(?:can|could|would)\s+you\s+",
         r"^(?:please\s+)?",
