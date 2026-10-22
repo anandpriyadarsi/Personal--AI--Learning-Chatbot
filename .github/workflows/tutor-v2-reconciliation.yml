@@ -13,6 +13,7 @@ on:
       - 'personal_learning_assistant/domain/grounded_tutor_models.py'
       - 'personal_learning_assistant/ui/web/**'
       - 'tests/test_tutor*.py'
+      - 'scripts/tutor23_gemini_live_cases.py'
       - 'tests/test_phase7_5_academic_agent_web.py'
       - 'tests/learning_studio/test_educational_projection_v23.py'
       - '.github/workflows/tutor-v2-reconciliation.yml'
@@ -123,6 +124,7 @@ jobs:
     env:
       ANVAYA_BROWSER_TESTS: '1'
       ANVAYA_TUTOR_GEMINI_LIVE: '1'
+      PYTHONPATH: ${{ github.workspace }}/tests:${{ github.workspace }}
       ANVAYA_LIVE_ARTIFACTS: ${{ github.workspace }}/tutor-gemini-artifacts
       LLM_API_URL: https://generativelanguage.googleapis.com/v1beta/openai/chat/completions
       LLM_MODEL: gemini-3.8-flash
