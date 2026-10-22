@@ -63,3 +63,24 @@ def test_generic_hint_does_not_invent_a_course_specific_operation(uc_owners):
     from personal_learning_assistant.learning_studio.grounded_help import PROMPTS
     assert 'measured variable' not in PROMPTS['hint']
     assert 'cited page' in PROMPTS['hint']
+
+
+@pytest.mark.parametrize('target',['producer','event_reference','nested_citation','topic_mapping'])
+def test_same_hash_never_substitutes_a_foreign_registered_source(uc_owners,target):
+    from dataclasses import replace
+    from personal_learning_assistant.learning_studio.grounded_help import consume
+    from personal_learning_assistant.learning_studio.educational_projection import build_preview
+    from personal_learning_assistant.learning_studio.validation import PackageError
+    mistake(uc_owners);owner=service(uc_owners);view=owner.learning('uc100n-demo',1)
+    preview=build_preview(uc_owners[1],'uc100n-demo',1,catalogue=owner.catalogue())
+    if target=='producer':preview['source']['source_id']='foreign-same-bytes'
+    elif target=='topic_mapping':preview['mapping']['course_id']='foreign-course'
+    elif target=='event_reference':
+        view=replace(view,records=tuple(replace(r,source_refs=tuple(
+            replace(ref,identifier='foreign-same-bytes') if ref.kind=='learning_source' else ref
+            for ref in r.source_refs)) if r.identifier=='learning_attempt:wrong-mean' else r for r in view.records))
+    else:
+        block=next(b for b in preview['sections'][0]['blocks'] if b['kind']=='example')
+        block['source_refs'][0]['source_id']='foreign-same-bytes'
+    with pytest.raises(PackageError):
+        consume(preview,view,event_id='learning_attempt:wrong-mean',question_id='mean-score',level='example',explicit_action=True)

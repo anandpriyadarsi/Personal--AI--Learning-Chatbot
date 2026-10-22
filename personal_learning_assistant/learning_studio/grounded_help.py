@@ -18,7 +18,10 @@ def consume(preview, view, *, event_id, question_id, level, explicit_action=Fals
     require(isinstance(level, str) and level in LEVELS, 'Choose hint, concept, example or self_check.')
     require(preview.get('schema')=='anvaya.educational-note-projection.v1', 'Unsupported note contract.')
     require(preview['module']=={'id':view.module_id,'revision':view.module_revision,'title':view.module_title}
-        and preview['source']['sha256']==view.source_sha256, 'Source context changed.', 409)
+        and preview['source']['sha256']==view.source_sha256 and preview['source']['source_id']==view.source_id, 'Source context changed.', 409)
+    require(isinstance(preview.get('mapping'),dict) and preview['mapping'].get('course_id')==view.course_id
+        and preview['mapping'].get('topic_id')==view.topic_id and preview.get('mapping_status')=='reviewed_current_catalogue',
+        'Course/topic context changed.',409)
     require(not view.historical_revision and view.mapping_status=='reviewed_current_catalogue',
         'Current reviewed course/source context is required.', 409)
     record = next((r for r in view.records if r.identifier==event_id and r.kind=='learning_practice'), None)
@@ -29,7 +32,7 @@ def consume(preview, view, *, event_id, question_id, level, explicit_action=Fals
     require(question is not None, 'Question revision changed.', 409)
     pages = set(question['pages'])
     refs = [r for r in record.source_refs if r.kind=='learning_source']
-    require({r.page for r in refs}==pages and all(r.sha256==view.source_sha256 and r.revision==view.module_revision for r in refs),
+    require({r.page for r in refs}==pages and all(r.identifier==view.source_id and r.sha256==view.source_sha256 and r.revision==view.module_revision for r in refs),
         'Question source association changed.', 409)
     allowed = {'definition','teaching','misconception'} if level=='concept' else {'example','table'} if level=='example' else set()
     blocks = []
@@ -41,7 +44,7 @@ def consume(preview, view, *, event_id, question_id, level, explicit_action=Fals
             require(len(block['source_refs'])==len(block['pages']) and
                 {r['page'] for r in block['source_refs']}==set(block['pages']) and
                 all(r['module_id']==view.module_id and r['module_revision']==view.module_revision and
-                    r['source_sha256']==view.source_sha256 for r in block['source_refs']),
+                    r['source_id']==view.source_id and r['source_sha256']==view.source_sha256 for r in block['source_refs']),
                 'Foreign or stale authored citation.',409)
             candidate=deepcopy(block)
             # Only safe teaching fields; no graph, widget, key or arbitrary future field.
