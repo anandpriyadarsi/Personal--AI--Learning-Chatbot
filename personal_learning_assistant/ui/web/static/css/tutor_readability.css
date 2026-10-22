@@ -120,3 +120,25 @@
 .tutor-markdown .assessment-math-sup, .tutor-markdown .assessment-math-sub { font-size: .72em; line-height: 0; }
 .tutor-markdown .assessment-big-operator { display: inline-grid; grid-template-rows: auto auto auto; text-align: center; vertical-align: middle; margin-inline: .25em; }
 .tutor-markdown .assessment-big-operator-upper, .tutor-markdown .assessment-big-operator-lower { font-size: .65em; }
+
+/* Tutor composer: the original fixed-width browser textarea became a narrow
+   column on 1366px Chromium. Keep it readable without changing other forms. */
+#agent-question {
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 8rem;
+  padding: .85rem 1rem;
+  line-height: 1.6;
+  resize: vertical;
+  color: inherit;
+  background: rgba(8, 17, 25, .42);
+  border: 1px solid rgba(148, 163, 184, .4);
+  border-radius: .7rem;
+}
+#agent-question:focus-visible {
+  outline: 2px solid rgba(109, 211, 197, .65);
+  outline-offset: 2px;
+}
