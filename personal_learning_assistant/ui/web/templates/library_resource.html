@@ -7,7 +7,7 @@
   <section class="materials-hero" aria-labelledby="resource-title"><div class="materials-hero-copy">
     <p class="eyebrow">Registered Library / Resource</p><h1 id="resource-title">{{ resource.title }}</h1>
     <p class="materials-intro">{{ resource.resource_type }}{% if resource.provider %} · {{ resource.provider }}{% endif %}</p>
-    <div class="materials-hero-actions">{% if resource.external_url %}<a class="button" href="{{ resource.external_url }}" target="_blank" rel="noopener noreferrer">Open external resource ↗</a>{% endif %}<a class="materials-subtle-link" href="{{ url_for('web.knowledge') }}">Explore Knowledge ↗</a></div>
+    <div class="materials-hero-actions">{% if resource.external_url %}<a class="button" href="{{ resource.external_url }}" target="_blank" rel="noopener noreferrer">Open external resource ↗</a>{% endif %}<a class="materials-subtle-link" href="{{ url_for('web.learning_library', view='search') }}">Search inside content ↗</a></div>
   </div><div class="materials-hero-symbol" aria-hidden="true"><span>R</span><small>RESOURCE DETAIL</small></div></section>
   <div class="materials-context-strip"><span class="materials-context-dot" aria-hidden="true"></span><span>{{ resource.learning_status|replace('_', ' ')|capitalize }}</span><span class="materials-context-divider">/</span><span>Last recorded update: {{ resource.updated_at }}</span></div>
   <section class="dashboard-panel library-detail-panel" aria-labelledby="academic-links-title">
