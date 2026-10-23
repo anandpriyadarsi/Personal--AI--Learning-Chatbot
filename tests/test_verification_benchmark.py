@@ -163,5 +163,75 @@ class BenchmarkTests(unittest.TestCase):
             self.assertFalse(outfile.exists())
 
 
+
+class FinalRepairTests(unittest.TestCase):
+    def test_skipped_authoritative_steps_are_rejected(self):
+        for group, data in [('architecture', full_jobs()), ('fast', {'jobs': [
+            job('Change-aware Python and JavaScript smoke',
+                step_name='Change-aware fast feedback (not merge acceptance)')]})]:
+            data['jobs'][0]['steps'][0]['conclusion'] = 'skipped'
+            with self.assertRaises(MODULE.InvalidEvidence):
+                MODULE.inspect(data, group)
+
+    def test_subsecond_negative_duration_is_rejected(self):
+        with self.assertRaises(MODULE.InvalidEvidence):
+            MODULE.seconds('2026-10-23T01:00:00.9Z', '2026-10-23T01:00:00.1Z')
+
+    def test_mixed_source_or_run_identity_is_rejected(self):
+        for field in ('head_sha', 'run_id'):
+            data = full_jobs()
+            for item in data['jobs']:
+                item.update(head_sha='a' * 40, run_id=123)
+            data['jobs'][1][field] = 'b' * 40 if field == 'head_sha' else 456
+            with self.assertRaises(MODULE.InvalidEvidence):
+                MODULE.inspect(data, 'architecture')
+
+    def test_missing_identity_in_one_job_is_rejected(self):
+        data = full_jobs()
+        data['jobs'][0]['head_sha'] = 'a' * 40
+        with self.assertRaises(MODULE.InvalidEvidence):
+            MODULE.inspect(data, 'architecture')
+
+    def test_metadata_records_queue_elapsed_and_critical_path(self):
+        data = full_jobs()
+        for item in data['jobs']:
+            item.update(head_sha='a' * 40, run_id=123,
+                        created_at='2026-10-23T00:59:50Z')
+        # Add a real dependency-install step; validator timing is separate.
+        data['jobs'][0]['steps'].append({
+            'name': 'Install tracked test dependencies', 'conclusion': 'success',
+            'started_at': '2026-10-23T01:00:00Z',
+            'completed_at': '2026-10-23T01:00:20Z'})
+        meta = {'id': 123, 'head_sha': 'a' * 40,
+                'status': 'completed', 'conclusion': 'success',
+                'created_at': '2026-10-23T00:59:00Z'}
+        result = MODULE.inspect(data, 'architecture', run_response=meta)
+        self.assertEqual(result['initial_queue_seconds'], 60)
+        self.assertEqual(result['elapsed_from_created_seconds'], 840)
+        self.assertEqual(result['source_sha'], 'a' * 40)
+        self.assertEqual(result['critical_path_job'], 'Synthetic development (ubuntu-latest)')
+        self.assertEqual(result['jobs'][0]['queue_seconds'], 10)
+        self.assertEqual(result['jobs'][0]['steps'][-1]['seconds'], 20)
+
+    def test_metadata_must_match_successful_job_identity(self):
+        for field, value in [('id', 456), ('head_sha', 'b' * 40),
+                             ('conclusion', 'failure')]:
+            data = full_jobs()
+            for item in data['jobs']:
+                item.update(head_sha='a' * 40, run_id=123)
+            meta = {'id': 123, 'head_sha': 'a' * 40,
+                    'status': 'completed', 'conclusion': 'success',
+                    'created_at': '2026-10-23T00:59:00Z'}
+            meta[field] = value
+            with self.assertRaises(MODULE.InvalidEvidence):
+                MODULE.inspect(data, 'architecture', run_response=meta)
+
+    def test_step_outside_job_time_is_rejected(self):
+        data = full_jobs()
+        data['jobs'][0]['steps'][0]['completed_at'] = '2026-10-23T02:00:00Z'
+        with self.assertRaises(MODULE.InvalidEvidence):
+            MODULE.inspect(data, 'architecture')
+
+
 if __name__ == "__main__":
     unittest.main()

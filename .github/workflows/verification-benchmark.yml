@@ -38,17 +38,23 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           gh api "repos/$REPO/actions/runs/39883294409/jobs?per_page=100" > baseline-architecture.json
+          gh api "repos/$REPO/actions/runs/39883294409" > baseline-architecture-run.json
           gh api "repos/$REPO/actions/runs/39886333214/jobs?per_page=100" > smart-architecture.json
+          gh api "repos/$REPO/actions/runs/39886333214" > smart-architecture-run.json
           python scripts/verification_benchmark.py \
             --before baseline-architecture.json --after smart-architecture.json \
+            --before-metadata baseline-architecture-run.json --after-metadata smart-architecture-run.json \
             --group architecture \
             --before-run "https://github.com/$REPO/actions/runs/39883294409" \
             --after-run "https://github.com/$REPO/actions/runs/39886333214" \
             --output architecture-benchmark.json --markdown architecture-benchmark.md
           gh api "repos/$REPO/actions/runs/39797255775/jobs?per_page=100" > baseline-ui.json
+          gh api "repos/$REPO/actions/runs/39797255775" > baseline-ui-run.json
           gh api "repos/$REPO/actions/runs/39886333220/jobs?per_page=100" > smart-ui.json
+          gh api "repos/$REPO/actions/runs/39886333220" > smart-ui-run.json
           python scripts/verification_benchmark.py \
             --before baseline-ui.json --after smart-ui.json \
+            --before-metadata baseline-ui-run.json --after-metadata smart-ui-run.json \
             --group ui \
             --before-run "https://github.com/$REPO/actions/runs/39797255775" \
             --after-run "https://github.com/$REPO/actions/runs/39886333220" \
@@ -69,7 +75,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: measured-historical-ci-${{ github.sha }}
+          name: measured-historical-ci-${{ github.event.pull_request.head.sha || github.sha }}
           path: |
             architecture-benchmark.*
             ui-benchmark.*
@@ -77,6 +83,7 @@ jobs:
             smart-architecture.json
             baseline-ui.json
             smart-ui.json
+            *-run.json
           if-no-files-found: warn
       - name: Syntax and whitespace
         run: |
@@ -104,12 +111,15 @@ jobs:
         run: |
           gh api "repos/$REPO/actions/runs/39883294409/jobs?per_page=100" > baseline-jobs.json
           gh api "repos/$REPO/actions/runs/$RUN_ID/jobs?per_page=100" > candidate-jobs.json
+          gh api "repos/$REPO/actions/runs/39883294409" > baseline-run.json
+          gh api "repos/$REPO/actions/runs/$RUN_ID" > candidate-run.json
       - name: Compute measured cross-platform gate duration
         shell: bash
         run: |
           python scripts/verification_benchmark.py \
             --before baseline-jobs.json \
             --after candidate-jobs.json \
+            --before-metadata baseline-run.json --after-metadata candidate-run.json \
             --group architecture \
             --before-run "https://github.com/$REPO/actions/runs/39883294409" \
             --after-run "https://github.com/$REPO/actions/runs/$RUN_ID" \
@@ -124,6 +134,8 @@ jobs:
           path: |
             baseline-jobs.json
             candidate-jobs.json
+            baseline-run.json
+            candidate-run.json
             verification-benchmark.json
             verification-benchmark.md
           retention-days: 30

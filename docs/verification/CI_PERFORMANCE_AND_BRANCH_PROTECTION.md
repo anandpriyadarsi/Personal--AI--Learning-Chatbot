@@ -110,3 +110,102 @@ data and Tutor/Android branches remain untouched.
 - Runner setup, CI concurrency and GitHub queues are external factors.
 - Changes in tests or application code between observations prevent strict
   apples-to-apples causal attribution; collect multiple comparable runs.
+
+## V1.1 final repair, 23 October 2026
+
+The original Ubuntu failure in run [39901787974](https://github.com/anandpriyadarsi/Personal--AI--Learning-Chatbot/actions/runs/39901787974)
+was `test_student_manually_chooses_study_then_rechecks_exact_revision[1366]`.
+`academic_inventory()` recursively hashed every file before filtering to the
+canonical academic database. An asynchronous Learning Studio bookmark transaction
+removed `learning_studio.sqlite3-journal` between enumeration and reading, causing
+`FileNotFoundError`. This is a test-instrumentation race, not evidence of a broken
+academic assertion. The original artifact's traceback, manifest hash, archive
+hashes and category results are preserved in `evidence/v1_1/original-failure.json`.
+
+Current main already contained the targeted fix and two regression tests after
+Tutor #32 landed. PR #37 incorporates that accepted main commit, retaining the
+same canonical database/WAL/SHM mutation assertions. It does not reimplement the
+Tutor fix or change the Tutor/Android branches.
+
+Selector repair now retains both sides of a rename, requires full coverage for
+deleted tests or missing mapped tests, and fails closed for all unrecognized
+paths (including native Android and configuration files). Fast feedback still
+never grants full merge authority. Benchmark repair rejects skipped full/smoke
+steps and inconsistent run/source identities. Matching run metadata enables
+queue time and elapsed-from-creation measurements; individual step durations
+separate dependency, browser and artifact costs. Without metadata, queue time is
+explicitly unavailable. The canonical validator now prints the slowest 25 setup,
+call and teardown phases in each pytest log. Artifacts use the source head SHA,
+rather than the PR's synthetic merge-ref SHA, and checkout verifies that head.
+
+### Measured bottleneck and decisions
+
+Original PR #37 run, source `a27c82f7766930ed4d95e14adb4ff49c11eb586f`:
+
+| Stage | Ubuntu | Windows |
+| --- | ---: | ---: |
+| Dependency installation | 23s | 58s |
+| Fresh browser installation, including OS libraries on Linux | 22s | 13s |
+| Python full suite (JUnit suite elapsed) | 647.170s, FAIL | 1781.607s, PASS |
+| Focused feature verification | 5.776s | 17.250s |
+| Forward fixture-order check | 4.223s | 9.469s |
+| Reverse fixture-order check | 7.078s | 25.453s |
+| Characterization | 9.434s | 31.297s |
+| Additional protected headless browser gate | 66.672s | 110.406s |
+| Artifact upload step | 3s | 3s |
+| Full validator step | 12m26s, FAIL | 33m09s, PASS |
+
+Workers began together at 04:43:17Z; aggregate ended at 05:18:15Z:
+**34m58s** active critical path, excluding initial queue, with Windows dominant.
+This failed workflow is diagnostic evidence, not a successful performance sample.
+JUnit includes fixture overhead in testcase time; the new `--durations=25`
+log separates setup/call/teardown for future diagnosis.
+
+Windows full-suite time by test module in this diagnostic run: read-safety
+166.139s, Assessment browser 94.709s, Planning/Analysis browser 64.093s,
+question-topic dual-read 53.366s. These involve source exports, fresh SQLite
+state, subprocesses and browser startup. No single fixture accounts for the
+entire critical path. Removing their assertions or sharing mutable databases
+would not be an acceptable speed optimization.
+
+Two historical successful architecture samples span **28m50s–32m02s**, median
+**30m26s** (n=2, different commits and runner conditions). Their initial queue
+was 19s and 3s; elapsed from workflow creation was 29m09s and 32m05s.
+This is a small observational sample, not controlled causal evidence.
+The historical UI jobs span 26m31s to 11m28s, but the full Windows critical
+path prevents treating that reduction as an equal total-PR improvement.
+
+Decisions: retain existing reproducible pip caching; do not cache academic
+SQLite files; reject blanket xdist/sharding and shared browser/database fixture
+changes because independence is not established. Repeated source setup is a
+candidate for later work only after the per-phase diagnostics establish its
+benefit. No additional full-suite runtime reduction is claimed by this repair.
+Avoid a costly speculative optimization merely to produce a speedup number.
+
+### Administrator blocker and exact enforcement settings
+
+Refreshed GitHub reads: `main.protected=false`, rulesets `[]`; legacy protection
+GET returns **403 Resource not accessible by integration**. No protection write
+operation is exposed by the connected GitHub tools. Enforcement and bypass
+configuration therefore remain **BLOCKED**, not enabled by this PR.
+
+Owner must create an **Active** branch ruleset targeting **main** (not all feature
+branches), require a pull request and these exact required checks from **GitHub
+Actions**:
+
+- `Cross-platform development acceptance`
+- `Change-aware Python and JavaScript smoke`
+
+Enable **Require branches to be up to date before merging**. Keep applicable
+independent feature checks; do not substitute smoke for either platform's full
+regression. Restrict deletions and block force pushes. Leave the ruleset bypass
+list empty; do not add repository-admin or all-app blanket bypass. A one-person
+repository need not require an external approval reviewer. Save as **Active**.
+
+Verify the effective target, required check names, source app and bypass list
+in Settings, then inspect a disposable non-draft test PR: failing, missing and
+pending required results must each keep merging blocked, and both native OS
+jobs must be successful at its exact head before the aggregate passes. Close
+the disposable PR without merging; do not merge intentionally failing code.
+The actual enforcement probe cannot be performed until the administrator enables
+the rule. PR #37 remains unmerged pending user approval and this external blocker.

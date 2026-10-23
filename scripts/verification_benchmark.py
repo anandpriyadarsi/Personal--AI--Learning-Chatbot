@@ -42,13 +42,13 @@ def timestamp(value: str | None) -> datetime:
 
 
 def seconds(start: str, end: str) -> int:
-    delta = int((timestamp(end) - timestamp(start)).total_seconds())
+    delta = (timestamp(end) - timestamp(start)).total_seconds()
     if delta < 0:
         raise InvalidEvidence("Negative duration")
-    return delta
+    return int(delta)
 
 
-def inspect(jobs_response: dict, group: str) -> dict:
+def inspect(jobs_response: dict, group: str, *, run_response: dict | None = None) -> dict:
     """Only compare fully completed, passing and uniquely identified jobs."""
     jobs = jobs_response.get("jobs") if isinstance(jobs_response, dict) else None
     if not isinstance(jobs, list):
@@ -70,6 +70,22 @@ def inspect(jobs_response: dict, group: str) -> dict:
         if job.get("status") != "completed" or job.get("conclusion") != "success":
             raise InvalidEvidence(f"Job not successfully completed: {name}")
         chosen.append(job)
+    # GitHub's jobs API supplies these identities. Legacy timing-only snapshots
+    # remain readable, but a partially identified or mixed snapshot is rejected.
+    identities = {}
+    for field in ("head_sha", "run_id"):
+        values = [j.get(field) for j in chosen]
+        if any(v is not None for v in values):
+            if not all(values) or len(set(values)) != 1:
+                raise InvalidEvidence(f"Missing or mixed job {field}")
+            identities[field] = values[0]
+    if run_response is not None:
+        if run_response.get("status") != "completed" or run_response.get("conclusion") != "success":
+            raise InvalidEvidence("Run metadata must describe a successful completed run")
+        if (not identities.get("head_sha") or not identities.get("run_id")
+                or run_response.get("head_sha") != identities["head_sha"]
+                or run_response.get("id") != identities["run_id"]):
+            raise InvalidEvidence("Run metadata does not match all job identities")
     overall_start = min(timestamp(j["started_at"]) for j in chosen)
     overall_end = max(timestamp(j["completed_at"]) for j in chosen)
     if overall_end < overall_start:
@@ -77,6 +93,17 @@ def inspect(jobs_response: dict, group: str) -> dict:
 
     details = []
     for job in chosen:
+        job_start, job_end = timestamp(job["started_at"]), timestamp(job["completed_at"])
+        step_details = []
+        for step in job.get("steps", []):
+            duration = None
+            if step.get("conclusion") == "success":
+                start, end = timestamp(step.get("started_at")), timestamp(step.get("completed_at"))
+                duration = seconds(step["started_at"], step["completed_at"])
+                if start < job_start or end > job_end:
+                    raise InvalidEvidence(f"Step time outside job: {job['name']}")
+            step_details.append({"name": step.get("name"), "result": step.get("conclusion"),
+                                 "seconds": duration})
         steps = [s for s in job.get("steps", []) if s.get("name") == step_name]
         if len(steps) > 1:
             raise InvalidEvidence(f"Duplicated named step in {job['name']}")
@@ -88,18 +115,30 @@ def inspect(jobs_response: dict, group: str) -> dict:
         else:
             step = steps[0]
             step_status = step.get("conclusion")
-            if step_status not in {"success", "skipped"}:
+            if step_status not in ({"success", "skipped"} if group == "ui" else {"success"}):
                 raise InvalidEvidence(f"Unexpected step result in {job['name']}: {step_status}")
             step_duration = (seconds(step["started_at"], step["completed_at"])
                              if step_status == "success" else None)
         details.append({
             "name": job["name"],
+            "queue_seconds": (seconds(job["created_at"], job["started_at"])
+                              if job.get("created_at") else None),
+            "steps": step_details,
             "job_seconds": seconds(job["started_at"], job["completed_at"]),
             "target_step": step_name,
             "target_step_result": step_status,
             "target_step_seconds": step_duration,
         })
+    workers = [j for j in chosen if not j["name"].startswith("Cross-platform")]
+    critical = max(workers, key=lambda j: timestamp(j["completed_at"]))
     return {
+        "source_sha": identities.get("head_sha"),
+        "run_id": identities.get("run_id"),
+        "initial_queue_seconds": (seconds(run_response["created_at"], overall_start.isoformat())
+                                  if run_response is not None else None),
+        "elapsed_from_created_seconds": (seconds(run_response["created_at"], overall_end.isoformat())
+                                         if run_response is not None else None),
+        "critical_path_job": critical["name"],
         "group": group,
         "wall_seconds": int((overall_end - overall_start).total_seconds()),
         "started_at": overall_start.isoformat(),
@@ -156,6 +195,17 @@ def markdown(result: dict) -> str:
                     else j["target_step_result"])
         lines.append(f"| {old['name']} | {mins(old['job_seconds'])} | "
                      f"{mins(new['job_seconds'])} | {step(old)} | {step(new)} |")
+    lines += ["", "Queue and total elapsed are unavailable unless run metadata is supplied."]
+    for label, summary in (("Before", before), ("After", after)):
+        lines += [f"{label}: source `{summary.get('source_sha')}`, run `{summary.get('run_id')}`; "
+                  f"initial queue {summary.get('initial_queue_seconds')}s; "
+                  f"elapsed from creation {summary.get('elapsed_from_created_seconds')}s; "
+                  f"critical worker: {summary.get('critical_path_job')}."]
+        lines += ["", f"### {label} step breakdown", "", "| Job | Step | Result | Seconds |",
+                  "| --- | --- | --- | ---: |"]
+        for job in summary["jobs"]:
+            for step in job.get("steps", []):
+                lines.append(f"| {job['name']} | {step['name']} | {step['result']} | {step['seconds']} |")
     lines += [
         "",
         "Important: comparisons involve different commits, workflows and runner conditions.",
@@ -169,6 +219,8 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--before", type=Path, required=True, help="GitHub Actions jobs API response")
     parser.add_argument("--after", type=Path, required=True, help="GitHub Actions jobs API response")
+    parser.add_argument("--before-metadata", type=Path, help="Matching GitHub Actions run API JSON")
+    parser.add_argument("--after-metadata", type=Path, help="Matching GitHub Actions run API JSON")
     parser.add_argument("--group", choices=(*GROUPS, "fast"), required=True)
     parser.add_argument("--before-run", required=True, help="Immutable GitHub Actions run URL")
     parser.add_argument("--after-run", required=True, help="Immutable GitHub Actions run URL")
@@ -176,8 +228,12 @@ def main(argv=None) -> int:
     parser.add_argument("--markdown", type=Path, default=Path("verification-benchmark.md"))
     args = parser.parse_args(argv)
     try:
-        before = inspect(json.loads(args.before.read_text(encoding="utf-8")), args.group)
-        after = inspect(json.loads(args.after.read_text(encoding="utf-8")), args.group)
+        if bool(args.before_metadata) != bool(args.after_metadata):
+            raise InvalidEvidence("Supply both run metadata files or neither")
+        def read(path):
+            return json.loads(path.read_text(encoding="utf-8")) if path else None
+        before = inspect(read(args.before), args.group, run_response=read(args.before_metadata))
+        after = inspect(read(args.after), args.group, run_response=read(args.after_metadata))
         result = comparison(before, after, before_run=args.before_run, after_run=args.after_run)
     except (InvalidEvidence, OSError, ValueError, KeyError, TypeError) as exc:
         print(f"Benchmark evidence REJECTED: {exc}", file=sys.stderr)

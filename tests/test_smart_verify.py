@@ -108,3 +108,55 @@ def test_windows_paths_are_normalized(tmp_path):
     root = build(tmp_path)
     plan = module.make_plan([r'personal_learning_assistant\tutor\provider.py'], 'fast', root)
     assert plan.areas == ['tutor']
+
+
+def test_missing_smoke_reference_requires_full(tmp_path):
+    root = build(tmp_path)
+    (root / 'tests/test_tutor_grounding_v24.py').unlink()
+    plan = module.make_plan(['personal_learning_assistant/tutor/policy.py'], 'fast', root)
+    assert plan.requires_full
+    assert any('Missing' in reason for reason in plan.reasons)
+
+
+def test_deleted_test_requires_full(tmp_path):
+    plan = module.make_plan(['tests/test_tutor_deleted.py'], 'fast', build(tmp_path))
+    assert plan.requires_full
+
+
+def test_unmapped_native_and_configuration_paths_require_full(tmp_path):
+    for path in ['android/app/src/main/MainActivity.java', 'android/app/build.gradle',
+                 'new_config.toml', 'package-lock.json', '.gitattributes',
+                 'scripts/policy.yaml', 'new_runtime.bin']:
+        assert module.make_plan([path], 'fast', build(tmp_path)).requires_full, path
+
+
+def test_focused_empty_mapping_requires_full(tmp_path):
+    root = build(tmp_path)
+    for path in (root / 'tests').glob('*tutor*.py'):
+        path.unlink()
+    plan = module.make_plan(['personal_learning_assistant/tutor/policy.py'], 'focused', root)
+    assert plan.requires_full
+
+
+def test_renamed_source_retains_both_affected_areas(tmp_path):
+    # Real git diff, since --name-only normally reports only a rename target.
+    root = tmp_path / 'repo'
+    root.mkdir()
+    def git(*args):
+        return subprocess.check_output(['git', '-C', str(root), *args], text=True).strip()
+    git('init')
+    git('config', 'user.name', 'Synthetic selector test')
+    git('config', 'user.email', 'synthetic@example.invalid')
+    old = root / 'personal_learning_assistant/tutor/engine.py'
+    old.parent.mkdir(parents=True)
+    old.write_text('synthetic unchanged content\n' * 20)
+    git('add', '.')
+    git('commit', '-m', 'before')
+    base = git('rev-parse', 'HEAD')
+    new = root / 'personal_learning_assistant/learning_studio/engine.py'
+    new.parent.mkdir(parents=True)
+    old.rename(new)
+    git('add', '.')
+    git('commit', '-m', 'rename')
+    assert set(module.changed_paths(base, 'HEAD', root)) == {
+        old.relative_to(root).as_posix(), new.relative_to(root).as_posix()}
