@@ -27,8 +27,8 @@ public class MainActivity extends Activity {
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
-        getWindow().setFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE,
-                             android.view.WindowManager.LayoutParams.FLAG_SECURE);
+        // Screen captures are intentionally allowed for the owner's study and feedback.
+        // Keep WebView, origin, capability-cookie and app-private storage protections.
         LinearLayout splash = new LinearLayout(this);
         splash.setGravity(android.view.Gravity.CENTER);
         splash.setOrientation(LinearLayout.VERTICAL);
