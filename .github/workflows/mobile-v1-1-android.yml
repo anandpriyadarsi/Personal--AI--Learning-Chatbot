@@ -1,0 +1,83 @@
+name: Mobile V1.1 standalone Android
+on:
+  pull_request:
+    branches: [feature/mobile-v1-private-pwa-2026-10]
+  push:
+    branches: [feature/mobile-v1-1-private-android-runtime-2026-10]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: android-v11-${{ github.event.pull_request.head.ref || github.ref }}
+  cancel-in-progress: true
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Build embedded runtime APK and JVM contracts
+        run: gradle -p android assembleDebug testDebugUnitTest --stacktrace
+      - name: Record package metadata
+        run: |
+          mkdir -p android-evidence
+          git rev-parse HEAD HEAD^{tree} > android-evidence/source.txt
+          sha256sum android/app/build/outputs/apk/debug/*.apk > android-evidence/SHA256SUMS.txt
+          ls -l android/app/build/outputs/apk/debug/*.apk > android-evidence/apk-size.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: anvaya-android-test-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            android/app/build/outputs/apk/debug/*.apk
+            android/app/build/test-results/**
+            android-evidence/**
+          if-no-files-found: error
+  regression:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    env:
+      ANVAYA_BROWSER_TESTS: '1'
+      PYTHONUTF8: '1'
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: python -m pip install -r requirements-mobile.txt
+      - run: python -m playwright install --with-deps chromium
+      - name: Complete synthetic regression without deselections
+        run: python -m pytest -q --junitxml=android-regression.xml
+      - name: Frontend contracts
+        if: always()
+        run: node --test tests/js/*.test.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-regression-${{ matrix.os }}-${{ github.event.pull_request.head.sha || github.sha }}
+          path: android-regression.xml

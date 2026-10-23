@@ -1,0 +1,18 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- INTERNET is required for the authenticated in-process loopback socket. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <application android:label="ANVAYA" android:icon="@drawable/anvaya_icon"
+        android:theme="@style/AppTheme" android:allowBackup="false"
+        android:fullBackupContent="false" android:usesCleartextTraffic="false"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:supportsRtl="true">
+        <activity android:name=".MainActivity" android:exported="true"
+            android:windowSoftInputMode="adjustResize"
+            android:configChanges="orientation|screenSize|keyboardHidden">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>
