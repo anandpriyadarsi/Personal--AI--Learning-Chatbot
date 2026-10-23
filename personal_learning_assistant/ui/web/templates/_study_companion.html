@@ -29,6 +29,7 @@
         </form>
         {% if entry_type == 'doubt' %}
         <form method="post" action="{{ url_for('web.knowledge_ask_source', document_id=item.document_id) }}">
+          <input type="hidden" name="csrf_token" value="{{ tutor_action_csrf }}">
           <input type="hidden" name="version_hash" value="{{ item.version_hash }}">
           <input type="hidden" name="prefill_question" value="{{ entry.entry_text }}">
           <button class="button secondary-button compact-button" type="submit">Ask this doubt</button>
