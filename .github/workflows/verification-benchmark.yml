@@ -1,0 +1,83 @@
+name: Verification benchmark and protection audit
+on:
+  pull_request:
+    paths:
+      - 'scripts/verification_benchmark.py'
+      - 'tests/test_verification_benchmark.py'
+      - '.github/workflows/verification-benchmark.yml'
+      - 'docs/verification/**'
+  workflow_dispatch:
+  workflow_run:
+    workflows: ['ANVAYA synthetic architecture validation']
+    types: [completed]
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: verification-benchmark-${{ github.event.workflow_run.id || github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  benchmark-tests:
+    if: ${{ github.event_name != 'workflow_run' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify offline benchmark correctness
+        run: python -m unittest discover -s tests -p test_verification_benchmark.py -v
+      - name: Syntax and whitespace
+        run: |
+          python -m compileall -q scripts/verification_benchmark.py tests/test_verification_benchmark.py
+          git diff --check
+  post-acceptance-benchmark:
+    # Runs using the audited default-branch script, NOT code from an untrusted PR.
+    # All API reads are read-only and contain only GitHub Actions timing metadata.
+    if: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_repository.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      RUN_ID: ${{ github.event.workflow_run.id }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Fetch exact GitHub Actions job metadata
+        shell: bash
+        run: |
+          gh api "repos/$REPO/actions/runs/39883294409/jobs?per_page=100" > baseline-jobs.json
+          gh api "repos/$REPO/actions/runs/$RUN_ID/jobs?per_page=100" > candidate-jobs.json
+      - name: Compute measured cross-platform gate duration
+        shell: bash
+        run: |
+          python scripts/verification_benchmark.py \
+            --before baseline-jobs.json \
+            --after candidate-jobs.json \
+            --group architecture \
+            --before-run "https://github.com/$REPO/actions/runs/39883294409" \
+            --after-run "https://github.com/$REPO/actions/runs/$RUN_ID" \
+            --output verification-benchmark.json \
+            --markdown verification-benchmark.md
+          cat verification-benchmark.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Archive reproducible measured evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verification-benchmark-${{ github.event.workflow_run.id }}
+          path: |
+            baseline-jobs.json
+            candidate-jobs.json
+            verification-benchmark.json
+            verification-benchmark.md
+          retention-days: 30
+          if-no-files-found: warn
