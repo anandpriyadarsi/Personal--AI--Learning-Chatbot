@@ -10,6 +10,8 @@ def test_backup_restore_integrity_and_existing_data_kept(tmp_path):
     from personal_learning_assistant.android_backup import export_backup, stage_restore, apply_pending_restore
     source = tmp_path/'source'; (source/'data').mkdir(parents=True)
     (source/'data/notes.json').write_text('[{"synthetic":"offline"}]')
+    from personal_learning_assistant.repositories.sqlite.migration_runner import apply_migrations
+    apply_migrations(source/'data/learning_assistant.db')
     with sqlite3.connect(source/'data/learning_assistant.db') as db:
         db.execute('CREATE TABLE saved(id TEXT)'); db.execute("INSERT INTO saved VALUES('synthetic')")
     raw = export_backup(source)
@@ -46,3 +48,16 @@ def test_restore_refuses_tampering_and_symlink_export(tmp_path):
     (tmp_path/'secret.txt').write_text('synthetic')
     (tmp_path/'data/link').symlink_to(tmp_path/'secret.txt')
     with pytest.raises(ValueError):export_backup(tmp_path)
+
+
+def test_restore_rejects_incompatible_schema_before_replacing_current_data(tmp_path):
+    from personal_learning_assistant.android_backup import export_backup,stage_restore
+    source=tmp_path/'source';(source/'data').mkdir(parents=True)
+    with sqlite3.connect(source/'data/learning_assistant.db') as db:
+        db.execute('CREATE TABLE schema_migrations(name TEXT)')
+    raw=export_backup(source)
+    dest=tmp_path/'dest';(dest/'data').mkdir(parents=True)
+    (dest/'data/notes.json').write_text('original synthetic notes')
+    with pytest.raises(ValueError):stage_restore(dest,raw)
+    assert (dest/'data/notes.json').read_text()=='original synthetic notes'
+    assert not (dest/'restore-pending.zip').exists()

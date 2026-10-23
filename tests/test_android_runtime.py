@@ -120,3 +120,22 @@ def test_phone_source_registration_course_setup_and_backup(tmp_path):
             assert 'data/courses.json' in z.namelist()
         r.stop()
     ''')
+
+
+def test_backup_between_50_and_100_mib_can_reach_restore_validator(tmp_path):
+    run(tmp_path, '''
+        from personal_learning_assistant.android_runtime import start
+        import io,zipfile,json,hashlib
+        r=start(); c=r.app.test_client()
+        c.set_cookie('anvaya_native',r.token,domain='127.0.0.1')
+        payload=b'x'*(51*1024*1024); out=io.BytesIO()
+        with zipfile.ZipFile(out,'w',compression=zipfile.ZIP_STORED) as z:
+            z.writestr('data/large.txt',payload)
+            z.writestr('manifest.json',json.dumps({'format':'anvaya.android-backup.v1',
+                'files':{'data/large.txt':hashlib.sha256(payload).hexdigest()}}))
+        response=c.post('/mobile/device/restore',base_url=r.origin,
+            headers={'Origin':r.origin},data={'backup':(io.BytesIO(out.getvalue()),'backup.zip')})
+        assert response.status_code==200,response.status_code
+        assert (r.root/'restore-pending.zip').exists()
+        r.stop()
+    ''')

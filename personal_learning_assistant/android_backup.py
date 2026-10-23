@@ -82,17 +82,33 @@ def export_backup(root):
     return raw
 
 
+def _validate_databases(root, files):
+    # Integrity alone does not prove that production owners can reopen a DB.
+    # Validate copies with the same migrations before scheduling any replacement.
+    with tempfile.TemporaryDirectory(dir=root) as temporary:
+        directory=Path(temporary)
+        for name,payload in files.items():
+            if not name.endswith(('.db','.sqlite3')): continue
+            path=directory/Path(name).name; path.write_bytes(payload)
+            try:
+                with closing(sqlite3.connect(path.as_uri()+'?mode=ro',uri=True)) as con:
+                    if (con.execute('PRAGMA integrity_check').fetchone()[0]!='ok' or
+                        con.execute('PRAGMA foreign_key_check').fetchone() is not None):
+                        raise ValueError('Restored database is corrupt')
+                if name=='data/learning_assistant.db':
+                    from personal_learning_assistant.services.assessment_activation import activate_assessment_extension
+                    activate_assessment_extension(database_path=path,backup_path=directory/'backups')
+                elif name=='data/learning_studio.sqlite3':
+                    from personal_learning_assistant.learning_studio.store import StudioStore
+                    with StudioStore(path).connection(): pass
+            except Exception as error:
+                raise ValueError('Backup is incompatible with this app version') from error
+
+
 def stage_restore(root, raw):
     files = _checked(raw)
     root = Path(root); root.mkdir(parents=True,exist_ok=True)
-    # Validate SQLite archives before any current data can be replaced.
-    with tempfile.TemporaryDirectory(dir=root) as temporary:
-        for name, payload in files.items():
-            if name.endswith(('.db','.sqlite3')):
-                path=Path(temporary)/'candidate.db'; path.write_bytes(payload)
-                with closing(sqlite3.connect(path.as_uri()+'?mode=ro',uri=True)) as con:
-                    if con.execute('PRAGMA integrity_check').fetchone()[0]!='ok':
-                        raise ValueError('Restored database is corrupt')
+    _validate_databases(root,files)
     pending = root/'restore-pending.zip'
     temporary = root/'restore-pending.tmp'
     temporary.write_bytes(raw); os.replace(temporary,pending)
@@ -103,6 +119,7 @@ def apply_pending_restore(root):
     if not pending.exists(): return False
     if pending.is_symlink(): raise ValueError('Unsafe restore archive')
     files = _checked(pending.read_bytes())
+    _validate_databases(root,files)
     stage = root/('.restore-'+uuid.uuid4().hex); stage.mkdir(mode=0o700)
     data = root/'data'
     previous = root/('data-before-restore-'+datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S')+'-'+uuid.uuid4().hex[:8])

@@ -14,6 +14,7 @@ import sys
 from threading import Thread, RLock
 
 _runtime = None
+_start_lock = RLock()
 
 
 class Runtime:
@@ -97,6 +98,11 @@ def _offline_network_policy():
 
 
 def start(root_path=None):
+    with _start_lock:
+        return _start(root_path)
+
+
+def _start(root_path=None):
     """Initialize app-private paths before any legacy config import, then serve.
 
     Caller must pass Android Context.filesDir, never external/shared storage.
@@ -137,7 +143,7 @@ def start(root_path=None):
         'LEARNING_STUDIO_SOURCE_ROOTS': {'documents': root/'data/documents'},
         'ACADEMIC_WAL_SNAPSHOT_PROVIDER': publisher.feed.latest,
         'ACADEMIC_WAL_SNAPSHOT_MAX_AGE': 120,
-        'MAX_CONTENT_LENGTH': 50 * 1024 * 1024})
+        'MAX_CONTENT_LENGTH': 101 * 1024 * 1024})
     logging.getLogger('werkzeug').disabled = True
     # Academic errors are shown in UI; do not copy records or paths to logcat.
     app.logger.disabled = True
