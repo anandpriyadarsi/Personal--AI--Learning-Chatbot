@@ -87,3 +87,4 @@ learning-studio-evidence/
 
 # Android acceptance output (APK and synthetic captures are workflow artifacts).
 /android-evidence/
+/android/app/src/androidTest/assets/acceptance/

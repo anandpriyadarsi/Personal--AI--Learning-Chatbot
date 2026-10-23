@@ -13,6 +13,8 @@ import android.view.ViewGroup;
 import android.webkit.WebView;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.InputStream;
+import org.json.JSONObject;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -63,7 +65,38 @@ public class OfflineSmokeTest {
     }
     private void go(String path) throws Exception {
         js("location.href="+org.json.JSONObject.quote(path));
-        waitFor("location.pathname==="+org.json.JSONObject.quote(path)+" && document.readyState==='complete' && !!document.querySelector('main')");
+        waitFor("location.pathname+location.search==="+org.json.JSONObject.quote(path)+" && document.readyState==='complete' && !!document.querySelector('main')");
+    }
+    private JSONObject sessions() throws Exception {
+        try(InputStream in=getInstrumentation().getContext().getAssets().open("acceptance/sessions.json")) {
+            java.io.ByteArrayOutputStream out=new java.io.ByteArrayOutputStream();
+            byte[] bytes=new byte[4096];int n;while((n=in.read(bytes))!=-1)out.write(bytes,0,n);
+            return new JSONObject(out.toString("UTF-8"));
+        }
+    }
+    private String attempt(String kind) throws Exception {
+        return "/assessments/extended/sessions/"+sessions().getString(kind);
+    }
+    private void confirmAction(String selector, boolean accept) throws Exception {
+        // Exercise the real Android JS confirmation, never replace window.confirm.
+        android.accessibilityservice.AccessibilityServiceInfo info=getInstrumentation().getUiAutomation().getServiceInfo();
+        info.flags|=android.accessibilityservice.AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS;
+        getInstrumentation().getUiAutomation().setServiceInfo(info);
+        getInstrumentation().runOnMainSync(()->web.evaluateJavascript(
+            "document.querySelector("+JSONObject.quote(selector)+").click()",null));
+        long deadline=System.currentTimeMillis()+10000;
+        while(System.currentTimeMillis()<deadline) {
+            android.view.accessibility.AccessibilityNodeInfo root=getInstrumentation().getUiAutomation().getRootInActiveWindow();
+            if(root!=null) {
+                java.util.List<android.view.accessibility.AccessibilityNodeInfo> buttons=root.findAccessibilityNodeInfosByViewId(
+                    accept ? "android:id/button1" : "android:id/button2");
+                if(!buttons.isEmpty()) {
+                    assertTrue(buttons.get(0).performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK));return;
+                }
+            }
+            Thread.sleep(100);
+        }
+        fail("Native confirmation dialog was not shown");
     }
     private void screenshot(String name) throws Exception {
         getInstrumentation().runOnMainSync(()->activity.getWindow().clearFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE));
@@ -85,6 +118,13 @@ public class OfflineSmokeTest {
         image.recycle();
     }
     @Test public void testCreateOfflineNote() throws Exception {
+        // The fixture exists only in the instrumentation APK. Production restore
+        // validation and migrations run before the ordinary launcher starts.
+        File pending=new File(getInstrumentation().getTargetContext().getFilesDir(),"restore-pending.zip");
+        try(InputStream in=getInstrumentation().getContext().getAssets().open("acceptance/workspace.zip");
+            FileOutputStream out=new FileOutputStream(pending)) {
+            byte[] bytes=new byte[32768];int n;while((n=in.read(bytes))!=-1)out.write(bytes,0,n);
+        }
         open();screenshot("android-today");
         go("/notes/create/typed");
         waitFor("!!document.querySelector('textarea[name=body]')");
@@ -100,14 +140,67 @@ public class OfflineSmokeTest {
             go(path);screenshot("android-"+path.replace('/','-'));
             assertEquals("No document overflow at "+path,"true",js("document.documentElement.scrollWidth<=innerWidth+1"));
         }
+        go("/learning/modules/uc100n-demo/1?view=learn");
+        waitFor("!!document.querySelector('.ls-block-definition') && document.querySelector('#ls-reading-status').innerText.includes('saved')");
+        screenshot("android-active-lesson");
+        go("/learning/modules/uc100n-demo/1?view=practice&question=mean-score");
+        js("document.querySelector('.ls-question input[value=\"0\"]').checked=true;document.querySelector('.ls-question button[type=submit]').click()");
+        waitFor("document.querySelector('.ls-feedback').innerText.includes('Incorrect')");
+        screenshot("android-learning-mistake");
+        go("/knowledge/item/"+sessions().getString("source_id"));
+        waitFor("document.body.innerText.includes('Mean score')");
+        screenshot("android-library-reader");
+        go(attempt("online"));
+        waitFor("document.querySelector('#workspace').dataset.status==='paused'");
+        js("document.querySelector('form[action$=\"/resume\"] button').click()");
+        waitFor("document.querySelector('#workspace').dataset.status==='active'");
+        js("document.querySelector('input[value=\"B\"]').checked=true;document.querySelector('select[name=ordinal]').value='2';document.querySelector('button[value=navigate]').click()");
+        waitFor("document.querySelector('.palette-position').innerText.trim()==='2 / 2' && !!document.querySelector('#question-2 input[value=\"B\"]')");
+        js("document.querySelector('#question-2 input[value=\"B\"]').checked=true;document.querySelector('.palette-pause').click()");
+        waitFor("document.querySelector('#workspace').dataset.status==='paused'");
+        activity.getSharedPreferences("synthetic-evidence",0).edit().putString("pausedTimer",js("document.querySelector('#timer').textContent")).commit();
+        screenshot("android-assessment-paused");
+        go(attempt("paper"));
+        js("document.querySelector('form[action$=\"/resume\"] button').click()");
+        waitFor("document.querySelector('#workspace').dataset.status==='active'");
+        confirmAction("form[action$='/finish_solving'] button",false);
+        assertEquals("Cancel preserves active attempt","true",js("document.querySelector('#workspace').dataset.status==='active'"));
+        confirmAction("form[action$='/finish_solving'] button",true);
+        waitFor("document.querySelector('#state-banner').innerText.includes('Self-check workspace')");
+        js("document.querySelector('form[action$=\"/reveal\"] button').click()");
+        waitFor("document.querySelectorAll('select[name^=step_]').length===3");
+        js("document.querySelectorAll('select[name^=step_]').forEach(s=>s.value='1.0');document.querySelector('form[action$=\"/self_save\"] button').click()");
+        waitFor("document.querySelector('.mark-state').innerText.includes('3.0 marks')");
+        screenshot("android-paper-step-review");
     }
     @Test public void testNoteAfterForceStop() throws Exception {
         open();go("/notes");
         waitFor("document.body.innerText.includes('Synthetic Android restart note')");
         screenshot("android-note-after-force-stop");
+        getInstrumentation().runOnMainSync(()->activity.setRequestedOrientation(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE));
+        waitFor("innerWidth>innerHeight && document.documentElement.scrollWidth<=innerWidth+1");
+        screenshot("android-notes-landscape");
+        getInstrumentation().runOnMainSync(()->activity.setRequestedOrientation(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT));
+        waitFor("innerHeight>innerWidth");
         go("/planning/tasks");
         waitFor("!!document.querySelector('.planner-task-list') && document.querySelector('.planner-task-list').innerText.includes('Synthetic Android SQLite task')");
         screenshot("android-sqlite-task-after-force-stop");
+        go(attempt("online"));
+        waitFor("document.querySelector('#workspace').dataset.status==='paused'");
+        assertEquals("Paused active time survives process death",activity.getSharedPreferences("synthetic-evidence",0).getString("pausedTimer","missing"),js("document.querySelector('#timer').textContent"));
+        assertEquals("Last question preserved","true",js("document.querySelector('.palette-position').innerText.trim()==='2 / 2'"));
+        screenshot("android-assessment-after-force-stop");
+        js("document.querySelector('form[action$=\"/resume\"] button').click()");
+        waitFor("document.querySelector('#workspace').dataset.status==='active'");
+        waitFor("!!document.querySelector('#question-2 input[value=\"B\"]:checked')");
+        screenshot("android-assessment-resumed");
+        js("document.querySelector('.palette-pause').click()");
+        waitFor("document.querySelector('#workspace').dataset.status==='paused'");
+        go(attempt("paper"));
+        waitFor("document.querySelector('.mark-state').innerText.includes('3.0 marks')");
+        screenshot("android-paper-review-after-force-stop");
+        go("/learning/modules/uc100n-demo/1?view=practice&question=mean-score");
+        waitFor("document.querySelector('.ls-question-state').innerText.includes('1 recorded attempts')");
         // Verify the embedded interpreter is running in this installed package.
         assertTrue(com.chaquo.python.Python.isStarted());
     }

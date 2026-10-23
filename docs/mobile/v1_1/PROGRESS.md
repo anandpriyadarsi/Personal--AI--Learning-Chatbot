@@ -64,3 +64,27 @@ compositor frames, avoiding the first secure-window blank capture.
 29 Node cases pass after the compatibility change. Full local regression remains
 in progress and has reported a failure; no whole-suite success is claimed.
 Native Ubuntu/Windows jobs must report their own exact-source results.
+
+Continuation, 23 October: resumed published aa92836 on the same dedicated branch.
+Latest prior native run39883294392 passed Android build/JVM, API31 offline
+Notes/Planner force-stop, and Ubuntu (2,958 tests; four external IKS skips).
+Windows failed three V1.5 browser cases; parallel UI/Library runs failed the
+same journey. Root cause: the async cross-owner link waits for queued writes,
+but the assertion matched `1 of 31` on the OLD practice page before navigation.
+The test then raced a second goto/screenshot. Wait for the exact quality URL
+and heading before the unchanged evidence/print assertions. No retries, skipped
+cases, timeouts, production policy changes or snapshot weakening.
+
+Local focused result: all16 V1.5/V2.4 Chromium cases PASS; all14 runtime/backup/
+synthetic-bundle cases PASS; all29 Node cases PASS. Browser install initially
+unavailable; after installation the actual headless browser runs normally.
+Full local/native regressions remain pending until their outputs arrive.
+
+Added synthetic-only instrumentation assets via a host-generated backup. The
+test APK, not the installable app APK, owns the fixture. It imports approved
+online/paper packages through production owners, publishes a source-linked
+lesson, and starts with paused sessions. Expanded native gate covers active
+lesson/mistake/Library reading, real native confirmation Cancel/OK, assessment
+question2 answer + explicit Pause -> force-stop + same-key reinstall -> frozen
+clock + same question/answer Resume, paper step-review persistence and rotation.
+Those new native cases are pending execution; no pass is inferred from code.
