@@ -124,7 +124,8 @@ public class OfflineSmokeTest {
         fail("Native confirmation dialog was not shown; ready/state="+js("JSON.stringify({ready:document.readyState,status:document.querySelector('#workspace')?.dataset.status})"));
     }
     private void screenshot(String name) throws Exception {
-        getInstrumentation().runOnMainSync(()->activity.getWindow().clearFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE));
+        assertEquals("ANVAYA must permit normal Android screenshots", 0,
+            activity.getWindow().getAttributes().flags & android.view.WindowManager.LayoutParams.FLAG_SECURE);
         CountDownLatch rendered=new CountDownLatch(1);
         getInstrumentation().runOnMainSync(()->web.postVisualStateCallback(System.nanoTime(),new WebView.VisualStateCallback(){
             @Override public void onComplete(long id) {
