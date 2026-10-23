@@ -94,6 +94,10 @@ def protected_live(tmp_path, monkeypatch):
     base = f"http://127.0.0.1:{server.server_port}"
     yield {
         "base": base,
+        "app": app,
+        "plan_path": plan_path,
+        "runner": runner,
+        "session_id": session_id,
         "root": tmp_path,
         "tutor": tutor,
         "routes": {

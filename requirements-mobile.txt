@@ -1,0 +1,3 @@
+# Deterministic mobile browser/HTTP validation; no AI secrets or model downloads.
+-r requirements-learning-studio.txt
+requests==2.31.0
