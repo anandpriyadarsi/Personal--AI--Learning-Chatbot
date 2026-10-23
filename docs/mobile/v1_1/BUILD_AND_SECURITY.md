@@ -80,6 +80,15 @@ low-memory/update certification, encrypted export and recovery-copy browsing
 remain explicit future gates. This draft must not be merged as a full mobile
 feature-parity certificate.
 
+PDF draft conversion/edit/stage that launches a separate Python worker is
+unavailable on Android and explicitly gated in the UI and POST routes (422).
+Chaquopy provides an embedded interpreter, not a standalone Python executable.
+Local PDF registration/text extraction, original-file downloads, authored
+Learning package imports and published lessons still run on-device. Native
+downloads retain the response's sanitized filename and MIME type for PDFs,
+text briefs and backup ZIPs. The instrumented download check inspects the actual
+SAF intent and cancels it; it does not certify a user's external storage provider.
+
 ## Primary compatibility references
 
 - https://chaquo.com/chaquopy/doc/16.1/android.html

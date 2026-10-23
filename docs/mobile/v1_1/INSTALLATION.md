@@ -22,6 +22,9 @@ ABIs: armeabi-v7a, arm64-v8a and x86_64. Owner-device acceptance is still requir
    must reference that ID and the exact PDF SHA256. Import the package through
    Learning Studio and review/publish it with existing validation. Source text is
    extracted locally; OCR and native PDF page rendering are not provided.
+   Automatic PDF-to-reviewed-draft conversion is unavailable in this Android
+   build. You can read extracted Library text or import an authored lesson.
+   Original PDFs and text review briefs download with their proper file types.
 6. Verify your own phone: save a disposable note, close/force-stop/reopen, check
    it remains; disable Wi-Fi/mobile data and reopen it. These owner checks are
    distinct from automated cloud/emulator evidence.

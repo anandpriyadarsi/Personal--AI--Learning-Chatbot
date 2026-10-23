@@ -103,11 +103,12 @@ public class MainActivity extends Activity {
         });
         web.setDownloadListener((url, agent, disposition, mime, length) -> {
             if (!allowed.permits(url)) return;
+            DownloadSpec spec=DownloadSpec.from(URLUtil.guessFileName(url,disposition,mime),mime);
             downloadUrl=url; downloadCookie=CookieManager.getInstance().getCookie(url);
             Intent save=new Intent(Intent.ACTION_CREATE_DOCUMENT);
             save.addCategory(Intent.CATEGORY_OPENABLE);
-            save.setType("application/zip");
-            save.putExtra(Intent.EXTRA_TITLE,"ANVAYA-private-backup.zip");
+            save.setType(spec.mime);
+            save.putExtra(Intent.EXTRA_TITLE,spec.name);
             startActivityForResult(save,SAVE_FILE);
         });
         web.setWebChromeClient(new WebChromeClient() {
@@ -135,18 +136,18 @@ public class MainActivity extends Activity {
                     connection.setInstanceFollowRedirects(false);
                     connection.setConnectTimeout(10000); connection.setReadTimeout(30000);
                     connection.setRequestProperty("Cookie",cookie);
-                    if(connection.getResponseCode()!=200) throw new java.io.IOException("Backup unavailable");
+                    if(connection.getResponseCode()!=200) throw new java.io.IOException("Download unavailable");
                     try (java.io.InputStream input=connection.getInputStream();
                          java.io.OutputStream output=getContentResolver().openOutputStream(destination,"wt")) {
                         byte[] buffer=new byte[32768]; int count; long total=0;
                         while((count=input.read(buffer))!=-1) {
-                            total+=count; if(total>100L*1024*1024) throw new java.io.IOException("Backup too large");
+                            total+=count; if(total>100L*1024*1024) throw new java.io.IOException("Download too large");
                             output.write(buffer,0,count);
                         }
                     } finally { connection.disconnect(); }
-                    runOnUiThread(() -> Toast.makeText(this,"Backup saved",Toast.LENGTH_LONG).show());
+                    runOnUiThread(() -> Toast.makeText(this,"Download saved",Toast.LENGTH_LONG).show());
                 } catch(Exception error) {
-                    runOnUiThread(() -> Toast.makeText(this,"Backup could not be saved. Keep the current app data.",Toast.LENGTH_LONG).show());
+                    runOnUiThread(() -> Toast.makeText(this,"Download could not be saved. Your app data is kept.",Toast.LENGTH_LONG).show());
                 }
             },"anvaya-export").start();
         }

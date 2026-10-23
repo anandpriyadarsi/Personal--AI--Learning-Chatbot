@@ -117,6 +117,17 @@ def test_phone_source_registration_course_setup_and_backup(tmp_path):
         studio.stage(p,assets);studio.publish(p['module_id'],1)
         response=c.get('/learning/modules/uc100n-demo/1?view=learn',base_url=r.origin)
         assert response.status_code==200,response.data
+        response=c.get('/learning/modules/uc100n-demo/1/conversion',base_url=r.origin)
+        assert b'PDF draft conversion is unavailable in this Android build' in response.data
+        assert b'Extract a temporary review draft' not in response.data
+        response=c.post('/learning/modules/uc100n-demo/1/conversion/preview',base_url=r.origin,
+            headers={'Origin':r.origin,'X-Learning-CSRF':r.app.extensions['learning_studio_csrf']})
+        assert response.status_code==422,response.data
+        assert b'PDF draft conversion is unavailable' in response.data
+        response=c.post('/academic-evidence/learning/uc100n-demo/1/note-draft',base_url=r.origin,
+            headers={'Origin':r.origin},data={'review_token':'unused-on-unsupported-platform'})
+        assert response.status_code==422,response.data
+        assert b'PDF draft conversion is unavailable' in response.data
         response=c.get('/mobile/device/export',base_url=r.origin)
         assert response.status_code==200
         with zipfile.ZipFile(io.BytesIO(response.data)) as z:

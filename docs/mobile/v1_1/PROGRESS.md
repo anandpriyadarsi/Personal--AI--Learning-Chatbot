@@ -88,3 +88,20 @@ lesson/mistake/Library reading, real native confirmation Cancel/OK, assessment
 question2 answer + explicit Pause -> force-stop + same-key reinstall -> frozen
 clock + same question/answer Resume, paper step-review persistence and rotation.
 Those new native cases are pending execution; no pass is inferred from code.
+
+Run39911547434 at36d57b7 passed Android build/JVM and the expanded API31
+emulator journey: both instrumentation phases passed (23.188s and12.107s),
+including genuine native confirmation Cancel/OK, lesson attempt, original
+Library text, paper step review, frozen question2/answer after force-stop and
+same-key package replacement, Resume and landscape/portrait rotation.
+
+Independent final review found two Important defects. DownloadListener gave all
+attachments a ZIP name/MIME; a pure-Java regression failed2, then passed2 after
+bounded filename/MIME preservation (existing origin test also passes). Android
+conversion routes exposed a desktop subprocess-only parser; production source/
+publish test failed, then passed after explicit Android capability UI/422 gates.
+Local PDF ingestion/text extraction and authored-package reading still work.
+Reviewer rechecked both fixes and independently passed the modified runtime
+case; no Critical/Important issue remains in those fixes. Native attachment
+tests now inspect the actual SAF intent for PDF/TXT/ZIP then cancel it; external
+document-provider byte writing remains an owner-device/manual integration gate.

@@ -77,6 +77,29 @@ public class OfflineSmokeTest {
     private String attempt(String kind) throws Exception {
         return "/assessments/extended/sessions/"+sessions().getString(kind);
     }
+    private void checkDownload(String path,String mime,String name) throws Exception {
+        // Let the real local attachment response reach DownloadListener, then
+        // inspect its SAF request and cancel. No shared storage is written.
+        java.util.concurrent.atomic.AtomicReference<Intent> request=new java.util.concurrent.atomic.AtomicReference<>();
+        android.app.Instrumentation.ActivityMonitor monitor=new android.app.Instrumentation.ActivityMonitor() {
+            @Override public android.app.Instrumentation.ActivityResult onStartActivity(Intent intent) {
+                if(Intent.ACTION_CREATE_DOCUMENT.equals(intent.getAction())) {
+                    request.set(new Intent(intent));
+                    return new android.app.Instrumentation.ActivityResult(Activity.RESULT_CANCELED,null);
+                }
+                return null;
+            }
+        };
+        getInstrumentation().addMonitor(monitor);
+        try {
+            js("location.href="+JSONObject.quote(path));
+            long deadline=System.currentTimeMillis()+10000;
+            while(request.get()==null && System.currentTimeMillis()<deadline)Thread.sleep(100);
+            assertNotNull("Native document picker request",request.get());
+            assertEquals(mime,request.get().getType());
+            assertEquals(name,request.get().getStringExtra(Intent.EXTRA_TITLE));
+        } finally {getInstrumentation().removeMonitor(monitor);}
+    }
     private void confirmAction(String selector, boolean accept) throws Exception {
         // Exercise the real Android JS confirmation, never replace window.confirm.
         android.accessibilityservice.AccessibilityServiceInfo info=getInstrumentation().getUiAutomation().getServiceInfo();
@@ -147,9 +170,16 @@ public class OfflineSmokeTest {
         js("document.querySelector('.ls-question input[value=\"0\"]').checked=true;document.querySelector('.ls-question button[type=submit]').click()");
         waitFor("document.querySelector('.ls-feedback').innerText.includes('Incorrect')");
         screenshot("android-learning-mistake");
+        go("/learning/modules/uc100n-demo/1/conversion");
+        waitFor("document.body.innerText.includes('PDF draft conversion is unavailable in this Android build')");
+        assertEquals("Unsupported extractor action is not offered","true",js("!document.querySelector('form[action$=\"/conversion/preview\"]')"));
+        screenshot("android-conversion-capability");
         go("/knowledge/item/"+sessions().getString("source_id"));
         waitFor("document.body.innerText.includes('Mean score')");
         screenshot("android-library-reader");
+        checkDownload("/learning/modules/uc100n-demo/1/source.pdf","application/pdf","synthetic-uc100n.pdf");
+        checkDownload("/learning/modules/uc100n-demo/1/review-brief","text/plain","learning-review-brief.txt");
+        checkDownload("/mobile/device/export","application/zip","ANVAYA-private-backup.zip");
         go(attempt("online"));
         waitFor("document.querySelector('#workspace').dataset.status==='paused'");
         js("document.querySelector('form[action$=\"/resume\"] button').click()");
