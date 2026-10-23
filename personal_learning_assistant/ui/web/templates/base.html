@@ -40,7 +40,6 @@
           <a class="nav-item{% if active_page == 'learning' %} is-active{% endif %}" href="{{ url_for('learning.library') }}"{% if active_page == 'learning' %} aria-current="page"{% endif %}>Learning Studio</a>
           {% if config.get('LEARNING_LIBRARY_ENABLED', True) %}<a class="nav-item{% if active_page == 'library' %} is-active{% endif %}" href="{{ url_for('web.learning_library') }}"{% if active_page == 'library' %} aria-current="page"{% endif %}>Library</a>{% endif %}
           <a class="nav-item{% if active_page == 'notes' %} is-active{% endif %}" href="{{ url_for('web.notes') }}"{% if active_page == 'notes' %} aria-current="page"{% endif %}>Notes</a>
-          <a class="nav-item{% if active_page == 'resources' %} is-active{% endif %}" href="{{ url_for('web.resources') }}"{% if active_page == 'resources' %} aria-current="page"{% endif %}>Resources</a>
         </div>
 
         <div class="nav-section">
