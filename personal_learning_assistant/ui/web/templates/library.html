@@ -1,4 +1,8 @@
 {% extends "workspace_base.html" %}
+{% block page_scripts %}
+{{ super() }}
+{% if library_view == 'search' %}<script defer src="{{ url_for('static', filename='js/knowledge_search.js') }}"></script>{% endif %}
+{% endblock %}
 {% block title %}Library · ANVAYA{% endblock %}
 {% block workspace_assets %}{{ super() }}<link rel="stylesheet" href="{{ url_for('static', filename='css/library.css') }}">{% endblock %}
 {% block content %}
@@ -8,9 +12,25 @@
       <p class="eyebrow">ANVAYA / Academic Library</p>
       <h1 id="library-title">Your learning material, <em>connected.</em></h1>
       <p class="materials-intro">Explore registered sources and their recorded course relationships. Open original documents without duplicating your academic data.</p>
-      <div class="materials-hero-actions"><a class="button" href="{{ url_for('web.knowledge') }}">Search knowledge ↗</a><a class="materials-subtle-link" href="{{ url_for('web.resources') }}">Manage saved Resources ↗</a></div>
+      <div class="materials-hero-actions"><a class="button" href="{{ url_for('web.learning_library', view='search') }}">Search inside content ↗</a><a class="materials-subtle-link" href="{{ url_for('web.resources') }}">Manage saved Resources ↗</a></div>
     </div><div class="materials-hero-symbol" aria-hidden="true"><span>L</span><small>ANVAYA / SOURCES</small></div>
   </section>
+  <nav class="library-view-tabs" aria-label="Library views">
+    <a href="{{ url_for('web.learning_library') }}"{% if library_view != 'search' %} aria-current="page"{% endif %}>Browse materials</a>
+    <a href="{{ url_for('web.learning_library', view='search') }}"{% if library_view == 'search' %} aria-current="page"{% endif %}>Search inside content</a>
+  </nav>
+  {% if library_view == 'search' %}
+    {% set library_search = true %}
+    {% set search_target = url_for('web.learning_library') %}
+    {% set search_clear_url = url_for('web.learning_library', view='search', q=dashboard.query) %}
+    {% set search_reset_url = url_for('web.learning_library', view='search') %}
+    {% set search_related_base = url_for('web.learning_library', view='search') ~ '&q=' %}
+    <div class="knowledge-workspace library-source-search" aria-label="Search indexed source content">
+      {% include "_library_source_search.html" %}
+      <p class="materials-data-note">Search covers indexed source text and vault matches. Browse materials lists registered resources and documents; no records are copied between them.</p>
+      <details class="source-disclosure"><summary>Advanced retrieval diagnostics</summary><a href="{{ url_for('web.retrieval_diagnostics') }}">Inspect retrieval status</a></details>
+    </div>
+  {% else %}
   <div class="materials-context-strip"><span class="materials-context-dot" aria-hidden="true"></span><span>Read-only registered material</span><span class="materials-context-divider">/</span><span>Extraction status is shown; retrieval availability is not checked on this page</span></div>
   {% if error_message %}
     <section class="notice-panel materials-empty" role="alert"><h2>{{ error_message }}</h2><p>Existing Notes, Knowledge and Resources remain available. The Library did not create or change any academic records.</p></section>
@@ -68,9 +88,9 @@
       <a class="library-collection-link" href="{{ url_for('web.notes') }}"><span class="library-collection-symbol" aria-hidden="true">N</span><span><strong>My Notes</strong><small>Personal notes and reading</small></span><span aria-hidden="true">↗</span></a>
       <a class="library-collection-link" href="{{ url_for('web.obsidian') }}"><span class="library-collection-symbol" aria-hidden="true">O</span><span><strong>Obsidian vault</strong><small>Connected Markdown knowledge</small></span><span aria-hidden="true">↗</span></a>
       <a class="library-collection-link" href="{{ url_for('learning.library') }}"><span class="library-collection-symbol" aria-hidden="true">L</span><span><strong>Learning Studio</strong><small>Course learning and revision</small></span><span aria-hidden="true">↗</span></a>
-      <a class="library-collection-link" href="{{ url_for('web.knowledge') }}"><span class="library-collection-symbol" aria-hidden="true">K</span><span><strong>Knowledge</strong><small>Search and original source readers</small></span><span aria-hidden="true">↗</span></a>
     </div>
   </section>
   <p class="materials-data-note">This view contains canonical registered resources and documents only. Existing legacy Resources, independent Notes, Obsidian vault files and Learning Studio content are not silently imported, rewritten or presented as verified material.</p>
+  {% endif %}
 </div>
 {% endblock %}
