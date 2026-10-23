@@ -160,3 +160,43 @@ def test_text_size_focus_and_cross_owner_navigation(browser,live_v24):
         assert response.value.status==200
         expect(page.locator('#signals-title')).to_be_visible()
     finally:context.close()
+
+
+def test_cross_owner_navigation_waits_for_pending_reading_write(browser, live_v24):
+    """A slow text-size save must finish before strict evidence snapshot capture."""
+    base, _ = live_v24
+    context = browser.new_context(viewport={'width': 1366, 'height': 1000})
+    page = context.new_page()
+    held = []
+    try:
+        page.goto(base+'/learning/modules/uc100n-demo/1?view=learn')
+        page.wait_for_load_state('networkidle')
+        page.route('**/progress', lambda route: held.append(route)
+                   if route.request.method == 'POST' else route.continue_())
+        page.locator('#ls-text-size').select_option('24')
+        page.locator('.ls-v24-outline > summary').click()
+        assert held
+        link = page.locator('.ls-v24-journey').get_by_role('link', name='03 Review evidence and choose a next step')
+        from playwright.sync_api import TimeoutError as BrowserTimeout
+        with pytest.raises(BrowserTimeout):
+            with page.expect_request(lambda r: r.is_navigation_request() and '/academic-evidence/' in r.url, timeout=300):
+                link.click(no_wait_after=True)
+        assert '/learning/modules/' in page.url
+        with page.expect_response(lambda r: r.url.endswith('/progress') and r.request.method == 'POST'):
+            held.pop().continue_()
+        page.wait_for_url('**/academic-evidence/learning/uc100n-demo/1#signals-title')
+        expect(page.locator('#signals-title')).to_be_visible()
+    finally:
+        for route in held: route.abort()
+        context.close()
+
+
+def test_overview_can_leave_learning_owner_without_a_bookmark_write(browser, live_v24):
+    base,_=live_v24
+    page=browser.new_page(viewport={'width':390,'height':844})
+    try:
+        page.goto(base+'/learning/modules/uc100n-demo/1')
+        page.wait_for_load_state('networkidle')
+        page.get_by_role('link',name='Learn workspace',exact=True).click(no_wait_after=True)
+        page.wait_for_url(base+'/learning',timeout=3000)
+    finally:page.close()

@@ -2,6 +2,7 @@
 (() => {
   'use strict';
   const root = document.documentElement;
+  const nativeRuntime = root.dataset.nativeRuntime === 'true';
   const choice = document.getElementById('mobile-theme');
   const system = window.matchMedia('(prefers-color-scheme: light)');
   let theme = 'dark';
@@ -33,19 +34,23 @@
   const check = async () => {
     if (!banner || checking) return;
     checking = true;
+    // AbortSignal.timeout is absent in older supported Android WebViews.
+    const controller = typeof AbortController === 'function' ? new AbortController() : null;
+    const timeout = controller ? setTimeout(() => controller.abort(), 5000) : null;
     try {
       const response = await fetch('/healthz', {cache: 'no-store', credentials: 'same-origin',
-        redirect: 'error', signal: AbortSignal.timeout(5000)});
+        redirect: 'error', ...(controller ? {signal: controller.signal} : {})});
       const body = await response.json();
       if (!response.ok || body.status !== 'ok') throw new Error('Host unavailable');
       banner.hidden = true;
     } catch (_) {
       banner.hidden = false;
       message.textContent = 'Host unavailable. New changes may not save. Assessment time follows server rules.';
-    } finally { checking = false; }
+    } finally { if (timeout !== null) clearTimeout(timeout); checking = false; }
   };
   document.getElementById('mobile-reconnect')?.addEventListener('click', check);
   window.addEventListener('offline', () => {
+    if (nativeRuntime) { check(); return; }
     if (!banner) return;
     banner.hidden = false;
     message.textContent = 'You appear offline. Check saved state after reconnecting; changes are never queued.';
@@ -69,7 +74,7 @@
       installStatus.textContent = result.outcome === 'accepted' ? 'Installation requested in your browser.' : 'You can install later from the browser menu.';
     } finally { installPrompt = null; install.hidden = true; }
   });
-  if ('serviceWorker' in navigator && window.isSecureContext) {
+  if (!nativeRuntime && 'serviceWorker' in navigator && window.isSecureContext) {
     navigator.serviceWorker.register('/mobile-sw.js', {scope: '/', updateViaCache: 'none'})
       .then(registration => {
         const showWaiting = () => {
@@ -79,7 +84,7 @@
         showWaiting();
         registration.addEventListener('updatefound', () => registration.installing?.addEventListener('statechange', showWaiting));
       }).catch(() => { if (installStatus) installStatus.textContent = 'Offline shell unavailable. Online academic features can still be used.'; });
-  } else if (installStatus) {
+  } else if (installStatus && !nativeRuntime) {
     installStatus.textContent = 'Offline installation needs HTTPS or same-device localhost and a supported browser.';
   }
 })();
