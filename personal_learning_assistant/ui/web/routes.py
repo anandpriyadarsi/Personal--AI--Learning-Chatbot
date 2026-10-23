@@ -4539,6 +4539,27 @@ def _library_source_reader_available(service):
         return False
 
 
+def _source_lesson_target(document_id, content_hash):
+    from pathlib import Path
+    if any(current_app.config.get(flag, True) is not True for flag in
+           ('LEARNING_SOURCE_LINKS_V24_ENABLED','ACADEMIC_EVIDENCE_ENABLED','LEARNING_LIBRARY_ENABLED')):
+        return None
+    try:
+        import config as installed
+        factory=current_app.config.get('ACADEMIC_EVIDENCE_SERVICE_FACTORY')
+        academic=factory().path if callable(factory) else current_app.config.get('ACADEMIC_DATABASE_PATH',installed.DATABASE_PATH)
+        paths=(academic,_learning_library_service().repository.database_path,_knowledge_reader_service().database_path)
+        if len({Path(p).resolve() for p in paths})!=1:return None
+        from .learning_source_links_v24 import source_links_target
+        return source_links_target(document_id,content_hash)
+    except (AttributeError,OSError,TypeError,ValueError):return None
+
+
+@web_blueprint.app_context_processor
+def source_lesson_helpers():
+    return {'source_lesson_target':_source_lesson_target}
+
+
 @web_blueprint.get("/library")
 def learning_library():
     from flask import abort

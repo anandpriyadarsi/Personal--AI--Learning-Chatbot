@@ -47,7 +47,8 @@ def test_responsive_surfaces_have_one_main_no_overflow_or_js_errors(context, ui,
     page.set_viewport_size({'width': width, 'height': height})
     errors = []
     page.on('pageerror', lambda error: errors.append(str(error)))
-    response = page.goto(ui['base'] + ui['routes'][surface], wait_until='networkidle')
+    # Static layout is ready at load; tracking heartbeats do not define page readiness.
+    response = page.goto(ui['base'] + ui['routes'][surface], wait_until='load')
     assert response.status == 200
     assert page.locator('main').count() == 1
     assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), f'{surface} overflows at {width}px'
@@ -210,8 +211,11 @@ def test_personal_drawer_initial_tab_is_keyboard_reachable(context, ui):
     page.goto(ui['base'] + ui['routes']['notes-reader'])
     page.locator('#notes-study-tools-launcher').click()
     saved = page.locator('[data-study-tab="saved"]')
-    assert saved.get_attribute('tabindex') == '0'
-    assert saved.evaluate('el => el === document.activeElement')
+    # Opening transfers focus on the next animation frame; require the real
+    # focused state before sending keyboard input, including on busy CI runners.
+    from playwright.sync_api import expect
+    expect(saved).to_have_attribute('tabindex', '0')
+    expect(saved).to_be_focused()
     page.keyboard.press('ArrowRight')
     assert page.locator('[data-study-tab="doubts"]').get_attribute('aria-selected') == 'true'
     assert page.locator('[data-study-panel="doubts"] textarea').is_visible()
