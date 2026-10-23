@@ -17,7 +17,7 @@ def test_android_fixture_restores_production_lessons_and_assessments(tmp_path):
     apply_pending_restore(root)
     from personal_learning_assistant.services.assessment_execution_service import AssessmentExecutionService
     service = AssessmentExecutionService(root/'data/learning_assistant.db', production=True)
-    for kind in ('online', 'paper'):
+    for kind in ('online', 'paper', 'paper_restart'):
         state = service.state(metadata[kind])
         assert state['status'] == 'paused'
         assert len(state['questions']) == 2

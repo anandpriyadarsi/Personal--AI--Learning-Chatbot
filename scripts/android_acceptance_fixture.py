@@ -47,8 +47,9 @@ def generate(destination):
         importer = AssessmentPackageService(database)
         service = AssessmentExecutionService(database, production=True)
         sessions = {}
-        for kind in ('online', 'paper'):
+        for kind in ('online', 'paper', 'paper_restart'):
             assessment = _package() if kind == 'online' else _subjective_package()
+            assessment['package_id'] = 'android-acceptance-' + kind
             assessment['assessment']['mode'] = 'practice'
             assessment['assessment']['title'] = 'Synthetic Android '+kind+' practice'
             if kind == 'online':
@@ -72,7 +73,7 @@ def generate(destination):
             aid = importer.approve(batch['id'])
             sid = AssessmentRunnerService(database).start(aid, confirmed=True)['session_id']
             service.adopt(sid, kind='online_timed' if kind == 'online' else 'paper_subjective',
-                          self_review_acknowledged=kind == 'paper')
+                          self_review_acknowledged=kind != 'online')
             # Paused clocks do not expire while the emulator boots.
             service.command(sid, 'pause', {'expected_revision':service.state(sid)['revision'],
                                           'request_id':str(uuid4())})

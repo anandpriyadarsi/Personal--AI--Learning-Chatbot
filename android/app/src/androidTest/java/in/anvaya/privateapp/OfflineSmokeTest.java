@@ -166,6 +166,13 @@ public class OfflineSmokeTest {
             go(path);screenshot("android-"+path.replace('/','-'));
             assertEquals("No document overflow at "+path,"true",js("document.documentElement.scrollWidth<=innerWidth+1"));
         }
+        go("/assessments");
+        assertEquals("Exactly two test choices","true",js("document.querySelectorAll('.assessment-mode-card').length===2"));
+        for(String mode:new String[]{"cbt","handwritten"}) {
+            go("/assessments/tests?assessment_mode="+mode);
+            waitFor("document.querySelector('.assessment-heading h2').innerText==="+JSONObject.quote(mode.equals("cbt")?"CBT Based Test":"Handwritten Test"));
+            screenshot("android-selection-"+mode);
+        }
         go("/learning/modules/uc100n-demo/1?view=learn");
         waitFor("!!document.querySelector('.ls-block-definition') && document.querySelector('#ls-reading-status').innerText.includes('saved')");
         js("document.querySelector('.ls-block-definition').scrollIntoView()");
@@ -194,6 +201,18 @@ public class OfflineSmokeTest {
         waitFor("document.querySelector('#workspace').dataset.status==='paused'");
         activity.getSharedPreferences("synthetic-evidence",0).edit().putString("pausedTimer",js("document.querySelector('#timer').textContent")).commit();
         screenshot("android-assessment-paused");
+        go(attempt("paper_restart"));
+        js("document.querySelector('form[action$=\"/resume\"] button').click()");
+        waitFor("document.querySelector('#workspace').dataset.status==='active'");
+        js("document.querySelector('.palette-disclosure').open=true;document.querySelector('.palette-navigation input[name=ordinal][value=\"2\"]').form.querySelector('button').click()");
+        waitFor("!!document.querySelector('#question-2')");
+        js("document.querySelector('form[action$=\"/attempt\"] button').click()");
+        waitFor("document.body.innerText.includes('Undo attempted')");
+        assertEquals("No active answer-key exposure","true",js("!document.querySelector('form[action$=\"/reveal\"]')"));
+        js("document.querySelector('form[action$=\"/pause\"] button').click()");
+        waitFor("document.querySelector('#workspace').dataset.status==='paused'");
+        activity.getSharedPreferences("synthetic-evidence",0).edit().putString("paperPausedTimer",js("document.querySelector('#timer').textContent")).commit();
+        screenshot("android-handwritten-paused");
         go(attempt("paper"));
         js("document.querySelector('form[action$=\"/resume\"] button').click()");
         waitFor("document.querySelector('#workspace').dataset.status==='active'");
@@ -235,6 +254,14 @@ public class OfflineSmokeTest {
         waitFor("document.querySelector('.mark-state').innerText.includes('3.0 marks')");
         js("document.querySelector('.mark-state').scrollIntoView()");
         screenshot("android-paper-review-after-force-stop");
+        go(attempt("paper_restart"));
+        waitFor("document.querySelector('#workspace').dataset.status==='paused'");
+        assertEquals("Paper clock survives process death",activity.getSharedPreferences("synthetic-evidence",0).getString("paperPausedTimer","missing"),js("document.querySelector('#timer').textContent"));
+        assertEquals("Paper question and progress persist","true",js("!!document.querySelector('#question-2') && document.querySelector('.palette-position').innerText.trim()==='2 / 2'"));
+        screenshot("android-handwritten-after-force-stop");
+        js("document.querySelector('form[action$=\"/resume\"] button').click()");
+        waitFor("document.querySelector('#workspace').dataset.status==='active' && document.body.innerText.includes('Undo attempted')");
+        screenshot("android-handwritten-resumed");
         go("/learning/modules/uc100n-demo/1?view=practice&question=mean-score");
         waitFor("document.querySelector('.ls-question-state').innerText.includes('1 recorded attempts')");
         // Verify the embedded interpreter is running in this installed package.

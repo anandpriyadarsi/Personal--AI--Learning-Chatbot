@@ -1,78 +1,41 @@
 {% extends "base.html" %}
 {% block title %}Test Instructions · {{ test.title }} · ANVAYA{% endblock %}
 {% block content %}
-<section class="assessment-heading">
-  <div><p class="eyebrow">Assessment Studio · Test Instructions</p><h2>{{ test.title }}</h2><p class="lede">{{ test.course_code }} · {{ test.assessment_type|replace('_',' ')|title }} · {{ test.mode|title }}</p></div>
-  <a class="button button-secondary" href="{{ url_for('web.assessment_tests') }}">Back to tests</a>
-</section>
-
+{% set handwritten = test.selected_mode == 'handwritten' %}
+{% set label = 'Handwritten Test' if handwritten else 'CBT Based Test' %}
+<header class="assessment-heading">
+  <div><p class="eyebrow">{{ label }}</p><h2>{{ test.title }}</h2><p>{{ test.course_code }} · {{ test.assessment_type|replace('_',' ')|title }}</p></div>
+  <a class="button button-secondary" href="{{ url_for('web.assessment_tests', assessment_mode=test.selected_mode) }}">Back to tests</a>
+</header>
 {% if error_message %}<section class="notice-panel" role="alert"><h3>Test was not started</h3><p>{{ error_message }}</p></section>{% endif %}
-
-<section class="metric-grid">
-  <article class="metric-card"><span class="metric-label">Duration</span><strong>{{ test.duration_minutes }}</strong><span>minutes</span></article>
-  <article class="metric-card"><span class="metric-label">Questions</span><strong>{{ test.question_count }}</strong><span>runnable questions</span></article>
-  <article class="metric-card"><span class="metric-label">Marks</span><strong>{{ test.max_marks or '—' }}</strong><span>configured total</span></article>
-  <article class="metric-card"><span class="metric-label">Mode</span><strong>{{ test.mode|title }}</strong><span>session snapshot</span></article>
+<section class="assessment-preflight-facts" aria-label="Test details">
+  <span><strong>{{ test.question_count }}</strong> questions</span><span><strong>{{ test.max_marks or '—' }}</strong> marks</span><span><strong>{{ test.duration_minutes }}</strong> minutes</span>
 </section>
-
 <section class="dashboard-panel next-panel">
-  <p class="eyebrow">Instructions</p><h3>Before you start</h3>
-  {% if test.instructions %}<ol>{% for item in test.instructions %}<li>{{ item }}</li>{% endfor %}</ol>{% else %}<p>No additional package instructions were supplied.</p>{% endif %}
-  <ul>
-    <li>The countdown starts only when you press Start test.</li>
-    <li>Responses are persisted during the session and can be resumed after interruption while time remains.</li>
-    <li>MCQ uses single-select controls; MSQ uses multi-select controls.</li>
-    <li>Use Save &amp; Next or Mark for Review &amp; Next. The palette shows current question state.</li>
-    <li>When time expires, the server closes the session as a timeout submission.</li>
-    <li>Solutions, rubrics and answer keys are not shown during the attempt.</li>
-  </ul>
+  <h3>Before you start</h3>
+  {% if test.instructions %}<ol>{% for item in test.instructions %}<li>{{ item }}</li>{% endfor %}</ol>{% endif %}
+  {% if handwritten %}<p>Solve in your notebook. After Finish Solving, check the authored solution and rubric and record your own marks.</p><p>Your self-assessment is private. It does not change official grades or confirmed mastery.</p>
+  {% else %}<p>Answer directly in the app. Save &amp; Next saves your response before moving on. Solutions and answer keys stay hidden during solving.</p>{% endif %}
+  {% if test.mode == 'practice' and test.extended_enabled %}<p>Pause Test is in the question palette. Closing the app without pausing keeps the timer running.</p>
+  {% else %}<p><strong>This fixed-time session cannot be paused.</strong> Its original countdown and grading rules apply.</p>{% endif %}
+  <p>The timer starts only after you confirm and press Start.</p>
 </section>
-
-<section class="assessment-disclosure" aria-labelledby="marking-scheme-title">
-  <h3 id="marking-scheme-title">Marking scheme</h3>
-  <div class="assessment-table-scroll"><table>
-    <thead><tr><th>Section / type</th><th>Questions</th><th>Marks each</th><th>Wrong answer penalty</th><th>Scoring</th></tr></thead>
-    <tbody>{% for group in test.marking_groups %}<tr>
-      <td>{{ group.section_label or '—' }} · {{ group.question_type|replace('_',' ')|title }}</td>
-      <td>{{ group.question_count }}</td><td>{{ group.marks }}</td><td>{{ group.negative_marks }}</td><td>{{ group.scoring_policy|replace('_',' ')|title }}</td>
-    </tr>{% endfor %}</tbody>
-  </table></div>
-  <p>Unanswered questions receive zero marks. Partial and custom scoring follow the package rules; subjective/custom responses may need grading after submission.</p>
-</section>
-
+<details class="assessment-disclosure"><summary>Marking scheme</summary>
+  <div class="assessment-table-scroll"><table><thead><tr><th>Section / type</th><th>Questions</th><th>Marks each</th><th>Wrong answer penalty</th><th>Scoring</th></tr></thead>
+  <tbody>{% for group in test.marking_groups %}<tr><td>{{ group.section_label or '—' }} · {{ group.question_type|replace('_',' ')|title }}</td><td>{{ group.question_count }}</td><td>{{ group.marks }}</td><td>{{ group.negative_marks }}</td><td>{{ group.scoring_policy|replace('_',' ')|title }}</td></tr>{% endfor %}</tbody></table></div>
+  <p>Unanswered questions receive zero marks. Subjective responses in CBT may need grading after submission.</p>
+</details>
 {% if test.can_resume %}
-<section class="action-panel">
-  <p class="eyebrow">Active session</p><h3>You already have a running attempt</h3><p>Resume the same timed session instead of creating a duplicate.</p>
-  <a class="button" href="{{ url_for('web.assessment_session', session_id=test.active_session_id) }}">Resume active test</a>
-</section>
+<section class="action-panel"><h3>Continue your existing attempt</h3><p>This paper already has a running attempt. Continue it in its original mode; starting here will not change its rules.</p><a class="button" href="{{ url_for('web.assessment_session', session_id=test.active_session_id) }}">Resume Test</a></section>
+{% elif test.mode_reason %}
+<section class="notice-panel" role="status"><h3>This paper is unavailable in this mode</h3><p>{{ test.mode_reason }}</p><a href="{{ url_for('web.assessment_import') }}">Import / review a suitable test</a> · <a href="{{ url_for('web.assessments') }}">Choose test mode</a></section>
 {% else %}
-<section class="action-panel">
-  <p class="eyebrow">Start test</p><h3>Ready?</h3>
-  <form method="post" action="{{ url_for('web.assessment_test_start', assessment_id=test.id) }}">
-    <label class="form-field form-field-full"><span><input type="checkbox" name="confirmed" value="1" required> I have read the instructions and want to start the timed session now.</span></label>
-    <div class="form-actions"><button class="button" type="submit">Start test</button></div>
-  </form>
-  {% if test.extended_enabled and test.mode == 'practice' %}
-  <div class="assessment-disclosure" aria-label="Optional active-time practice">
-    <h4>Optional: Save and pause practice</h4>
-    <p>Choose this mode to save your answers and pause the active-time clock. Closing the tab without pressing Pause does not stop the timer. Existing normal tests are unchanged.</p>
-    <form method="post" action="{{ url_for('web.assessment_test_start', assessment_id=test.id) }}">
-      <input type="hidden" name="confirmed" value="1">
-      <input type="hidden" name="extended_kind" value="online_timed">
-      <button type="submit" class="button button-secondary">Start with Pause/Resume</button>
-    </form>
-    {% if test.paper_possible %}
-    <h4>Handwritten paper · private self-check</h4>
-    <p>Solve on paper, finish the timed period, reveal the imported solution and enter your own criterion marks. These marks are self-reported and <strong>not official grades, verified mastery or Tutor/Planner evidence</strong>.</p>
-    <form method="post" action="{{ url_for('web.assessment_test_start', assessment_id=test.id) }}">
-      <input type="hidden" name="confirmed" value="1">
-      <input type="hidden" name="extended_kind" value="paper_subjective">
-      <label class="form-field form-field-full"><span><input type="checkbox" name="self_review_acknowledged" value="1" required> I understand that this is private self-evaluation and will verify the marking guide myself.</span></label>
-      <button type="submit" class="button button-secondary">Start handwritten paper practice</button>
-    </form>
-    {% endif %}
-  </div>
-  {% endif %}
-</section>
+<section class="action-panel"><h3>Ready to begin?</h3>
+<form method="post" action="{{ url_for('web.assessment_test_start', assessment_id=test.id) }}">
+  <input type="hidden" name="assessment_mode" value="{{ test.selected_mode }}">
+  <label class="form-field form-field-full"><span><input type="checkbox" name="confirmed" value="1" required> I have read the instructions and want to start now.</span></label>
+  {% if handwritten %}<label class="form-field form-field-full"><span><input type="checkbox" name="self_review_acknowledged" value="1" required> I understand these are my private self-entered marks.</span></label>{% endif %}
+  <button class="button" type="submit">{{ 'Start Handwritten Test' if handwritten else 'Start CBT Test' }}</button>
+</form></section>
 {% endif %}
 {% endblock %}

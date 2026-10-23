@@ -61,20 +61,20 @@ def test_responsive_pause_and_paper(chromium, live, width, kind):
     assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
     if kind == "online":
         page.locator('input[value="B"]').check()
-    page.get_by_role("button", name="Pause", exact=True).click()
-    expect(page.locator("#state-banner")).to_contain_text("Paused — answers saved")
+    page.get_by_role("button", name="Pause Test", exact=True).click()
+    expect(page.locator("#state-banner")).to_contain_text("Test Paused")
     assert s.state(ids[kind])["status"] == "paused"
     assert page.evaluate("document.activeElement.id") == "state-banner"
     screenshot(page, f"assessment-{kind}-paused-{width}")
     clock.advance(36000)
     page.reload()
     expect(page.locator("#timer")).to_contain_text("30:00")
-    page.get_by_role("button", name="Resume", exact=True).click()
+    page.get_by_role("button", name="Resume Test", exact=True).click()
     expect(page.locator("#state-banner")).to_contain_text("Solving in progress")
     if kind == "online":
         expect(page.locator('input[value="B"]')).to_be_checked()
     else:
-        page.get_by_role("button", name="Finish solving", exact=True).click()
+        page.get_by_role("button", name="Finish Solving", exact=True).click()
         expect(page.locator("#state-banner")).to_contain_text("Self-check workspace")
         page.get_by_role(
             "button", name="Reveal solution and marking guide"
@@ -83,13 +83,13 @@ def test_responsive_pause_and_paper(chromium, live, width, kind):
         assert page.locator("textarea").count() == 0
         for select in page.locator('select[name^="step_"]').all():
             select.select_option("1.0")
-        page.get_by_role("button", name="Save question review").first.click()
+        page.get_by_role("button", name="Save Self-Check").first.click()
         expect(page.locator(".mark-state").first).to_contain_text("3.0 marks")
         page.get_by_role(
             "button", name="Reveal solution and marking guide"
         ).first.click()
         page.locator('input[name="marks"]').fill("1.5")
-        page.get_by_role("button", name="Save question review").nth(1).click()
+        page.get_by_role("button", name="Save Self-Check").nth(1).click()
         expect(page.locator(".mark-state").nth(1)).to_contain_text("1.5 marks")
         page.locator('input[name="confirmed"]').check()
         page.get_by_role("button", name="Submit self-review").click()
@@ -107,15 +107,15 @@ def test_offline_failed_pause_keeps_visible_answer(chromium, live):
     page.goto(base + "/assessments/candidate/sessions/" + ids["online"])
     page.locator('input[value="B"]').check()
     page.route("**/save", lambda route: route.abort())
-    page.get_by_role("button", name="Pause", exact=True).click()
+    page.get_by_role("button", name="Pause Test", exact=True).click()
     expect(page.locator("#save-status")).to_contain_text(
         "No successful acknowledgement"
     )
     expect(page.locator('input[value="B"]')).to_be_checked()
     assert s.state(ids["online"])["status"] == "active"
     page.unroute("**/save")
-    page.get_by_role("button", name="Pause", exact=True).click()
-    expect(page.locator("#state-banner")).to_contain_text("Paused — answers saved")
+    page.get_by_role("button", name="Pause Test", exact=True).click()
+    expect(page.locator("#state-banner")).to_contain_text("Test Paused")
     context.close()
 
 
@@ -126,11 +126,11 @@ def test_no_javascript_native_save_pause_resume(chromium, live):
     url = base + "/assessments/candidate/sessions/" + ids["online"]
     page.goto(url)
     page.locator('input[value="B"]').check()
-    page.get_by_role("button", name="Pause", exact=True).click()
-    expect(page.locator("#state-banner")).to_contain_text("Paused — answers saved")
+    page.get_by_role("button", name="Pause Test", exact=True).click()
+    expect(page.locator("#state-banner")).to_contain_text("Test Paused")
     clock.advance(7200)
     page.reload()
-    page.get_by_role("button", name="Resume", exact=True).click()
+    page.get_by_role("button", name="Resume Test", exact=True).click()
     expect(page.locator('input[value="B"]')).to_be_checked()
     assert s.state(ids["online"])["remaining_ms"] == 1800000
     context.close()
@@ -179,8 +179,8 @@ def test_pause_close_hours_restart_new_process_resume(chromium, tmp_path):
         )
         page.locator('input[value="B"]').check()
         page.locator('input[name="marked"]').check()
-        page.get_by_role("button", name="Pause", exact=True).click()
-        expect(page.locator("#state-banner")).to_contain_text("Paused — answers saved")
+        page.get_by_role("button", name="Pause Test", exact=True).click()
+        expect(page.locator("#state-banner")).to_contain_text("Test Paused")
         remaining = s.state(ids["online"])["remaining_ms"]
         context.close()
         processes[0].terminate()
@@ -192,9 +192,9 @@ def test_pause_close_hours_restart_new_process_resume(chromium, tmp_path):
         page.goto(
             f"http://127.0.0.1:{port}/assessments/candidate/sessions/" + ids["online"]
         )
-        expect(page.locator("#state-banner")).to_contain_text("Paused — answers saved")
+        expect(page.locator("#state-banner")).to_contain_text("Test Paused")
         assert s.state(ids["online"])["remaining_ms"] == remaining
-        page.get_by_role("button", name="Resume", exact=True).click()
+        page.get_by_role("button", name="Resume Test", exact=True).click()
         expect(page.locator("#state-banner")).to_contain_text("Solving in progress")
         expect(page.locator('input[value="B"]')).to_be_checked()
         expect(page.locator('input[name="marked"]')).to_be_checked()
@@ -221,14 +221,14 @@ def test_lost_ack_retry_returns_current_paused_state(chromium, live):
         route.abort()
 
     page.route("**/save", lose_response)
-    page.get_by_role("button", name="Pause", exact=True).click()
+    page.get_by_role("button", name="Pause Test", exact=True).click()
     expect(page.locator("#save-status")).to_contain_text(
         "No successful acknowledgement"
     )
     assert s.state(ids["online"])["status"] == "paused"
     page.unroute("**/save")
-    page.get_by_role("button", name="Pause", exact=True).click()
-    expect(page.locator("#state-banner")).to_contain_text("Paused — answers saved")
+    page.get_by_role("button", name="Pause Test", exact=True).click()
+    expect(page.locator("#state-banner")).to_contain_text("Test Paused")
     assert s.state(ids["online"])["revision"] == 2
     context.close()
 
@@ -243,9 +243,9 @@ def test_two_tabs_stale_save_preserves_unsaved_choice(chromium, live):
     second.goto(url)
     second.locator('input[value="A"]').check()
     first.locator('input[value="B"]').check()
-    first.get_by_role("button", name="Pause", exact=True).click()
-    expect(first.locator("#state-banner")).to_contain_text("Paused — answers saved")
-    second.get_by_role("button", name="Save response", exact=True).click()
+    first.get_by_role("button", name="Pause Test", exact=True).click()
+    expect(first.locator("#state-banner")).to_contain_text("Test Paused")
+    second.get_by_role("button", name="Save & Next", exact=True).click()
     expect(second.locator("#save-status")).to_contain_text("stale attempt revision")
     expect(second.locator('input[value="A"]')).to_be_checked()
     assert s.state(ids["online"])["questions"][0]["response"] == {
@@ -259,11 +259,11 @@ def test_no_javascript_paper_review_amendment(chromium, live):
     context = chromium.new_context(java_script_enabled=False)
     page = context.new_page()
     page.goto(base + "/assessments/candidate/sessions/" + ids["paper"])
-    page.get_by_role("button", name="Finish solving", exact=True).click()
+    page.get_by_role("button", name="Finish Solving", exact=True).click()
     expect(page.locator("#state-banner")).to_contain_text("Self-check workspace")
     for index in (0, 1):
         page.locator('input[name="unattempted"]').nth(index).check()
-        page.get_by_role("button", name="Save question review").nth(index).click()
+        page.get_by_role("button", name="Save Self-Check").nth(index).click()
         expect(page.locator(".mark-state").nth(index)).to_contain_text("0.0 marks")
     page.locator('input[name="confirmed"]').check()
     page.get_by_role("button", name="Submit self-review").click()
@@ -281,13 +281,13 @@ def test_dark_palette_has_single_pause_and_saves_current_answer(chromium, live):
     page = context.new_page()
     page.goto(base + "/assessments/candidate/sessions/" + ids["online"])
     palette = page.get_by_role("navigation", name="Question palette")
-    assert palette.get_by_role("button", name="Pause", exact=True).count() == 1
+    assert palette.get_by_role("button", name="Pause Test", exact=True).count() == 1
     assert page.locator(".question button[name='command'][value='pause']").count() == 0
     assert page.evaluate("getComputedStyle(document.documentElement).colorScheme") == "dark"
     assert page.evaluate("getComputedStyle(document.body).backgroundColor") == "rgb(11, 15, 20)"
     page.locator('input[value="B"]').check()
-    palette.get_by_role("button", name="Pause", exact=True).click()
-    expect(page.locator("#state-banner")).to_contain_text("Paused — answers saved")
+    palette.get_by_role("button", name="Pause Test", exact=True).click()
+    expect(page.locator("#state-banner")).to_contain_text("Test Paused")
     saved = service.state(ids["online"])
     assert saved["status"] == "paused"
     assert saved["questions"][0]["response"]["selected_option_ids"] == ["B"]
@@ -295,7 +295,7 @@ def test_dark_palette_has_single_pause_and_saves_current_answer(chromium, live):
     clock.advance(7200)
     page.reload()
     assert service.state(ids["online"])["remaining_ms"] == frozen
-    palette.get_by_role("button", name="Resume", exact=True).click()
+    palette.get_by_role("button", name="Resume Test", exact=True).click()
     expect(page.locator("#state-banner")).to_contain_text("Solving in progress")
     expect(page.locator('input[value="B"]')).to_be_checked()
     context.close()
@@ -307,10 +307,10 @@ def test_paper_pause_is_only_in_palette(chromium, live):
     page = context.new_page()
     page.goto(base + "/assessments/candidate/sessions/" + ids["paper"])
     palette = page.get_by_role("navigation", name="Question palette")
-    assert palette.get_by_role("button", name="Pause", exact=True).count() == 1
+    assert palette.get_by_role("button", name="Pause Test", exact=True).count() == 1
     assert page.locator("#state-banner").get_by_role("button", name="Pause").count() == 0
-    palette.get_by_role("button", name="Pause", exact=True).click()
-    expect(page.locator("#state-banner")).to_contain_text("Paused — answers saved")
+    palette.get_by_role("button", name="Pause Test", exact=True).click()
+    expect(page.locator("#state-banner")).to_contain_text("Test Paused")
     assert service.state(ids["paper"])["status"] == "paused"
     context.close()
 
@@ -327,17 +327,17 @@ def test_palette_navigation_saves_before_moving_and_pause_keeps_last_question(ch
     assert service.state(ids["online"])["questions"][0]["response"]["selected_option_ids"] == ["B"]
     page.locator('input[value="A"]').check()
     page.get_by_role("navigation", name="Question palette").get_by_role(
-        "button", name="Pause", exact=True
+        "button", name="Pause Test", exact=True
     ).click()
-    expect(page.locator("#state-banner")).to_contain_text("Paused — answers saved")
+    expect(page.locator("#state-banner")).to_contain_text("Test Paused")
     state = service.state(ids["online"])
     assert state["status"] == "paused"
     assert state["current_ordinal"] == 2
     assert state["questions"][1]["response"]["selected_option_ids"] == ["A"]
     page.reload()
-    assert "Paused — answers saved" in page.locator("#state-banner").inner_text()
+    assert "Test Paused" in page.locator("#state-banner").inner_text()
     page.get_by_role("navigation", name="Question palette").get_by_role(
-        "button", name="Resume", exact=True
+        "button", name="Resume Test", exact=True
     ).click()
     # A paused page intentionally renders every read-only question. Wait for
     # the accepted resume and active-page repaint before testing one heading.

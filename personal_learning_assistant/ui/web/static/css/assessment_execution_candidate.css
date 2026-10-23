@@ -50,3 +50,33 @@ nav.study-palette .palette-question.is-current{border-color:var(--accent);backgr
  nav.study-palette .palette-question small{font-size:8px}
  .palette-actions button{width:100%}
 }
+
+/* Compact palette: Pause stays visible while numbers are disclosed on demand. */
+.palette-disclosure{width:100%}
+.palette-heading{cursor:pointer;min-height:44px;font-size:15px;font-weight:700;list-style:revert}
+.palette-navigation{margin:0}
+.palette-navigation .palette-question{width:100%;background:var(--surface-muted);color:var(--text)}
+.palette-actions{margin-top:8px;padding-top:8px}
+.palette-actions:empty{display:none}
+.status{background:var(--accent-soft);border-color:var(--border)}
+.top{margin:20px 0 14px}
+.top .eyebrow{letter-spacing:.06em;margin-top:0}
+#save-status:empty{display:none}
+.question:focus{outline:none}
+.rubric-provenance{font-size:12px;color:var(--text-muted)}
+.status .workspace-home{display:inline-block;min-height:44px;padding-block:10px}
+@media(min-width:769px){.palette-disclosure:not([open]) .palette-items{display:grid}.palette-disclosure:not([open])>summary{list-style:none}}
+@media(max-width:768px){
+ main{padding:14px 14px 30px}header{padding-bottom:12px}.preview{display:none}
+ .top{margin:16px 0 12px}.top h1{font-size:25px;margin-bottom:4px}
+ .clock{padding:8px 14px;min-width:0}.clock strong{font-size:25px}
+ .status{padding:12px 14px}.status p{margin-bottom:4px}
+ .layout{margin-top:12px}.study-palette{padding:10px 14px}
+ .palette-items{max-height:180px;overflow:auto}
+ .question{padding:18px 16px}.question-text{font-size:18px;line-height:1.6}
+ .actions button{flex:1 1 auto}.actions label{max-width:none}
+}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
+.practice-tools{margin-top:14px;color:var(--text-muted)}
+.practice-tools>summary{min-height:44px;cursor:pointer;padding-block:10px}
+.practice-tools>.workspace-home{display:inline-block;padding:12px}

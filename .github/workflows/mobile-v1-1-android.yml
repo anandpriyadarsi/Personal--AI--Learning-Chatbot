@@ -1,7 +1,7 @@
 name: Mobile V1.1 standalone Android
 on:
   pull_request:
-    branches: [feature/mobile-v1-private-pwa-2026-10]
+    branches: [feature/mobile-v1-private-pwa-2026-10, feature/mobile-v1-1-private-android-runtime-2026-10]
   workflow_dispatch:
 permissions:
   contents: read
@@ -55,6 +55,7 @@ jobs:
       ANVAYA_BROWSER_TESTS: '1'
       PYTHONUTF8: '1'
       PYTHONDONTWRITEBYTECODE: '1'
+      ANVAYA_ASSESSMENT_ARTIFACTS: assessment-evidence/browser
     steps:
       - uses: actions/checkout@v4
         with:
@@ -68,7 +69,7 @@ jobs:
           node-version: '22'
       - run: python -m pip install -r requirements-mobile.txt
       - name: Fast native SQLite ownership and Android workspace regression
-        run: python -m pytest -q tests/learning_studio/test_registered_source_lifecycle.py tests/test_android_acceptance_fixture.py tests/test_android_runtime.py tests/test_android_backup.py
+        run: python -m pytest -q tests/learning_studio/test_registered_source_lifecycle.py tests/test_android_acceptance_fixture.py tests/test_android_runtime.py tests/test_android_backup.py tests/test_assessment_two_modes.py
       - run: python -m playwright install --with-deps chromium
       - name: Complete synthetic regression without deselections
         run: python -m pytest -q --junitxml=android-regression.xml
@@ -79,7 +80,9 @@ jobs:
         if: always()
         with:
           name: android-regression-${{ matrix.os }}-${{ github.event.pull_request.head.sha || github.sha }}
-          path: android-regression.xml
+          path: |
+            android-regression.xml
+            assessment-evidence/**
 
   emulator:
     runs-on: ubuntu-latest

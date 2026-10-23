@@ -81,7 +81,7 @@ def test_native_forms_work_and_get_does_not_write(tmp_path):
         url + "/pause", data=payload, headers={"Origin": "http://localhost"}
     )
     assert result.status_code == 303
-    assert "Paused — answers saved" in client.get(url).text
+    assert "Test Paused" in client.get(url).text
 
 
 def test_native_paper_guides_and_missing_marks(tmp_path):
@@ -257,9 +257,7 @@ def test_main_assessment_page_displays_preview_with_feature_disabled():
     page = client.get("/assessments")
     assert page.status_code == 200
     body = page.get_data(as_text=True)
-    assert "Pause practice" in body
-    assert "handwritten self-check" in body
-    assert "http://127.0.0.1:8766/" in body
-    assert "python scripts/assessment_execution_fixture.py --port 8766" in body
-    assert "Your normal assessments are unchanged" in body
+    assert "CBT Based Test" in body and "Handwritten Test" in body
+    assert "http://127.0.0.1:8766/" not in body
+    assert "assessment_mode=handwritten" in body
     assert client.get("/assessments/extended/sessions/does-not-exist").status_code == 404
