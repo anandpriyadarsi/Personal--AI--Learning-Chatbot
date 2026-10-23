@@ -166,7 +166,9 @@ public class OfflineSmokeTest {
             go(path);screenshot("android-"+path.replace('/','-'));
             assertEquals("No document overflow at "+path,"true",js("document.documentElement.scrollWidth<=innerWidth+1"));
         }
-        go("/mobile/device");
+        // The loop above already completed this page. Reloading the same URL
+        // can cancel the subsequent form submission before navigation commits.
+        waitFor("!!document.querySelector('form[action=\"/mobile/device/tutor-index\"]')");
         js("document.querySelector('form[action=\"/mobile/device/tutor-index\"]').requestSubmit()");
         waitFor("location.pathname==='/agent' && !!document.querySelector('#session-policy')");
         assertEquals("Honest Android offline provider state","true",js("document.querySelector('#tutor-provider-state').innerText.includes('Offline')"));
