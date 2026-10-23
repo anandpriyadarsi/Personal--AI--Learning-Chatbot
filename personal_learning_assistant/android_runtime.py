@@ -128,6 +128,11 @@ def _start(root_path=None):
     if config.BASE_PATH != root:
         raise RuntimeError('Academic configuration loaded before private runtime root')
     config.ensure_runtime_directories()
+    # A new phone has no desktop courses.json. Restore the existing five
+    # Semester-1 templates only for a genuinely empty catalogue; never reset
+    # existing user records or replace a partially populated workspace.
+    from personal_learning_assistant.services.android_subject_restore import restore_semester_one_subjects
+    restore_semester_one_subjects(only_when_empty=True)
     from personal_learning_assistant.services.assessment_activation import activate_assessment_extension
     activate_assessment_extension(database_path=config.DATABASE_PATH, backup_path=config.BACKUP_PATH)
     from personal_learning_assistant.services.academic_wal_installation import InstalledAcademicWalPublisher
