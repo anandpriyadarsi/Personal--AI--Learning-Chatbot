@@ -123,8 +123,13 @@
   const readingStatus = document.getElementById('ls-reading-status');
   const textSize = document.getElementById('ls-text-size');
   let savedSize = 18;
-  async function savePosition(completed) {
-    if (!column?.dataset.progress || !['learn','visualise','source','revision','practice'].includes(column.dataset.view)) return;
+  let positionWrite = Promise.resolve(true);
+  function savePosition(completed) {
+    positionWrite = positionWrite.then(() => persistPosition(completed));
+    return positionWrite;
+  }
+  async function persistPosition(completed) {
+    if (!column?.dataset.progress || !['learn','visualise','source','revision','practice'].includes(column.dataset.view)) return true;
     const url = new URL(location.href);
     const payload = {event_id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`,
       section_id: column.dataset.section, view: column.dataset.view, text_size: savedSize};
@@ -157,7 +162,19 @@
   document.getElementById('ls-pause')?.addEventListener('click', async ()=>{
     if (await savePosition()) { const url=new URL(location.href);url.search='';url.hash='';location.assign(url.href); }
   });
-  initializePosition();
+  const positionReady = initializePosition();
+  // A cross-owner view requires a closed, stable Learning snapshot. Finish the
+  // real write before navigation, including slow text-size/bookmark saves.
+  document.addEventListener('click', async event => {
+    const link = event.target.closest('a[href]');
+    if (!column?.dataset.progress || !link || event.defaultPrevented || event.button !== 0 ||
+        event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || link.target || link.download) return;
+    const target = new URL(link.href, location.href);
+    if (target.origin !== location.origin || target.pathname === location.pathname) return;
+    event.preventDefault();
+    await positionReady;
+    if (await positionWrite) location.assign(target.href);
+  });
   document.querySelectorAll('.ls-trusted-activity').forEach(widget=>{
     const details=widget.querySelector('details'); const choice=widget.querySelector('select'); const response=widget.querySelector('textarea');
     details.querySelector('summary').addEventListener('click',event=>{

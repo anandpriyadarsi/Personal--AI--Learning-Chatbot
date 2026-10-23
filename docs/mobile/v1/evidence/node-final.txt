@@ -1,0 +1,37 @@
+✔ readable sections, code and predicted output preserve inert strings (1.781688ms)
+✔ unclosed fences stay code; arbitrary markup and links stay literal (0.212672ms)
+✔ history is resettable; cancelled and stale completions cannot restore it (0.185252ms)
+✔ paused display remains frozen as wall display time advances (1.923055ms)
+✔ active timer uses remaining milliseconds and ceiling (0.557679ms)
+✔ active display never becomes negative or mutates server state (0.521005ms)
+✔ terminal display is frozen (0.540103ms)
+✔ normalizes common linear algebra symbols without HTML interpretation (1.636874ms)
+✔ parses rectangular matrix literals used by authored assessment packages (0.979399ms)
+✔ reads grouped and signed superscript/subscript tokens (0.631668ms)
+✔ parses determinant literals and common LaTeX matrix environments (0.518872ms)
+✔ normalizes compact sums and elementary elimination matrices for readable display (0.275295ms)
+✔ normalizes common indexed basis and factorization symbols (0.133356ms)
+✔ parses display-style summation and product limits (0.370254ms)
+✔ untouched true/false remains unanswered when leaving the question (4.257765ms)
+✔ failed save blocks navigation and submission and offers retry (3.249593ms)
+✔ autosaves serialize and finish with the latest edit (1.726085ms)
+✔ clear waits for prior autosave then performs the clear once (1.75018ms)
+✔ question action click uses one authoritative write when debounce has not fired (3.382558ms)
+✔ focus includes the visible interval before hiding and excludes hidden time (0.904108ms)
+✔ submit confirms current saved counts and cancellation keeps session active (0.890989ms)
+✔ unsaved changes warn on page close and successful retry removes the warning (1.043623ms)
+✔ failed clear or final submit preserves the page and re-enables the answer (1.740016ms)
+✔ structured fill-up autosave sends ordered parts and compatible combined value (0.797301ms)
+✔ worker installs only reviewed generic shell assets (3.703229ms)
+✔ academic API responses and query-string assets never enter runtime cache (1.351566ms)
+✔ mutations are left to native network failure handling and never queued or cached (1.170169ms)
+✔ offline navigation returns generic fallback without private data (1.472573ms)
+✔ activation deletes only old mobile cache namespaces (1.120005ms)
+ℹ tests 29
+ℹ suites 0
+ℹ pass 29
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 129.386366

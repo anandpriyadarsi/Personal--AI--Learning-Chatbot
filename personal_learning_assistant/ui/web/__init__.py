@@ -21,6 +21,9 @@ def create_app(config: Mapping[str, Any] | None = None) -> Flask:
     )
     app.config.from_mapping(
         TESTING=False,
+        PRIVATE_MOBILE_MODE=os.environ.get("ANVAYA_PRIVATE_MOBILE", "false").lower() == "true",
+        MOBILE_ALLOW_CLOUD_AI=os.environ.get("ANVAYA_MOBILE_ALLOW_CLOUD_AI", "false").lower() == "true",
+        MOBILE_AI_DATA_ACK=os.environ.get("ANVAYA_MOBILE_AI_DATA_ACK", ""),
         LEARNING_LIBRARY_ENABLED=os.environ.get("ANVAYA_LIBRARY_ENABLED", "true").strip().lower() == "true",
         LEARNING_LIBRARY_DATABASE_PATH=os.environ.get("ANVAYA_LIBRARY_DATABASE_PATH") or None,
         ACADEMIC_EVIDENCE_ENABLED=os.environ.get('ANVAYA_EVIDENCE_ENABLED','true').strip().lower()=='true',
@@ -84,5 +87,7 @@ def create_app(config: Mapping[str, Any] | None = None) -> Flask:
     register_learning_tutor_v24(app)
     from .learning_source_links_v24 import register_learning_source_links_v24
     register_learning_source_links_v24(app)
+    from .mobile import register_mobile
+    register_mobile(app)
     register_error_handlers(app)
     return app

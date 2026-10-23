@@ -2,26 +2,21 @@
 
 {% block title %}Tutor Session · Academic Agent{% endblock %}
 
+{% block body_class %}tutor-session-page tutor-v3{% endblock %}
+
 {% block page_scripts %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/tutor_readability.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/tutor_v3.css') }}">
 <script defer src="{{ url_for('static', filename='js/tutor_chat.js') }}"></script>
 <script defer src="{{ url_for('static', filename='js/assessment_math.js') }}"></script>
 {% endblock %}
 
 {% block content %}
-<section class="hero dashboard-hero" aria-labelledby="agent-session-title">
-  <div>
-    <p class="eyebrow">Academic Agent · Tutor session</p>
-    <h2 id="agent-session-title">{% if session %}{{ session.title or 'Tutor session' }}{% else %}Tutor session{% endif %}</h2>
-    {% if session %}
-      <p class="lede">Persistent source-grounded conversation. The session scope is fixed: {{ session.mode|replace('_', ' ')|title }} · {% if session.source_policy == 'source_only' %}Source Only{% else %}Source First{% endif %}.</p>
-    {% else %}
-      <p class="lede">This tutor session is not available to display.</p>
-    {% endif %}
-  </div>
-  <a class="button" href="{{ url_for('web.academic_agent') }}">Back to Academic Agent</a>
-</section>
-
+<header class="tutor-session-heading">
+  <a class="tutor-back" href="{{ url_for('web.academic_agent') }}" aria-label="Back to Academic Agent">← Tutor</a>
+  <h1 id="agent-session-title">{% if session %}{{ session.title or 'A little clearer, every turn' }}{% else %}Tutor session{% endif %}</h1>
+  {% include "tutor_provider_state.html" %}
+</header>
 {% if error_message %}
 <section class="error-panel" aria-live="polite">
   <h3>Request could not be completed</h3>
@@ -30,6 +25,80 @@
 {% endif %}
 
 {% if session %}
+<nav class="tutor-context-bar" aria-label="Tutor session context">
+  <span>{{ session.course.code if session.course else (session.course_id or 'Unscoped') }}</span>
+  <span>{{ session.topic.name if session.topic else 'Whole course' }}</span>
+  <span>{{ session.mode|replace('_', ' ')|title }}</span>
+  <span>{% if session.source_policy == 'source_only' %}Source Only{% else %}Source First{% endif %}</span>
+  <a href="#tutor-learning-details">Learning details ↓</a>
+</nav>
+{% set adaptive = session.adaptive_state|default({}) %}
+{% set goal = session.session_goal|default({}) %}
+{% set teaching = session.teaching_plan|default({}) %}
+{% set teaching_plan = teaching %}
+<section class="tutor-transcript" aria-labelledby="transcript-title">
+  <div class="panel-heading">
+    <div>
+      <p class="eyebrow">Persisted history</p>
+      <h3 id="transcript-title">Conversation</h3>
+    </div>
+    <span class="tag">Evidence shown per answer</span>
+  </div>
+
+  {% if adaptive.awaiting_student_answer and adaptive.pending_question %}
+    <div class="tutor-pending-question" role="status">
+      <strong>{% if adaptive.pending_question_kind == 'diagnostic' and teaching_plan.get('diagnostic_question') %}Diagnostic question:{% elif adaptive.pending_question_kind == 'exit_check' %}Exit check:{% else %}Question waiting for your answer{% endif %}</strong>
+      <p>{{ adaptive.pending_question }}</p>
+      <span class="microcopy">You can answer it, request a hint or change the topic.</span>
+    </div>
+  {% endif %}
+
+  {% if session.turns %}
+    {% for turn in session.turns %}
+    <article class="agent-turn agent-turn-{{ turn.role }}"{% if loop.last %} id="tutor-latest-turn"{% endif %}>
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">{% if turn.role == 'assistant' %}Alex <span class="tutor-role-note">· Tutor</span>{% else %}You{% endif %}</p>
+          <span class="microcopy">Turn {{ turn.ordinal }} · {{ turn.created_at }}</span>
+        </div>
+        {% if turn.role == 'assistant' %}<span class="tag">Support: {{ turn.support_level|replace('_', ' ')|title }}</span>{% endif %}
+      </div>
+      {% if turn.role == 'assistant' %}
+      <div class="agent-message tutor-markdown">{{ turn.content|tutor_markdown }}</div>
+      {% else %}
+      <div class="agent-message">{{ turn.content }}</div>
+      {% endif %}
+      {% if turn.role == 'assistant' %}
+        {% if not turn.cited_labels and turn.support_level == 'mixed' %}<p class="microcopy">General explanation · no project source was cited.</p>{% endif %}
+
+        <details class="tutor-answer-details"><summary>Sources &amp; answer details</summary>
+        <form class="tutor-turn-feedback" method="post" action="{{ url_for('web.academic_agent_feedback', session_id=session.session_id, turn_id=turn.turn_id) }}">
+          <input type="hidden" name="csrf_token" value="{{ tutor_action_csrf }}">
+          <span class="microcopy">Was this explanation useful?</span>
+          <button type="submit" name="helpful" value="1">Helpful</button>
+          <button type="submit" name="helpful" value="0">Not helpful</button>
+        </form>
+        {% if turn.provider_model %}
+          <p class="microcopy">{{ turn.provider_name }} · {{ turn.provider_model }}</p>
+        {% endif %}
+        {% if turn.evidence %}
+          <div class="tag-row" aria-label="Answer evidence">
+          {% for evidence in turn.evidence %}
+            <a class="tag" href="{{ url_for('web.knowledge_item', document_id=evidence.document_id) }}">{% if evidence.citation_label in (turn.cited_labels or []) %}Cited{% else %}Retrieved context{% endif %} · {{ evidence.citation_label }} · {{ evidence.source_title or evidence.source_label or ('document ' ~ evidence.document_id) }}{% if evidence.locator_label %} · {{ evidence.locator_label }}{% endif %}{% if evidence.relation_type %} · {{ evidence.relation_type }}{% endif %}{% if evidence.retrieval_score is not none %} · score {{ '%.4f'|format(evidence.retrieval_score) }}{% endif %}</a>
+                <span class="visually-hidden">{{ evidence.citation_label }} · document {{ evidence.document_id }} · chunk {{ evidence.chunk_id }}</span>
+          {% endfor %}
+          </div>
+        {% endif %}
+        </details>
+      {% endif %}
+    </article>
+    {% endfor %}
+  {% else %}
+    <p class="empty-state">This session has no turns yet. Ask a question below.</p>
+  {% endif %}
+</section>
+
+<details class="tutor-secondary" id="tutor-learning-details"><summary>Learning journey, session details &amp; memory</summary>
 <section class="metric-grid" aria-label="Tutor session metadata">
   <article class="metric-card">
     <span class="metric-label">Mode</span>
@@ -66,13 +135,6 @@
   {% if goal.goal %}
     <p class="tutor-goal-line"><strong>Current goal:</strong> {{ goal.goal }}</p>
     <p class="microcopy">Goal state: {{ (goal.status or 'active')|replace('_', ' ')|title }}. Even “Likely Met” is a session-local check, not a grade.</p>
-  {% endif %}
-  {% if adaptive.awaiting_student_answer and adaptive.pending_question %}
-    <div class="tutor-pending-question" role="status">
-      <strong>{% if adaptive.pending_question_kind == 'diagnostic' and teaching_plan.get('diagnostic_question') %}Diagnostic question:{% elif adaptive.pending_question_kind == 'exit_check' %}Exit check:{% else %}Question waiting for your answer{% endif %}</strong>
-      <p>{{ adaptive.pending_question }}</p>
-      <span class="microcopy">You can answer it, request a hint or change the topic.</span>
-    </div>
   {% endif %}
   {% if teaching.next_move == 'review_prerequisite' and teaching.prerequisite_concept %}
   <p><strong>Prerequisite repair:</strong> {{ teaching.prerequisite_concept }} → {{ teaching.target_concept }}. Then return to the current goal.</p>
@@ -159,67 +221,14 @@
 </section>
 {% endif %}
 
-<section class="dashboard-panel" aria-labelledby="transcript-title">
-  <div class="panel-heading">
-    <div>
-      <p class="eyebrow">Persisted history</p>
-      <h3 id="transcript-title">Conversation</h3>
-    </div>
-    <span class="tag">Evidence shown per answer</span>
-  </div>
-
-  {% if session.turns %}
-    {% for turn in session.turns %}
-    <article class="dashboard-panel agent-turn agent-turn-{{ turn.role }}">
-      <div class="panel-heading">
-        <div>
-          <p class="eyebrow">{{ turn.role|capitalize }}</p>
-          <span class="microcopy">Turn {{ turn.ordinal }} · {{ turn.created_at }}</span>
-        </div>
-        {% if turn.role == 'assistant' %}<span class="tag">Support: {{ turn.support_level|replace('_', ' ')|title }}</span>{% endif %}
-      </div>
-      {% if turn.role == 'assistant' %}
-      <div class="agent-message tutor-markdown">{{ turn.content|tutor_markdown }}</div>
-      {% else %}
-      <div class="agent-message">{{ turn.content }}</div>
-      {% endif %}
-      {% if turn.role == 'assistant' %}
-        {% if not turn.cited_labels and turn.support_level == 'mixed' %}<p class="microcopy">General explanation · no project source was cited.</p>{% endif %}
-        <p class="empty-state">Support: {{ turn.support_level|replace('_', ' ')|title }}</p>
-        <form class="tutor-turn-feedback" method="post" action="{{ url_for('web.academic_agent_feedback', session_id=session.session_id, turn_id=turn.turn_id) }}">
-          <input type="hidden" name="csrf_token" value="{{ tutor_action_csrf }}">
-          <span class="microcopy">Was this explanation useful?</span>
-          <button type="submit" name="helpful" value="1">Helpful</button>
-          <button type="submit" name="helpful" value="0">Not helpful</button>
-        </form>
-        {% if turn.provider_model %}
-          <p class="microcopy">{{ turn.provider_name }} · {{ turn.provider_model }}</p>
-        {% endif %}
-        {% if turn.evidence %}
-          <div class="tag-row" aria-label="Answer evidence">
-          {% for evidence in turn.evidence %}
-            <a class="tag" href="{{ url_for('web.knowledge_item', document_id=evidence.document_id) }}">{% if evidence.citation_label in (turn.cited_labels or []) %}Cited{% else %}Retrieved context{% endif %} · {{ evidence.citation_label }} · {{ evidence.source_title or evidence.source_label or ('document ' ~ evidence.document_id) }}{% if evidence.locator_label %} · {{ evidence.locator_label }}{% endif %}{% if evidence.relation_type %} · {{ evidence.relation_type }}{% endif %}{% if evidence.retrieval_score is not none %} · score {{ '%.4f'|format(evidence.retrieval_score) }}{% endif %}</a>
-                <span class="visually-hidden">{{ evidence.citation_label }} · document {{ evidence.document_id }} · chunk {{ evidence.chunk_id }}</span>
-          {% endfor %}
-          </div>
-        {% endif %}
-      {% endif %}
-    </article>
-    {% endfor %}
-  {% else %}
-    <p class="empty-state">This session has no turns yet. Ask a question below.</p>
-  {% endif %}
-</section>
-
+</details>
 {% if session.status == 'active' %}
-<section class="action-panel" aria-labelledby="ask-tutor-title">
-  <p class="eyebrow">Grounded tutor</p>
-  <h3 id="ask-tutor-title">Ask grounded tutor</h3>
-  <p class="microcopy">Maths renders locally for matrices, symbols and indices. Unsupported LaTeX stays as readable text; no external scripts are loaded.</p>
-  <form method="post" action="{{ url_for('web.academic_agent_ask', session_id=session.session_id) }}">
+<section class="tutor-composer" id="tutor-composer" aria-labelledby="ask-tutor-title">
+  <h3 id="ask-tutor-title" class="visually-hidden">Ask grounded tutor</h3>
+  <form id="tutor-ask-form" method="post" action="{{ url_for('web.academic_agent_ask', session_id=session.session_id) }}">
     <input type="hidden" name="csrf_token" value="{{ tutor_action_csrf }}">
-    <input type="hidden" name="request_id" value="{{ tutor_request_id }}">
-    <label for="agent-question">Question</label>
+    <input type="hidden" name="request_id" value="{{ retry_request_id|default(tutor_request_id, true) }}">
+    <label for="agent-question" class="visually-hidden">Question</label>
     <div class="tutor-quick-prompts" aria-label="Teaching follow-ups">
       <button type="button" data-tutor-prompt="Give me one hint only; do not reveal the solution.">Hint only</button>
       <button type="button" data-tutor-prompt="Ask me one question at a time and wait for my answer.">Quiz me</button>
@@ -227,10 +236,12 @@
       <button type="button" data-tutor-prompt="Explain the previous concept differently with an intuitive example.">Explain differently</button>
       <button type="button" data-tutor-prompt="Show one worked example and verify the calculation.">Worked example</button>
     </div>
-    <p><textarea id="agent-question" name="question" rows="5" maxlength="4000" required placeholder="Ask about a concept using your indexed academic sources.">{{ session.prefill_question or "" }}</textarea></p>
-    <button type="submit">Ask tutor</button>
+    <div class="tutor-input-row"><textarea id="agent-question" name="question" rows="2" maxlength="4000" required placeholder="Ask Alex, or share where you got stuck…">{{ failed_question if failed_question is defined else (session.prefill_question or "") }}</textarea>
+    </div><div class="tutor-composer-footer">
+    <p id="tutor-submit-status" class="microcopy" role="status" aria-live="polite">{{ error_message or "Review your message, then send. Learning guidance is not a grade." }}</p>
+    <button class="tutor-primary" type="submit">Ask tutor</button></div>
   </form>
-  <p class="empty-state">This is the only browser action in Phase 7.5.9 that may call the configured tutor provider. It does not change mastery, progress, plans, grades, notes, or resources.</p>
+
 </section>
 {% else %}
 <section class="notice-panel">

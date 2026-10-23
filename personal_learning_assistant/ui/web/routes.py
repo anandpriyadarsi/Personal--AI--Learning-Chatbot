@@ -926,12 +926,19 @@ def _render_session_error(service, session_id, message, status):
             session = service.session_view(session_id)
         except Exception:
             session = None
+    # Only a CSRF-validated ask may echo its draft. Preserve the same nonce on
+    # recoverable failure: the server's existing deduplication remains authority.
+    draft = {}
+    if request.endpoint == "web.academic_agent_ask" and status != 403 and _tutor_action_token_matches():
+        draft = {"failed_question": request.form.get("question", "")[:4000],
+                 "retry_request_id": request.form.get("request_id", "")[:160]}
     return (
         render_template(
             "agent_session.html",
             active_page="agent",
             session=session,
             error_message=message,
+            **draft,
         ),
         status,
     )
@@ -4392,7 +4399,7 @@ def academic_agent_ask(session_id):
         else:
             service.ask(session_id, request.form.get("question", ""))
         return redirect(
-            url_for("web.academic_agent_session", session_id=session_id),
+            url_for("web.academic_agent_session", session_id=session_id, _anchor="tutor-latest-turn"),
             code=303,
         )
     except AcademicAgentWebValidationError:

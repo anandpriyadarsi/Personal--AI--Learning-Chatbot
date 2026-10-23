@@ -1,0 +1,71 @@
+{
+  "date": "2026-10-22",
+  "synthetic_only": true,
+  "base_commit": "b0f650c3f30e4c49201c2f7c2a0d7add41b34174",
+  "full_regression": {
+    "passed": 2942,
+    "skipped": [
+      {
+        "class": "tests.learning_studio.test_browser",
+        "name": "test_external_recovered_pilot_real_browser"
+      },
+      {
+        "class": "tests.learning_studio.test_pilot",
+        "name": "test_external_bad_v3_source_is_rejected"
+      },
+      {
+        "class": "tests.learning_studio.test_recovered_pilot",
+        "name": "test_external_recovered_pilot_strict_import_and_durable_evidence"
+      },
+      {
+        "class": "tests.learning_studio.test_recovered_pilot",
+        "name": "test_external_pilot_demo_does_not_fabricate_course_mappings"
+      }
+    ],
+    "failed": 0,
+    "errors": 0,
+    "seconds": 611.21,
+    "junit_sha256": "be2d9245cc9f3109951a7ea4e3dc44b76500496cf52ca965949d5582fa16d90f",
+    "public_gate": "PASS"
+  },
+  "final_mobile_gate": {
+    "passed": 32,
+    "skipped": 0,
+    "seconds": 100.67,
+    "note": "Includes final compact Tutor presentation, real HTTP/SQLite resume, source policies and worker v2 update waiting."
+  },
+  "javascript": {
+    "passed": 29,
+    "skipped": 0
+  },
+  "native_ci": "BLOCKED: GitHub hosted jobs remain queued; latest status in PR #34 checks",
+  "real_android": "BLOCKED: no physical device",
+  "standalone_apk": "BLOCKED: no certified Android Python runtime",
+  "cross_device": "BLOCKED: no validated authenticated encrypted gateway",
+  "application_files_sha256": {
+    "mobile_web.py": "e3cf46ad7e2b5ac100920ef602ef45fa80cbc21b5f3fdded62b3f0f9d0144f05",
+    "personal_learning_assistant/tutor/http_provider.py": "b7edd60b74572fed685ef71fd8248a275aab3d06825b280b63636101f8808954",
+    "personal_learning_assistant/ui/web/__init__.py": "41ffcf2de1a6f1813bc9e0a2dc6f2e7b0fa2ba6c591518f42b0b3e18bfcfd0ba",
+    "personal_learning_assistant/ui/web/mobile.py": "b16cfbdc65af8bdc34ec4f407d720ec6dd6ea2627ad7663290b5fac32dc4cd9b",
+    "personal_learning_assistant/ui/web/static/brand/anvaya-mobile-192.png": "0ab3f518124cd8a000fbb176bdbf29261a246ba57cb209c25c11f3c6424e7cca",
+    "personal_learning_assistant/ui/web/static/brand/anvaya-mobile-512.png": "05c2027a46191ffbd7762dba80e035b8213fae7a44c1dac0abbe623d116145bd",
+    "personal_learning_assistant/ui/web/static/css/mobile_v1.css": "46d04059f030eccb08c5961817bc1f600e41375d8aa86a30a4587d90b7112359",
+    "personal_learning_assistant/ui/web/static/js/anvaya_card_template_picker.js": "fdadf3f57a58ec7667b3d91d4e1fd6f4619836c507dfa49af8c9686c4552ba6a",
+    "personal_learning_assistant/ui/web/static/js/anvaya_notes_editor.js": "ee43e64a877b66e7a6220f485736c618b5db44b8e9a365feb3d70b75fd2d1d69",
+    "personal_learning_assistant/ui/web/static/js/mobile-sw.js": "4bb596e2fe8f325a4c07438f1cb7ca083319ed4075b3949c5ffbee23864634a5",
+    "personal_learning_assistant/ui/web/static/js/mobile_v1.js": "c8f5d5f1c97fa93bfd9bb75eeeff30fc8da10380ee26bc9a9c26e0a1e727b8e5",
+    "personal_learning_assistant/ui/web/templates/_mobile_nav.html": "6771164da9205b1f7e6e486f802f31f65d14dedf74781f15160c08a79abbc47c",
+    "personal_learning_assistant/ui/web/templates/agent_session.html": "03814b3eff5f1d26fe4748ae98f959b1060a7ecee6061cc0987b8b95d65438fc",
+    "personal_learning_assistant/ui/web/templates/anvaya_card_template_picker.html": "6a68222a3b5f68398bda621400d870ca1f8dacd4210623bc694b374c8b1878c4",
+    "personal_learning_assistant/ui/web/templates/anvaya_notes_editor.html": "5160248396c0129b4f60146af3e5f09311ae8beefb016e030970842460d61650",
+    "personal_learning_assistant/ui/web/templates/assessment_execution_candidate.html": "faeab913da1aa563a450b94615076c761ba85750f088c77fef99e6ce277c6437",
+    "personal_learning_assistant/ui/web/templates/base.html": "0247fae744804642e7e9763126d98485c9715e441e1898030354bd0155b7e6ff",
+    "personal_learning_assistant/ui/web/templates/mobile_offline.html": "d440639de6974c9b22387aed6451e43643d56ab0478dc70e66c5d09a445c97db",
+    "personal_learning_assistant/ui/web/templates/mobile_settings.html": "b9cd9e6dcb21e6e978f477fba6cb7a190c85e6c62e1a5984ca079cf2dac8a87b"
+  },
+  "logs_sha256": {
+    "cloud-full.txt": "b165c2044c10d8aaa3245af54914da2f228504566edde77b38a9bfcb14e92a87",
+    "mobile-final.txt": "34de536dad20279be14adc744b87b89cb9acee11419f730e8e8cd4c9a576abdc",
+    "node-final.txt": "c57ccab2a8a0d007739ee8984ec96873c2f37d1983213eabff9d288be11f473b"
+  }
+}
