@@ -237,8 +237,9 @@
       <button type="button" data-tutor-prompt="Show one worked example and verify the calculation.">Worked example</button>
     </div>
     <div class="tutor-input-row"><textarea id="agent-question" name="question" rows="2" maxlength="4000" required placeholder="Ask Alex, or share where you got stuck…">{{ failed_question if failed_question is defined else (session.prefill_question or "") }}</textarea>
-    <button class="tutor-primary" type="submit">Ask tutor</button></div>
+    </div><div class="tutor-composer-footer">
     <p id="tutor-submit-status" class="microcopy" role="status" aria-live="polite">{{ error_message or "Review your message, then send. Learning guidance is not a grade." }}</p>
+    <button class="tutor-primary" type="submit">Ask tutor</button></div>
   </form>
 
 </section>

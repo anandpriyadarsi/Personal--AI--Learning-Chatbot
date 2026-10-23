@@ -146,3 +146,37 @@ def test_provider_failure_keeps_draft_and_retry_nonce_without_automatic_retry(br
         assert len(provider.requests) == 1
     finally:
         page.close()
+
+
+def test_phone_composer_keeps_full_readable_input_width(browser, real_tutor):
+    base, service, path, course, provider, before = real_tutor
+    sid = service.create_session(course_id=course['id'], mode='free', source_policy='source_first')
+    page = browser.new_page(viewport={'width':390,'height':844})
+    try:
+        page.goto(base+'/agent/sessions/'+sid)
+        width = page.locator('#agent-question').bounding_box()['width']
+        available = page.locator('#tutor-ask-form').bounding_box()['width']
+        assert width >= .85 * available
+    finally:
+        page.close()
+
+
+@pytest.mark.parametrize('width', [390,1366])
+def test_light_tutor_uses_saved_app_theme_and_stays_readable(browser, real_tutor, width):
+    base, service, path, course, provider, before = real_tutor
+    sid = service.create_session(course_id=course['id'], mode='free', source_policy='source_first')
+    service.ask(sid, 'Explain this concept simply.')
+    page = browser.new_page(viewport={'width':width,'height':844})
+    try:
+        page.goto(base+'/mobile/settings')
+        page.locator('#mobile-theme').select_option('light')
+        page.goto(base+'/agent/sessions/'+sid)
+        expect(page.locator('html')).to_have_attribute('data-theme','light')
+        assert page.evaluate('document.documentElement.scrollWidth <= innerWidth + 1')
+        assert page.locator('#agent-question').evaluate('el => getComputedStyle(el).color !== getComputedStyle(el).backgroundColor')
+        folder = os.environ.get('ANVAYA_TUTOR_UI_ARTIFACTS')
+        if folder:
+            Path(folder).mkdir(parents=True,exist_ok=True)
+            page.screenshot(path=str(Path(folder)/f'session-light-{width}.png'))
+    finally:
+        page.close()

@@ -20,3 +20,6 @@ Cloud fixtures are synthetic. Screenshots are permitted in production activity; 
 
 ## Review corrections
 Inline and display maths now have bounded local horizontal scrolling. Successful asks navigate to the newest persisted turn; history GETs retain normal browser behavior. The sticky context uses the actual shared header height. Composer errors echo the safe server error next to the retained draft. Mentor advice opens after an explicit course request. Native keyboard evidence requires observed IME visibility; requesting keyboard display is not treated as proof.
+
+## Phone-local source-index recovery
+The installed test exposed a missing derived retrieval generation after restore. Android now has an explicit CSRF-protected local-index rebuild action using the production lexical builder with a read-only canonical DB and `acknowledge=False`. The Tutor service uses app-private `data/tutor_retrieval`; source freshness checks remain active. No new network allowance, credentials, schema reset, generated grading or silent ingestion. Native testing must rebuild the actual synthetic sources before checking a deterministic insufficient-evidence response.

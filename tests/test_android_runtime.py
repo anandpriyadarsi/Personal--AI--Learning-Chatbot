@@ -155,3 +155,34 @@ def test_backup_between_50_and_100_mib_can_reach_restore_validator(tmp_path):
         assert (r.root/'restore-pending.zip').exists()
         r.stop()
     ''')
+
+
+def test_phone_rebuilds_lexical_tutor_index_and_saves_source_only_response(tmp_path):
+    run(tmp_path, r'''
+        from personal_learning_assistant.android_runtime import start
+        from tests.academic_evidence_v23_fixtures import source_pdf
+        import urllib.request, urllib.error, urllib.parse, sqlite3
+        r = start()
+        headers={'Cookie':'anvaya_native='+r.token,'Origin':r.origin}
+        def req(path,data=None,extra=None):
+            return urllib.request.urlopen(urllib.request.Request(r.origin+path,data=data,headers={**headers,**(extra or {})}))
+        boundary='anvaya-synthetic-boundary'
+        upload=(b'--'+boundary.encode()+b'\r\nContent-Disposition: form-data; name="source"; filename="study.pdf"\r\nContent-Type: application/pdf\r\n\r\n'+source_pdf()+b'\r\n--'+boundary.encode()+b'--\r\n')
+        assert req('/mobile/device/source',upload,{'Content-Type':'multipart/form-data; boundary='+boundary}).status==200
+        try:
+            req('/mobile/device/tutor-index',b'csrf_token=invalid')
+            raise AssertionError('Index rebuild accepted bad CSRF')
+        except urllib.error.HTTPError as e: assert e.code==403
+        token=r.app.extensions['tutor_action_csrf']
+        assert req('/mobile/device/tutor-index',urllib.parse.urlencode({'csrf_token':token}).encode()).status==200
+        assert (r.root/'data/tutor_retrieval/current.json').is_file()
+        service=r.app.config['ACADEMIC_AGENT_WEB_SERVICE_FACTORY']()
+        sid=service.create_session(course_id='',mode='concept',source_policy='source_only')
+        body=urllib.parse.urlencode({'csrf_token':token,'request_id':'native-lexical-1','question':'zqxv absent concept'}).encode()
+        result=req('/agent/sessions/'+sid+'/ask',body)
+        assert result.status==200
+        assert len(service.session_view(sid)['turns'])==2
+        assert service.session_view(sid)['turns'][-1]['support_level']=='insufficient'
+        assert req('/agent/sessions/'+sid).status==200
+        r.stop()
+    ''')
