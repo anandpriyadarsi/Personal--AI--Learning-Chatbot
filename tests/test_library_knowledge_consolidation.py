@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from personal_learning_assistant.domain.study_search_models import StudySearchResult
 from personal_learning_assistant.ui.web import create_app
+from test_learning_library_read_model import library_db
 
 
 class SourceSearch:
