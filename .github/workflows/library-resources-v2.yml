@@ -96,8 +96,9 @@ jobs:
               sys.exit(code)
           cases = ET.parse(root/'focused.xml').findall('.//testcase')
           assert cases and all(c.find('skipped') is None for c in cases), 'Focused gate must not skip tests'
+      # The canonical cross-platform architecture-validation checks all tests on PRs.
       - name: Whole-project regression (inherited external skips disclosed)
-        if: success()
+        if: ${{ github.event_name != 'pull_request' && success() }}
         shell: python
         run: |
           import os, subprocess, sys, pathlib, xml.etree.ElementTree as ET

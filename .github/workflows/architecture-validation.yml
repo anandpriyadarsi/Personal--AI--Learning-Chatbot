@@ -9,6 +9,11 @@ on:
 permissions:
   contents: read
 
+# A newer PR head supersedes expensive old-head jobs.
+concurrency:
+  group: architecture-validation-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   development:
     name: Synthetic development (${{ matrix.os }})
