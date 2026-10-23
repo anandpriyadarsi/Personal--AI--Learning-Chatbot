@@ -20,6 +20,9 @@ public class MainActivity extends Activity {
     private LocalOrigin allowed;
     private ValueCallback<Uri[]> fileCallback;
     private static final int PICK_FILES = 41;
+    private static final int SAVE_FILE = 42;
+    private String downloadUrl;
+    private String downloadCookie;
     private String origin;
 
     @Override public void onCreate(Bundle state) {
@@ -80,6 +83,16 @@ public class MainActivity extends Activity {
             }));
         web.setWebViewClient(new WebViewClient() {
             @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest req) {
+                if (allowed.permits(req.getUrl().toString()) && req.isForMainFrame()
+                    && "/mobile/restart".equals(req.getUrl().getPath()) && req.hasGesture()) {
+                    new AlertDialog.Builder(MainActivity.this).setTitle("Close ANVAYA?")
+                        .setMessage("Save or pause your work first. Reopen the app icon after closing to apply a staged restore.")
+                        .setNegativeButton("Keep studying", null)
+                        .setPositiveButton("Close app", (dialog,which) -> {
+                            finishAffinity(); android.os.Process.killProcess(android.os.Process.myPid());
+                        }).show();
+                    return true;
+                }
                 return !allowed.permits(req.getUrl().toString());
             }
             @Override public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest req) {
@@ -87,6 +100,15 @@ public class MainActivity extends Activity {
                 return new WebResourceResponse("text/plain", "UTF-8",403,"Blocked", java.util.Collections.emptyMap(),
                     new ByteArrayInputStream("External requests are disabled.".getBytes()));
             }
+        });
+        web.setDownloadListener((url, agent, disposition, mime, length) -> {
+            if (!allowed.permits(url)) return;
+            downloadUrl=url; downloadCookie=CookieManager.getInstance().getCookie(url);
+            Intent save=new Intent(Intent.ACTION_CREATE_DOCUMENT);
+            save.addCategory(Intent.CATEGORY_OPENABLE);
+            save.setType("application/zip");
+            save.putExtra(Intent.EXTRA_TITLE,"ANVAYA-private-backup.zip");
+            startActivityForResult(save,SAVE_FILE);
         });
         web.setWebChromeClient(new WebChromeClient() {
             @Override public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback,
@@ -104,6 +126,30 @@ public class MainActivity extends Activity {
     }
     @Override protected void onActivityResult(int code, int result, Intent data) {
         super.onActivityResult(code,result,data);
+        if (code == SAVE_FILE && result == RESULT_OK && data != null && data.getData() != null) {
+            final Uri destination=data.getData(); final String address=downloadUrl, cookie=downloadCookie;
+            downloadUrl=null; downloadCookie=null;
+            new Thread(() -> {
+                try {
+                    java.net.HttpURLConnection connection=(java.net.HttpURLConnection)new java.net.URL(address).openConnection();
+                    connection.setInstanceFollowRedirects(false);
+                    connection.setConnectTimeout(10000); connection.setReadTimeout(30000);
+                    connection.setRequestProperty("Cookie",cookie);
+                    if(connection.getResponseCode()!=200) throw new java.io.IOException("Backup unavailable");
+                    try (java.io.InputStream input=connection.getInputStream();
+                         java.io.OutputStream output=getContentResolver().openOutputStream(destination,"wt")) {
+                        byte[] buffer=new byte[32768]; int count; long total=0;
+                        while((count=input.read(buffer))!=-1) {
+                            total+=count; if(total>100L*1024*1024) throw new java.io.IOException("Backup too large");
+                            output.write(buffer,0,count);
+                        }
+                    } finally { connection.disconnect(); }
+                    runOnUiThread(() -> Toast.makeText(this,"Backup saved",Toast.LENGTH_LONG).show());
+                } catch(Exception error) {
+                    runOnUiThread(() -> Toast.makeText(this,"Backup could not be saved. Keep the current app data.",Toast.LENGTH_LONG).show());
+                }
+            },"anvaya-export").start();
+        }
         if (code == PICK_FILES && fileCallback != null) {
             Uri[] selected = WebChromeClient.FileChooserParams.parseResult(result,data);
             fileCallback.onReceiveValue(selected); fileCallback = null;

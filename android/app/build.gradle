@@ -45,6 +45,7 @@ chaquopy {
             install 'mistune==3.3.4'
             install 'PyYAML==6.0.2'
             install 'pypdf==6.18.0'
+            install 'Pillow==11.0.0'
             install 'python-dotenv==1.2.3'
             install 'requests==2.31.0'
             install 'tzdata==2026.2'

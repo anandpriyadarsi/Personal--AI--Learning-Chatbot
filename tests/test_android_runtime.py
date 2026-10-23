@@ -33,7 +33,7 @@ def test_private_bootstrap_and_saved_note_survive_new_process(tmp_path):
              'body':'Restart preserves this synthetic study record.'}).encode()
         assert req('/notes/create/typed', note).status == 200
         for path in ['/','/notes','/assessments','/library','/planning','/analysis','/agent']:
-            
+
             try: assert req(path).status == 200, path
             except urllib.error.HTTPError as e: raise AssertionError(path + ' ' + str(e.code))
         with sqlite3.connect(runtime.root / 'data/learning_assistant.db') as db:
@@ -68,5 +68,55 @@ def test_boundary_rejects_cross_origin_wrong_host_and_missing_origin(tmp_path):
                 raise AssertionError((path, headers))
             except urllib.error.HTTPError as e:
                 assert e.code in (400,403)
+        r.stop()
+    ''')
+
+
+def test_native_runtime_denies_outbound_python_network(tmp_path):
+    run(tmp_path, '''
+        from personal_learning_assistant.android_runtime import start
+        import socket
+        r = start()
+        for host in ['example.com', '8.8.8.8']:
+            try:
+                socket.create_connection((host, 443), timeout=1)
+                raise AssertionError('Outbound connection permitted')
+            except PermissionError: pass
+        r.stop()
+    ''')
+
+
+def test_phone_source_registration_course_setup_and_backup(tmp_path):
+    run(tmp_path, '''
+        from personal_learning_assistant.android_runtime import start
+        from tests.academic_evidence_v23_fixtures import source_pdf, authored_sample
+        from personal_learning_assistant.learning_studio.service import LearningStudioService
+        from personal_learning_assistant.learning_studio.sources import RegisteredSources
+        import io,sqlite3,zipfile,json
+        r = start()
+        c = r.app.test_client()
+        c.set_cookie('anvaya_native', r.token, domain='127.0.0.1')
+        def post(path, data):
+            return c.post(path,base_url=r.origin,headers={'Origin':r.origin},data=data)
+        assert post('/mobile/device/course',{'code':'SYN101','name':'Synthetic study'}).status_code==303
+        raw=source_pdf()
+        response=post('/mobile/device/source',{'source':(io.BytesIO(raw),'synthetic.pdf')})
+        assert response.status_code==200,response.data
+        with sqlite3.connect(r.root/'data/learning_assistant.db') as con:
+            identity=con.execute('SELECT id FROM knowledge_documents').fetchone()[0]
+            assert con.execute('SELECT count(*) FROM knowledge_chunks').fetchone()[0]>0
+        p,assets=authored_sample(raw); p['source']['source_id']=identity; p['mapping']=None
+        studio=LearningStudioService(r.root/'data/learning_studio.sqlite3',
+            source_loader=RegisteredSources(r.root/'data/learning_assistant.db',{'documents':r.root/'data/documents'}),
+            catalogue_loader=__import__('personal_learning_assistant.learning_studio.sources',fromlist=['catalogue']).catalogue)
+        studio.stage(p,assets);studio.publish(p['module_id'],1)
+        response=c.get('/learning/modules/uc100n-demo/1?view=learn',base_url=r.origin)
+        assert response.status_code==200,response.data
+        response=c.get('/mobile/device/export',base_url=r.origin)
+        assert response.status_code==200
+        with zipfile.ZipFile(io.BytesIO(response.data)) as z:
+            assert 'data/learning_assistant.db' in z.namelist()
+            assert 'data/learning_studio.sqlite3' in z.namelist()
+            assert 'data/courses.json' in z.namelist()
         r.stop()
     ''')
