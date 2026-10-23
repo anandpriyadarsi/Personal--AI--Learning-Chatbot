@@ -114,3 +114,17 @@ document readiness at every live-state boundary before clicking; it keeps the
 same real Cancel/OK assertions. No fixed delay or retry was added. PR updates
 alone trigger the Android workflow now; the duplicate push hook was removed
 without deleting any build/test job or case. Native rerun remains required.
+
+Atb3ecf65 Android build and final installed API31 tests passed, as did Ubuntu
+whole regression (2,959 passed / four known external skips). Windows completed
+2,958 cases but failed the new fixture generator's temporary-directory cleanup:
+RegisteredSources used sqlite3.Connection's transaction context without closing
+the actual file handle. Two real-connection lifecycle tests reproduced RED on
+both success/rejection paths; contextlib.closing fixes both. All16 runtime,
+backup, fixture and new lifecycle cases pass locally. Holding all31 generator
+connections strongly and probing them after generation confirms zero open
+handles; no garbage-collection workaround, retry or ignored cleanup error.
+The focused ownership/fixture gate now runs early on both native platforms,
+before the full browser suite, for quicker Windows feedback. Final rerun needed.
+Existing APK is a tested pre-fix build and will be replaced with the rebuilt
+version. Native lesson/rubric captures now scroll the checked content into view.

@@ -167,6 +167,7 @@ public class OfflineSmokeTest {
         }
         go("/learning/modules/uc100n-demo/1?view=learn");
         waitFor("!!document.querySelector('.ls-block-definition') && document.querySelector('#ls-reading-status').innerText.includes('saved')");
+        js("document.querySelector('.ls-block-definition').scrollIntoView()");
         screenshot("android-active-lesson");
         go("/learning/modules/uc100n-demo/1?view=practice&question=mean-score");
         js("document.querySelector('.ls-question input[value=\"0\"]').checked=true;document.querySelector('.ls-question button[type=submit]').click()");
@@ -203,6 +204,7 @@ public class OfflineSmokeTest {
         waitFor("document.querySelectorAll('select[name^=step_]').length===3");
         js("document.querySelectorAll('select[name^=step_]').forEach(s=>s.value='1.0');document.querySelector('form[action$=\"/self_save\"] button').click()");
         waitFor("document.querySelector('.mark-state').innerText.includes('3.0 marks')");
+        js("document.querySelector('.guide').scrollIntoView()");
         screenshot("android-paper-step-review");
     }
     @Test public void testNoteAfterForceStop() throws Exception {
@@ -230,6 +232,7 @@ public class OfflineSmokeTest {
         waitFor("document.querySelector('#workspace').dataset.status==='paused'");
         go(attempt("paper"));
         waitFor("document.querySelector('.mark-state').innerText.includes('3.0 marks')");
+        js("document.querySelector('.mark-state').scrollIntoView()");
         screenshot("android-paper-review-after-force-stop");
         go("/learning/modules/uc100n-demo/1?view=practice&question=mean-score");
         waitFor("document.querySelector('.ls-question-state').innerText.includes('1 recorded attempts')");

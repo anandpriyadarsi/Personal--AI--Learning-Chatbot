@@ -1,5 +1,6 @@
 """Read-only adapters to ANVAYA's existing registered sources and course catalogue."""
 import json
+from contextlib import closing
 from pathlib import Path, PurePosixPath
 import sqlite3
 from urllib.parse import quote
@@ -20,7 +21,7 @@ class RegisteredSources:
     def __call__(self, source_id):
         from personal_learning_assistant.ingestion.source_resolver import SourceRootResolver
         db = safe_regular(self.database_path)
-        with sqlite3.connect('file:' + quote(db.as_posix(), safe='/:') + '?mode=ro', uri=True) as con:
+        with closing(sqlite3.connect('file:' + quote(db.as_posix(), safe='/:') + '?mode=ro', uri=True)) as con:
             row = con.execute('SELECT path_key,content_hash,mime_type FROM knowledge_documents WHERE id=?', (source_id,)).fetchone()
         require(row is not None and row[2] == 'application/pdf', 'Source ID must reference an existing registered PDF.')
         require(isinstance(row[0], str) and '/' in row[0] and '\\' not in row[0], 'Registered source has an invalid logical path.')
