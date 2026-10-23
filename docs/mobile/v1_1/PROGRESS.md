@@ -105,3 +105,12 @@ Reviewer rechecked both fixes and independently passed the modified runtime
 case; no Critical/Important issue remains in those fixes. Native attachment
 tests now inspect the actual SAF intent for PDF/TXT/ZIP then cancel it; external
 document-provider byte writing remains an owner-device/manual integration gate.
+
+Run39912295954 built the review-fixed APK/JVM successfully. Its emulator passed
+all three real WebView -> SAF attachment-name/type checks, then the first
+confirmation assertion failed: mutation reload status was visible before the
+deferred form handler finished attaching. The test now waits for completed
+document readiness at every live-state boundary before clicking; it keeps the
+same real Cancel/OK assertions. No fixed delay or retry was added. PR updates
+alone trigger the Android workflow now; the duplicate push hook was removed
+without deleting any build/test job or case. Native rerun remains required.

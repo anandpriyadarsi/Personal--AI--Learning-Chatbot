@@ -2,13 +2,11 @@ name: Mobile V1.1 standalone Android
 on:
   pull_request:
     branches: [feature/mobile-v1-private-pwa-2026-10]
-  push:
-    branches: [feature/mobile-v1-1-private-android-runtime-2026-10]
   workflow_dispatch:
 permissions:
   contents: read
 concurrency:
-  group: android-v11-${{ github.event.pull_request.head.ref || github.ref }}
+  group: android-v11-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 jobs:
   android:

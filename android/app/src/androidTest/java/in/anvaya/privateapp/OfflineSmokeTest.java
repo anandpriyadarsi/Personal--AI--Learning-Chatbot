@@ -58,7 +58,9 @@ public class OfflineSmokeTest {
     private void waitFor(String expression) throws Exception {
         long deadline=System.currentTimeMillis()+30000;
         while(System.currentTimeMillis()<deadline) {
-            if("true".equals(js(expression)))return;
+            // Server-rendered status can appear before deferred handlers attach
+            // after a mutation reload. Do not click a new form in that gap.
+            if("true".equals(js("document.readyState==='complete' && ("+expression+")")))return;
             Thread.sleep(100);
         }
         fail("Missing live DOM state: "+expression+"; body="+js("document.body.innerText"));
@@ -119,7 +121,7 @@ public class OfflineSmokeTest {
             }
             Thread.sleep(100);
         }
-        fail("Native confirmation dialog was not shown");
+        fail("Native confirmation dialog was not shown; ready/state="+js("JSON.stringify({ready:document.readyState,status:document.querySelector('#workspace')?.dataset.status})"));
     }
     private void screenshot(String name) throws Exception {
         getInstrumentation().runOnMainSync(()->activity.getWindow().clearFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE));
