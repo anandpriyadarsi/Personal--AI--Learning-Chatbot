@@ -36,7 +36,7 @@ public class MainActivity extends Activity {
         ImageView logo = new ImageView(this); logo.setImageResource(in.anvaya.privateapp.R.drawable.anvaya_icon);
         splash.addView(logo, new LinearLayout.LayoutParams(160,160));
         TextView label = new TextView(this);
-        label.setText("ANVAYA\nOpening your private learning workspace…");
+        label.setText("ANVAYA\nPersonal Learning Intelligence");
         label.setTextColor(Color.WHITE); label.setTextSize(19); label.setGravity(17);
         splash.addView(label); setContentView(splash);
         new Thread(() -> {
