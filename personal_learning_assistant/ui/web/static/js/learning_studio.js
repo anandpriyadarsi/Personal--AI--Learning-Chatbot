@@ -129,7 +129,7 @@
     return positionWrite;
   }
   async function persistPosition(completed) {
-    if (!column?.dataset.progress || !['learn','visualise','source','revision','practice'].includes(column.dataset.view)) return;
+    if (!column?.dataset.progress || !['learn','visualise','source','revision','practice'].includes(column.dataset.view)) return true;
     const url = new URL(location.href);
     const payload = {event_id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`,
       section_id: column.dataset.section, view: column.dataset.view, text_size: savedSize};

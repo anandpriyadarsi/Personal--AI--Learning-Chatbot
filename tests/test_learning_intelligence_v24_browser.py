@@ -189,3 +189,14 @@ def test_cross_owner_navigation_waits_for_pending_reading_write(browser, live_v2
     finally:
         for route in held: route.abort()
         context.close()
+
+
+def test_overview_can_leave_learning_owner_without_a_bookmark_write(browser, live_v24):
+    base,_=live_v24
+    page=browser.new_page(viewport={'width':390,'height':844})
+    try:
+        page.goto(base+'/learning/modules/uc100n-demo/1')
+        page.wait_for_load_state('networkidle')
+        page.get_by_role('link',name='Learn workspace',exact=True).click(no_wait_after=True)
+        page.wait_for_url(base+'/learning',timeout=3000)
+    finally:page.close()

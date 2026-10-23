@@ -12,6 +12,6 @@ adb shell am instrument -w -r -e class in.anvaya.privateapp.OfflineSmokeTest\#te
 python -c "from pathlib import Path;s=Path('android-evidence/reopen-note.log').read_text();assert 'OK (1 test)' in s and not any(v in s for v in ('FAILURES','INSTRUMENTATION_FAILED','shortMsg='))"
 adb shell getprop ro.build.version.release > android-evidence/android-version.txt
 adb shell getprop ro.product.cpu.abi > android-evidence/abi.txt
-for name in android-today android-note-saved android--learning android--agent android--assessments android--library android--mobile-settings android--mobile-device android-note-after-force-stop; do
+for name in android-today android-note-saved android--learning android--agent android--assessments android--library android--mobile-settings android--mobile-device android-note-after-force-stop android-sqlite-task-saved android-sqlite-task-after-force-stop; do
   adb exec-out run-as in.anvaya.privateapp cat files/evidence/"$name".png > android-evidence/"$name".png
 done

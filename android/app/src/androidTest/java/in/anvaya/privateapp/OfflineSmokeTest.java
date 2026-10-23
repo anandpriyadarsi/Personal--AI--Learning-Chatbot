@@ -80,6 +80,11 @@ public class OfflineSmokeTest {
         js("document.querySelector('[name=title]').value='Synthetic Android restart note';document.querySelector('[name=body]').value='Saved offline through the real Android WebView and production Notes service.';document.querySelector('.anvaya-native-note-form').requestSubmit()");
         waitFor("location.pathname.startsWith('/notes/view/') && document.body.innerText.includes('Synthetic Android restart note')");
         screenshot("android-note-saved");
+        go("/planning/tasks");
+        waitFor("!!document.querySelector('form[action=\"/planning/tasks\"]')");
+        js("document.querySelector('form[action=\"/planning/tasks\"] [name=title]').value='Synthetic Android SQLite task';document.querySelector('form[action=\"/planning/tasks\"] [name=estimated_minutes]').value='30';document.querySelector('form[action=\"/planning/tasks\"]').requestSubmit()");
+        waitFor("!!document.querySelector('.planner-task-list') && document.querySelector('.planner-task-list').innerText.includes('Synthetic Android SQLite task')");
+        screenshot("android-sqlite-task-saved");
         for(String path:new String[]{"/learning","/agent","/assessments","/library","/mobile/settings","/mobile/device"}) {
             go(path);screenshot("android-"+path.replace('/','-'));
             assertEquals("No document overflow at "+path,"true",js("document.documentElement.scrollWidth<=innerWidth+1"));
@@ -89,6 +94,9 @@ public class OfflineSmokeTest {
         open();go("/notes");
         waitFor("document.body.innerText.includes('Synthetic Android restart note')");
         screenshot("android-note-after-force-stop");
+        go("/planning/tasks");
+        waitFor("!!document.querySelector('.planner-task-list') && document.querySelector('.planner-task-list').innerText.includes('Synthetic Android SQLite task')");
+        screenshot("android-sqlite-task-after-force-stop");
         // Verify the embedded interpreter is running in this installed package.
         assertTrue(com.chaquo.python.Python.isStarted());
     }

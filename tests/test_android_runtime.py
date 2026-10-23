@@ -32,12 +32,15 @@ def test_private_bootstrap_and_saved_note_survive_new_process(tmp_path):
         note = urllib.parse.urlencode({'title':'Synthetic offline note',
              'body':'Restart preserves this synthetic study record.'}).encode()
         assert req('/notes/create/typed', note).status == 200
+        task=urllib.parse.urlencode({'title':'Synthetic persistent task','estimated_minutes':'30'}).encode()
+        assert req('/planning/tasks',task).status==200
         for path in ['/','/notes','/assessments','/library','/planning','/analysis','/agent','/mobile/settings','/mobile/device']:
 
             try: assert req(path).status == 200, path
             except urllib.error.HTTPError as e: raise AssertionError(path + ' ' + str(e.code))
         with sqlite3.connect(runtime.root / 'data/learning_assistant.db') as db:
             assert db.execute('PRAGMA integrity_check').fetchone()[0] == 'ok'
+            assert db.execute("SELECT count(*) FROM planner_tasks WHERE title='Synthetic persistent task'").fetchone()[0]==1
             assert db.execute('SELECT count(*) FROM schema_migrations').fetchone()[0] == 15
         print(runtime.token)
         runtime.stop()
@@ -48,6 +51,8 @@ def test_private_bootstrap_and_saved_note_survive_new_process(tmp_path):
         r = start()
         req = urllib.request.Request(r.origin+'/notes', headers={'Cookie':'anvaya_native='+r.token})
         assert 'Synthetic offline note' in urllib.request.urlopen(req).read().decode()
+        req=urllib.request.Request(r.origin+'/planning/tasks',headers={'Cookie':'anvaya_native='+r.token})
+        assert 'Synthetic persistent task' in urllib.request.urlopen(req).read().decode()
         r.stop()
     ''')
 

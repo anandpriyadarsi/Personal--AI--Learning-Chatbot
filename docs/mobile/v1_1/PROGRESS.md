@@ -39,3 +39,17 @@ syntax defect. Reproduced native and original PWA contracts RED, corrected title
 block, then 21 tests GREEN. Eight actual runtime pages, Notes create/reload,
 HttpOnly capability invisibility, zero service workers and zero external requests
 passed in Chromium134. Screenshots are browser evidence, not Android evidence.
+
+Android12 API31 x86_64 real installed-app gate PASSED at remote957475699919f93396c7bd83d3723fcb5db888c4,
+Actions39881936564: two instrumentation phases (9.741s and5.193s), Wi-Fi/mobile
+data off, real Notes form → force-stop → reopen → same note. Actual emulator
+screenshots captured; physical Samsung certification remains blocked.
+
+The same-source Android build/JVM job passed. Expanded native lifecycle adds a
+production Planner SQLite task to the force-stop/reopen check (cloud process
+write/new-process/read already passes). Final Android run must prove this too.
+
+Self-review found overview navigation was incorrectly waiting on an undefined
+bookmark result. Reproduced actual browser failure, made no-write views return
+successful no-op, then all seven V2.4 live browser cases passed. No academic
+snapshot guard was weakened. Full Ubuntu/Windows gates remain separate.
