@@ -185,3 +185,19 @@
 .materials-workspace .library-collection-link > span:last-child {color:#84ddcb;flex:0 0 auto}
 .materials-workspace .library-collection-symbol {display:grid;place-items:center;flex:0 0 2.4rem;height:2.4rem;border-radius:.7rem;background:var(--materials-soft);color:var(--materials-accent);font-weight:760}
 @media(max-width:630px){.materials-workspace .library-collection-grid {grid-template-columns:minmax(0,1fr)}}
+
+/* Unified Library tabs; scoped to Library, shared by web and Android WebView. */
+.library-view-tabs {display:flex;flex-wrap:wrap;gap:.5rem;margin:1rem 0 .65rem;padding:.35rem;border-radius:1rem;border:1px solid var(--materials-border);background:#12212b}
+.library-view-tabs a {display:inline-flex;align-items:center;justify-content:center;min-height:2.7rem;padding:.6rem 1rem;border-radius:.75rem;color:#bdd1d6;font-weight:700;font-size:.82rem;text-decoration:none;white-space:normal}
+.library-view-tabs a[aria-current="page"] {background:#72d8c5;color:#0b2929}
+.library-view-tabs a:hover,.library-view-tabs a:focus-visible {outline-offset:2px;border-color:#72d8c5;text-decoration:underline}
+.library-source-search {margin:1.25rem 0;min-width:0}
+.library-source-search .knowledge-query-row,.library-source-search .knowledge-filter-grid {min-width:0}
+.library-source-search input,.library-source-search select {max-width:100%}
+.library-source-search .knowledge-result-card {overflow-wrap:anywhere}
+@media(max-width:460px) {
+  .library-view-tabs {display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+  .library-view-tabs a {padding:.5rem .3rem;font-size:.73rem;text-align:center}
+  .library-source-search .knowledge-query-row {display:flex;flex-wrap:wrap}
+  .library-source-search .knowledge-query-row input {flex:1 1 100%;min-width:0}
+}
