@@ -32,7 +32,7 @@ def test_private_bootstrap_and_saved_note_survive_new_process(tmp_path):
         note = urllib.parse.urlencode({'title':'Synthetic offline note',
              'body':'Restart preserves this synthetic study record.'}).encode()
         assert req('/notes/create/typed', note).status == 200
-        for path in ['/','/notes','/assessments','/library','/planning','/analysis','/agent']:
+        for path in ['/','/notes','/assessments','/library','/planning','/analysis','/agent','/mobile/settings','/mobile/device']:
 
             try: assert req(path).status == 200, path
             except urllib.error.HTTPError as e: raise AssertionError(path + ' ' + str(e.code))

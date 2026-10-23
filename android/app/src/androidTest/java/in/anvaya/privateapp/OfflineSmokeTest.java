@@ -42,7 +42,7 @@ public class OfflineSmokeTest {
         }
         // Surface an embedded startup exception to synthetic instrumentation logs.
         com.chaquo.python.Python.getInstance().getModule("personal_learning_assistant.android_runtime")
-            .callAttr("launch",getInstrumentation().getTargetContext().getFilesDir().getAbsolutePath());
+            .callAttr("launch",getInstrumentation().getTargetContext().getFilesDir().getCanonicalPath());
         fail("Embedded runtime did not render main within 90s");
     }
     private String js(String script) throws Exception {

@@ -111,3 +111,10 @@ body.mobile-assessment {padding-bottom:env(safe-area-inset-bottom)}
  .tutor-session-page .metric-card strong {font-size:15px;line-height:1.35}
  .tutor-session-page .metric-card>span {font-size:11px;line-height:1.35}
 }
+
+/* Native setup uses the same touch-sized form rhythm as the academic studios. */
+.android-device-workspace form { display:grid; gap:1rem; margin:1rem 0; }
+.android-device-workspace label { display:grid; gap:.45rem; min-width:0; }
+.android-device-workspace input { width:100%; min-width:0; box-sizing:border-box; }
+.android-device-workspace button { min-height:44px; padding:.75rem 1rem; border:1px solid var(--border,#31424d); border-radius:12px; background:#6bd6cf; color:#0b151b; font:inherit; font-weight:700; cursor:pointer; }
+.android-device-workspace p { line-height:1.65; }

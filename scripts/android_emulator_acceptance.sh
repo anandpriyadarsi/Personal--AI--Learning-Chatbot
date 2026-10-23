@@ -6,12 +6,10 @@ adb install -r android/app/build/outputs/apk/androidTest/debug/app-debug-android
 adb shell svc wifi disable
 adb shell svc data disable
 adb shell am instrument -w -r -e class in.anvaya.privateapp.OfflineSmokeTest\#testCreateOfflineNote in.anvaya.privateapp.test/androidx.test.runner.AndroidJUnitRunner | tee android-evidence/create-note.log
-! rg 'FAILURES|INSTRUMENTATION_FAILED|shortMsg=' android-evidence/create-note.log
-rg 'OK \(1 test\)' android-evidence/create-note.log
+python -c "from pathlib import Path;s=Path('android-evidence/create-note.log').read_text();assert 'OK (1 test)' in s and not any(v in s for v in ('FAILURES','INSTRUMENTATION_FAILED','shortMsg='))"
 adb shell am force-stop in.anvaya.privateapp
 adb shell am instrument -w -r -e class in.anvaya.privateapp.OfflineSmokeTest\#testNoteAfterForceStop in.anvaya.privateapp.test/androidx.test.runner.AndroidJUnitRunner | tee android-evidence/reopen-note.log
-! rg 'FAILURES|INSTRUMENTATION_FAILED|shortMsg=' android-evidence/reopen-note.log
-rg 'OK \(1 test\)' android-evidence/reopen-note.log
+python -c "from pathlib import Path;s=Path('android-evidence/reopen-note.log').read_text();assert 'OK (1 test)' in s and not any(v in s for v in ('FAILURES','INSTRUMENTATION_FAILED','shortMsg='))"
 adb shell getprop ro.build.version.release > android-evidence/android-version.txt
 adb shell getprop ro.product.cpu.abi > android-evidence/abi.txt
 for name in android-today android-note-saved android--learning android--agent android--assessments android--library android--mobile-settings android--mobile-device android-note-after-force-stop; do

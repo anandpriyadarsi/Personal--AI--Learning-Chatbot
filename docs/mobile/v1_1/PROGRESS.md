@@ -27,3 +27,15 @@ also serialized; Activity is singleTask to avoid duplicate embedded launchers.
 Ruling: this first package blocks all online AI/external Python networking; an
 incomplete consent flow must not send records. Cost: online AI unavailable in this
 increment. This is an explicit compatibility limitation, not an LLM certificate.
+
+Real CI API31 emulator (run39881026047) built/installed both APKs, then reproduced
+startup rejection of Android's platform-owned filesDir alias. Fixed at native
+trust boundary by passing Context.filesDir.getCanonicalPath(); Python still
+rejects arbitrary symlink roots. Native retest required. The installed app did
+not reach main in that run; it is not a successful standalone certificate.
+
+Actual authenticated Chromium native-runtime journey exposed a settings template
+syntax defect. Reproduced native and original PWA contracts RED, corrected title
+block, then 21 tests GREEN. Eight actual runtime pages, Notes create/reload,
+HttpOnly capability invisibility, zero service workers and zero external requests
+passed in Chromium134. Screenshots are browser evidence, not Android evidence.

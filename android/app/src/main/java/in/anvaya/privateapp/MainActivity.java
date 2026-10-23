@@ -43,7 +43,7 @@ public class MainActivity extends Activity {
             try {
                 if (!Python.isStarted()) Python.start(new AndroidPlatform(getApplicationContext()));
                 List<PyObject> runtime = Python.getInstance().getModule("personal_learning_assistant.android_runtime")
-                    .callAttr("launch", getFilesDir().getAbsolutePath()).asList();
+                    .callAttr("launch", getFilesDir().getCanonicalPath()).asList();
                 String address = runtime.get(0).toString();
                 String token = runtime.get(1).toString();
                 runOnUiThread(() -> openWorkspace(address, token));
