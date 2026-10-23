@@ -111,12 +111,12 @@ def test_routes_source_declares_get_only_knowledge_endpoint():
     assert '@web_blueprint.post("/knowledge")' not in source
 
 
-def test_base_navigation_exposes_knowledge_as_real_link():
+def test_base_navigation_uses_one_library_destination():
     root = Path(__file__).resolve().parents[1]
     source = (root / "personal_learning_assistant/ui/web/templates/base.html").read_text(encoding="utf-8")
-    assert "url_for('web.knowledge')" in source
-    assert "active_page == 'knowledge'" in source
-    assert '<span class="nav-item is-disabled" aria-disabled="true">Knowledge</span>' not in source
+    assert "url_for('web.learning_library')" in source
+    assert "url_for('web.learning_library', view='search')" in source
+    assert '>Knowledge</a>' not in source
 
 
 def _dashboard_fixture(query=""):
