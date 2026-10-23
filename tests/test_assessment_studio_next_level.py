@@ -135,7 +135,7 @@ def test_history_pagination_and_home_continuation(tmp_path):
     page = client.get('/assessments')
     assert page.status_code == 200
     text = page.get_data(as_text=True)
-    assert 'Continue where you left off' in text
+    assert 'Recent Tests' in text
     assert f'/assessments/sessions/{session}/summary' in text
     history = client.get('/assessments/tests/assessment-d/history')
     assert history.status_code == 200

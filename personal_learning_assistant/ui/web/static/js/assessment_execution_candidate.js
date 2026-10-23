@@ -3,6 +3,7 @@
   'use strict';
   const root = document.getElementById('workspace');
   if (!root) return;
+  if (window.matchMedia('(max-width: 768px)').matches) document.querySelector('.palette-disclosure')?.removeAttribute('open');
   const status = document.getElementById('save-status');
   const started = performance.now();
   const remaining = Number(root.dataset.remaining);
@@ -13,7 +14,7 @@
   }
   tick(); setInterval(tick, 250);
   let pending = false;
-  document.querySelectorAll('form').forEach(form => form.addEventListener('submit', async event => {
+  document.querySelectorAll('form:not(#coding-helper-form)').forEach(form => form.addEventListener('submit', async event => {
     event.preventDefault();
     if (pending) return;
     const body = new FormData(form);
@@ -21,6 +22,9 @@
     const action = body.get('command') || form.action.split('/').pop();
     if (['submit', 'finish_solving', 'self_submit'].includes(action) && !window.confirm(action === 'self_submit' ? 'Submit these self-entered marks?' : 'Finish solving and freeze this attempt?')) return;
     pending = true;
+    const buttons = Array.from(document.querySelectorAll('button'));
+    const disabledBefore = buttons.map(button => button.disabled);
+    buttons.forEach(button => { button.disabled = true; });
     status.textContent = 'Waiting for server acknowledgement…';
     try {
       const response = await fetch(form.action, { method: 'POST', body, headers: { Accept: 'application/json' }, credentials: 'same-origin' });
@@ -31,6 +35,7 @@
       window.location.reload();
     } catch (error) {
       status.textContent = 'No successful acknowledgement. Your visible work is preserved. ' + error.message + ' Retry the same action; do not assume the timer paused.';
+      buttons.forEach((button, index) => { button.disabled = disabledBefore[index]; });
       pending = false;
     }
   }));

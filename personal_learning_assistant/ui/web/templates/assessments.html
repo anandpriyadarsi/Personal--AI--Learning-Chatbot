@@ -1,76 +1,53 @@
 {% extends "base.html" %}
 {% block title %}Assessment Studio · ANVAYA{% endblock %}
 {% block content %}
-<header class="assessment-heading">
-  <div><p class="eyebrow">Your assessment workspace</p><h2 id="assessments-title">Assessment Studio</h2><p>Prepare, test, understand, improve.</p></div>
-  <a class="button" href="{{ url_for('web.assessment_import') }}">Create with Alex <span aria-hidden="true">↗</span></a>
+<header class="assessment-heading assessment-mode-heading">
+  <div><h2 id="assessments-title">Assessment Studio</h2><p>Choose how you want to take your test.</p></div>
 </header>
+<section class="assessment-mode-grid" aria-label="Choose your test mode">
+  <article class="assessment-mode-card">
+    <span class="assessment-mode-icon" aria-hidden="true">▣</span>
+    <h3>CBT Based Test</h3><p>Answer questions directly on your phone.</p>
+    <a class="button" href="{{ url_for('web.assessment_tests', assessment_mode='cbt') }}">Open CBT Tests →</a>
+  </article>
+  <article class="assessment-mode-card">
+    <span class="assessment-mode-icon" aria-hidden="true">✎</span>
+    <h3>Handwritten Test</h3><p>Solve on paper. Check your steps and award marks using the solution rubric.</p>
+    <a class="button" href="{{ url_for('web.assessment_tests', assessment_mode='handwritten') }}">Open Handwritten Tests →</a>
+  </article>
+</section>
 {% if paused_assessment_attempts %}
 <section class="assessment-resume-list" aria-labelledby="paused-attempts-heading">
   <div class="assessment-section-heading">
-    <div><p class="eyebrow">Saved and paused</p><h3 id="paused-attempts-heading">Continue your assessment</h3></div>
+    <div><p class="eyebrow">Saved and paused</p><h3 id="paused-attempts-heading">Continue Paused Tests</h3></div>
     <span class="assessment-resume-count">{{ paused_assessment_attempts|length }} paused</span>
   </div>
   {% for attempt in paused_assessment_attempts %}
   <article class="assessment-resume-card">
     <div>
       <h4>{{ attempt.title }}</h4>
-      <p>Paused at question {{ attempt.current_ordinal }} · {{ 'Handwritten practice' if attempt.kind == 'paper_subjective' else 'Online practice' }} · {{ '%02d:%02d'|format(((attempt.remaining_ms+999)//1000)//60,((attempt.remaining_ms+999)//1000)%60) }} remaining</p>
+      <p>Paused at question {{ attempt.current_ordinal }} · {{ 'Handwritten Test' if attempt.kind == 'paper_subjective' else 'CBT Based Test' }} · {{ '%02d:%02d'|format(((attempt.remaining_ms+999)//1000)//60,((attempt.remaining_ms+999)//1000)%60) }} remaining</p>
       <span class="assessment-resume-help">Responses and active time are saved. Resume returns to the question you left.</span>
     </div>
     <form method="post" action="{{ url_for('assessment_extended.mutate',sid=attempt.session_id,action='resume') }}">
       <input type="hidden" name="mutation_token" value="{{ attempt.mutation_token }}">
       <input type="hidden" name="request_id" value="{{ attempt.request_id }}">
       <input type="hidden" name="expected_revision" value="{{ attempt.revision }}">
-      <button class="button" type="submit">Resume test →</button>
+      <button class="button" type="submit">Resume Test →</button>
     </form>
   </article>
   {% endfor %}
 </section>
 {% endif %}
-{% if assessment_extended_enabled %}
-<section class="assessment-mode-preview" aria-labelledby="assessment-modes-heading">
-  <div class="assessment-mode-preview-copy">
-    <p class="eyebrow">Assessment Studio · now available</p>
-    <h3 id="assessment-modes-heading">Pause/Resume and handwritten self-review</h3>
-    <p>Use these modes directly with your imported <strong>practice assessments</strong> in ANVAYA. Open an assessment from your library to select the mode on its instructions page.</p>
-    <p class="assessment-mode-preview-note">Pause saves the active-time practice clock. Handwritten marking uses the approved imported question and rubric, with marks recorded as <strong>private self-evaluation only</strong> — never an official grade, verified mastery or automatic Tutor/Planner evidence.</p>
-  </div>
-  <div class="assessment-mode-preview-actions">
-    <a class="button" href="{{ url_for('web.assessment_tests') }}">Open assessments →</a>
-    <a class="button button-secondary" href="{{ url_for('web.assessment_import') }}">Import practice paper</a>
-    <p>Practice modes are enabled for local ANVAYA. Your academic history is preserved.</p>
-  </div>
-</section>
-{% else %}
-<section class="assessment-mode-preview" aria-labelledby="assessment-modes-heading">
-  <div class="assessment-mode-preview-copy">
-    <p class="eyebrow">New Assessment Studio preview</p>
-    <h3 id="assessment-modes-heading">Pause practice &amp; handwritten self-check</h3>
-    <p>Explore an online test with Pause/Resume, or solve a subjective paper and review it step by step. The preview uses sample questions in a separate, disposable database.</p>
-    <p class="assessment-mode-preview-note"><strong>Your normal assessments are unchanged.</strong> Live assessment storage is still disabled until the optional migration and data-authority verification are approved. Self-entered marks are not official grades.</p>
-  </div>
-  <div class="assessment-mode-preview-actions">
-    <a class="button" href="http://127.0.0.1:8766/" target="_blank" rel="noopener noreferrer">Open local demo ↗</a>
-    <a class="button button-secondary" href="{{ url_for('web.assessment_tests') }}">Assessment library</a>
-    <p>Start the demo first in PowerShell:</p>
-    <code>python scripts/assessment_execution_fixture.py --port 8766</code>
-  </div>
-</section>
-{% endif %}
 {% if workspace.available %}
-  {% if workspace.continuation %}{% set next = workspace.continuation %}
-  <section class="assessment-continue" aria-labelledby="continue-title">
-    <div><p class="eyebrow" id="continue-title">Continue where you left off</p><h3>{{ next.title }}</h3><p>{{ next.course_code }} · {{ next.kind|title }} · {{ next.state_label }}</p></div>
-    <a class="button" href="{{ next.action_url }}">{{ next.action_label }} <span aria-hidden="true">→</span></a>
-  </section>
-  {% endif %}
   <section class="assessment-library-section" aria-labelledby="recent-title">
-    <div class="assessment-section-heading"><h3 id="recent-title">Your assessments</h3><a href="{{ url_for('web.assessment_tests') }}">Open library →</a></div>
+    <div class="assessment-section-heading"><h3 id="recent-title">Recent Tests</h3><a href="{{ url_for('web.assessment_tests') }}">Open library →</a></div>
     {% if workspace.rows %}{% with rows=workspace.rows[:6] %}{% include '_assessment_rows.html' %}{% endwith %}
-    {% else %}<div class="assessment-empty"><h3>Start with a paper or a topic.</h3><p>Choose Quiz, Exam or Test, create it with Alex, then import the package for blind review.</p><a href="{{ url_for('web.assessment_import') }}">Create your first assessment →</a></div>{% endif %}
+    {% else %}<div class="assessment-empty"><h3>Your next test starts here.</h3><p>Import a test package, review it, then choose how to take it.</p><a href="{{ url_for('web.assessment_import') }}">Create your first assessment →</a></div>{% endif %}
   </section>
 {% else %}<p class="notice-panel" role="status">{{ workspace.message }}</p>{% endif %}
+<p class="assessment-create-link"><a class="button button-secondary" href="{{ url_for('web.assessment_import') }}">Create / Import Test</a></p>
+<details class="assessment-disclosure"><summary>Reports, Templates and Other Tools</summary>
 <div class="assessment-resource-links">
   <a href="{{ url_for('web.assessment_intelligence') }}"><strong>Reports</strong><span>Understand confirmed performance</span></a>
   <a href="{{ url_for('web.assessment_weak_topics') }}"><strong>Weak Topics</strong><span>Find evidence worth acting on</span></a>
@@ -86,6 +63,7 @@
   </div>
   {% if studio.available %}<ul class="assessment-course-list">{% for course in studio.courses %}<li><a href="{{ url_for('web.assessment_course', course_id=course.id) }}">{{ course.code }} · {{ course.name }}</a><span>{{ course.template_count }} templates</span></li>{% endfor %}</ul>
   {% else %}<p>{{ studio.message }}</p>{% endif %}
+</details>
 </details>
 <details class="assessment-disclosure">
   <summary>Academic deadlines &amp; recorded assessments</summary>
