@@ -7,7 +7,9 @@
       const query = globalSearch.value.trim();
       if (!query) return;
       const target = globalSearch.dataset.searchUrl || "/knowledge";
-      window.location.assign(`${target}?q=${encodeURIComponent(query)}`);
+      const destination = new URL(target, window.location.origin);
+      destination.searchParams.set("q", query);
+      window.location.assign(destination.toString());
     });
   }
 

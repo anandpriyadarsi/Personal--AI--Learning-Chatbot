@@ -61,6 +61,26 @@ def test_responsive_surfaces_have_one_main_no_overflow_or_js_errors(context, ui,
         page.screenshot(path=str(Path(output) / f'{surface}-{width}.png'), full_page=True)
 
 
+@pytest.mark.parametrize('width,height', [(320, 700), (390, 844), (1366, 768)])
+def test_unified_library_content_search_responsive_with_real_source_reader(context, ui, width, height):
+    page = context.new_page()
+    page.set_viewport_size({'width': width, 'height': height})
+    errors = []
+    page.on('pageerror', lambda error: errors.append(str(error)))
+    response = page.goto(ui['base'] + '/library?view=search&q=LU', wait_until='load')
+    assert response.status == 200
+    assert page.locator('main').count() == 1
+    assert page.locator('.library-view-tabs a[aria-current="page"]').inner_text().strip() == 'Search inside content'
+    assert page.locator('input#knowledge-query').input_value() == 'LU'
+    assert page.get_by_role('link', name='MIT 18.06 Lecture 4', exact=True).count() >= 1
+    assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), f'Library search overflows at {width}px'
+    assert not errors
+    output = os.environ.get('ANVAYA_UI_V2_ARTIFACTS')
+    if output and width in (390, 1366):
+        Path(output).mkdir(parents=True, exist_ok=True)
+        page.screenshot(path=str(Path(output) / f'library-search-{width}.png'), full_page=True)
+
+
 def test_home_primary_action_and_mobile_navigation(context, ui):
     page = context.new_page()
     page.set_viewport_size({'width': 390, 'height': 844})
@@ -152,7 +172,7 @@ def test_no_js_search_readers_and_gets_are_read_only(browser, ui):
         search = page.locator('#global-study-search')
         search.fill('LU')
         search.press('Enter')
-        assert '/knowledge?' in page.url
+        assert '/library?view=search&q=LU' in page.url
         page.get_by_role('link', name='MIT 18.06 Lecture 4', exact=True).click()
         assert page.url.endswith('/knowledge/item/d-lu')
         original = page.get_by_role('link', name='Open original', exact=False)

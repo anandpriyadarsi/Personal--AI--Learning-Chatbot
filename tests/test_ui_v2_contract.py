@@ -5,7 +5,7 @@ from tests.ui_v2_fixtures import build_ui_fixture
 def test_home_has_real_workspace_destinations_and_native_search(tmp_path):
     app = build_ui_fixture(tmp_path)['app']
     text = app.test_client().get('/').get_data(as_text=True)
-    assert 'action="/knowledge"' in text and 'name="q"' in text
+    assert 'action="/library"' in text and 'name="view" value="search"' in text and 'name="q"' in text
     assert 'ws-focus' in text
     assert 'href="/obsidian"' in text
     assert 'Provisional' in text

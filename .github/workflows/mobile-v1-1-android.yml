@@ -2,6 +2,8 @@ name: Mobile V1.1 standalone Android
 on:
   pull_request:
     branches: [feature/mobile-v1-private-pwa-2026-10]
+  push:
+    branches: [feature/mobile-v1-1-unified-library-ui-2026-10-23]
   workflow_dispatch:
 permissions:
   contents: read
