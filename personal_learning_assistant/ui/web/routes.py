@@ -894,6 +894,12 @@ def _render_notes_command_error(service, message, status):
 
 def _render_resources_command_error(service, message, status):
     query = {"search": "", "type": "", "status": ""}
+    if request.form.get("return_to") == "library" and current_app.config.get("LEARNING_LIBRARY_ENABLED", True):
+        return render_template(
+            "library.html", active_page="library", library_view="saved",
+            saved_dashboard=_safe_resources_workspace(service, query),
+            saved_error=message,
+        ), status
     return (
         render_template(
             "resources.html",
@@ -3724,6 +3730,8 @@ def resources_create():
             request.form.get("resource_type", ""),
             request.form.get("link", ""),
         )
+        if request.form.get("return_to") == "library" and current_app.config.get("LEARNING_LIBRARY_ENABLED", True):
+            return redirect(url_for("web.learning_library", view="saved", created="1") + "#saved-resources", code=303)
         return redirect(url_for("web.resources", created="1"), code=303)
     except NotesResourcesWebValidationError:
         return _render_resources_command_error(
@@ -3745,6 +3753,8 @@ def resources_update_status(position):
     service = _notes_resources_service()
     try:
         service.update_resource_status(position, request.form.get("status", ""))
+        if request.form.get("return_to") == "library" and current_app.config.get("LEARNING_LIBRARY_ENABLED", True):
+            return redirect(url_for("web.learning_library", view="saved", updated="1") + "#saved-resources", code=303)
         return redirect(url_for("web.resources", updated="1"), code=303)
     except NotesResourcesWebValidationError:
         return _render_resources_command_error(
@@ -4486,10 +4496,27 @@ def learning_library():
     if not current_app.config.get("LEARNING_LIBRARY_ENABLED", True):
         abort(404)
     view = request.args.get("view", "browse", type=str)
-    if view not in ("browse", "search") or len(request.args.getlist("view")) > 1:
+    if view not in ("browse", "search", "saved") or len(request.args.getlist("view")) > 1:
         return render_template("library.html", active_page="library", library=None,
                                library_view="browse",
                                error_message="Choose a valid Library view."), 400
+    if view == "saved":
+        # Legacy references remain in their authoritative JSON store.
+        filters = ("saved_q", "saved_type", "saved_status")
+        if (any(len(request.args.getlist(key)) > 1 for key in filters)
+                or any(len(request.args.get(key, "")) > 200 for key in filters)):
+            return render_template("library.html", active_page="library",
+                                   library_view="saved", saved_error="Choose valid reference filters.",
+                                   saved_dashboard=unavailable_resources_dashboard()), 400
+        query = {
+            "search": request.args.get("saved_q", "", type=str),
+            "type": request.args.get("saved_type", "", type=str),
+            "status": request.args.get("saved_status", "", type=str),
+        }
+        saved_dashboard = _safe_resources_workspace(_notes_resources_service(), query)
+        return render_template("library.html", active_page="library",
+                               library_view="saved", saved_dashboard=saved_dashboard,
+                               saved_error="")
     if view == "search":
         if (any(len(request.args.getlist(key)) > 1 for key in
                 ("q", "course_id", "topic_id", "source_type", "provider"))
