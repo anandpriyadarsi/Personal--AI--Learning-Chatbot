@@ -41,7 +41,6 @@ def test_primary_navigation_keeps_core_workspaces_visible_and_uses_more_for_seco
         ">Assessments<",
         ">Calendar<",
         ">More <span",
-        ">Knowledge<",
         ">Planning<",
         ">Obsidian<",
         ">Progress<",
@@ -60,7 +59,7 @@ def test_real_destinations_are_links_and_future_destinations_are_disabled():
         "web.academic_agent",
         "web.notes",
         "web.resources",
-        "web.knowledge",
+        "web.learning_library",
         "web.courses",
         "web.assessments",
         "web.calendar",
@@ -68,6 +67,9 @@ def test_real_destinations_are_links_and_future_destinations_are_disabled():
         "web.obsidian",
     ):
         assert "url_for('{}')".format(endpoint) in source
+    # Knowledge is an intentionally hidden legacy destination; Library owns search navigation.
+    assert "url_for('web.learning_library', view='search')" in source
+    assert ">Knowledge</a>" not in source
     for label in ("Progress", "Grades", "Settings"):
         assert 'aria-disabled="true"' in source
         assert label in source
