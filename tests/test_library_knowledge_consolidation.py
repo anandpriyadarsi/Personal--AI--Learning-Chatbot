@@ -70,6 +70,8 @@ def test_navigation_and_source_reader_keep_one_library_destination():
     assert 'href="/library?view=search" aria-current="page"' in body
     assert "Library" in body
     assert 'href="/knowledge" class="nav-item"' not in body
+    assert 'href="/resources" class="nav-item"' not in body
+    assert 'href="/library?view=saved"' in body
     assert client.get("/knowledge?q=rank").status_code == 200
     assert client.get("/library?view=other").status_code == 400
     assert client.get("/library?view=search&q=one&q=two").status_code == 400
