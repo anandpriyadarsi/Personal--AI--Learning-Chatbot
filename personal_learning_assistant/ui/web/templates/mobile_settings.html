@@ -4,6 +4,7 @@
 {% if config.get("ANDROID_LOCAL_RUNTIME") %}
 <header class="hero"><div><p class="eyebrow">On this phone</p><h1>App &amp; privacy</h1><p class="lede">Your private academic workspace runs on this Android device.</p></div></header>
 <section class="dashboard-panel"><h2>Appearance</h2><label for="mobile-theme">Theme</label> <select id="mobile-theme"><option value="dark">Dark</option><option value="light">Light</option><option value="system">Use device theme</option></select></section>
+<section class="dashboard-panel"><h2>Screenshots &amp; sharing</h2><p>Screenshots and screen recording are allowed. They can contain private learning records; review them before sharing.</p></section>
 <section class="dashboard-panel"><h2>Your data</h2><p>Academic records and study files are saved in app-private storage on this phone. They survive closing and restarting ANVAYA. Uninstalling or clearing app storage erases them.</p><p>App-private storage is not a claim of database encryption. Online AI and external network access are disabled in this test build. Offline Tutor uses existing deterministic/source tools, not a generative model.</p><p>Save or pause assessments before closing. Active assessment time follows the existing persisted clock, including background time.</p><p><a href="/mobile/device">Manage courses &amp; backups</a></p></section>
 {% else %}
 <header class="hero"><div><p class="eyebrow">Your private companion</p><h1>App &amp; privacy</h1><p class="lede">A quieter way to study. Your records stay with your Python host.</p></div></header>

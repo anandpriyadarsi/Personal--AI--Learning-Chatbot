@@ -27,6 +27,8 @@ def create_app(config: Mapping[str, Any] | None = None) -> Flask:
         LEARNING_LIBRARY_ENABLED=os.environ.get("ANVAYA_LIBRARY_ENABLED", "true").strip().lower() == "true",
         LEARNING_LIBRARY_DATABASE_PATH=os.environ.get("ANVAYA_LIBRARY_DATABASE_PATH") or None,
         ACADEMIC_EVIDENCE_ENABLED=os.environ.get('ANVAYA_EVIDENCE_ENABLED','true').strip().lower()=='true',
+        # Explicit opt-in: candidate actions require owner-applied optional 0016.
+        TUTOR_MEMORY_ENABLED=os.environ.get("ANVAYA_TUTOR_MEMORY_ENABLED", "false").strip().lower() == "true",
         JSON_SORT_KEYS=False,
         ASSESSMENT_COLAB_URL=os.environ.get("ANVAYA_COLAB_URL", ""),
         ASSESSMENT_CODING_HELPER_ENABLED=os.environ.get("ANVAYA_CODING_HELPER_ENABLED", "true").lower() == "true",
@@ -35,6 +37,9 @@ def create_app(config: Mapping[str, Any] | None = None) -> Flask:
     )
     if config:
         app.config.update(config)
+
+    from .tutor_rendering import render_tutor_markdown
+    app.jinja_env.filters["tutor_markdown"] = render_tutor_markdown
 
     # Process-local key: short-lived helper context becomes invalid on restart.
     from secrets import token_bytes
@@ -45,6 +50,14 @@ def create_app(config: Mapping[str, Any] | None = None) -> Flask:
     app.register_blueprint(assessment_tools_blueprint)
     from secrets import token_urlsafe
     app.extensions['learning_studio_csrf'] = token_urlsafe(32)
+    app.extensions['tutor_action_csrf'] = token_urlsafe(32)
+
+    @app.context_processor
+    def _tutor_action_context():
+        # Never expose an application secret as a reusable browser CSRF token.
+        # This is a process-local random token for explicit local-only actions.
+        return {"tutor_action_csrf": app.extensions["tutor_action_csrf"],
+                "tutor_request_id": token_urlsafe(24)}
     from .learning_studio import learning_blueprint
     app.register_blueprint(learning_blueprint)
     if app.config.get("ASSESSMENT_EXTENDED_ENABLED") is True:

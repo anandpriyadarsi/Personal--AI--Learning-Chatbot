@@ -4,6 +4,9 @@ Install playwright and run `python -m playwright install chromium` to enable.
 No browser mocking: the runner talks to Flask and the SQLite repository.
 """
 import sqlite3
+import json
+import os
+from pathlib import Path
 from threading import Thread
 
 import pytest
@@ -72,6 +75,36 @@ def test_runner_readable_with_saved_sidebar_preference(live, width, height, side
         action.click(trial=True)
         assert action.is_visible()
         assert action.bounding_box()["y"] + action.bounding_box()["height"] <= height
+
+
+def test_palette_animation_does_not_expand_document(live):
+    page, url, *_ = live
+    page.set_viewport_size({"width": 1920, "height": 1080})
+    page.add_init_script("localStorage.setItem('anvaya.sidebar.collapsed', '1')")
+    page.goto(url)
+    page.locator("#assessment-palette-close").click()
+    # Hold the real CSS transition at intermediate frames. Merely checking
+    # settled endpoints misses the translated panel's temporary overflow.
+    states = page.evaluate("""() => {
+      const root = document.querySelector('.exam-layout');
+      const animations = root.getAnimations({subtree: true});
+      return [0.25, 0.5, 0.75].map(progress => {
+        for (const animation of animations) {
+          animation.pause();
+          animation.currentTime = animation.effect.getTiming().duration * progress;
+        }
+        return {progress, width: document.documentElement.scrollWidth,
+                viewport: innerWidth, animations: animations.length};
+      });
+    }""")
+    assert all(s['animations'] > 0 for s in states), states
+    assert all(s['width'] <= s['viewport'] for s in states), states
+    folder = os.environ.get('ANVAYA_VALIDATION_ARTIFACTS')
+    if folder:
+        root = Path(folder)
+        root.mkdir(parents=True, exist_ok=True)
+        page.screenshot(path=str(root / 'assessment-palette-animation-1920.png'), full_page=True)
+        (root / 'assessment-palette-animation-1920.json').write_text(json.dumps(states, indent=2), encoding='utf-8')
 
 
 def test_native_form_save_update_review_previous_refresh_clear_and_final(live):

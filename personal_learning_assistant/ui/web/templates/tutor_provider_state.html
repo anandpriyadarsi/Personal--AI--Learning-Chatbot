@@ -1,0 +1,17 @@
+<details class="tutor-provider" id="tutor-provider-state">
+  <summary><span class="tutor-status-dot" aria-hidden="true"></span>{% if config.get('ANDROID_LOCAL_RUNTIME') %}Offline · on this phone{% elif workspace is defined and workspace.provider_configured %}Provider configured{% else %}Provider status{% endif %}</summary>
+  <div class="tutor-provider-info">
+  {% if config.get('ANDROID_LOCAL_RUNTIME') %}
+    <strong>Online AI unavailable in this Android build</strong>
+    <p>Saved conversations and supported source-based learning work offline. Generative answers need an online provider.</p>
+    <p>Native secure key storage and a restricted HTTPS provider connection still require implementation and testing. No API key is requested or stored by this screen.</p>
+  {% elif workspace is defined and workspace.provider_configured %}
+    <p>Your host has a configured provider. Availability and quota are checked when you send a question; configuration is not a successful connection test.</p>
+  {% else %}
+    <p>Saved history remains available. A generative answer requires a configured, reachable provider on this host. Send a question to see the actual request outcome.</p>
+  {% endif %}
+    <p>Source Only uses supported project evidence. Source First can add clearly labelled general explanations when AI is available.</p>
+    <p>Online requests may send your question, selected source excerpts and relevant conversation context to the configured provider. Unrelated records are not automatically uploaded.</p>
+    <a href="{{ url_for('mobile.settings') }}">App &amp; privacy settings</a>
+  </div>
+</details>

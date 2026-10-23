@@ -1,0 +1,144 @@
+/* Tutor 2.0 read-only readability slice. Scoped to the existing session page.
+ * Does not modify the ANVAYA shell, navigation or other studio styles. */
+.agent-turn,
+.agent-turn .panel-heading,
+.agent-turn .agent-message {
+  min-width: 0;
+}
+.agent-turn .agent-message {
+  overflow-wrap: anywhere;
+  line-height: 1.7;
+  max-width: 100%;
+}
+.agent-turn .agent-message > :first-child { margin-top: 0; }
+.agent-turn .agent-message > :last-child { margin-bottom: 0; }
+.agent-turn .agent-message pre {
+  max-width: 100%;
+  padding: .85rem 1rem;
+  border-radius: .6rem;
+  overflow-x: auto;
+  white-space: pre;
+  background: rgba(0, 0, 0, .28);
+}
+.agent-turn .agent-message code {
+  overflow-wrap: anywhere;
+}
+.agent-turn .agent-message pre code {
+  overflow-wrap: normal;
+}
+.agent-turn .agent-message table {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+}
+.agent-turn .agent-message th,
+.agent-turn .agent-message td {
+  padding: .4rem .65rem;
+  border: 1px solid rgba(130, 150, 165, .4);
+}
+.agent-turn .agent-message blockquote {
+  margin-inline: 0;
+  padding-inline: 1rem;
+  border-left: 3px solid rgba(130, 150, 165, .55);
+}
+@media (max-width: 600px) {
+  .agent-turn .agent-message { font-size: .95rem; }
+}
+
+/* Tutor V2.3 session-learning metadata: helpful, never a mastery claim. */
+.tutor-learning-status { margin-block: 1.1rem; }
+.tutor-goal-line { overflow-wrap: anywhere; line-height: 1.6; }
+.tutor-pending-question {
+  padding: .9rem 1rem; margin-block: .85rem;
+  border-left: 3px solid var(--accent, #6cc9b7);
+  border-radius: .5rem;
+  background: rgba(100, 116, 139, .12);
+}
+.tutor-pending-question p { margin-block: .45rem; overflow-wrap: anywhere; }
+.tutor-state-summary { display: flex; flex-wrap: wrap; gap: .5rem; }
+.tutor-state-summary .tag { max-width: 100%; overflow-wrap: anywhere; white-space: normal; }
+.tutor-quick-prompts { display: flex; flex-wrap: wrap; gap: .45rem; margin: .65rem 0 1rem; }
+.tutor-quick-prompts button {
+  border: 1px solid rgba(148, 163, 184, .36);
+  background: rgba(148, 163, 184, .09); color: inherit;
+  border-radius: 999px; padding: .42rem .72rem;
+  font: inherit; font-size: .82rem; cursor: pointer;
+}
+.tutor-quick-prompts button:hover, .tutor-quick-prompts button:focus-visible {
+  outline: 2px solid rgba(109, 211, 197, .6);
+  outline-offset: 2px;
+  background: rgba(109, 211, 197, .14);
+}
+@media (max-width: 450px) {
+  .tutor-quick-prompts button { font-size: .76rem; }
+}
+
+.tutor-turn-feedback { display: flex; align-items: center; flex-wrap: wrap; gap: .45rem; margin-top: .8rem; }
+.tutor-turn-feedback button {
+  color: inherit; font: inherit; font-size: .78rem; cursor: pointer;
+  padding: .32rem .65rem; border-radius: .6rem;
+  background: rgba(148, 163, 184, .08);
+  border: 1px solid rgba(148, 163, 184, .35);
+}
+.tutor-turn-feedback button:hover, .tutor-turn-feedback button:focus-visible {
+  outline: 2px solid rgba(109, 211, 197, .55);
+  outline-offset: 2px;
+}
+
+.tutor-previous-study { margin: .85rem 0; }
+.tutor-previous-study summary { cursor: pointer; font-weight: 600; }
+.tutor-previous-study ul { margin-top: .4rem; }
+.tutor-memory-review { margin-block: 1.2rem; }
+.tutor-memory-item {
+  margin: .8rem 0;
+  padding: .85rem 1rem;
+  border: 1px solid rgba(148, 163, 184, .3);
+  border-radius: .75rem;
+  overflow-wrap: anywhere;
+}
+.tutor-memory-item p { line-height: 1.55; }
+.tutor-memory-item form { margin-top: .6rem; }
+.tutor-memory-item input[name="review_note"] { max-width: 100%; }
+.tutor-memory-actions { display: flex; flex-wrap: wrap; gap: .6rem; margin-top: .6rem; }
+.tutor-memory-item button {
+  border-radius: .55rem;
+  padding: .46rem .85rem;
+  border: 1px solid rgba(148, 163, 184, .35);
+  background: rgba(148, 163, 184, .09);
+  color: inherit; cursor: pointer;
+}
+.tutor-memory-item button:focus-visible { outline: 2px solid rgba(109, 211, 197, .6); }
+
+/* Reuse the bounded local Assessment math DOM, scoped to Tutor content. */
+.tutor-markdown [data-assessment-math] { font-family: Georgia, serif; }
+.tutor-markdown .tutor-display-math { display: block; overflow-x: auto; padding-block: .65rem; white-space: nowrap; }
+.tutor-markdown .assessment-matrix { display: inline-flex; align-items: center; gap: .3em; vertical-align: middle; margin: .25em; }
+.tutor-markdown .assessment-matrix-grid { display: grid; grid-template-columns: repeat(var(--matrix-columns), max-content); gap: .15em .8em; padding: .3em; text-align: center; }
+.tutor-markdown .assessment-matrix-bracket { font-size: 2.5em; font-weight: 300; }
+.tutor-markdown .assessment-math-sup, .tutor-markdown .assessment-math-sub { font-size: .72em; line-height: 0; }
+.tutor-markdown .assessment-big-operator { display: inline-grid; grid-template-rows: auto auto auto; text-align: center; vertical-align: middle; margin-inline: .25em; }
+.tutor-markdown .assessment-big-operator-upper, .tutor-markdown .assessment-big-operator-lower { font-size: .65em; }
+
+/* Tutor composer: the original fixed-width browser textarea became a narrow
+   column on 1366px Chromium. Keep it readable without changing other forms. */
+#agent-question {
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 8rem;
+  padding: .85rem 1rem;
+  line-height: 1.6;
+  resize: vertical;
+  color: inherit;
+  background: rgba(8, 17, 25, .42);
+  border: 1px solid rgba(148, 163, 184, .4);
+  border-radius: .7rem;
+}
+#agent-question:focus-visible {
+  outline: 2px solid rgba(109, 211, 197, .65);
+  outline-offset: 2px;
+}

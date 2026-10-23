@@ -256,6 +256,7 @@ def test_workspace_lists_courses_sessions_and_provider_status(tmp_path):
     assert set(view) == {
         "available", "message", "provider_configured", "courses",
         "selected_course_code", "mentor", "sessions", "modes", "source_policies",
+        "tutor_topics",
     }
     assert view["available"] is True
     assert view["provider_configured"] is False
@@ -507,6 +508,7 @@ def test_agent_routes_are_get_safe_and_ask_is_explicit_post():
     assert client.get("/agent?course=MA103N").status_code == 200
     assert fake.llm_calls == 0
     created = client.post("/agent/sessions", data={
+        "csrf_token": client.application.extensions['tutor_action_csrf'],
         "course_id": "course-1",
         "mode": "concept",
         "source_policy": "source_only",
@@ -517,7 +519,7 @@ def test_agent_routes_are_get_safe_and_ask_is_explicit_post():
     assert fake.llm_calls == 0
     assert client.get("/agent/sessions/session-1").status_code == 200
     assert fake.llm_calls == 0
-    asked = client.post("/agent/sessions/session-1/ask", data={"question": "Why does elimination produce L and U?", "mode": "exam", "source_policy": "source_first"})
+    asked = client.post("/agent/sessions/session-1/ask", data={"csrf_token": client.application.extensions['tutor_action_csrf'], "question": "Why does elimination produce L and U?", "mode": "exam", "source_policy": "source_first"})
     assert asked.status_code == 303
     assert fake.ask_calls == 1
     assert fake.llm_calls == 1
@@ -530,7 +532,7 @@ def test_agent_page_renders_provider_mentor_and_session_controls_without_executi
     response = fake_web_app(fake).test_client().get("/agent")
     text = response.get_data(as_text=True)
     assert response.status_code == 200
-    for expected in ("Academic Agent", "Configured", "Choose a course for advice", "Start a tutor session", "Recent tutor sessions", "Source Only"):
+    for expected in ("ANVAYA Tutor", "Provider configured", "Choose a course for advice", "What shall we learn?", "Recent tutor sessions", "Source Only"):
         assert expected in text
     assert 'method="post"' in text.lower()
     assert 'action="/agent/sessions"' in text
@@ -557,6 +559,7 @@ def test_ask_route_ignores_posted_scope_fields():
     response = client.post(
         "/agent/sessions/session-1/ask",
         data={
+            "csrf_token": client.application.extensions['tutor_action_csrf'],
             "question": "Explain rank",
             "course_id": "other-course",
             "mode": "exam",
@@ -651,3 +654,59 @@ def test_real_session_get_is_read_only_when_a_session_exists(tmp_path):
     assert response.status_code == 200
     assert file_hash(database) == before
     assert provider.calls == 0
+
+
+def test_reconciled_tutor_page_formats_only_assistant_markdown_without_provider_call():
+    fake = FakeWebService()
+    fake.session["turns"] = [
+        {"turn_id": "u1", "ordinal": 1, "role": "user", "content": "**user** <img src=x onerror=bad()>", "support_level": "not_evaluated", "provider_name": "", "provider_model": "", "created_at": "2026-09-17T10:01:00Z", "evidence": []},
+        {"turn_id": "a1", "ordinal": 2, "role": "assistant", "content": "## Explain LU\n\n**Pivot** [S1]\n\n<script>bad()</script>", "support_level": "grounded", "provider_name": "", "provider_model": "", "created_at": "2026-09-17T10:02:00Z", "evidence": []},
+    ]
+    response = fake_web_app(fake).test_client().get("/agent/sessions/session-1")
+    html = response.get_data(as_text=True)
+    assert response.status_code == 200
+    assert "<h2>Explain LU</h2>" in html
+    assert "<strong>Pivot</strong> [S1]" in html
+    assert "<script>bad()</script>" not in html
+    assert "&lt;script&gt;bad()&lt;/script&gt;" in html
+    assert "<strong>user</strong>" not in html
+    assert "<img src=x onerror=bad()>" not in html
+    assert fake.llm_calls == 0
+
+
+def test_tutor_feedback_requires_explicit_csrf_protected_post():
+    fake = FakeWebService()
+    observed = []
+    fake.record_feedback = lambda session_id, turn_id, *, helpful: observed.append(
+        (session_id, turn_id, helpful)
+    )
+    fake.session["turns"] = [{
+        "turn_id": "assistant-1", "ordinal": 1, "role": "assistant",
+        "content": "An answer", "support_level": "mixed",
+        "provider_name": "", "provider_model": "",
+        "created_at": "2026-09-17T10:00:00Z", "evidence": [],
+    }]
+    app = fake_web_app(fake)
+    client = app.test_client()
+    page = client.get("/agent/sessions/session-1")
+    assert page.status_code == 200
+    assert "Not helpful" in page.get_data(as_text=True)
+    assert observed == []
+    target = "/agent/sessions/session-1/turns/assistant-1/feedback"
+    assert client.get(target).status_code == 405
+    assert client.post(target, data={"helpful": "1"}).status_code == 403
+    assert client.post(target, data={
+        "helpful": "1", "csrf_token": "invalid",
+    }).status_code == 403
+    assert client.post(target, data={
+        "helpful": "not-a-choice",
+        "csrf_token": app.extensions["tutor_action_csrf"],
+    }).status_code == 400
+    assert observed == []
+    submitted = client.post(target, data={
+        "helpful": "0",
+        "csrf_token": app.extensions["tutor_action_csrf"],
+    })
+    assert submitted.status_code == 303
+    assert observed == [("session-1", "assistant-1", False)]
+    assert fake.llm_calls == 0

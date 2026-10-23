@@ -166,6 +166,26 @@ public class OfflineSmokeTest {
             go(path);screenshot("android-"+path.replace('/','-'));
             assertEquals("No document overflow at "+path,"true",js("document.documentElement.scrollWidth<=innerWidth+1"));
         }
+        go("/agent");
+        assertEquals("Honest Android offline provider state","true",js("document.querySelector('#tutor-provider-state').innerText.includes('Offline')"));
+        js("document.querySelector('#session-policy').value='source_only';document.querySelector('.tutor-start-form').requestSubmit()");
+        waitFor("location.pathname.startsWith('/agent/sessions/') && !!document.querySelector('#agent-question')");
+        assertEquals("Conversation before secondary state","true",js("document.querySelector('#transcript-title').getBoundingClientRect().top<500 && !document.querySelector('#tutor-learning-details').open"));
+        js("document.querySelector('[data-tutor-prompt]').click()");
+        waitFor("document.querySelector('#agent-question').value.includes('one hint')");
+        assertEquals("Prompt chip does not submit","true",js("document.querySelectorAll('.agent-turn').length===0"));
+        js("document.querySelector('#agent-question').value='Explain synthetic absent topic zqxv';document.querySelector('#tutor-ask-form').requestSubmit()");
+        waitFor("document.querySelectorAll('.agent-turn').length===2 && document.querySelector('#agent-question').value===''");
+        screenshot("android-tutor-conversation");
+        activity.getSharedPreferences("synthetic-evidence",0).edit().putString("tutorPath",new org.json.JSONArray("["+js("location.pathname")+"]").getString(0)).commit();
+        js("document.querySelector('#agent-question').focus()");
+        getInstrumentation().runOnMainSync(()->{
+            web.requestFocus();
+            ((android.view.inputmethod.InputMethodManager)activity.getSystemService(Activity.INPUT_METHOD_SERVICE)).showSoftInput(web,android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT);
+        });
+        waitFor("document.querySelector('#tutor-composer button[type=submit]').getBoundingClientRect().bottom<=innerHeight+1");
+        screenshot("android-tutor-composer-keyboard");
+        getInstrumentation().runOnMainSync(()->((android.view.inputmethod.InputMethodManager)activity.getSystemService(Activity.INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(web.getWindowToken(),0));
         go("/learning/modules/uc100n-demo/1?view=learn");
         waitFor("!!document.querySelector('.ls-block-definition') && document.querySelector('#ls-reading-status').innerText.includes('saved')");
         js("document.querySelector('.ls-block-definition').scrollIntoView()");
@@ -209,7 +229,13 @@ public class OfflineSmokeTest {
         screenshot("android-paper-step-review");
     }
     @Test public void testNoteAfterForceStop() throws Exception {
-        open();go("/notes");
+        open();
+        String tutorPath=activity.getSharedPreferences("synthetic-evidence",0).getString("tutorPath",null);
+        assertNotNull("Tutor path survived restart",tutorPath);
+        go(tutorPath);
+        waitFor("document.querySelectorAll('.agent-turn').length===2");
+        screenshot("android-tutor-after-force-stop");
+        go("/notes");
         waitFor("document.body.innerText.includes('Synthetic Android restart note')");
         screenshot("android-note-after-force-stop");
         getInstrumentation().runOnMainSync(()->activity.setRequestedOrientation(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE));

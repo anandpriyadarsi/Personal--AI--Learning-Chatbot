@@ -70,8 +70,9 @@ jobs:
           if result: sys.exit(result)
           cases = ET.parse(out / 'browser.xml').findall('.//testcase')
           assert cases and all(c.find('skipped') is None for c in cases), 'Browser gate must execute every test'
+      # Full PR regression remains mandatory in architecture-validation.yml.
       - name: Full regression suite
-        if: ${{ !cancelled() }}
+        if: ${{ github.event_name != 'pull_request' && !cancelled() }}
         shell: python
         run: |
           import os, pathlib, subprocess, sys

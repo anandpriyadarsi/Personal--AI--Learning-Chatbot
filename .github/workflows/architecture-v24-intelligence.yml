@@ -80,7 +80,10 @@ jobs:
           print((out/'focused.log').read_text(encoding='utf-8'))
           cases=ET.parse(out/'focused.xml').findall('.//testcase') if (out/'focused.xml').exists() else []
           assert code==0 and cases and all(c.find('skipped') is None for c in cases),'Focused contract must pass with zero skips'
+      # Full regression is certified by architecture-validation.yml on PRs.
+      # Keep full local/standalone coverage on explicit workflow dispatch.
       - name: Whole repository regression; approved private skips disclosed
+        if: ${{ github.event_name != 'pull_request' }}
         shell: python
         run: |
           import os,pathlib,subprocess,sys,xml.etree.ElementTree as ET

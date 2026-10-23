@@ -926,12 +926,19 @@ def _render_session_error(service, session_id, message, status):
             session = service.session_view(session_id)
         except Exception:
             session = None
+    # Only a CSRF-validated ask may echo its draft. Preserve the same nonce on
+    # recoverable failure: the server's existing deduplication remains authority.
+    draft = {}
+    if request.endpoint == "web.academic_agent_ask" and status != 403 and _tutor_action_token_matches():
+        draft = {"failed_question": request.form.get("question", "")[:4000],
+                 "retry_request_id": request.form.get("request_id", "")[:160]}
     return (
         render_template(
             "agent_session.html",
             active_page="agent",
             session=session,
             error_message=message,
+            **draft,
         ),
         status,
     )
@@ -4255,6 +4262,8 @@ def knowledge_companion_archive(document_id, entry_id):
 
 @web_blueprint.post("/knowledge/item/<document_id>/ask")
 def knowledge_ask_source(document_id):
+    if not _tutor_action_token_matches():
+        return "Tutor action token is invalid.", 403
     try:
         session_id = _academic_agent_service().create_source_session(
             document_id=document_id,
@@ -4305,13 +4314,19 @@ def academic_agent():
 @web_blueprint.post("/agent/sessions")
 def academic_agent_create_session():
     """Create tutor conversation scope without invoking the tutor provider."""
+    if not _tutor_action_token_matches():
+        return "Tutor action token is invalid.", 403
     service = _academic_agent_service()
     try:
+        topic_scope = {}
+        if request.form.get("topic_id", "").strip():
+            topic_scope["topic_id"] = request.form["topic_id"]
         session_id = service.create_session(
             course_id=request.form.get("course_id", ""),
             mode=request.form.get("mode", "concept"),
             source_policy=request.form.get("source_policy", "source_only"),
             title=request.form.get("title", ""),
+            **topic_scope,
         )
         return redirect(
             url_for("web.academic_agent_session", session_id=session_id),
@@ -4375,8 +4390,14 @@ def academic_agent_session(session_id):
 def academic_agent_ask(session_id):
     """Run one explicit grounded tutor question and redirect to the transcript."""
     service = _academic_agent_service()
+    if not _tutor_action_token_matches():
+        return _render_session_error(service, session_id, "Tutor action token is invalid.", 403)
     try:
-        service.ask(session_id, request.form.get("question", ""))
+        request_id = request.form.get("request_id", "")
+        if request_id:
+            service.ask(session_id, request.form.get("question", ""), request_id=request_id)
+        else:
+            service.ask(session_id, request.form.get("question", ""))
         return redirect(
             url_for("web.academic_agent_session", session_id=session_id),
             code=303,
@@ -4397,6 +4418,7 @@ def academic_agent_ask(session_id):
         )
     except AcademicAgentWebUnavailableError as error:
         safe_messages = {
+            "Tutor answer could not be saved. Refresh the session and try again.",
             "AI tutor is not configured on this machine.",
             "The AI tutor could not complete this request. Your academic data was not changed.",
             "Grounded academic sources are temporarily unavailable.",
@@ -4411,6 +4433,79 @@ def academic_agent_ask(session_id):
                 "Your academic data was not changed."
             )
         return _render_session_error(service, session_id, message, 503)
+
+
+
+def _tutor_action_token_matches():
+    """Check a process-local token for state-changing Tutor POSTs."""
+    from hmac import compare_digest
+    supplied = str(request.form.get("csrf_token") or "")
+    expected = str(current_app.extensions.get("tutor_action_csrf") or "")
+    return bool(expected and supplied and compare_digest(supplied, expected))
+
+
+@web_blueprint.post("/agent/sessions/<session_id>/memory-candidates")
+def academic_agent_memory_candidate_propose(session_id):
+    """Student-initiated proposal from stable Tutor signals only."""
+    service = _academic_agent_service()
+    if not current_app.config.get("TUTOR_MEMORY_ENABLED", False):
+        return _render_session_error(service, session_id, "Tutor memory review is not enabled.", 404)
+    if not _tutor_action_token_matches():
+        return _render_session_error(service, session_id, "Tutor action token is invalid.", 403)
+    try:
+        service.propose_memory_candidate(session_id, request.form.get("signal_index", ""))
+        return redirect(url_for("web.academic_agent_session", session_id=session_id), code=303)
+    except AcademicAgentWebValidationError:
+        return _render_session_error(service, session_id, "The selected study pattern is not eligible for memory review.", 400)
+    except AcademicAgentWebNotFoundError:
+        return _render_session_error(service, session_id, "Tutor session was not found.", 404)
+    except AcademicAgentWebUnavailableError:
+        return _render_session_error(service, session_id, "Tutor memory review is unavailable; check optional database authorization.", 503)
+
+
+@web_blueprint.post("/agent/sessions/<session_id>/memory-candidates/<candidate_id>/review")
+def academic_agent_memory_candidate_review(session_id, candidate_id):
+    """Explicit one-time acceptance or rejection of a scoped memory candidate."""
+    service = _academic_agent_service()
+    if not current_app.config.get("TUTOR_MEMORY_ENABLED", False):
+        return _render_session_error(service, session_id, "Tutor memory review is not enabled.", 404)
+    if not _tutor_action_token_matches():
+        return _render_session_error(service, session_id, "Tutor action token is invalid.", 403)
+    action = str(request.form.get("action", "")).strip().lower()
+    if action not in {"accept", "reject"}:
+        return _render_session_error(service, session_id, "Choose Accept or Reject.", 400)
+    try:
+        service.review_memory_candidate(
+            session_id, candidate_id,
+            action=action, review_note=request.form.get("review_note", ""),
+        )
+        return redirect(url_for("web.academic_agent_session", session_id=session_id), code=303)
+    except AcademicAgentWebValidationError:
+        return _render_session_error(service, session_id, "Memory review was not valid or was already completed.", 400)
+    except AcademicAgentWebNotFoundError:
+        return _render_session_error(service, session_id, "Memory candidate was not found in this course.", 404)
+    except AcademicAgentWebUnavailableError:
+        return _render_session_error(service, session_id, "Tutor memory review could not be saved.", 503)
+
+
+@web_blueprint.post("/agent/sessions/<session_id>/turns/<turn_id>/feedback")
+def academic_agent_feedback(session_id, turn_id):
+    """Explicit optional feedback, never a mastery or academic progress event."""
+    service = _academic_agent_service()
+    if not _tutor_action_token_matches():
+        return _render_session_error(service, session_id, "Tutor action token is invalid.", 403)
+    raw = str(request.form.get("helpful", "")).strip().casefold()
+    if raw not in {"1", "0"}:
+        return _render_session_error(service, session_id, "Tutor feedback value is invalid.", 400)
+    try:
+        service.record_feedback(session_id, turn_id, helpful=raw == "1")
+        return redirect(url_for("web.academic_agent_session", session_id=session_id), code=303)
+    except AcademicAgentWebValidationError:
+        return _render_session_error(service, session_id, "Tutor feedback target is invalid.", 400)
+    except AcademicAgentWebNotFoundError:
+        return _render_session_error(service, session_id, "Tutor answer was not found.", 404)
+    except AcademicAgentWebUnavailableError:
+        return _render_session_error(service, session_id, "Tutor feedback could not be saved.", 503)
 
 
 @web_blueprint.get("/healthz")
