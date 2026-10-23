@@ -37,7 +37,10 @@ public class OfflineSmokeTest {
         long deadline=System.currentTimeMillis()+90000;
         while(System.currentTimeMillis()<deadline) {
             getInstrumentation().runOnMainSync(()->web=find(activity.getWindow().getDecorView()));
-            if(web!=null && "true".equals(js("!!document.querySelector('main')"))) return;
+            if(web!=null && "true".equals(js("document.readyState==='complete' && !!document.querySelector('main')"))) {
+                waitFor("!!document.getElementById('mobile-connection') && document.getElementById('mobile-connection').hidden");
+                return;
+            }
             Thread.sleep(100);
         }
         // Surface an embedded startup exception to synthetic instrumentation logs.
@@ -60,10 +63,18 @@ public class OfflineSmokeTest {
     }
     private void go(String path) throws Exception {
         js("location.href="+org.json.JSONObject.quote(path));
-        waitFor("location.pathname==="+org.json.JSONObject.quote(path)+" && !!document.querySelector('main')");
+        waitFor("location.pathname==="+org.json.JSONObject.quote(path)+" && document.readyState==='complete' && !!document.querySelector('main')");
     }
     private void screenshot(String name) throws Exception {
         getInstrumentation().runOnMainSync(()->activity.getWindow().clearFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE));
+        CountDownLatch rendered=new CountDownLatch(1);
+        getInstrumentation().runOnMainSync(()->web.postVisualStateCallback(System.nanoTime(),new WebView.VisualStateCallback(){
+            @Override public void onComplete(long id) {
+                web.invalidate();
+                web.postOnAnimation(()->web.postOnAnimation(rendered::countDown));
+            }
+        }));
+        assertTrue("WebView compositor frame",rendered.await(10,TimeUnit.SECONDS));
         getInstrumentation().waitForIdleSync();
         Bitmap image=getInstrumentation().getUiAutomation().takeScreenshot();
         assertNotNull("Actual emulator capture",image);

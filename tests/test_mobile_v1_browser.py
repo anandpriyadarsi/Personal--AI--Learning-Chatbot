@@ -306,3 +306,11 @@ def test_private_note_editor_formatting_templates_media_and_save(protected_brows
         page.reload();expect(page.locator('main')).to_contain_text('Synthetic explanation')
         assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
         capture(page,'mobile-notes-saved-390')
+
+
+def test_health_check_supports_webviews_without_abortsignal_timeout(protected_browser, mobile_live):
+    with protected_browser.new_context(viewport={'width':390,'height':844}) as context:
+        page=context.new_page()
+        page.add_init_script("Object.defineProperty(AbortSignal,'timeout',{value:undefined,configurable:true})")
+        page.goto(mobile_live['base']+'/mobile/settings',wait_until='networkidle')
+        expect(page.locator('#mobile-connection')).to_be_hidden()

@@ -48,6 +48,10 @@ chaquopy {
             install 'Pillow==11.0.0'
             install 'python-dotenv==1.2.3'
             install 'requests==2.31.0'
+            install 'certifi==2026.10.19'
+            install 'charset-normalizer==3.5.2'
+            install 'idna==3.20'
+            install 'urllib3==2.8.0'
             install 'tzdata==2026.2'
         }
         extractPackages '*'

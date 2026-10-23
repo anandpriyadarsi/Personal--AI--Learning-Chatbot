@@ -34,16 +34,19 @@
   const check = async () => {
     if (!banner || checking) return;
     checking = true;
+    // AbortSignal.timeout is absent in older supported Android WebViews.
+    const controller = typeof AbortController === 'function' ? new AbortController() : null;
+    const timeout = controller ? setTimeout(() => controller.abort(), 5000) : null;
     try {
       const response = await fetch('/healthz', {cache: 'no-store', credentials: 'same-origin',
-        redirect: 'error', signal: AbortSignal.timeout(5000)});
+        redirect: 'error', ...(controller ? {signal: controller.signal} : {})});
       const body = await response.json();
       if (!response.ok || body.status !== 'ok') throw new Error('Host unavailable');
       banner.hidden = true;
     } catch (_) {
       banner.hidden = false;
       message.textContent = 'Host unavailable. New changes may not save. Assessment time follows server rules.';
-    } finally { checking = false; }
+    } finally { if (timeout !== null) clearTimeout(timeout); checking = false; }
   };
   document.getElementById('mobile-reconnect')?.addEventListener('click', check);
   window.addEventListener('offline', () => {

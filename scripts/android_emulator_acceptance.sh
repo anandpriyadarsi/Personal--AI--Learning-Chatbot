@@ -15,3 +15,8 @@ adb shell getprop ro.product.cpu.abi > android-evidence/abi.txt
 for name in android-today android-note-saved android--learning android--agent android--assessments android--library android--mobile-settings android--mobile-device android-note-after-force-stop android-sqlite-task-saved android-sqlite-task-after-force-stop; do
   adb exec-out run-as in.anvaya.privateapp cat files/evidence/"$name".png > android-evidence/"$name".png
 done
+
+# Deliver precisely the APK which passed the installed-app checks above.
+cp android/app/build/outputs/apk/debug/app-debug.apk android-evidence/ANVAYA_Mobile_V1_1_TEST.apk
+sha256sum android-evidence/ANVAYA_Mobile_V1_1_TEST.apk > android-evidence/TESTED_APK_SHA256.txt
+git rev-parse HEAD HEAD^{tree} > android-evidence/source.txt

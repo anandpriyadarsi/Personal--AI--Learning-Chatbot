@@ -53,3 +53,14 @@ Self-review found overview navigation was incorrectly waiting on an undefined
 bookmark result. Reproduced actual browser failure, made no-write views return
 successful no-op, then all seven V2.4 live browser cases passed. No academic
 snapshot guard was weakened. Full Ubuntu/Windows gates remain separate.
+
+Native screenshot review found a false host-loss banner: older API31 WebView has
+no AbortSignal.timeout. Reproduced in real Chromium with that API removed (RED),
+replaced with compatible AbortController, then22 focused HTTP/runtime/backup/
+compatibility cases GREEN. Native smoke now waits for a healthy local response.
+Screenshot collection waits for WebView visual-state completion and two actual
+compositor frames, avoiding the first secure-window blank capture.
+
+29 Node cases pass after the compatibility change. Full local regression remains
+in progress and has reported a failure; no whole-suite success is claimed.
+Native Ubuntu/Windows jobs must report their own exact-source results.
