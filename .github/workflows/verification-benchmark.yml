@@ -31,6 +31,53 @@ jobs:
           python-version: '3.12'
       - name: Verify offline benchmark correctness
         run: python -m unittest discover -s tests -p test_verification_benchmark.py -v
+      - name: Reproduce actual successful pre/post CI timings
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          gh api "repos/$REPO/actions/runs/39883294409/jobs?per_page=100" > baseline-architecture.json
+          gh api "repos/$REPO/actions/runs/39886333214/jobs?per_page=100" > smart-architecture.json
+          python scripts/verification_benchmark.py \
+            --before baseline-architecture.json --after smart-architecture.json \
+            --group architecture \
+            --before-run "https://github.com/$REPO/actions/runs/39883294409" \
+            --after-run "https://github.com/$REPO/actions/runs/39886333214" \
+            --output architecture-benchmark.json --markdown architecture-benchmark.md
+          gh api "repos/$REPO/actions/runs/39797255775/jobs?per_page=100" > baseline-ui.json
+          gh api "repos/$REPO/actions/runs/39886333220/jobs?per_page=100" > smart-ui.json
+          python scripts/verification_benchmark.py \
+            --before baseline-ui.json --after smart-ui.json \
+            --group ui \
+            --before-run "https://github.com/$REPO/actions/runs/39797255775" \
+            --after-run "https://github.com/$REPO/actions/runs/39886333220" \
+            --output ui-benchmark.json --markdown ui-benchmark.md
+          cat architecture-benchmark.md >> "$GITHUB_STEP_SUMMARY"
+          cat ui-benchmark.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Report actual protection state (read-only; no change)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          protected="$(gh api "repos/$REPO/branches/main" --jq .protected)"
+          echo "main.protected: $protected" >> "$GITHUB_STEP_SUMMARY"
+          if [[ "$protected" != "true" ]]; then
+            echo "WARNING: repository administrator must enable main ruleset / branch protection." >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: measured-historical-ci-${{ github.sha }}
+          path: |
+            architecture-benchmark.*
+            ui-benchmark.*
+            baseline-architecture.json
+            smart-architecture.json
+            baseline-ui.json
+            smart-ui.json
+          if-no-files-found: warn
       - name: Syntax and whitespace
         run: |
           python -m compileall -q scripts/verification_benchmark.py tests/test_verification_benchmark.py
