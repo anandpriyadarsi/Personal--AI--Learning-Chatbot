@@ -6,7 +6,6 @@ mapping or independence claim is inferred from navigation or completion.
 """
 import hashlib
 import json
-import hashlib
 import os
 from pathlib import Path
 import sqlite3
