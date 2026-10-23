@@ -152,7 +152,7 @@ def test_no_js_search_readers_and_gets_are_read_only(browser, ui):
         search = page.locator('#global-study-search')
         search.fill('LU')
         search.press('Enter')
-        assert '/knowledge?' in page.url
+        assert '/library?view=search&q=LU' in page.url
         page.get_by_role('link', name='MIT 18.06 Lecture 4', exact=True).click()
         assert page.url.endswith('/knowledge/item/d-lu')
         original = page.get_by_role('link', name='Open original', exact=False)
