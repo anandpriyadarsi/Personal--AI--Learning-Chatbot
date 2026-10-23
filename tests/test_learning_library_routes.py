@@ -18,10 +18,12 @@ def test_list_and_detail_render_safe_links_and_keep_all_destinations(library_db)
     page = c.get('/library')
     assert page.status_code == 200
     text = page.get_data(as_text=True)
-    for target in ('/notes', '/resources', '/obsidian', '/agent', '/assessments', '/planning', '/calendar'):
+    for target in ('/notes', '/obsidian', '/agent', '/assessments', '/planning', '/calendar'):
         assert 'href="' + target + '"' in text
     assert 'href="/library" aria-current="page"' in text
     assert 'href="/library?view=search"' in text
+    assert 'href="/library?view=saved"' in text
+    assert 'href="/resources" class="nav-item' not in text
     assert text.count('Lecture collection') == 1
     assert 'C:\\private' not in text
     assert 'retrieval availability is not checked' in text.lower()
