@@ -5,6 +5,7 @@ adb install -r android/app/build/outputs/apk/debug/app-debug.apk
 adb install -r android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 adb shell svc wifi disable
 adb shell svc data disable
+adb shell settings put secure show_ime_with_hard_keyboard 1
 adb shell am instrument -w -r -e class in.anvaya.privateapp.OfflineSmokeTest\#testCreateOfflineNote in.anvaya.privateapp.test/androidx.test.runner.AndroidJUnitRunner | tee android-evidence/create-note.log
 python -c "from pathlib import Path;s=Path('android-evidence/create-note.log').read_text();assert 'OK (1 test)' in s and not any(v in s for v in ('FAILURES','INSTRUMENTATION_FAILED','shortMsg='))"
 adb shell am force-stop in.anvaya.privateapp

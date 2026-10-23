@@ -17,3 +17,6 @@ Compact Tutor home with working mode starters and course/topic controls; recent 
 Phone online AI is deliberately unavailable, not presented as configured. Required missing work: Android Keystore-backed key lifecycle, explicit consent/configuration/test/removal UI and narrowly restricted HTTPS transport with SSRF/redirect/TLS/context/rate-limit acceptance. Existing Android external-network and WebView origin blocks stay in place. No provider credentials used or shipped; no live-provider A–K claim. Desktop configured-provider operation remains unchanged.
 
 Cloud fixtures are synthetic. Screenshots are permitted in production activity; native screenshot checks do not clear FLAG_SECURE. Physical owner-phone verification remains separate from Chromium/API31 emulator checks. Offline generative tutoring is not included.
+
+## Review corrections
+Inline and display maths now have bounded local horizontal scrolling. Successful asks navigate to the newest persisted turn; history GETs retain normal browser behavior. The sticky context uses the actual shared header height. Composer errors echo the safe server error next to the retained draft. Mentor advice opens after an explicit course request. Native keyboard evidence requires observed IME visibility; requesting keyboard display is not treated as proof.

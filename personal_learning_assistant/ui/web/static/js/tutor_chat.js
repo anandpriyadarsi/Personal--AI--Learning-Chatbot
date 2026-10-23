@@ -19,6 +19,13 @@
       course.addEventListener('change', filterTopics);
       filterTopics();
     }
+    const topbar = document.querySelector('.topbar');
+    const fitHeader = () => {
+      if (topbar) document.documentElement.style.setProperty('--tutor-topbar-height', topbar.offsetHeight + 'px');
+    };
+    fitHeader();
+    if (topbar && typeof ResizeObserver === 'function') new ResizeObserver(fitHeader).observe(topbar);
+    window.addEventListener('resize', fitHeader);
     document.querySelectorAll('[data-tutor-mode]').forEach(button => {
       button.addEventListener('click', () => {
         const mode = document.getElementById('session-mode');

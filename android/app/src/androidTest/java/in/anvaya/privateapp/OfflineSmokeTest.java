@@ -178,11 +178,25 @@ public class OfflineSmokeTest {
         waitFor("document.querySelectorAll('.agent-turn').length===2 && document.querySelector('#agent-question').value===''");
         screenshot("android-tutor-conversation");
         activity.getSharedPreferences("synthetic-evidence",0).edit().putString("tutorPath",new org.json.JSONArray("["+js("location.pathname")+"]").getString(0)).commit();
-        js("document.querySelector('#agent-question').focus()");
-        getInstrumentation().runOnMainSync(()->{
-            web.requestFocus();
-            ((android.view.inputmethod.InputMethodManager)activity.getSystemService(Activity.INPUT_METHOD_SERVICE)).showSoftInput(web,android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT);
-        });
+        // Use a real native tap and observe actual IME visibility; a synthetic
+        // focus/showSoftInput request alone does not prove the keyboard opened.
+        float cssX=Float.parseFloat(js("(()=>{const r=document.querySelector('#agent-question').getBoundingClientRect();return r.x+r.width/2})()"));
+        float cssY=Float.parseFloat(js("(()=>{const r=document.querySelector('#agent-question').getBoundingClientRect();return r.y+r.height/2})()"));
+        int[] webPosition=new int[2];float[] webScale={1};
+        getInstrumentation().runOnMainSync(()->{web.getLocationOnScreen(webPosition);webScale[0]=web.getScale();});
+        long tapTime=android.os.SystemClock.uptimeMillis();
+        getInstrumentation().sendPointerSync(android.view.MotionEvent.obtain(tapTime,tapTime,android.view.MotionEvent.ACTION_DOWN,webPosition[0]+cssX*webScale[0],webPosition[1]+cssY*webScale[0],0));
+        getInstrumentation().sendPointerSync(android.view.MotionEvent.obtain(tapTime,tapTime+20,android.view.MotionEvent.ACTION_UP,webPosition[0]+cssX*webScale[0],webPosition[1]+cssY*webScale[0],0));
+        boolean[] imeVisible={false};long imeDeadline=System.currentTimeMillis()+10000;
+        while(System.currentTimeMillis()<imeDeadline) {
+            getInstrumentation().runOnMainSync(()->{
+                android.view.WindowInsets insets=web.getRootWindowInsets();
+                imeVisible[0]=insets!=null && insets.isVisible(android.view.WindowInsets.Type.ime());
+            });
+            if(imeVisible[0])break;
+            Thread.sleep(100);
+        }
+        assertTrue("The real native IME must be visible before keyboard evidence",imeVisible[0]);
         waitFor("document.querySelector('#tutor-composer button[type=submit]').getBoundingClientRect().bottom<=innerHeight+1");
         screenshot("android-tutor-composer-keyboard");
         getInstrumentation().runOnMainSync(()->((android.view.inputmethod.InputMethodManager)activity.getSystemService(Activity.INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(web.getWindowToken(),0));

@@ -55,7 +55,7 @@
 
   {% if session.turns %}
     {% for turn in session.turns %}
-    <article class="agent-turn agent-turn-{{ turn.role }}">
+    <article class="agent-turn agent-turn-{{ turn.role }}"{% if loop.last %} id="tutor-latest-turn"{% endif %}>
       <div class="panel-heading">
         <div>
           <p class="eyebrow">{% if turn.role == 'assistant' %}Alex <span class="tutor-role-note">· Tutor</span>{% else %}You{% endif %}</p>
@@ -238,7 +238,7 @@
     </div>
     <div class="tutor-input-row"><textarea id="agent-question" name="question" rows="2" maxlength="4000" required placeholder="Ask Alex, or share where you got stuck…">{{ failed_question if failed_question is defined else (session.prefill_question or "") }}</textarea>
     <button class="tutor-primary" type="submit">Ask tutor</button></div>
-    <p id="tutor-submit-status" class="microcopy" role="status" aria-live="polite">Review your message, then send. Learning guidance is not a grade.</p>
+    <p id="tutor-submit-status" class="microcopy" role="status" aria-live="polite">{{ error_message or "Review your message, then send. Learning guidance is not a grade." }}</p>
   </form>
 
 </section>

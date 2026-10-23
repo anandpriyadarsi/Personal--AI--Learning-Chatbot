@@ -4399,7 +4399,7 @@ def academic_agent_ask(session_id):
         else:
             service.ask(session_id, request.form.get("question", ""))
         return redirect(
-            url_for("web.academic_agent_session", session_id=session_id),
+            url_for("web.academic_agent_session", session_id=session_id, _anchor="tutor-latest-turn"),
             code=303,
         )
     except AcademicAgentWebValidationError:

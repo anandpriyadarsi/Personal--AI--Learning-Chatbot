@@ -123,7 +123,7 @@
     <p class="empty-state">No tutor sessions yet. Create one above to begin a persistent source-grounded conversation.</p>
   {% endif %}
 </section>
-<details class="tutor-secondary" id="tutor-mentor"><summary>Adaptive Mentor · course advice</summary>
+<details class="tutor-secondary" id="tutor-mentor"{% if workspace.selected_course_code %} open{% endif %}><summary>Adaptive Mentor · course advice</summary>
   <article class="dashboard-panel">
     <div class="panel-heading">
       <div>

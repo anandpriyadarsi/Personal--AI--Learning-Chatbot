@@ -60,3 +60,10 @@ def test_invalid_csrf_does_not_echo_submitted_payload(ui):
     assert response.status_code == 403
     assert 'do-not-echo-cross-site' not in response.text
     assert 'untrusted-id' not in response.text
+
+
+def test_requested_mentor_advice_remains_expanded(ui):
+    app, service, course = ui
+    response = app.test_client().get('/agent?course=' + course['code'])
+    assert response.status_code == 200
+    assert re.search(r'<details[^>]*id="tutor-mentor"[^>]*\bopen\b', response.text)
