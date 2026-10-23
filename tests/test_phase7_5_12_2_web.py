@@ -121,7 +121,7 @@ def test_knowledge_reader_and_source_ask_route():
 
     ask = client.post(
         "/knowledge/item/d-lu/ask",
-        data={"version_hash": "a" * 64, "prefill_question": "Why?"},
+        data={"csrf_token": app.extensions['tutor_action_csrf'], "version_hash": "a" * 64, "prefill_question": "Why?"},
         follow_redirects=False,
     )
     assert ask.status_code == 303

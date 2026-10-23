@@ -1,0 +1,178 @@
+name: Tutor V2.0–2.3 integration acceptance
+
+on:
+  pull_request:
+    paths:
+      - 'personal_learning_assistant/tutor/**'
+      - 'personal_learning_assistant/services/grounded_tutor_service.py'
+      - 'personal_learning_assistant/services/tutor_session_service.py'
+      - 'personal_learning_assistant/services/academic_agent_web_service.py'
+      - 'personal_learning_assistant/repositories/sqlite/tutor_repository.py'
+      - 'personal_learning_assistant/repositories/sqlite/migration_runner.py'
+      - 'personal_learning_assistant/repositories/sqlite/optional_migrations/**'
+      - 'personal_learning_assistant/domain/grounded_tutor_models.py'
+      - 'personal_learning_assistant/ui/web/**'
+      - 'tests/test_tutor*.py'
+      - 'scripts/tutor23_gemini_live_cases.py'
+      - 'scripts/tutor23_openrouter_live_cases.py'
+      - 'scripts/tutor23_openrouter_preflight.py'
+      - 'tests/test_phase7_5_academic_agent_web.py'
+      - 'tests/learning_studio/test_educational_projection_v23.py'
+      - '.github/workflows/tutor-v2-reconciliation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  focused:
+    name: Tutor reconciliation (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    env:
+      ANVAYA_BROWSER_TESTS: '1'
+      ANVAYA_VALIDATION_ARTIFACTS: ${{ github.workspace }}/tutor-screenshots
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+            requirements-assessment-browser.txt
+      - name: Preserve historical checkout bytes
+        run: python scripts/architecture_checkout_eol.py --repo .
+      - name: Record exact source and native environment
+        shell: python
+        run: |
+          import json, platform, subprocess, sys
+          from pathlib import Path
+          Path('tutor-environment.json').write_text(json.dumps({
+              'source_sha': subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip(),
+              'platform': platform.platform(), 'python': sys.version,
+              'provider': 'synthetic-only; live A-K BLOCKED without owner configuration',
+          }, indent=2), encoding='utf-8')
+      - name: Install pinned dependencies
+        run: python -m pip install -r requirements.txt -r requirements-dev.txt -r requirements-assessment-browser.txt
+      - name: Install Chromium Linux
+        if: runner.os == 'Linux'
+        run: python -m playwright install --with-deps chromium
+      - name: Install Chromium Windows
+        if: runner.os == 'Windows'
+        run: python -m playwright install chromium
+      - name: Compile integrated Tutor without executing provider
+        run: python -m compileall -q personal_learning_assistant/tutor personal_learning_assistant/services/grounded_tutor_service.py personal_learning_assistant/services/tutor_session_service.py personal_learning_assistant/ui/web/tutor_rendering.py
+      - name: Validate original Tutor teaching contracts and current web safety
+        run: >
+          python -m pytest -q
+          tests/test_tutor_v2_safe_readability_reconciliation.py
+          tests/test_tutor_final_integration.py
+          tests/test_tutor_final_browser.py
+          tests/test_tutor_optional_schema.py
+          tests/test_tutor21_adaptive_intelligence.py
+          tests/test_tutor21_correctness.py
+          tests/test_tutor21_retrieval_planner.py
+          tests/test_tutor21_live_validation_fixes.py
+          tests/test_tutor22_student_model.py
+          tests/test_tutor22_memory_candidates.py
+          tests/test_tutor22_signal_aggregation.py
+          tests/test_tutor22_personalized_policy.py
+          tests/test_tutor23_diagnostic_questioning.py
+          tests/test_tutor23_prerequisite_reasoning.py
+          tests/test_tutor23_adaptive_practice.py
+          tests/test_tutor23_goal_exit_check.py
+          tests/test_tutor23_live_validation.py
+          tests/test_tutor23_live_browser_integration.py
+          tests/test_tutor23_cloud_acceptance.py
+          tests/test_tutor23_topic_cancellation.py
+          tests/test_tutor23_openrouter_quota.py
+          tests/test_tutor_topic_scope_web.py
+          tests/test_assessment_live_browser.py::test_palette_animation_does_not_expand_document
+          tests/test_phase7_5_academic_agent_web.py
+          tests/learning_studio/test_educational_projection_v23.py
+          --junitxml=tutor-reconciliation.xml
+      - name: Preserve acceptance report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tutor-v2-reconciliation-${{ matrix.os }}-${{ github.event.pull_request.head.sha || github.sha }}
+          if-no-files-found: ignore
+          path: |
+            tutor-reconciliation.xml
+            tutor-environment.json
+            ${{ env.ANVAYA_VALIDATION_ARTIFACTS }}/*.png
+            ${{ env.ANVAYA_VALIDATION_ARTIFACTS }}/*.json
+
+  openrouter_live:
+    # Never give the secret to forks or arbitrary PRs.
+    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'integration/tutor-v2-0-2-3-safe-reconciliation-2026-10-21' && github.event.pull_request.user.login == 'anandpriyadarsi' }}
+    name: Real OpenRouter A–K (Ubuntu)
+    runs-on: ubuntu-latest
+    timeout-minutes: 38
+    permissions:
+      contents: read
+    concurrency:
+      group: tutor-openrouter-live-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    env:
+      ANVAYA_BROWSER_TESTS: '1'
+      ANVAYA_TUTOR_OPENROUTER_LIVE: '1'
+      PYTHONPATH: ${{ github.workspace }}/tests:${{ github.workspace }}
+      ANVAYA_LIVE_ARTIFACTS: ${{ github.workspace }}/tutor-openrouter-artifacts
+      LLM_API_URL: https://openrouter.ai/api/v1/chat/completions
+      LLM_MODEL: nvidia/nemotron-3-ultra-550b-a55b:free
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+            requirements-assessment-browser.txt
+      - name: Install pinned dependencies
+        run: python -m pip install -r requirements.txt -r requirements-dev.txt -r requirements-assessment-browser.txt
+      - name: Check secret presence without sending a billable request
+        shell: bash
+        env:
+          LLM_API_KEY: ${{ secrets.ANVAYA_TUTOR_LIVE_OPENROUTER_KEY }}
+        run: |
+          if [ -z "$LLM_API_KEY" ]; then
+            echo "::error::BLOCKED: OpenRouter Actions secret unavailable"
+            exit 1
+          fi
+          echo "OpenRouter key available; fixed free model, synthetic academic test data."
+      - name: Verify bounded free-model availability (at most three synthetic requests)
+        env:
+          LLM_API_KEY: ${{ secrets.ANVAYA_TUTOR_LIVE_OPENROUTER_KEY }}
+        run: python scripts/tutor23_openrouter_preflight.py
+      - name: Install Chromium
+        run: python -m playwright install --with-deps chromium
+      - name: Run genuine A–K with Flask Chromium and SQLite
+        env:
+          LLM_API_KEY: ${{ secrets.ANVAYA_TUTOR_LIVE_OPENROUTER_KEY }}
+        run: python -m pytest -q scripts/tutor23_openrouter_live_cases.py --junitxml=tutor-openrouter-live.xml
+      - name: Preserve model-specific browser evidence (without secrets)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tutor-real-openrouter-${{ github.event.pull_request.head.sha }}
+          if-no-files-found: ignore
+          path: |
+            tutor-openrouter-live.xml
+            ${{ env.ANVAYA_LIVE_ARTIFACTS }}/openrouter-preflight.json
+            ${{ env.ANVAYA_LIVE_ARTIFACTS }}/*.png
+            ${{ env.ANVAYA_LIVE_ARTIFACTS }}/*.json

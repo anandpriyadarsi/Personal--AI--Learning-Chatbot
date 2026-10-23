@@ -1,4 +1,7 @@
 /* Assessment lifecycle surfaces. Shared ANVAYA tokens and Notes course identity. */
+/* The closing palette translates beyond its shrinking track. Clip that
+   animation horizontally without creating a scroll container for sticky UI. */
+.assessment-exam-body .exam-layout { overflow-x: clip; }
 .assessment-page .content { max-width: 1440px; width: 100%; margin-inline: auto; }
 .assessment-nav { display: flex; gap: .25rem; flex-wrap: wrap; border-bottom: 1px solid var(--border); padding-bottom: .65rem; margin-bottom: 1.5rem; }
 .assessment-nav a { padding: .65rem .9rem; border-radius: .5rem; color: var(--text-muted); font-size: .88rem; text-decoration: none; }

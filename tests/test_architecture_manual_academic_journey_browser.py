@@ -4,6 +4,7 @@ This deliberately does not certify an automatic reviewed-topic handoff. The
 current task form creates a manual task; no canonical Assessment→Learning
 mapping or independence claim is inferred from navigation or completion.
 """
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -17,14 +18,17 @@ from werkzeug.serving import make_server
 from tests.learning_studio.test_browser import browser
 from tests.learning_studio.helpers import package, source_pdf
 from tests.learning_studio.test_service import publish, event
-from tests.test_planning_analysis_v2 import _database, NOW, inventory
+from tests.test_planning_analysis_v2 import _database, NOW
 
 
 def academic_inventory(path):
     # Learning explicitly saves its reading bookmark asynchronously. This
     # invariant concerns the canonical academic DB and its WAL/SHM sidecars.
-    return {name: digest for name, digest in inventory(path.parent).items()
-            if name in {path.name, path.name + '-wal', path.name + '-shm'}}
+    # Select canonical files before reading: an unrelated Learning SQLite
+    # journal can disappear between directory enumeration and hashing.
+    files = (path, path.with_name(path.name + '-wal'), path.with_name(path.name + '-shm'))
+    return {p.name: hashlib.sha256(p.read_bytes()).hexdigest()
+            for p in files if p.is_file()}
 
 
 @pytest.fixture

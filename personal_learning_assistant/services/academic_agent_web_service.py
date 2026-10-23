@@ -7,9 +7,11 @@ existing tutor session, turn, and evidence rows.
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from importlib import import_module
 from pathlib import Path
 import sqlite3
+import re
 from urllib.parse import quote
 
 
@@ -40,6 +42,10 @@ class AcademicAgentWebNotFoundError(AcademicAgentWebError):
 
 class AcademicAgentWebUnavailableError(AcademicAgentWebError):
     pass
+
+
+def _utc_now_text():
+    return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
 def _open_database(path, *, writable):
@@ -93,6 +99,7 @@ def _evidence_view(evidence):
 
 def _turn_view(turn):
     return {
+        "cited_labels": tuple(dict.fromkeys(re.findall(r"\[(S\d+)\]", turn.content))),
         "turn_id": turn.turn_id,
         "ordinal": turn.ordinal,
         "role": turn.role,
@@ -106,7 +113,18 @@ def _turn_view(turn):
 
 
 def _session_view(session, turns):
+    # Tutor 2.1–2.3 state is read from Tutor-owned session metadata only.
+    # It does not represent grades, mastery or independently certified progress.
+    # Imports are intentionally lazy: starting ANVAYA must not load AI engines.
+    from personal_learning_assistant.tutor.adaptive_state import load_adaptive_state
+    from personal_learning_assistant.tutor.session_goal import load_session_goal
+    from personal_learning_assistant.tutor.teaching_orchestrator import load_teaching_plan
+
+    metadata = dict(session.metadata or {})
     return {
+        "adaptive_state": load_adaptive_state(metadata),
+        "session_goal": load_session_goal(metadata),
+        "teaching_plan": load_teaching_plan(metadata),
         "session_id": session.session_id,
         "course_id": session.course_id,
         "topic_id": session.topic_id,
@@ -235,6 +253,11 @@ class AcademicAgentWebService:
                 "personal_learning_assistant.repositories.sqlite.tutor_repository"
             )
             repository = repository_module.SQLiteTutorRepository(connection)
+            tutor_topics = [
+                topic
+                for course in courses
+                for topic in repository.list_course_topics(str(course.get("id", "")))
+            ]
             sessions = [
                 _session_summary(item)
                 for item in repository.list_sessions(limit=20)
@@ -297,6 +320,7 @@ class AcademicAgentWebService:
                 "message": message,
                 "provider_configured": provider_configured,
                 "courses": courses,
+                "tutor_topics": tutor_topics,
                 "selected_course_code": selected_course_code,
                 "mentor": mentor,
                 "sessions": sessions,
@@ -310,10 +334,15 @@ class AcademicAgentWebService:
         self,
         *,
         course_id,
+        topic_id="",
         mode="concept",
         source_policy="source_only",
         title="",
     ):
+        selected_course = str(course_id or "").strip()
+        selected_topic = str(topic_id or "").strip()
+        if selected_topic and not selected_course:
+            raise AcademicAgentWebValidationError("Choose a course before a topic.")
         connection = _open_database(self.database_path, writable=True)
         try:
             models_module = import_module(
@@ -330,7 +359,8 @@ class AcademicAgentWebService:
             spec = models_module.TutorSessionSpec(
                 mode=str(mode or "concept").strip().casefold(),
                 source_policy=str(source_policy or "source_only").strip().casefold(),
-                course_id=str(course_id or "").strip() or None,
+                course_id=selected_course or None,
+                topic_id=selected_topic or None,
                 title=str(title or "").strip(),
                 metadata={"origin": "phase7.5.9_web"},
             )
@@ -440,6 +470,35 @@ class AcademicAgentWebService:
                     "Tutor session history is temporarily unavailable."
                 ) from error
             view = _session_view(session, turns)
+            view["course"] = repository.course_identity(session.course_id)
+            view["topic"] = repository.topic_identity(session.topic_id, session.course_id)
+            # Existing academic memory and progress are projected as read-only,
+            # course-scoped teaching context. No mastery inference or write.
+            from personal_learning_assistant.tutor.student_model import (
+                build_persistent_student_model,
+                student_model_mapping,
+            )
+            view["persistent_student_model"] = student_model_mapping(
+                build_persistent_student_model(repository, session)
+            )
+            # A database without explicit optional Tutor 0016 remains readable.
+            # No table is created by this GET; private student data stays local.
+            view["memory_candidates"] = []
+            view["memory_candidates_available"] = False
+            if session.course_id and repository.memory_candidates_available():
+                candidate_module = import_module(
+                    "personal_learning_assistant.tutor.memory_candidates"
+                )
+                view["memory_candidates_available"] = True
+                view["memory_candidates"] = list(
+                    candidate_module.list_memory_candidates(
+                        connection,
+                        course_id=session.course_id,
+                        topic_id=session.topic_id,
+                        include_reviewed=True,
+                        limit=30,
+                    )
+                )
             metadata_module = import_module(
                 "personal_learning_assistant.repositories.sqlite.search_metadata_repository"
             )
@@ -463,7 +522,176 @@ class AcademicAgentWebService:
         finally:
             connection.close()
 
-    def ask(self, session_id, question):
+    def propose_memory_candidate(self, session_id, signal_index):
+        clean_session_id = str(session_id or "").strip()
+        try:
+            index = int(signal_index)
+        except (TypeError, ValueError):
+            raise AcademicAgentWebValidationError(
+                "Memory candidate selection is invalid."
+            )
+        if not clean_session_id or index < 0:
+            raise AcademicAgentWebValidationError(
+                "Memory candidate selection is invalid."
+            )
+
+        connection = _open_database(self.database_path, writable=True)
+        try:
+            repository_module = import_module(
+                "personal_learning_assistant.repositories.sqlite.tutor_repository"
+            )
+            student_model_module = import_module(
+                "personal_learning_assistant.tutor.student_model"
+            )
+            candidate_module = import_module(
+                "personal_learning_assistant.tutor.memory_candidates"
+            )
+            repository = repository_module.SQLiteTutorRepository(connection)
+            try:
+                session = repository.get_session(clean_session_id)
+            except repository_module.TutorRepositoryError as error:
+                raise AcademicAgentWebNotFoundError(
+                    "Tutor session was not found."
+                ) from error
+
+            model = student_model_module.build_persistent_student_model(
+                repository,
+                session,
+            )
+            stable = tuple(model.stable_signals or ())
+            if index >= len(stable):
+                raise AcademicAgentWebValidationError(
+                    "Stable Tutor pattern is no longer available."
+                )
+            try:
+                return candidate_module.propose_memory_candidate(
+                    connection,
+                    stable[index],
+                    now=_utc_now_text(),
+                )
+            except candidate_module.TutorMemoryCandidateError as error:
+                raise AcademicAgentWebValidationError(str(error)) from error
+            except sqlite3.OperationalError as error:
+                raise AcademicAgentWebUnavailableError(
+                    "Tutor memory candidates are not available until the latest "
+                    "database migration is applied."
+                ) from error
+        finally:
+            connection.close()
+
+    def review_memory_candidate(
+        self,
+        session_id,
+        candidate_id,
+        *,
+        action,
+        review_note="",
+    ):
+        clean_session_id = str(session_id or "").strip()
+        clean_candidate_id = str(candidate_id or "").strip()
+        clean_action = str(action or "").strip().casefold()
+        if (
+            not clean_session_id
+            or not clean_candidate_id
+            or clean_action not in {"accept", "reject"}
+        ):
+            raise AcademicAgentWebValidationError(
+                "Memory candidate review is invalid."
+            )
+
+        connection = _open_database(self.database_path, writable=True)
+        try:
+            repository_module = import_module(
+                "personal_learning_assistant.repositories.sqlite.tutor_repository"
+            )
+            candidate_module = import_module(
+                "personal_learning_assistant.tutor.memory_candidates"
+            )
+            repository = repository_module.SQLiteTutorRepository(connection)
+            try:
+                session = repository.get_session(clean_session_id)
+            except repository_module.TutorRepositoryError as error:
+                raise AcademicAgentWebNotFoundError(
+                    "Tutor session was not found."
+                ) from error
+
+            scoped = candidate_module.list_memory_candidates(
+                connection,
+                course_id=session.course_id,
+                topic_id=session.topic_id,
+                include_reviewed=True,
+                limit=100,
+            )
+            candidate = next(
+                (
+                    item
+                    for item in scoped
+                    if str(item.get("id", "")) == clean_candidate_id
+                ),
+                None,
+            )
+            if candidate is None:
+                raise AcademicAgentWebNotFoundError(
+                    "Tutor memory candidate was not found."
+                )
+            try:
+                return candidate_module.review_memory_candidate(
+                    connection,
+                    clean_candidate_id,
+                    action=clean_action,
+                    now=_utc_now_text(),
+                    review_note=review_note,
+                )
+            except candidate_module.TutorMemoryCandidateError as error:
+                raise AcademicAgentWebValidationError(str(error)) from error
+            except sqlite3.OperationalError as error:
+                raise AcademicAgentWebUnavailableError(
+                    "Tutor memory candidate review is temporarily unavailable."
+                ) from error
+        finally:
+            connection.close()
+
+    def record_feedback(self, session_id, turn_id, *, helpful):
+        clean_session_id = str(session_id or "").strip()
+        clean_turn_id = str(turn_id or "").strip()
+        if not clean_session_id or not clean_turn_id:
+            raise AcademicAgentWebValidationError("Tutor feedback target is invalid.")
+        connection = _open_database(self.database_path, writable=True)
+        try:
+            repository_module = import_module(
+                "personal_learning_assistant.repositories.sqlite.tutor_repository"
+            )
+            service_module = import_module(
+                "personal_learning_assistant.services.tutor_session_service"
+            )
+            repository = repository_module.SQLiteTutorRepository(connection)
+            sessions = service_module.TutorSessionService(repository)
+            try:
+                turn = repository.get_turn(clean_turn_id)
+            except repository_module.TutorRepositoryError as error:
+                raise AcademicAgentWebNotFoundError(
+                    "Tutor answer was not found."
+                ) from error
+            if str(turn.session_id) != clean_session_id or str(turn.role) != "assistant":
+                raise AcademicAgentWebValidationError(
+                    "Tutor feedback target is invalid."
+                )
+            try:
+                sessions.record_feedback(
+                    clean_turn_id,
+                    helpful=bool(helpful),
+                )
+            except (
+                service_module.TutorSessionError,
+                repository_module.TutorRepositoryError,
+            ) as error:
+                raise AcademicAgentWebUnavailableError(
+                    "Tutor feedback could not be saved."
+                ) from error
+        finally:
+            connection.close()
+
+    def ask(self, session_id, question, *, request_id=""):
         clean_question = str(question or "").strip()
         if not clean_question:
             raise AcademicAgentWebValidationError("Question cannot be empty.")
@@ -521,7 +749,7 @@ class AcademicAgentWebService:
                     retrieval_service=retrieval,
                     provider=provider,
                 )
-                engine.answer(session.session_id, clean_question)
+                engine.answer(session.session_id, clean_question, request_id=request_id)
             except runtime_module.UnifiedSearchStaleIndexError as error:
                 raise AcademicAgentWebUnavailableError(
                     "Learning material changed. Rebuild the knowledge index before asking ANVAYA."
@@ -548,6 +776,11 @@ class AcademicAgentWebService:
             ) as error:
                 raise AcademicAgentWebUnavailableError(
                     "The AI tutor could not complete this request. Your academic data was not changed."
+                ) from error
+            except (repository_module.TutorRepositoryError,
+                    session_service_module.TutorSessionError, sqlite3.Error) as error:
+                raise AcademicAgentWebUnavailableError(
+                    "Tutor answer could not be saved. Refresh the session and try again."
                 ) from error
         finally:
             if store is not None:
