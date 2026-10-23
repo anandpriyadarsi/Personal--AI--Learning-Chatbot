@@ -15,9 +15,9 @@ ABIs: armeabi-v7a, arm64-v8a and x86_64. Owner-device acceptance is still requir
 2. Android may ask permission to install from the browser/ChatGPT/Files app. Allow
    that source for this installation, then tap Install. No developer mode,
    USB debugging, laptop or Termux is required.
-3. Open ANVAYA. A fresh installation starts with no personal academic records.
+3. Open ANVAYA. A fresh installation shows the five existing First Year · Semester 1 subject templates and their source-backed topic outlines. It does **not** include your personal lecture files, grades, notes or assessments; those still require a verified import or previous Android backup.
 4. My Notes → Create note works locally. App & privacy → Manage courses & backups
-   provides local PDF selection, course labels and private workspace backups.
+   now includes **Restore missing subject templates**, which fills only absent subjects or empty topic outlines without replacing existing progress. Chemistry retains the Green Chemistry, Spectroscopy and Lab areas. The same screen provides local PDF selection and private workspace backups.
 5. Register a PDF to obtain its canonical source ID. An authored Learning package
    must reference that ID and the exact PDF SHA256. Import the package through
    Learning Studio and review/publish it with existing validation. Source text is
