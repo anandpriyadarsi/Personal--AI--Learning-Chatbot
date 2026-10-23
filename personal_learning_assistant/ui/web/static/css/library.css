@@ -197,7 +197,12 @@
 .library-source-search .knowledge-result-card {overflow-wrap:anywhere}
 @media(max-width:460px) {
   .library-view-tabs {display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+  .library-view-tabs a:last-child {grid-column:1/-1}
   .library-view-tabs a {padding:.5rem .3rem;font-size:.73rem;text-align:center}
   .library-source-search .knowledge-query-row {display:flex;flex-wrap:wrap}
   .library-source-search .knowledge-query-row input {flex:1 1 100%;min-width:0}
 }
+
+.library-saved-resources {min-width:0;margin:1rem 0}
+.library-saved-resources .materials-create {margin:1.1rem 0}
+.library-saved-resources .library-items {margin-top:1rem}
