@@ -18,8 +18,10 @@ Native test APK: `android/app/build/outputs/apk/androidTest/debug/app-debug-andr
 Run the synthetic API31 emulator smoke with `bash scripts/android_emulator_acceptance.sh`
 after booting an emulator in the same environment. It turns Wi-Fi/mobile data off,
 saves via the real WebView Notes form, force-stops the package, reopens/checks the
-record and captures actual Android screenshots. Instrumentation alone can clear
-FLAG_SECURE for synthetic captures; normal app screenshots are protected.
+record and captures actual Android screenshots. Normal ANVAYA screenshots and screen recordings are intentionally allowed at the
+owner's request. Instrumentation must not clear FLAG_SECURE: it asserts that
+screenshots are already permitted in the normal app. Screenshots can contain
+sensitive learning records, so the owner should review them before sharing.
 
 For a private release, generate/keep an owner-controlled Android signing keystore
 outside this repository, configure a local Gradle signingConfig via environment
