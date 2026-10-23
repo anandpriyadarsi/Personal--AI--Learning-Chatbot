@@ -27,6 +27,15 @@ def register_android_device(app, root):
             return render_template('android_device.html',active_page='mobile-settings',message='Check course code/name or use an existing course.'),400
         return redirect('/learning',code=303)
 
+    @device.post('/mobile/device/restore-subjects')
+    def restore_subjects():
+        from personal_learning_assistant.services.android_subject_restore import restore_semester_one_subjects
+        added = restore_semester_one_subjects()
+        message = ('Restored missing Semester 1 subjects: ' + ', '.join(added) + '. '
+                   if added else 'Your Semester 1 subjects are already registered. ')
+        message += 'Original course templates are available in Learning Studio. Existing study progress was preserved.'
+        return render_template('android_device.html',active_page='mobile-settings',message=message)
+
     @device.post('/mobile/device/source')
     def source():
         from personal_learning_assistant.repositories.sqlite.knowledge_registry_repository import SQLiteKnowledgeRegistryRepository
