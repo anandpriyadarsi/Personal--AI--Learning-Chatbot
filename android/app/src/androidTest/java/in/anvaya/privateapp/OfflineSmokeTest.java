@@ -166,7 +166,9 @@ public class OfflineSmokeTest {
             go(path);screenshot("android-"+path.replace('/','-'));
             assertEquals("No document overflow at "+path,"true",js("document.documentElement.scrollWidth<=innerWidth+1"));
         }
-        go("/agent");
+        go("/mobile/device");
+        js("document.querySelector('form[action=\"/mobile/device/tutor-index\"]').requestSubmit()");
+        waitFor("location.pathname==='/agent' && !!document.querySelector('#session-policy')");
         assertEquals("Honest Android offline provider state","true",js("document.querySelector('#tutor-provider-state').innerText.includes('Offline')"));
         js("document.querySelector('#session-policy').value='source_only';document.querySelector('.tutor-start-form').requestSubmit()");
         waitFor("location.pathname.startsWith('/agent/sessions/') && !!document.querySelector('#agent-question')");
@@ -174,7 +176,7 @@ public class OfflineSmokeTest {
         js("document.querySelector('[data-tutor-prompt]').click()");
         waitFor("document.querySelector('#agent-question').value.includes('one hint')");
         assertEquals("Prompt chip does not submit","true",js("document.querySelectorAll('.agent-turn').length===0"));
-        js("document.querySelector('#agent-question').value='Explain synthetic absent topic zqxv';document.querySelector('#tutor-ask-form').requestSubmit()");
+        js("document.querySelector('#agent-question').value='zqxv absent concept';document.querySelector('#tutor-ask-form').requestSubmit()");
         waitFor("document.querySelectorAll('.agent-turn').length===2 && document.querySelector('#agent-question').value===''");
         screenshot("android-tutor-conversation");
         activity.getSharedPreferences("synthetic-evidence",0).edit().putString("tutorPath",new org.json.JSONArray("["+js("location.pathname")+"]").getString(0)).commit();

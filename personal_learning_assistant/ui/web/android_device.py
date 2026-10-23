@@ -55,6 +55,24 @@ def register_android_device(app, root):
         return render_template('android_device.html',active_page='mobile-settings',message=
             'Source registered locally. Source ID: '+identity+'. Use this ID when authoring a Learning package; the original PDF hash is preserved.')
 
+    @device.post('/mobile/device/tutor-index')
+    def tutor_index():
+        from .routes import _tutor_action_token_matches
+        if not _tutor_action_token_matches():
+            abort(403)
+        from personal_learning_assistant.retrieval.index_builder import RetrievalIndexBuilder, RetrievalIndexBuildError
+        from personal_learning_assistant.repositories.sqlite.retrieval_source_repository import SQLiteRetrievalSourceRepository
+        try:
+            database=root/'data/learning_assistant.db'
+            with closing(sqlite3.connect(database.absolute().as_uri()+'?mode=ro',uri=True)) as con:
+                # A derived lexical index only: no model download, external call,
+                # academic mutation or stale-index bypass.
+                RetrievalIndexBuilder(SQLiteRetrievalSourceRepository(con),root/'data/tutor_retrieval').build(embedding_provider=None,acknowledge=False)
+        except (RetrievalIndexBuildError,sqlite3.Error,OSError):
+            return render_template('android_device.html',active_page='mobile-settings',
+                message='Tutor index could not be built. Add a PDF with extractable text, then try again. Your study records were kept.'),409
+        return redirect('/agent',code=303)
+
     @device.get('/mobile/device/export')
     def export():
         from personal_learning_assistant.android_backup import export_backup

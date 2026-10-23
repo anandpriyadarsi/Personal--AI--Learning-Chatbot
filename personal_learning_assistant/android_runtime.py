@@ -144,6 +144,9 @@ def _start(root_path=None):
         'ACADEMIC_WAL_SNAPSHOT_PROVIDER': publisher.feed.latest,
         'ACADEMIC_WAL_SNAPSHOT_MAX_AGE': 120,
         'MAX_CONTENT_LENGTH': 101 * 1024 * 1024})
+    from personal_learning_assistant.services.academic_agent_web_service import AcademicAgentWebService
+    app.config['ACADEMIC_AGENT_WEB_SERVICE_FACTORY'] = lambda: AcademicAgentWebService(
+        database_path=config.DATABASE_PATH,index_root=root/'data/tutor_retrieval')
     logging.getLogger('werkzeug').disabled = True
     # Academic errors are shown in UI; do not copy records or paths to logcat.
     app.logger.disabled = True

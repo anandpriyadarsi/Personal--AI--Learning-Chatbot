@@ -166,6 +166,7 @@ def test_protected_surfaces_retain_shell_controls_and_dark_layout(protected_brow
             page.locator("#ls-focus").click(trial=True)
             page.locator("#ls-contents").click(trial=True)
         else:
+            page.locator("#tutor-mentor > summary").click()
             page.locator("#mentor-course").select_option("MA103N")
             page.get_by_role("button", name="Show mentor advice", exact=True).click()
             expect(page.locator("#mentor-course")).to_have_value("MA103N")

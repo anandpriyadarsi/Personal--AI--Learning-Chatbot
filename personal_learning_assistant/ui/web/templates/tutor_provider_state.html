@@ -1,8 +1,9 @@
 <details class="tutor-provider" id="tutor-provider-state">
-  <summary><span class="tutor-status-dot" aria-hidden="true"></span>{% if config.get('ANDROID_LOCAL_RUNTIME') %}Offline · on this phone{% elif workspace is defined and workspace.provider_configured %}Provider configured{% else %}Provider status{% endif %}</summary>
+  <summary><span class="tutor-status-dot" aria-hidden="true"></span>{% if config.get('ANDROID_LOCAL_RUNTIME') %}Offline · on this phone{% elif workspace is defined %}{% if workspace.provider_configured %}Provider configured{% else %}Not configured{% endif %}{% else %}Provider status{% endif %}</summary>
   <div class="tutor-provider-info">
   {% if config.get('ANDROID_LOCAL_RUNTIME') %}
     <strong>Online AI unavailable in this Android build</strong>
+    <p><a href="/mobile/device">Prepare local Tutor sources</a> after adding or restoring PDFs.</p>
     <p>Saved conversations and supported source-based learning work offline. Generative answers need an online provider.</p>
     <p>Native secure key storage and a restricted HTTPS provider connection still require implementation and testing. No API key is requested or stored by this screen.</p>
   {% elif workspace is defined and workspace.provider_configured %}
