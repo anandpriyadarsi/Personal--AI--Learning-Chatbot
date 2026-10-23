@@ -1,0 +1,61 @@
+<section id="saved-resources" class="library-saved-resources" aria-label="Saved links and study progress">
+  <div class="materials-section-title"><div><p class="eyebrow">Your saved references</p><h2>Saved links &amp; progress</h2></div></div>
+  <p class="materials-section-note">These existing bookmarks are stored separately from the registered Library. Saving a reference does not upload files or index content for the Tutor.</p>
+  {% if saved_error %}<section class="notice-panel error-panel" role="alert">{{ saved_error }}</section>{% elif request.args.get('created') == '1' %}<section class="notice-panel compact-notice" role="status">Reference saved.</section>{% elif request.args.get('updated') == '1' %}<section class="notice-panel compact-notice" role="status">Study status updated.</section>{% endif %}
+  {% if not saved_dashboard.available %}
+  <section class="dashboard-panel materials-empty" role="status"><h3>Saved references unavailable</h3><p>{{ saved_dashboard.message }}</p></section>
+  {% else %}
+  <div class="materials-overview" aria-label="Saved reference status">
+    <div class="materials-stat"><span class="materials-stat-label">All references</span><strong>{{ saved_dashboard.summary.total }}</strong></div>
+    <div class="materials-stat"><span class="materials-stat-label">In progress</span><strong>{{ saved_dashboard.summary.in_progress }}</strong></div>
+    <div class="materials-stat"><span class="materials-stat-label">Completed</span><strong>{{ saved_dashboard.summary.completed }}</strong></div>
+    <div class="materials-stat"><span class="materials-stat-label">Not started</span><strong>{{ saved_dashboard.summary.not_started }}</strong></div>
+  </div>
+  <details class="dashboard-panel materials-create" id="new-resource">
+    <summary class="details-action"><strong>+ Add a saved link or reference</strong></summary>
+    <form class="operational-form" action="{{ url_for('web.resources_create') }}" method="post">
+      <input type="hidden" name="return_to" value="library">
+      <div class="form-grid">
+        <label class="form-field form-field-wide"><span>Title</span><input name="title" required maxlength="200" placeholder="e.g. Linear Algebra lecture"></label>
+        <label class="form-field"><span>Type</span><input name="resource_type" placeholder="Video, website, PDF reference"></label>
+        <label class="form-field form-field-full"><span>Link or path</span><input name="link" placeholder="https://… or local reference"></label>
+      </div>
+      <p class="materials-form-note">This saves a reference only. It does not import or upload a source file.</p>
+      <div class="form-actions"><button class="button" type="submit">Save reference</button></div>
+    </form>
+  </details>
+  <section class="dashboard-panel materials-toolbar" aria-label="Filter saved references">
+    <form class="filter-form materials-filter-grid" action="{{ url_for('web.learning_library') }}" method="get">
+      <input type="hidden" name="view" value="saved">
+      <label class="form-field form-field-grow"><span>Search</span><input type="search" name="saved_q" value="{{ saved_dashboard.query.search }}" placeholder="Title, topic, reference…"></label>
+      <label class="form-field"><span>Type</span><input name="saved_type" value="{{ saved_dashboard.query.type }}" placeholder="All types"></label>
+      <label class="form-field"><span>Status</span><select name="saved_status">
+        <option value="">All statuses</option>
+        {% for option in ("Not Started", "In Progress", "Completed") %}<option value="{{ option }}"{% if saved_dashboard.query.status == option %} selected{% endif %}>{{ option }}</option>{% endfor %}
+      </select></label>
+      <div class="form-actions"><button class="button" type="submit">Apply filters</button><a class="button secondary-button" href="{{ url_for('web.learning_library', view='saved') }}">Clear</a></div>
+    </form>
+  </section>
+  <div class="library-items">
+    {% for resource in saved_dashboard.resources %}
+    <article class="dashboard-panel materials-resource-card" id="saved-{{ resource.position }}">
+      <div class="materials-resource-glyph" aria-hidden="true">R</div>
+      <div class="list-main materials-resource-body">
+        <div class="materials-resource-meta"><span class="materials-type">{{ resource.resource_type }}</span><span class="materials-status materials-status-{{ resource.status|lower|replace(' ', '-') }}">{{ resource.status }}</span></div>
+        <h3 class="materials-resource-title">{{ resource.title }}</h3>
+        {% if resource.link_url %}<a class="safe-resource-link materials-open" href="{{ resource.link_url }}" target="_blank" rel="noopener noreferrer">Open link ↗</a>{% elif resource.link %}<span class="resource-path materials-reference">{{ resource.link }}</span>{% else %}<span class="materials-reference">No link saved</span>{% endif %}
+      </div>
+      <form class="status-form materials-status-form" action="{{ url_for('web.resources_update_status', position=resource.position) }}" method="post">
+        <input type="hidden" name="return_to" value="library">
+        <label><span class="visually-hidden">Status for {{ resource.title }}</span><select name="status" aria-label="Status for {{ resource.title }}">
+          {% for option in ("Not Started", "In Progress", "Completed") %}<option value="{{ option }}"{% if resource.status == option %} selected{% endif %}>{{ option }}</option>{% endfor %}
+        </select></label>
+        <button class="button secondary-button compact-button" type="submit">Update</button>
+      </form>
+    </article>
+    {% else %}
+    <section class="dashboard-panel materials-empty"><h3>No saved references found</h3><p>Add your first reference or clear the filters.</p></section>
+    {% endfor %}
+  </div>
+  {% endif %}
+</section>
