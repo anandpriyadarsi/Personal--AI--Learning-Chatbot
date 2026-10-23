@@ -144,7 +144,7 @@ def test_knowledge_page_renders_index_status_without_query():
     for expected in ("Knowledge base &amp; RAG","gen-web","25","4","Semantic enabled","Search your indexed academic sources"):
         assert expected in text
     assert 'method="get"' in text.lower()
-    assert 'href="/knowledge"' in text
+    assert 'action="/knowledge"' in text
 
 
 def test_knowledge_query_renders_grounded_sources_and_context_summary():
