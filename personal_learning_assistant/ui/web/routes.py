@@ -4038,23 +4038,12 @@ def obsidian_disable():
         )
 
 
-@web_blueprint.get("/knowledge")
-def knowledge():
-    """Search current study material without mutating the retrieval index."""
-    query = request.args.get("q", "", type=str)
-
-    # Preserve the Phase 7.5.8 injected-provider contract for regression tests
-    # and explicit diagnostic embeddings. Normal ANVAYA does not set this
-    # provider, so production continues into Unified Study Search below.
-    if current_app.config.get("KNOWLEDGE_DASHBOARD_PROVIDER") is not None:
-        dashboard = dict(_knowledge_dashboard(query))
-        dashboard["legacy_phase758"] = True
-        return render_template("knowledge.html", active_page="knowledge", dashboard=dashboard)
-
-    course_id = request.args.get("course_id", "", type=str).strip()
-    topic_id = request.args.get("topic_id", "", type=str).strip()
-    source_type = request.args.get("source_type", "", type=str).strip()
-    provider = request.args.get("provider", "", type=str).strip()
+def _unified_study_search_dashboard(query, args):
+    """Shared read-only Library/Knowledge search without changing sources."""
+    course_id = args.get("course_id", "", type=str).strip()
+    topic_id = args.get("topic_id", "", type=str).strip()
+    source_type = args.get("source_type", "", type=str).strip()
+    provider = args.get("provider", "", type=str).strip()
     warning = ""
     results = ()
     service = _unified_search_service()
@@ -4103,6 +4092,23 @@ def knowledge():
         },
         "legacy_phase758": False,
     }
+    return dashboard
+
+
+@web_blueprint.get("/knowledge")
+def knowledge():
+    """Search current study material without mutating the retrieval index."""
+    query = request.args.get("q", "", type=str)
+
+    # Preserve the Phase 7.5.8 injected-provider contract for regression tests
+    # and explicit diagnostic embeddings. Normal ANVAYA does not set this
+    # provider, so production continues into Unified Study Search below.
+    if current_app.config.get("KNOWLEDGE_DASHBOARD_PROVIDER") is not None:
+        dashboard = dict(_knowledge_dashboard(query))
+        dashboard["legacy_phase758"] = True
+        return render_template("knowledge.html", active_page="knowledge", dashboard=dashboard)
+
+    dashboard = _unified_study_search_dashboard(query, request.args)
     return render_template("knowledge.html", active_page="knowledge", dashboard=dashboard)
 
 
@@ -4479,6 +4485,21 @@ def learning_library():
     from personal_learning_assistant.services.learning_library_service import LibraryUnavailableError
     if not current_app.config.get("LEARNING_LIBRARY_ENABLED", True):
         abort(404)
+    view = request.args.get("view", "browse", type=str)
+    if view not in ("browse", "search") or len(request.args.getlist("view")) > 1:
+        return render_template("library.html", active_page="library", library=None,
+                               library_view="browse",
+                               error_message="Choose a valid Library view."), 400
+    if view == "search":
+        if (any(len(request.args.getlist(key)) > 1 for key in
+                ("q", "course_id", "topic_id", "source_type", "provider"))
+                or len(request.args.get("q", "")) > 500):
+            return render_template("library.html", active_page="library", library=None,
+                                   library_view="browse",
+                                   error_message="Choose valid search text and filters."), 400
+        dashboard = _unified_study_search_dashboard(request.args.get("q", ""), request.args)
+        return render_template("library.html", active_page="library", library=None,
+                               library_view="search", dashboard=dashboard)
     try:
         if any(len(request.args.getlist(key)) > 1 for key in
                ("course_id", "item_kind", "page", "page_size", "q")):
