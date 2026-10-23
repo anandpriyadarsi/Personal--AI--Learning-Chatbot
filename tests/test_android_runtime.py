@@ -155,3 +155,64 @@ def test_backup_between_50_and_100_mib_can_reach_restore_validator(tmp_path):
         assert (r.root/'restore-pending.zip').exists()
         r.stop()
     ''')
+
+
+def test_original_semester_one_subjects_restore_without_losing_progress(tmp_path):
+    """Production app shows the original subject cards, not synthetic course data."""
+    run(tmp_path, '''
+        from personal_learning_assistant.android_runtime import start
+        from personal_learning_assistant.repositories.routed_course_repository import RoutedCourseRepository
+        from personal_learning_assistant.domain.canonical_topic_catalogues import canonical_names
+        r = start()
+        repo = RoutedCourseRepository()
+        state = repo.load_state()
+        expected = ('MA103N', 'UC100N', 'CY100N', 'DE100N', 'UC103N')
+        assert tuple(c['code'] for c in state['courses']) == expected
+        for c in state['courses']:
+            assert tuple(t['name'] for t in c['topics']) == canonical_names(c['code'])
+            assert c['semester'] == 'Semester 1'
+        c = r.app.test_client()
+        c.set_cookie('anvaya_native', r.token, domain='127.0.0.1')
+        for path, values in (
+            ('/learning', (b'Linear Algebra', b'Chemistry', b'Indian Knowledge System')),
+            ('/courses', (b'MA103N', b'UC100N', b'CY100N')),
+            ('/learning/courses/cy100n', (b'Green Chemistry', b'Spectroscopy', b'Lab')),
+            ('/mobile/device', (b'Restore missing subject templates',))
+        ):
+            response = c.get(path, base_url=r.origin)
+            assert response.status_code == 200, (path, response.status_code)
+            for text in values:
+                assert text in response.data, (path, text)
+
+        # Simulate an existing phone with an absent subject and saved progress.
+        state['courses'] = [course for course in state['courses'] if course['code'] != 'DE100N']
+        math = next(course for course in state['courses'] if course['code'] == 'MA103N')
+        math['topics'][0]['status'] = 'mastered'
+        math_id = math['id']
+        repo.save_state(state)
+        response = c.post('/mobile/device/restore-subjects', base_url=r.origin,
+                          headers={'Origin': r.origin})
+        assert response.status_code == 200, response.data
+        assert b'DE100N' in response.data
+        after = repo.load_state()
+        assert len(after['courses']) == 5
+        math_after = next(course for course in after['courses'] if course['code'] == 'MA103N')
+        assert math_after['id'] == math_id
+        assert math_after['topics'][0]['status'] == 'mastered'
+        assert {c['code'] for c in after['courses']} == set(expected)
+        response = c.post('/mobile/device/restore-subjects', base_url=r.origin,
+                          headers={'Origin': r.origin})
+        assert response.status_code == 200
+        assert len(repo.load_state()['courses']) == 5
+        r.stop()
+    ''')
+    run(tmp_path, '''
+        from personal_learning_assistant.android_runtime import start
+        from personal_learning_assistant.repositories.routed_course_repository import RoutedCourseRepository
+        r = start()
+        state = RoutedCourseRepository().load_state()
+        assert len(state['courses']) == 5
+        math = next(c for c in state['courses'] if c['code'] == 'MA103N')
+        assert math['topics'][0]['status'] == 'mastered'
+        r.stop()
+    ''')
