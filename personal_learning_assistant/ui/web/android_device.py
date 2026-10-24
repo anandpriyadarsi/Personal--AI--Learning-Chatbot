@@ -36,33 +36,85 @@ def register_android_device(app, root):
         message += 'Original course templates are available in Learning Studio. Existing study progress was preserved.'
         return render_template('android_device.html',active_page='mobile-settings',message=message)
 
-    @device.post('/mobile/device/source')
-    def source():
+    def _register_local_pdf(upload):
+        """Use the existing canonical source owner; never create a parallel Library store."""
+        if upload is None or not upload.filename or not upload.filename.casefold().endswith('.pdf'):
+            raise ValueError('Choose a PDF file from your device.')
+        raw = upload.read(20 * 1024 * 1024 + 1)
+        if not raw or len(raw) > 20 * 1024 * 1024 or not raw.startswith(b'%PDF-'):
+            raise ValueError('Choose a valid PDF of at most 20 MB.')
         from personal_learning_assistant.repositories.sqlite.knowledge_registry_repository import SQLiteKnowledgeRegistryRepository
         from personal_learning_assistant.services.knowledge_registry_service import KnowledgeRegistryService
         from personal_learning_assistant.repositories.sqlite.ingestion_repository import SQLiteIngestionRepository
         from personal_learning_assistant.services.unified_ingestion_service import UnifiedIngestionService
         from personal_learning_assistant.ingestion.source_resolver import SourceRootResolver
-        upload=request.files.get('source')
-        if upload is None: abort(400)
-        raw=upload.read(20*1024*1024+1)
-        if len(raw)>20*1024*1024 or not raw.startswith(b'%PDF-'):abort(400)
-        digest=hashlib.sha256(raw).hexdigest()
-        directory=root/'data/documents';directory.mkdir(parents=True,exist_ok=True)
-        path=directory/(digest+'.pdf')
-        if not path.exists():path.write_bytes(raw)
-        with closing(sqlite3.connect(root/'data/learning_assistant.db',isolation_level=None)) as con:
-            con.row_factory=sqlite3.Row;con.execute('PRAGMA foreign_keys=ON')
-            service=KnowledgeRegistryService(SQLiteKnowledgeRegistryRepository(con))
-            result=service.register_document(kind='document',path_key='documents/'+path.name,
-                content_hash=digest,mime_type='application/pdf',size_bytes=len(raw))
-            # Retrieve the canonical registry identity, never invent a mobile ID.
-            row=con.execute('SELECT id FROM knowledge_documents WHERE path_key=?',('documents/'+path.name,)).fetchone()
-            identity=row[0]
-            UnifiedIngestionService(SQLiteIngestionRepository(con),SourceRootResolver({'documents':directory})).ingest_document(identity)
+        digest = hashlib.sha256(raw).hexdigest()
+        directory = root / 'data/documents'
+        directory.mkdir(parents=True, exist_ok=True)
+        path = directory / (digest + '.pdf')
+        # Immutable, content-addressed originals. Reject unexpected existing
+        # files/symlinks instead of overwriting a source used by study records.
+        if path.exists() or path.is_symlink():
+            if path.is_symlink() or not path.is_file() or path.read_bytes() != raw:
+                raise ValueError('The local source identity has changed. No file was replaced.')
+        else:
+            with path.open('xb') as destination:
+                destination.write(raw)
+        with closing(sqlite3.connect(root / 'data/learning_assistant.db', isolation_level=None)) as con:
+            con.row_factory = sqlite3.Row
+            con.execute('PRAGMA foreign_keys=ON')
+            registry = KnowledgeRegistryService(SQLiteKnowledgeRegistryRepository(con))
+            registry.register_document(
+                kind='document', path_key='documents/' + path.name,
+                content_hash=digest, mime_type='application/pdf', size_bytes=len(raw))
+            row = con.execute('SELECT id FROM knowledge_documents WHERE path_key=?',
+                              ('documents/' + path.name,)).fetchone()
+            if row is None:
+                raise RuntimeError('Canonical source registration was not confirmed.')
+            identity = row[0]
+            extraction = UnifiedIngestionService(
+                SQLiteIngestionRepository(con),
+                SourceRootResolver({'documents': directory})).ingest_document(identity)
         app.extensions['academic_wal_publisher'].request_refresh()
-        return render_template('android_device.html',active_page='mobile-settings',message=
-            'Source registered locally. Source ID: '+identity+'. Use this ID when authoring a Learning package; the original PDF hash is preserved.')
+        return identity, extraction.status
+
+    @device.post('/mobile/device/source')
+    def source():
+        """Keep older Device Settings upload links working for installed clients."""
+        try:
+            identity, status = _register_local_pdf(request.files.get('source'))
+        except ValueError:
+            return render_template('android_device.html', active_page='mobile-settings',
+                                   message='Choose a valid PDF of at most 20 MB. No source was changed.'), 400
+        except (OSError, sqlite3.Error, RuntimeError):
+            return render_template('android_device.html', active_page='mobile-settings',
+                                   message='PDF could not be stored safely. Existing study records were kept.'), 503
+        description = ('Text extraction complete.' if status in ('completed', 'matched')
+                       else 'PDF stored, but text extraction is unavailable (for example, scanned pages without OCR).')
+        return render_template('android_device.html', active_page='mobile-settings', message=
+            'Source registered locally. Source ID: ' + identity + '. ' + description +
+            ' Use this source ID and its original hash in an authored Learning package.')
+
+    @device.post('/library/upload')
+    def library_pdf_upload():
+        """Library entry point for PDF registration on the private Android runtime."""
+        from .routes import _tutor_action_token_matches
+        if (not current_app.config.get('ANDROID_LOCAL_RUNTIME')
+                or not current_app.config.get('LEARNING_LIBRARY_ENABLED', True)):
+            abort(404)
+        if not _tutor_action_token_matches():
+            abort(403)
+        if request.content_length is not None and request.content_length > 21 * 1024 * 1024:
+            return 'PDF upload exceeds the 20 MB limit.', 413
+        try:
+            identity, status = _register_local_pdf(request.files.get('source'))
+        except ValueError:
+            return 'Choose a valid .pdf file of at most 20 MB. Existing study records were kept.', 400
+        except (OSError, sqlite3.Error, RuntimeError):
+            return 'PDF could not be stored safely. Existing study records were kept.', 503
+        return redirect('/library?pdf_status=' + (
+            'extracted' if status in ('completed', 'matched') else 'stored'
+        ) + '&source_id=' + identity + '#library-pdf-upload', code=303)
 
     @device.post('/mobile/device/tutor-index')
     def tutor_index():
