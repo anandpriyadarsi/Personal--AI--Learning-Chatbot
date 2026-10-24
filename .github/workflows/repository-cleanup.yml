@@ -1,0 +1,39 @@
+name: Repository cleanup read-only validation
+
+on:
+  push:
+    branches: ['maintenance/repository-cleanup-2026-10']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  hygiene:
+    name: Archive and source safety (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify archived files and untouched source
+        run: python scripts/repository_cleanup_verify.py
+      - name: Compile application and verification source
+        run: python -m compileall -q personal_learning_assistant scripts tests
+      - name: Create non-destructive tracked-file and reference inventory
+        run: python scripts/repository_hygiene_report.py --output repository-hygiene-report.json
+      - name: Preserve inventory for engineering review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: repository-hygiene-${{ matrix.os }}-${{ github.sha }}
+          if-no-files-found: warn
+          path: repository-hygiene-report.json
