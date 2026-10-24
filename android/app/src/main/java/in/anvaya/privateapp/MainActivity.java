@@ -71,7 +71,9 @@ public class MainActivity extends Activity {
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         settings.setJavaScriptCanOpenWindowsAutomatically(false);
         settings.setSupportMultipleWindows(false);
-        settings.setCacheMode(WebSettings.LOAD_NO_CACHE);
+        // The backend marks only bundled CSS/JS/images cacheable. Dynamic student
+        // pages, source files and backups remain Cache-Control: no-store.
+        settings.setCacheMode(WebSettings.LOAD_DEFAULT);
         settings.setMediaPlaybackRequiresUserGesture(true);
         CookieManager cookies = CookieManager.getInstance();
         cookies.setAcceptCookie(true);
