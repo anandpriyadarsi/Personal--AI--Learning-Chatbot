@@ -132,6 +132,8 @@ def register_android_device(app, root):
         except (RetrievalIndexBuildError,sqlite3.Error,OSError):
             return render_template('android_device.html',active_page='mobile-settings',
                 message='Tutor index could not be built. Add a PDF with extractable text, then try again. Your study records were kept.'),409
+        if request.form.get('return_to') == 'library':
+            return redirect('/library?index_status=rebuilt#library-pdf-upload', code=303)
         return redirect('/agent',code=303)
 
     @device.get('/mobile/device/export')
