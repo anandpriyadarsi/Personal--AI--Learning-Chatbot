@@ -144,6 +144,10 @@ def _start(root_path=None):
     restore_semester_one_subjects(only_when_empty=True)
     from personal_learning_assistant.services.assessment_activation import activate_assessment_extension
     activate_assessment_extension(database_path=config.DATABASE_PATH, backup_path=config.BACKUP_PATH)
+    # Learn is already populated. Assessment has a separate SQLite catalogue;
+    # project missing approved identities into it without resetting existing data.
+    from personal_learning_assistant.services.android_assessment_catalogue import synchronize_android_assessment_courses
+    synchronize_android_assessment_courses(config.DATABASE_PATH, backup_path=config.BACKUP_PATH)
     from personal_learning_assistant.services.academic_wal_installation import InstalledAcademicWalPublisher
     publisher = InstalledAcademicWalPublisher(config.DATABASE_PATH, interval_seconds=10)
     publisher.start()
