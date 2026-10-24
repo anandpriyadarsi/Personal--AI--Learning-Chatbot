@@ -45,6 +45,8 @@ test -n "$aapt_tool" && test -x "$aapt_tool"
 "$(dirname "$aapt_tool")/apksigner" verify --print-certs "$verified_apk" > android-evidence/apk-signature.txt
 python - <<'PACKAGE_CHECK'
 from pathlib import Path
+import re
+import ssl
 import zipfile
 report=Path('android-evidence/apk-badging.txt').read_text()
 assert "name='in.anvaya.privateapp'" in report
@@ -55,7 +57,21 @@ for abi in ('armeabi-v7a','arm64-v8a','x86_64'):
 apk=next(Path('android-evidence').glob('ANVAYA-Unified-Android-*.apk'))
 with zipfile.ZipFile(apk) as archive:
     for name in archive.namelist():
-        assert not name.endswith(('.sqlite','.sqlite3','.db','.keystore','.jks','.pem')), name
+        assert not name.lower().endswith(('.sqlite','.sqlite3','.db','.keystore','.jks','.key')), name
         assert '/androidTest/' not in name and 'workspace.zip' not in name, name
+        if name.lower().endswith('.pem'):
+            # Chaquopy ships public CA roots, not signing/owner credentials.
+            # Permit only its exact path and certificate-only PEM contents.
+            assert name == 'assets/chaquopy/cacert.pem', name
+            raw = archive.read(name)
+            assert len(raw) <= 2 * 1024 * 1024 and b'PRIVATE KEY' not in raw, name
+            text = raw.decode('ascii')
+            pattern = r'-----BEGIN CERTIFICATE-----\s+[A-Za-z0-9+/=\s]+?-----END CERTIFICATE-----'
+            certificates = re.findall(pattern, text)
+            assert certificates, name
+            for certificate in certificates:
+                assert ssl.PEM_cert_to_DER_cert(certificate), name
+            remainder = re.sub(pattern, '', text)
+            assert all(not line.strip() or line.lstrip().startswith('#') for line in remainder.splitlines()), name
 PACKAGE_CHECK
 git rev-parse HEAD HEAD^{tree} > android-evidence/source.txt
