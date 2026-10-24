@@ -1,23 +1,25 @@
 {% extends "base.html" %}
 {% block title %}Assessment Library · ANVAYA{% endblock %}
 {% block content %}
-<header class="assessment-heading"><div><p class="eyebrow">Assessment Studio</p><h2>Assessment library</h2><p>Take a test, continue an attempt or revisit your results.</p></div><a class="button" href="{{ url_for('web.assessment_import') }}">Create with Alex ↗</a></header>
+<header class="assessment-heading"><div><p class="eyebrow">Assessment Studio</p><h2>{{ 'Handwritten Test' if selected_mode == 'handwritten' else 'CBT Based Test' if selected_mode == 'cbt' else 'Assessment library' }}</h2><p>{{ 'Choose a paper with an authored solution and marking rubric.' if selected_mode == 'handwritten' else 'Choose a test to view its instructions.' }}</p></div><a class="button" href="{{ url_for('web.assessment_import') }}">Create with Alex ↗</a></header>
+<p><a href="{{ url_for('web.assessments') }}">← Choose test mode</a></p>
 {% if not workspace.available %}<p class="notice-panel" role="status">{{ workspace.message }}</p>
 {% else %}
 <form class="assessment-filters" method="get" role="search" aria-label="Find an assessment">
+  {% if selected_mode %}<input type="hidden" name="assessment_mode" value="{{ selected_mode }}">{% endif %}
   <label class="assessment-search"><span>Find an assessment</span><input type="search" name="q" value="{{ workspace.query }}" maxlength="200" placeholder="Search title or subject"></label>
   <label><span>Subject</span><select name="course_id"><option value="">All subjects</option>{% for course in workspace.courses %}<option value="{{ course.id }}"{% if workspace.course_id == course.id %} selected{% endif %}>{{ course.code }} · {{ course.name }}</option>{% endfor %}</select></label>
   <label><span>Type</span><select name="kind">{% for value,label in workspace.kinds %}<option value="{{ value }}"{% if workspace.kind == value %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
   <label><span>State</span><select name="state">{% for value,label in workspace.states %}<option value="{{ value }}"{% if workspace.state == value %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
   <button class="button button-secondary" type="submit">Filter</button>
 </form>
-<div class="assessment-section-heading"><p>{{ workspace.total }} assessment{% if workspace.total != 1 %}s{% endif %}</p><a href="{{ url_for('web.assessment_tests') }}">Clear filters</a></div>
+<div class="assessment-section-heading"><p>{{ workspace.total }} assessment{% if workspace.total != 1 %}s{% endif %}</p><a href="{{ url_for('web.assessment_tests', assessment_mode=selected_mode) }}">Clear filters</a></div>
 {% if workspace.rows %}{% with rows=workspace.rows %}{% include '_assessment_rows.html' %}{% endwith %}
 {% else %}<div class="assessment-empty"><h3>No assessments in this view.</h3><p>Change the filters or create a package with Alex to get started.</p><a href="{{ url_for('web.assessment_import') }}">Create an assessment →</a></div>{% endif %}
 {% if workspace.pages > 1 %}<nav class="assessment-pagination" aria-label="Library pages">
-  {% if workspace.has_previous %}<a href="{{ url_for('web.assessment_tests', q=workspace.query, course_id=workspace.course_id, kind=workspace.kind, state=workspace.state, page=workspace.page-1) }}">← Previous</a>{% endif %}
+  {% if workspace.has_previous %}<a href="{{ url_for('web.assessment_tests', q=workspace.query, course_id=workspace.course_id, kind=workspace.kind, state=workspace.state, page=workspace.page-1, assessment_mode=selected_mode) }}">← Previous</a>{% endif %}
   <span>Page {{ workspace.page }} of {{ workspace.pages }}</span>
-  {% if workspace.has_next %}<a href="{{ url_for('web.assessment_tests', q=workspace.query, course_id=workspace.course_id, kind=workspace.kind, state=workspace.state, page=workspace.page+1) }}">Next →</a>{% endif %}
+  {% if workspace.has_next %}<a href="{{ url_for('web.assessment_tests', q=workspace.query, course_id=workspace.course_id, kind=workspace.kind, state=workspace.state, page=workspace.page+1, assessment_mode=selected_mode) }}">Next →</a>{% endif %}
 </nav>{% endif %}
 <p class="assessment-footnote">Questions stay hidden here. Older package revisions remain in <a href="{{ url_for('web.assessment_import') }}">authoring history</a>.</p>
 {% endif %}

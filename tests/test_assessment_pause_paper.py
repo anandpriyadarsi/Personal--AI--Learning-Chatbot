@@ -264,6 +264,9 @@ def test_reveal_requires_acknowledged_attempt_and_denies_paused(tmp_path):
     with pytest.raises(ValueError):
         command(s, sid, "reveal", question_id=q["session_question_id"])
     command(s, sid, "resume")
+    with pytest.raises(ValueError, match="Finish solving"):
+        command(s, sid, "reveal", question_id=q["session_question_id"])
+    command(s, sid, "finish_solving")
     assert (
         command(s, sid, "reveal", question_id=q["session_question_id"])["guide"][
             "solution"

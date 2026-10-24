@@ -169,6 +169,8 @@ def register_academic_evidence(app):
 
     @bp.post('/academic-evidence/learning/<module_id>/<int:revision>/note-draft')
     def note_draft(module_id,revision):
+        require(not current_app.config.get('ANDROID_LOCAL_RUNTIME'),
+            'PDF draft conversion is unavailable in this Android build. Read the locally extracted Library text or import an authored Learning package.',422)
         query(set())
         require(set(request.form)=={'review_token'} and len(request.form.getlist('review_token'))==1,
             'Unsupported draft review request.')

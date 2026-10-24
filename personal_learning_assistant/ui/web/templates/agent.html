@@ -1,24 +1,19 @@
 {% extends "base.html" %}
 
-{% block title %}Academic Agent · Personal AI Learning Assistant{% endblock %}
+{% block title %}ANVAYA Tutor · Alex{% endblock %}
+{% block body_class %}tutor-home-page tutor-v3{% endblock %}
 
 {% block page_scripts %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/tutor_v3.css') }}">
 <script defer src="{{ url_for('static', filename='js/tutor_chat.js') }}"></script>
 {% endblock %}
 
 {% block content %}
-<section class="hero dashboard-hero" aria-labelledby="agent-title">
-  <div>
-    <p class="eyebrow">Source-grounded academic workspace</p>
-    <h2 id="agent-title">Academic Agent</h2>
-    <p class="lede">Use read-only mentor advice to decide what deserves attention, then open a persistent tutor session for source-grounded discussion.</p>
-  </div>
-  {% if workspace.provider_configured %}
-    <span class="tag">Configured</span>
-  {% else %}
-    <span class="tag">Not configured</span>
-  {% endif %}
-</section>
+<header class="tutor-welcome" aria-labelledby="agent-title">
+  <div><p class="eyebrow">Alex · Your learning companion</p><h1 id="agent-title">ANVAYA Tutor</h1>
+  <p>Make sense of it. One question at a time.</p></div>
+  {% include "tutor_provider_state.html" %}
+</header>
 
 {% if error_message %}
 <section class="error-panel" aria-live="polite">
@@ -41,36 +36,22 @@
   {% endif %}
 
 <section class="dashboard-grid" aria-label="Academic Agent controls">
-  <article class="dashboard-panel">
-    <div class="panel-heading">
-      <div>
-        <p class="eyebrow">Adaptive Mentor</p>
-        <h3>Choose a course for advice</h3>
-      </div>
-      <span class="tag">Advisory only</span>
-    </div>
-    <form method="get" action="{{ url_for('web.academic_agent') }}">
-      <label for="mentor-course">Course</label>
-      <select id="mentor-course" name="course">
-        <option value="">Select a course</option>
-        {% for course in workspace.courses %}
-          <option value="{{ course.code }}"{% if workspace.selected_course_code|lower == course.code|lower %} selected{% endif %}>{{ course.code }} · {{ course.name }}</option>
-        {% endfor %}
-      </select>
-      <button type="submit">Show mentor advice</button>
-    </form>
-    <p class="empty-state">Mentor advice is deterministic and read-only. Refreshing it does not call the tutor provider or change academic state.</p>
-  </article>
 
-  <article class="dashboard-panel">
+  <article class="dashboard-panel tutor-start" id="tutor-start">
     <div class="panel-heading">
       <div>
         <p class="eyebrow">Persistent tutor</p>
-        <h3>Start a tutor session</h3>
+        <h2>What shall we learn?</h2>
       </div>
-      <span class="tag">Source First default</span>
+      <span class="tutor-monogram" aria-hidden="true">A</span>
     </div>
-    <form method="post" action="{{ url_for('web.academic_agent_create_session') }}">
+    <div class="tutor-starters" aria-label="Choose a learning intention">
+      <button type="button" data-tutor-mode="concept">Explain a concept</button>
+      <button type="button" data-tutor-mode="doubt">Guide me through a problem</button>
+      <button type="button" data-tutor-mode="exam">Quiz me</button>
+      <button type="button" data-tutor-mode="revision">Revisit a mistake</button>
+    </div>
+    <form class="tutor-start-form" method="post" action="{{ url_for('web.academic_agent_create_session') }}">
       <input type="hidden" name="csrf_token" value="{{ tutor_action_csrf }}">
       <p>
         <label for="session-course">Course</label><br>
@@ -106,17 +87,63 @@
           {% endfor %}
         </select>
       </p>
-      <p>
+      <details class="tutor-session-options"><summary>Session title &amp; scope</summary><p>
         <label for="session-title">Optional title</label><br>
         <input id="session-title" name="title" type="text" maxlength="160" placeholder="e.g. LU Factorization Doubts">
       </p>
-      <button type="submit">Create tutor session</button>
+      </details>
+      <button type="submit" class="tutor-primary">Create tutor session</button>
     </form>
     <p class="empty-state">Source First uses project materials when available and clearly labels general explanations. Choose Source Only when you want no unsupported outside material.</p>
-    <p class="empty-state">Creating a session only stores its tutor scope. It does not call the LLM. Course, topic, mode, and source policy stay fixed after creation. Choose the whole course if you plan to switch topics.</p>
+    <p class="microcopy">Creating a session only stores its tutor scope. It does not call the LLM. Course, topic, mode, and source policy stay fixed after creation. Choose the whole course if you plan to switch topics.</p>
   </article>
 </section>
 
+<section class="dashboard-panel" aria-labelledby="recent-sessions-title">
+  <div class="panel-heading">
+    <div>
+      <p class="eyebrow">Conversation history</p>
+      <h3 id="recent-sessions-title">Recent tutor sessions</h3>
+    </div>
+    <span class="count-badge">{{ workspace.sessions|length }}</span>
+  </div>
+  {% if workspace.sessions %}
+  <ul class="dashboard-list">
+    {% for session in workspace.sessions %}
+    <li>
+      <div class="list-main">
+        <strong><a href="{{ url_for('web.academic_agent_session', session_id=session.session_id) }}">{{ session.title or 'Untitled tutor session' }}</a></strong>
+        <span>{{ session.mode|replace('_', ' ')|title }} · {% if session.source_policy == 'source_only' %}Source Only{% else %}Source First{% endif %} · {{ session.status|title }}</span>
+      </div>
+      <span class="tag">{{ session.updated_at }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+    <p class="empty-state">No tutor sessions yet. Create one above to begin a persistent source-grounded conversation.</p>
+  {% endif %}
+</section>
+<details class="tutor-secondary" id="tutor-mentor"{% if workspace.selected_course_code %} open{% endif %}><summary>Adaptive Mentor · course advice</summary>
+  <article class="dashboard-panel">
+    <div class="panel-heading">
+      <div>
+        <p class="eyebrow">Adaptive Mentor</p>
+        <h3>Choose a course for advice</h3>
+      </div>
+      <span class="tag">Advisory only</span>
+    </div>
+    <form method="get" action="{{ url_for('web.academic_agent') }}">
+      <label for="mentor-course">Course</label>
+      <select id="mentor-course" name="course">
+        <option value="">Select a course</option>
+        {% for course in workspace.courses %}
+          <option value="{{ course.code }}"{% if workspace.selected_course_code|lower == course.code|lower %} selected{% endif %}>{{ course.code }} · {{ course.name }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit">Show mentor advice</button>
+    </form>
+    <p class="empty-state">Mentor advice is deterministic and read-only. Refreshing it does not call the tutor provider or change academic state.</p>
+  </article>
 {% if workspace.mentor %}
 <section class="dashboard-panel" aria-labelledby="mentor-advice-title">
   <div class="panel-heading">
@@ -185,29 +212,6 @@
 </section>
 {% endif %}
 
-<section class="dashboard-panel" aria-labelledby="recent-sessions-title">
-  <div class="panel-heading">
-    <div>
-      <p class="eyebrow">Conversation history</p>
-      <h3 id="recent-sessions-title">Recent tutor sessions</h3>
-    </div>
-    <span class="count-badge">{{ workspace.sessions|length }}</span>
-  </div>
-  {% if workspace.sessions %}
-  <ul class="dashboard-list">
-    {% for session in workspace.sessions %}
-    <li>
-      <div class="list-main">
-        <strong><a href="{{ url_for('web.academic_agent_session', session_id=session.session_id) }}">{{ session.title or 'Untitled tutor session' }}</a></strong>
-        <span>{{ session.mode|replace('_', ' ')|title }} · {% if session.source_policy == 'source_only' %}Source Only{% else %}Source First{% endif %} · {{ session.status|title }}</span>
-      </div>
-      <span class="tag">{{ session.updated_at }}</span>
-    </li>
-    {% endfor %}
-  </ul>
-  {% else %}
-    <p class="empty-state">No tutor sessions yet. Create one above to begin a persistent source-grounded conversation.</p>
-  {% endif %}
-</section>
+</details>
 {% endif %}
 {% endblock %}

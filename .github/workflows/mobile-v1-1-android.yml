@@ -1,0 +1,135 @@
+name: Mobile V1.1 standalone Android
+on:
+  pull_request:
+    branches: [feature/mobile-v1-private-pwa-2026-10, feature/mobile-v1-1-private-android-runtime-2026-10, main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: android-v11-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Build embedded runtime APK and JVM contracts
+        run: gradle -p android assembleDebug testDebugUnitTest --stacktrace
+      - name: Record package metadata
+        run: |
+          mkdir -p android-evidence
+          git rev-parse HEAD HEAD^{tree} > android-evidence/source.txt
+          sha256sum android/app/build/outputs/apk/debug/*.apk > android-evidence/SHA256SUMS.txt
+          ls -l android/app/build/outputs/apk/debug/*.apk > android-evidence/apk-size.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: anvaya-android-test-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            android/app/build/outputs/apk/debug/*.apk
+            android/app/build/test-results/**
+            android-evidence/**
+          if-no-files-found: error
+  regression:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    env:
+      ANVAYA_BROWSER_TESTS: '1'
+      PYTHONUTF8: '1'
+      PYTHONDONTWRITEBYTECODE: '1'
+      ANVAYA_ASSESSMENT_ARTIFACTS: assessment-evidence/browser
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: python -m pip install -r requirements-mobile.txt
+      - name: Fast native SQLite ownership and Android workspace regression
+        run: python -m pytest -q tests/learning_studio/test_registered_source_lifecycle.py tests/test_android_acceptance_fixture.py tests/test_android_runtime.py tests/test_android_backup.py tests/test_assessment_two_modes.py
+      - run: python -m playwright install --with-deps chromium
+      - name: Complete synthetic regression without deselections
+        if: github.base_ref != 'main'
+        run: python -m pytest -q --junitxml=android-regression.xml
+      # Main-targeted integration uses the unconditional canonical architecture
+      # Ubuntu/Windows full suite. Keep Android-native focused feedback here.
+      - name: Unified academic features and real responsive browser regression
+        if: github.base_ref == 'main'
+        env:
+          ANVAYA_TUTOR_UI_ARTIFACTS: tutor-ui-screenshots
+        run: python -m pytest -q tests/test_tutor_ui_v3.py tests/test_tutor_ui_v3_browser.py tests/test_tutor_final_browser.py tests/test_android_runtime.py tests/test_android_backup.py tests/test_mobile_v1.py tests/test_mobile_v1_browser.py tests/test_assessment_two_modes.py tests/test_assessment_two_modes_browser.py tests/test_library_knowledge_consolidation.py tests/test_library_saved_resources_consolidation.py tests/learning_studio/test_reader_visual_refresh.py --junitxml=android-regression.xml
+      - name: Frontend contracts
+        if: always()
+        run: node --test tests/js/*.test.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-regression-${{ matrix.os }}-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            android-regression.xml
+            tutor-ui-screenshots/**
+            assessment-evidence/**
+
+  emulator:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Enable KVM for synthetic Android emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Prepare production-owner synthetic academic workspace for test APK only
+        run: |
+          python -m pip install -r requirements-mobile.txt
+          python scripts/android_acceptance_fixture.py android/app/src/androidTest/assets/acceptance
+      - run: gradle -p android assembleDebug assembleDebugAndroidTest
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 31
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          script: bash scripts/android_emulator_acceptance.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-emulator-${{ github.event.pull_request.head.sha || github.sha }}
+          path: android-evidence/**

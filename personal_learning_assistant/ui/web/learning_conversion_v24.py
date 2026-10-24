@@ -110,6 +110,8 @@ def register_learning_conversion_v24(app):
     @app.post('/learning/modules/<module_id>/<int:revision>/conversion/preview', endpoint='learning_conversion_preview')
     @boundary
     def preview(module_id, revision):
+        require(not current_app.config.get('ANDROID_LOCAL_RUNTIME'),
+            'PDF draft conversion is unavailable in this Android build. Read the locally extracted Library text or import an authored Learning package.',422)
         context = prepare(service(), module_id, revision)
         context['binding']['csrf_digest'] = csrf_digest()
         return render(context, signer().dumps(context['binding']))

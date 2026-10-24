@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+set -euo pipefail
+mkdir -p android-evidence
+adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+adb install -r android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+adb shell svc wifi disable
+adb shell svc data disable
+adb shell settings put secure show_ime_with_hard_keyboard 1
+adb shell am instrument -w -r -e class in.anvaya.privateapp.OfflineSmokeTest\#testCreateOfflineNote in.anvaya.privateapp.test/androidx.test.runner.AndroidJUnitRunner | tee android-evidence/create-note.log
+python -c "from pathlib import Path;s=Path('android-evidence/create-note.log').read_text();assert 'OK (1 test)' in s and not any(v in s for v in ('FAILURES','INSTRUMENTATION_FAILED','shortMsg='))"
+adb shell am force-stop in.anvaya.privateapp
+# Same-key, same-version package replacement must retain the saved workspace.
+adb install -r android/app/build/outputs/apk/debug/app-debug.apk | tee android-evidence/update-install.log
+adb shell am instrument -w -r -e class in.anvaya.privateapp.OfflineSmokeTest\#testNoteAfterForceStop in.anvaya.privateapp.test/androidx.test.runner.AndroidJUnitRunner | tee android-evidence/reopen-note.log
+python -c "from pathlib import Path;s=Path('android-evidence/reopen-note.log').read_text();assert 'OK (1 test)' in s and not any(v in s for v in ('FAILURES','INSTRUMENTATION_FAILED','shortMsg='))"
+adb shell getprop ro.build.version.release > android-evidence/android-version.txt
+adb shell getprop ro.product.cpu.abi > android-evidence/abi.txt
+for name in android-library-content-search android-library-saved-reference android-library-reference-after-force-stop android-tutor-conversation android-tutor-composer-keyboard android-tutor-after-force-stop android-today android-note-saved android--learning android--agent android--assessments android--library android--mobile-settings android--mobile-device android-note-after-force-stop android-sqlite-task-saved android-sqlite-task-after-force-stop android-active-lesson android-learning-mistake android-library-reader android-assessment-paused android-paper-step-review android-assessment-after-force-stop android-assessment-resumed android-paper-review-after-force-stop android-notes-landscape android-conversion-capability android-selection-cbt android-selection-handwritten android-handwritten-paused android-handwritten-after-force-stop android-handwritten-resumed; do
+  adb exec-out run-as in.anvaya.privateapp cat files/evidence/"$name".png > android-evidence/"$name".png
+done
+
+# Deliver precisely the APK which passed the installed-app checks above.
+source_short="$(git rev-parse --short=12 HEAD)"
+verified_apk="android-evidence/ANVAYA-Unified-Android-V1.1.2-Test-${source_short}.apk"
+cp android/app/build/outputs/apk/debug/app-debug.apk "$verified_apk"
+sha256sum "$verified_apk" > android-evidence/TESTED_APK_SHA256.txt
+# Inspect the actual package installed above, not Gradle configuration alone.
+adb shell dumpsys package in.anvaya.privateapp > android-evidence/installed-package.txt
+adb shell settings get global wifi_on > android-evidence/wifi-on.txt
+adb shell settings get global mobile_data > android-evidence/mobile-data.txt
+aapt_tool="$(rg --files "$ANDROID_HOME/build-tools" | sed -n '/\/aapt$/p' | sort -V | tail -1)"
+"$aapt_tool" dump badging "$verified_apk" > android-evidence/apk-badging.txt
+"$(dirname "$aapt_tool")/apksigner" verify --print-certs "$verified_apk" > android-evidence/apk-signature.txt
+python - <<'PACKAGE_CHECK'
+from pathlib import Path
+import zipfile
+report=Path('android-evidence/apk-badging.txt').read_text()
+assert "name='in.anvaya.privateapp'" in report
+assert "versionCode='13'" in report and "versionName='1.1.2-unified-test'" in report
+assert "sdkVersion:'24'" in report and "targetSdkVersion:'35'" in report
+for abi in ('armeabi-v7a','arm64-v8a','x86_64'):
+    assert abi in report, abi
+apk=next(Path('android-evidence').glob('ANVAYA-Unified-Android-*.apk'))
+with zipfile.ZipFile(apk) as archive:
+    for name in archive.namelist():
+        assert not name.endswith(('.sqlite','.sqlite3','.db','.keystore','.jks','.pem')), name
+        assert '/androidTest/' not in name and 'workspace.zip' not in name, name
+PACKAGE_CHECK
+git rev-parse HEAD HEAD^{tree} > android-evidence/source.txt

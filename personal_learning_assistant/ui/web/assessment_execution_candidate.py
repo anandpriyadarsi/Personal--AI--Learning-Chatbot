@@ -5,7 +5,7 @@ from pathlib import Path
 import secrets
 import sqlite3
 from urllib.parse import urlsplit
-from flask import Blueprint, Flask, abort, jsonify, redirect, render_template, request, url_for
+from flask import Blueprint, Flask, abort, current_app, jsonify, redirect, render_template, request, url_for
 from itsdangerous import URLSafeSerializer, BadSignature
 from personal_learning_assistant.services.assessment_execution_service import AssessmentExecutionNotFoundError
 
@@ -88,6 +88,12 @@ def _create_routes(app, service, *, secret_key, production):
 
     def page(sid, *, error="", code=200, unsaved=None):
         state = service.state(sid)
+        from personal_learning_assistant.services.assessment_runner_service import _fill_blank_fields, _split_legacy_fill_value
+        for question in state["questions"]:
+            if question["question_type"] == "fill_blank":
+                fields = _fill_blank_fields(question["question_text"])
+                values = question["response"].get("parts") or _split_legacy_fill_value(question["response"].get("value", ""), len(fields))
+                question["fill_fields"] = [dict(field, value=values[i] if i < len(values) else "") for i, field in enumerate(fields)]
         retained = None
         if unsaved:
             retained = {
@@ -109,17 +115,30 @@ def _create_routes(app, service, *, secret_key, production):
                 else:
                     answer = unsaved.get("answer", "")
                     question["response"] = {"value": answer, "text": answer}
+                    if question.get("fill_fields"):
+                        for field in question["fill_fields"]:
+                            field["value"] = unsaved.get("blank_" + str(field["index"]), field["value"])
                 question["marked"] = unsaved.get("marked") == "on"
+        from personal_learning_assistant.services.assessment_coding_helper import tool_options
+        from personal_learning_assistant.services.coding_operations import OPERATION_CARDS
+        tools = tool_options({"mode": state["mode"], "course_code": state["course_code"]},
+                             current_app.config)
+        if not production or state["kind"] != "online_timed" or state["status"] != "active":
+            tools.update(coding_helper_available=False, colab_available=False)
         return (
             render_template(
                 "assessment_execution_candidate.html",
                 state=state,
                 guides=service.authorized_guides(sid),
+                practice_results=service.practice_results(sid),
                 history=service.review_history(sid),
                 retained=retained,
                 mutation_token=signer.dumps({"session_id": sid}),
                 new_id=lambda: secrets.token_urlsafe(18),
                 endpoint_prefix=endpoint_prefix,
+                coding_tools=tools,
+                operation_cards=OPERATION_CARDS,
+                view={"session": {"id": sid}, "question": next(q for q in state["questions"] if q["ordinal"] == state["current_ordinal"])},
                 error=error,
             ),
             code,
@@ -189,7 +208,24 @@ def _create_routes(app, service, *, secret_key, production):
                     except ValueError:
                         raise ValueError("Invalid numeric field.") from None
             action = data.get("command", action)
-            if action in {"save", "pause", "navigate"} and "question_id" in payload:
+            if action in {"next", "mark_next", "clear"}:
+                current = service.state(sid)
+                if action == "mark_next":
+                    data["marked"] = "on"
+                if action == "clear":
+                    payload["_clear_response"] = True
+                    data["marked"] = ""
+                else:
+                    submitted = next((q for q in current["questions"]
+                                      if q["session_question_id"] == payload.get("question_id")), None)
+                    if submitted is None:
+                        raise AssessmentExecutionNotFoundError("Question not found.")
+                    # Stable across an acknowledged-but-lost response: replay
+                    # must produce the exact same receipt payload, not advance
+                    # again from the newer server position.
+                    payload["ordinal"] = min(submitted["ordinal"] + 1, len(current["questions"]))
+                action = "save" if action == "clear" else "navigate"
+            if action in {"save", "pause", "navigate", "submit"} and "question_id" in payload:
                 q = next(
                     (
                         q
@@ -204,12 +240,20 @@ def _create_routes(app, service, *, secret_key, production):
                     response = {
                         "selected_option_ids": request.form.getlist("option_ids")
                     }
+                elif q["question_type"] == "fill_blank" and any(key.startswith("blank_") for key in payload):
+                    from personal_learning_assistant.services.assessment_runner_service import _fill_blank_fields
+                    fields = _fill_blank_fields(q["question_text"])
+                    response = {"parts": [payload.get("blank_" + str(field["index"]), "") for field in fields]}
                 elif q["question_type"] in {"numerical", "fill_blank", "true_false"}:
                     response = {"value": payload.get("answer", "")}
                 else:
                     response = {"text": payload.get("answer", "")}
-                payload["response"] = response
+                clear = payload.pop("_clear_response", False)
+                payload["response"] = {} if clear else response
                 payload["marked"] = data.get("marked") == "on"
+            for key in list(payload):
+                if key.startswith("blank_"):
+                    payload.pop(key)
             if "attempted" in payload:
                 payload["attempted"] = payload["attempted"] == "true"
             if action == "self_save":
@@ -247,7 +291,8 @@ def _create_routes(app, service, *, secret_key, production):
                 payload = {
                     key: value
                     for key, value in payload.items()
-                    if key in {"request_id", "expected_revision"}
+                    if key in ({"request_id", "expected_revision", "question_id", "expected_response_revision", "response", "marked"}
+                               if action == "submit" else {"request_id", "expected_revision"})
                 }
         result = service.command(sid, action, payload)
         if request.is_json or request.headers.get("Accept") == "application/json":
