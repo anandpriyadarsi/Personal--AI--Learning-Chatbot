@@ -1,3 +1,29 @@
 {% extends "base.html" %}
 {% block title %}Import learning module · ANVAYA{% endblock %}
-{% block content %}<section class="notice-panel"><h1>Import an authored learning module</h1><p>Choose a canonical V1 JSON or ZIP containing module.json and raster assets. The source_id must reference a PDF already registered in Knowledge; source roots must be configured. This does not generate lessons from raw PPT/PDF files.</p><p>The proposed pilot needs the documented converter. Imports first create an immutable staged preview; publishing is a separate explicit action. Personal Notes, Obsidian and official assessments stay separate.</p><form method="post" enctype="multipart/form-data"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><label>Learning package<input type="file" name="package" accept=".json,.zip" required></label><button type="submit">Validate and stage</button></form><p><a href="{{ url_for('learning.library') }}">Back to Learning Studio</a></p></section>{% endblock %}
+{% block content %}
+<section class="notice-panel">
+  <h1>Import an authored learning module</h1>
+  <p>Upload a canonical JSON or ZIP (module.json and owned raster assets). Original PDF source registration is required before staging; importing never publishes automatically.</p>
+  {% if config.get('ANDROID_LOCAL_RUNTIME') %}
+  <p><strong>UC103N Vedic Schools Work package:</strong> This Android version also accepts the original
+  <code>ANVAYA_UC103N_Vedic_Schools_Future_App_Import.zip</code> directly, after you register its unchanged
+  <code>Vedic_Schools_Source.pdf</code> in <a href="/library">Library</a>. The app binds it to the actual
+  phone-local PDF registry, validates the canonical module, and opens a staged review. It never executes
+  scripts included inside an uploaded ZIP.</p>
+  {% endif %}
+  <form method="post" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label>Learning package
+      <input type="file" name="package" accept=".json,.zip" required>
+    </label>
+    {% if config.get('ANDROID_LOCAL_RUNTIME') %}
+    <label>Registered PDF source ID (optional when only one matching original exists)
+      <input type="text" name="source_id" maxlength="150" autocomplete="off" placeholder="Use the ID shown after Library PDF upload">
+    </label>
+    {% endif %}
+    <button type="submit">Validate and stage</button>
+  </form>
+  <p>Review the complete module and its source coverage before explicitly publishing. Personal Notes, Tutor history and assessments are not overwritten by import.</p>
+  <p><a href="{{ url_for('learning.library') }}">Back to Learning Studio</a></p>
+</section>
+{% endblock %}
