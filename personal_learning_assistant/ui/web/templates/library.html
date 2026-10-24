@@ -20,6 +20,32 @@
     <a href="{{ url_for('web.learning_library', view='search') }}"{% if library_view == 'search' %} aria-current="page"{% endif %}>Search inside content</a>
     <a href="{{ url_for('web.learning_library', view='saved') }}"{% if library_view == 'saved' %} aria-current="page"{% endif %}>Saved links &amp; progress</a>
   </nav>
+  {% if config.get('ANDROID_LOCAL_RUNTIME') and config.get('LEARNING_LIBRARY_ENABLED', True) %}
+  <section id="library-pdf-upload" class="dashboard-panel library-upload-panel" aria-labelledby="library-pdf-heading">
+    <div class="materials-section-title"><div><p class="eyebrow">Private on-device sources</p><h2 id="library-pdf-heading">Upload a study PDF</h2></div></div>
+    <p>Choose a PDF from your phone (maximum 20 MB). ANVAYA saves the original in private storage and registers its actual source ID for Learning Studio. PDF text extraction is local; scanned pages cannot be read without OCR.</p>
+    {% if request.args.get('pdf_status') in ('extracted', 'stored') %}
+      <p role="status" class="notice-panel">
+        {% if request.args.get('pdf_status') == 'extracted' %}PDF registered and its text extracted.{% else %}PDF registered, but no searchable text was extracted. The original file is preserved; scanned pages may need OCR.{% endif %}
+        Registered source ID: <code>{{ request.args.get('source_id', '')|truncate(80, True, '') }}</code>.
+        Keep this ID for source-bound Learning Studio packages.
+      </p>
+    {% endif %}
+    {% if request.args.get('index_status') == 'rebuilt' %}<p role="status" class="notice-panel">Local Library and Tutor text index rebuilt. You can now search extracted text.</p>{% endif %}
+    <form method="post" action="{{ url_for('android_device.library_pdf_upload') }}" enctype="multipart/form-data" class="library-upload-form">
+      <input type="hidden" name="csrf_token" value="{{ tutor_action_csrf }}">
+      <label class="form-field"><span>PDF from this device</span><input type="file" name="source" accept="application/pdf,.pdf" required></label>
+      <button class="button" type="submit">Upload PDF to Library</button>
+    </form>
+    <p class="materials-data-note">After uploading, rebuild the local text index to include the new source in Library search and Tutor retrieval. Importing an authored Learning module is a separate, source-verified step.</p>
+    <form method="post" action="{{ url_for('android_device.tutor_index') }}" class="library-index-form">
+      <input type="hidden" name="csrf_token" value="{{ tutor_action_csrf }}">
+      <input type="hidden" name="return_to" value="library">
+      <button class="button secondary-button" type="submit">Rebuild local text index</button>
+      <a class="materials-subtle-link" href="{{ url_for('learning.import_module') }}">Import a Learning Studio package ↗</a>
+    </form>
+  </section>
+  {% endif %}
   {% if library_view == 'search' %}
     {% set library_search = true %}
     {% set search_target = url_for('web.learning_library') %}
