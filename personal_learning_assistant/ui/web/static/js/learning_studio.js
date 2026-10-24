@@ -163,6 +163,23 @@
     if (await savePosition()) { const url=new URL(location.href);url.search='';url.hash='';location.assign(url.href); }
   });
   const positionReady = initializePosition();
+  let navigationRequest = 0;
+  async function finishPositionWrites() {
+    await positionReady;
+    let retried = false;
+    while (true) {
+      const pending = positionWrite;
+      const saved = await pending;
+      // Controls may enqueue another write while this one is in flight.
+      if (pending !== positionWrite) continue;
+      if (saved) return true;
+      // One explicit navigation click retries a transient failed save once.
+      // A further failure keeps the current page and its retryable controls.
+      if (retried) return false;
+      retried = true;
+      savePosition();
+    }
+  }
   // A cross-owner view requires a closed, stable Learning snapshot. Finish the
   // real write before navigation, including slow text-size/bookmark saves.
   document.addEventListener('click', async event => {
@@ -172,8 +189,12 @@
     const target = new URL(link.href, location.href);
     if (target.origin !== location.origin || target.pathname === location.pathname) return;
     event.preventDefault();
-    await positionReady;
-    if (await positionWrite) location.assign(target.href);
+    const request = ++navigationRequest;
+    if (await finishPositionWrites()) {
+      if (request === navigationRequest) location.assign(target.href);
+    } else {
+      readingStatus.textContent = 'Reading position could not be saved. Try the link again to retry; this page keeps your work.';
+    }
   });
   document.querySelectorAll('.ls-trusted-activity').forEach(widget=>{
     const details=widget.querySelector('details'); const choice=widget.querySelector('select'); const response=widget.querySelector('textarea');

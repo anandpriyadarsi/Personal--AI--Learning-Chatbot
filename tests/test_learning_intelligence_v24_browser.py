@@ -200,3 +200,48 @@ def test_overview_can_leave_learning_owner_without_a_bookmark_write(browser, liv
         page.locator('.ls-breadcrumb').get_by_role('link',name='Learning Studio',exact=True).click(no_wait_after=True)
         page.wait_for_url(base+'/learning',timeout=3000)
     finally:page.close()
+
+
+def test_cross_owner_navigation_retries_a_failed_reading_save(browser, live_v24):
+    base, _ = live_v24
+    page = browser.new_page(viewport={'width':1366,'height':1000})
+    try:
+        page.goto(base+'/learning/modules/uc100n-demo/1?view=learn')
+        page.wait_for_load_state('networkidle')
+        page.route('**/progress', lambda route: route.fulfill(status=503, json={'error':'Save temporarily unavailable'})
+                   if route.request.method == 'POST' else route.continue_())
+        page.locator('#ls-text-size').select_option('24')
+        expect(page.locator('#ls-reading-status')).to_contain_text('Save temporarily unavailable')
+        page.unroute('**/progress')
+        page.locator('.ls-v24-outline > summary').click()
+        page.locator('.ls-v24-journey').get_by_role('link',name='03 Review evidence and choose a next step').click(no_wait_after=True)
+        page.wait_for_url('**/academic-evidence/learning/uc100n-demo/1#signals-title',timeout=3000)
+        expect(page.locator('#signals-title')).to_be_visible()
+    finally:page.close()
+
+
+def test_cross_owner_navigation_drains_writes_enqueued_while_waiting(browser, live_v24):
+    base, _ = live_v24
+    page = browser.new_page(viewport={'width':1366,'height':1000})
+    held = []
+    try:
+        page.goto(base+'/learning/modules/uc100n-demo/1?view=learn')
+        page.wait_for_load_state('networkidle')
+        page.route('**/progress', lambda route: held.append(route)
+                   if route.request.method == 'POST' else route.continue_())
+        page.locator('#ls-text-size').select_option('24')
+        page.locator('.ls-v24-outline > summary').click()
+        assert held
+        page.locator('.ls-v24-journey').get_by_role('link',name='03 Review evidence and choose a next step').click(no_wait_after=True)
+        page.locator('#ls-text-size').select_option('20')
+        from playwright.sync_api import TimeoutError as BrowserTimeout
+        with pytest.raises(BrowserTimeout):
+            with page.expect_request(lambda r:r.is_navigation_request() and '/academic-evidence/' in r.url,timeout=300):
+                held.pop().continue_()
+        assert held
+        held.pop().continue_()
+        page.wait_for_url('**/academic-evidence/learning/uc100n-demo/1#signals-title',timeout=3000)
+        expect(page.locator('#signals-title')).to_be_visible()
+    finally:
+        for route in held:route.abort()
+        page.close()
