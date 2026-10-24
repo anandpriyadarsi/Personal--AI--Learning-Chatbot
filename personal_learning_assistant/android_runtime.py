@@ -32,6 +32,11 @@ class Runtime:
         from flask import abort, request, g
         request_lock = RLock()
 
+        def is_public_static_asset():
+            # Flask's packaged static endpoint never reads or mutates student data.
+            # Keep the capability-cookie/Host/Origin checks even for these files.
+            return request.endpoint == 'static' and request.method in ('GET', 'HEAD')
+
         @app.before_request
         def authenticate_native_request():
             if request.host_url.rstrip('/') != self.origin:
@@ -46,8 +51,11 @@ class Runtime:
                 abort(403)
             if request.method not in ('GET', 'HEAD') and origin != self.origin:
                 abort(403)
-            request_lock.acquire()
-            g.native_request_lock = True
+            # Do not queue CSS/JS/image loads behind academic database requests.
+            # All navigation, downloads and writes retain the original lock.
+            if not is_public_static_asset():
+                request_lock.acquire()
+                g.native_request_lock = True
 
         @app.teardown_request
         def release_native_request(error):
@@ -66,7 +74,13 @@ class Runtime:
 
         @app.after_request
         def native_headers(response):
-            response.headers['Cache-Control'] = 'no-store'
+            if is_public_static_asset() and response.status_code in (200, 304):
+                # Only versioned-by-APK, non-personal resources are reused.
+                # Flask keeps its ETag/Last-Modified validators for revalidation.
+                response.headers['Cache-Control'] = 'private, max-age=300'
+            else:
+                # Dynamic pages, downloads and errors must never be cached.
+                response.headers['Cache-Control'] = 'no-store'
             return response
 
         self.thread = Thread(target=self.server.serve_forever,
