@@ -208,6 +208,7 @@
       </div>
       <button class="assessment-dialog-close" type="button" data-close-dialog="assessment-subject-picker" aria-label="Close subject picker">×</button>
     </header>
+    {% if workspace.courses %}
     <div class="assessment-subject-dialog-grid">
       {% for course in workspace.courses %}
       <a
@@ -220,6 +221,14 @@
       </a>
       {% endfor %}
     </div>
+    {% else %}
+    <div class="assessment-history-empty" role="status">
+      <strong>No subjects found in Assessment Studio.</strong>
+      <p>Your existing Learn subjects are not deleted. On the Android app, open
+      <a href="/mobile/device">On-device workspace → Restore Semester 1 subjects</a>
+      to reconcile missing Assessment course records. Then reopen this page.</p>
+    </div>
+    {% endif %}
   </div>
 </dialog>
 <noscript><section class="assessment-disclosure"><h3>Choose subject</h3>
