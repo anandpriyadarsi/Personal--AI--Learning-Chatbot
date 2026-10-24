@@ -74,7 +74,15 @@ def register_mobile(app):
     @app.after_request
     def private_response_boundary(response):
         if app.config.get('PRIVATE_MOBILE_MODE'):
-            response.headers['Cache-Control'] = 'no-store'
+            # The Android localhost app serves only APK-bundled static files here.
+            # Other private-PWA contexts and all student data remain no-store.
+            if (app.config.get('ANDROID_LOCAL_RUNTIME') is True
+                    and request.endpoint == 'static'
+                    and request.method in ('GET', 'HEAD')
+                    and response.status_code in (200, 304)):
+                response.headers['Cache-Control'] = 'private, max-age=300'
+            else:
+                response.headers['Cache-Control'] = 'no-store'
             # Retain same-origin form Origin headers; suppress external referrers.
             response.headers['Referrer-Policy'] = 'same-origin'
             response.headers['X-Content-Type-Options'] = 'nosniff'
