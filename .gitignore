@@ -1,35 +1,29 @@
-# Python cache
+# ANVAYA: generated caches and machine-local environments
 __pycache__/
 *.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+node_modules/
+*.egg-info/
 
-# Generated exports
-notes_export.txt
-exports/
-
-# Environment / secrets
+# Secrets and local configuration (keep shareable examples trackable)
 .env
-# Personal knowledge base
+.env.*
+!.env.example
+.phase4_authority.json
+.phase4_cutover.lock
+.phase4_cutover_work/
+PROMOTION_REQUIRES_ATTENTION.json
+
+# Personal academic vaults and state: never commit real student data
+NIT KARNATAKA 2026-30/
 knowledge/obsidian/*
 knowledge/documents/*
-semantic_index/
-data/learning_memory.json
-data/obsidian_config.json
-.env
-data/course_progress_history.json
-data/weekly_study_plans.json
-data/multi_course_weekly_plans.json
-data/assessments.json
-data/assessment_workspace.json
-data/intelligent_study_plans.json
-data/semester_grade_config.json
-# ==================================================
-# PHASE 0 - PRIVATE / LOCAL ACADEMIC DATA
-# ==================================================
-
-# Main Obsidian academic vault
-NIT KARNATAKA 2026-30/
-
-# Local structured academic state
 data/courses.json
 data/learning_memory.json
 data/obsidian_config.json
@@ -40,47 +34,35 @@ data/assessments.json
 data/assessment_workspace.json
 data/intelligent_study_plans.json
 data/semester_grade_config.json
-
-# Future SQLite local academic database
-data/learning_assistant.db
-data/learning_assistant.db-wal
-data/learning_assistant.db-shm
-
-# Local backups
-backup/
-backups/
-
-# Secrets
-.env
-
-# Generated caches / indexes
-semantic_index/
-.phase5_retrieval/
-__pycache__/
-*.pyc
-
-
-# Legacy V1 local data - preserved for migration, not public source control
 data/notes.json
 data/resources.json
-
-# Phase 1 local Python environment
-.venv/
-phase1_pip_freeze.txt
-
-# Phase 4 local authority/runtime state (never commit)
-.phase4_authority.json
-.phase4_cutover.lock
-.phase4_cutover_work/
-PROMOTION_REQUIRES_ATTENTION.json
-# Independent ANVAYA personal Notes (local/private)
 data/anvaya_notes.json
 data/anvaya_notes_assets/
 
-# Disposable local live-validation workspaces
-.live_validation/
-
-# Learning Studio derived artifacts and low-stakes private evidence
+# Local SQLite databases, their WAL journals and test instances
+data/learning_assistant.db
+data/learning_assistant.db-wal
+data/learning_assistant.db-shm
 data/learning_studio.sqlite3*
+
+# Backups, generated exports and retrievable indexes
+backup/
+backups/
+notes_export.txt
+exports/
+semantic_index/
+.phase5_retrieval/
+phase1_pip_freeze.txt
+
+# Ephemeral synthetic validation / browser outputs
+.live_validation/
 .learning-studio-demo/
 learning-studio-evidence/
+playwright-report/
+test-results/
+
+# Machine/editor noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
