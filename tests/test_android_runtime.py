@@ -323,3 +323,70 @@ def test_library_search_survives_different_live_request_threads(tmp_path):
         assert len(bodies)==2 and all('knowledge-result-card' in body for body in bodies)
         r.stop()
     ''')
+
+
+def test_library_pdf_upload_picker_entrypoint_and_source_integrity(tmp_path):
+    """Library owns the mobile PDF entry point; canonical registry owns the data."""
+    run(tmp_path, r'''
+        from personal_learning_assistant.android_runtime import start
+        from tests.academic_evidence_v23_fixtures import source_pdf
+        import hashlib, io, sqlite3
+        r = start()
+        client = r.app.test_client()
+        client.set_cookie('anvaya_native', r.token, domain='127.0.0.1')
+        def get(path):
+            return client.get(path, base_url=r.origin)
+        def post(path, data):
+            return client.post(path, base_url=r.origin,
+                               headers={'Origin': r.origin}, data=data)
+        for path in ('/library', '/library?view=search', '/library?view=saved'):
+            html = get(path).get_data(as_text=True)
+            assert 'action="/library/upload"' in html
+            assert 'name="source"' in html
+            assert 'accept="application/pdf"' in html
+            assert 'Rebuild local text index' in html
+        original = source_pdf()
+        token = r.app.extensions['tutor_action_csrf']
+        denied = post('/library/upload', {'source': (io.BytesIO(original), 'study.pdf')})
+        assert denied.status_code == 403
+        wrong_type = post('/library/upload', {
+            'csrf_token': token, 'source': (io.BytesIO(original), 'not-a-pdf.zip')})
+        assert wrong_type.status_code == 400
+        wrong_magic = post('/library/upload', {
+            'csrf_token': token, 'source': (io.BytesIO(b'not a pdf'), 'study.pdf')})
+        assert wrong_magic.status_code == 400
+        with sqlite3.connect(r.root/'data/learning_assistant.db') as con:
+            assert con.execute('SELECT count(*) FROM knowledge_documents').fetchone()[0] == 0
+        uploaded = post('/library/upload', {
+            'csrf_token': token, 'source': (io.BytesIO(original), 'study.pdf')})
+        assert uploaded.status_code == 303, uploaded.data
+        assert '/library?pdf_status=extracted&source_id=' in uploaded.location
+        with sqlite3.connect(r.root/'data/learning_assistant.db') as con:
+            doc = con.execute('SELECT id,path_key,content_hash,extraction_status FROM knowledge_documents').fetchone()
+            assert doc and doc[0] in uploaded.location
+            assert doc[1] == 'documents/' + hashlib.sha256(original).hexdigest() + '.pdf'
+            assert doc[2] == hashlib.sha256(original).hexdigest()
+            assert doc[3] == 'completed'
+            assert con.execute('SELECT count(*) FROM knowledge_chunks').fetchone()[0] > 0
+        assert (r.root/'data'/doc[1]).read_bytes() == original
+        repeated = post('/library/upload', {
+            'csrf_token': token, 'source': (io.BytesIO(original), 'second-name.pdf')})
+        assert repeated.status_code == 303
+        with sqlite3.connect(r.root/'data/learning_assistant.db') as con:
+            assert con.execute('SELECT count(*) FROM knowledge_documents').fetchone()[0] == 1
+        indexed = post('/mobile/device/tutor-index', {
+            'csrf_token': token, 'return_to': 'library'})
+        assert indexed.status_code == 303
+        assert indexed.location.endswith('/library?index_status=rebuilt#library-pdf-upload')
+        assert (r.root/'data/tutor_retrieval/current.json').is_file()
+        r.stop()
+    ''')
+    run(tmp_path, r'''
+        from personal_learning_assistant.android_runtime import start
+        import sqlite3
+        r = start()
+        with sqlite3.connect(r.root/'data/learning_assistant.db') as con:
+            assert con.execute('SELECT count(*) FROM knowledge_documents').fetchone()[0] == 1
+            assert con.execute('SELECT count(*) FROM knowledge_chunks').fetchone()[0] > 0
+        r.stop()
+    ''')
