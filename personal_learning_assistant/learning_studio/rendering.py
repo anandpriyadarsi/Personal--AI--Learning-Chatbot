@@ -1,7 +1,130 @@
 """Escaped Markdown with no imported links, images, HTML or SVG execution."""
 import html
+import re
 import mistune
 from markupsafe import Markup
+
+
+class UnsupportedMath(ValueError):
+    pass
+
+
+# A deliberately small local notation translator, never a TeX/HTML interpreter.
+_MATH_SYMBOLS = dict(zip(
+    'alpha beta gamma delta epsilon theta lambda mu pi rho sigma tau phi psi omega Gamma Delta Theta Lambda Pi Sigma Phi Psi Omega'.split(),
+    'α β γ δ ε θ λ μ π ρ σ τ φ ψ ω Γ Δ Θ Λ Π Σ Φ Ψ Ω'.split()))
+_MATH_OPERATORS = {'times': '×', 'cdot': '·', 'div': '÷', 'pm': '±', 'le': '≤',
+                   'leq': '≤', 'ge': '≥', 'geq': '≥', 'ne': '≠', 'neq': '≠', 'approx': '≈'}
+
+
+def _mathml(source):
+    if len(source) > 2048:
+        raise UnsupportedMath()
+    tokens = re.findall(r'\\[A-Za-z]+|(?:\d+(?:\.\d+)?)|[^\s]', source)
+    if not tokens or len(tokens) > 256:
+        raise UnsupportedMath()
+    index = 0
+
+    def tag(name, value):
+        return '<' + name + '>' + html.escape(value) + '</' + name + '>'
+
+    def group(depth):
+        nonlocal index
+        if index >= len(tokens) or tokens[index] != '{':
+            raise UnsupportedMath()
+        index += 1
+        content = sequence(depth + 1, closing=True)
+        return '<mrow>' + content + '</mrow>'
+
+    def atom(depth):
+        nonlocal index
+        if depth > 16 or index >= len(tokens):
+            raise UnsupportedMath()
+        token = tokens[index]
+        if token == '{':
+            return group(depth)
+        index += 1
+        if token == r'\frac':
+            return '<mfrac>' + group(depth) + group(depth) + '</mfrac>'
+        if token == r'\sqrt':
+            return '<msqrt>' + group(depth) + '</msqrt>'
+        if token.startswith('\\'):
+            command = token[1:]
+            if command in _MATH_SYMBOLS:
+                return tag('mi', _MATH_SYMBOLS[command])
+            if command in _MATH_OPERATORS:
+                return tag('mo', _MATH_OPERATORS[command])
+            raise UnsupportedMath()
+        if re.fullmatch(r'\d+(?:\.\d+)?', token):
+            return tag('mn', token)
+        if re.fullmatch(r'[A-Za-z]', token):
+            return tag('mi', token)
+        if token in '+−-=*/(),.[]<>|:!%×÷≤≥≠±':
+            return tag('mo', token)
+        raise UnsupportedMath()
+
+    def sequence(depth, closing=False):
+        nonlocal index
+        if depth > 16:
+            raise UnsupportedMath()
+        output = []
+        while index < len(tokens) and tokens[index] != '}':
+            base = atom(depth)
+            scripts = {}
+            while index < len(tokens) and tokens[index] in ('_', '^'):
+                kind = tokens[index]; index += 1
+                if kind in scripts:
+                    raise UnsupportedMath()
+                scripts[kind] = atom(depth + 1)
+            if len(scripts) == 2:
+                base = '<msubsup>' + base + scripts['_'] + scripts['^'] + '</msubsup>'
+            elif scripts:
+                name = 'msub' if '_' in scripts else 'msup'
+                base = '<' + name + '>' + base + next(iter(scripts.values())) + '</' + name + '>'
+            output.append(base)
+        if closing:
+            if index >= len(tokens) or not output:
+                raise UnsupportedMath()
+            index += 1
+        return ''.join(output)
+
+    result = sequence(0)
+    if index != len(tokens):
+        raise UnsupportedMath()
+    return result
+
+
+def _local_math(md):
+    def parse(inline, match, state):
+        opening = match.group(0)
+        closing = {r'\(': r'\)', r'\[': r'\]', '$$': '$$'}[opening]
+        start = match.end()
+        # Bounded lookahead also handles hostile or unclosed delimiters linearly.
+        end = state.src.find(closing, start, start + 2050)
+        valid_end = end >= 0
+        if not valid_end:
+            newline = state.src.find('\n', start, start + 2048)
+            end = newline if newline >= 0 else min(len(state.src), start + 2048)
+        source = state.src[start:end]
+        state.append_token({'type': 'local_math', 'raw': source,
+                            'attrs': {'opening': opening, 'closed': valid_end}})
+        return end + len(closing) if valid_end else end
+
+    def render(renderer, text, opening, closed):
+        closing = {r'\(': r'\)', r'\[': r'\]', '$$': '$$'}[opening]
+        try:
+            if not closed:
+                raise UnsupportedMath()
+            content = _mathml(text)
+        except UnsupportedMath:
+            return '<span class="ls-math-review">' + html.escape(opening + text + (closing if closed else '')) + ' <strong>Math needs review</strong></span>'
+        display = 'inline' if opening == r'\(' else 'block'
+        return '<math xmlns="http://www.w3.org/1998/Math/MathML" class="ls-local-math" tabindex="0" display="' + display + '" aria-label="' + html.escape(text, quote=True) + '"><mrow>' + content + '</mrow></math>'
+
+    md.inline.register('local_math', r'\\\(|\\\[', parse, before='escape')
+    # Separate the dollar trigger so Mistune's fast text scanner recognizes it.
+    md.inline.register('local_math_display', r'\$\$', parse, before='escape')
+    md.renderer.register('local_math', render)
 
 
 class LocalRenderer(mistune.HTMLRenderer):
@@ -26,9 +149,17 @@ class LocalRenderer(mistune.HTMLRenderer):
 def markdown(text, anchor_prefix=None):
     from mistune.plugins.table import render_table
     renderer = LocalRenderer(escape=True, anchor_prefix=anchor_prefix)
-    render = mistune.create_markdown(renderer=renderer, plugins=['table'])
+    render = mistune.create_markdown(renderer=renderer, plugins=['table', _local_math])
     renderer.register('table', lambda r, body: '<div class="ls-table-scroll" role="region" tabindex="0" aria-label="Authored comparison table">' + render_table(r, body) + '</div>')
     return Markup(render(str(text)))
+
+
+def inline_markdown(text):
+    """Escaped authored phrasing, including local math, without paragraph wrappers."""
+    renderer = LocalRenderer(escape=True)
+    render = mistune.create_markdown(renderer=renderer, plugins=[_local_math])
+    state = render.block.state_cls()
+    return Markup(renderer.render_tokens(render.inline(str(text), state.env), state))
 
 
 def trusted_graph(block):

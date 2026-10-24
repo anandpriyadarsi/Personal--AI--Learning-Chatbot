@@ -305,7 +305,8 @@ def test_orphaned_parents_reject_snapshot_instead_of_erasing_observations(tmp_pa
         read(path)
 
 
-@pytest.mark.parametrize('evaluation_ref', ['ev-sq3', None])
+@pytest.mark.parametrize('evaluation_ref', ['ev-sq3', None, 'assessment_response_evaluation:ev-sq3',
+    'arbitrary:ev-sq1', 'assessment_response_evaluation:arbitrary:ev-sq1'])
 def test_attempt_bridge_must_reference_exact_evaluation(tmp_path, evaluation_ref):
     path = _database(tmp_path)
     update(path, "INSERT INTO question_attempts (id,question_id,attempt_number,outcome,earned_marks_milli,max_marks_milli,occurred_at,evaluation_ref) VALUES ('attempt','q1',1,'partially_correct',1000,2000,?,?)", (NOW,evaluation_ref))
@@ -313,6 +314,17 @@ def test_attempt_bridge_must_reference_exact_evaluation(tmp_path, evaluation_ref
     e = read(path).evidence[0]
     assert 'inconsistent_bridge_reference' in e.exclusion_reasons
     assert ('question_attempt','attempt') in {(r.kind,r.identifier) for r in e.source_refs}
+
+
+@pytest.mark.parametrize('evaluation_ref', ['ev-sq1', 'assessment_response_evaluation:ev-sq1'])
+@pytest.mark.parametrize('question_id,consistent', [('q1', True), ('q2', False)])
+def test_attempt_bridge_accepts_only_exact_supported_reference_and_question(tmp_path, evaluation_ref, question_id, consistent):
+    path = _database(tmp_path)
+    update(path, "INSERT INTO question_attempts (id,question_id,attempt_number,outcome,earned_marks_milli,max_marks_milli,occurred_at,evaluation_ref) VALUES ('attempt',?,1,'partially_correct',1000,2000,?,?)", (question_id,NOW,evaluation_ref))
+    update(path, "UPDATE assessment_response_evaluations SET question_attempt_id='attempt' WHERE id='ev-sq1'")
+    evidence = next(e for e in read(path).evidence if e.evidence_id == 'ev-sq1')
+    assert ('inconsistent_bridge_reference' not in evidence.exclusion_reasons) is consistent
+    assert ('question_attempt','attempt') in {(r.kind,r.identifier) for r in evidence.source_refs}
 
 
 @pytest.mark.parametrize('event_attempt', [None, 'other-attempt'])

@@ -562,7 +562,7 @@ class MonthPlanImportService:
                     "raw": row.get("raw") or {},
                 }
                 bundle["ledger"].append({
-                    "id": _stable_id(plan["plan_id"], row["external_id"], "ledger:" + entity_type),
+                    "id": _stable_id(import_id, row["external_id"], "ledger:" + entity_type),
                     "external_id": row["external_id"],
                     "entity_type": entity_type,
                     "entity_id": row["id"],

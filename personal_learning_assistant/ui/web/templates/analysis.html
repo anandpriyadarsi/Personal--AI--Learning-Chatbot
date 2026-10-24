@@ -1,67 +1,36 @@
 {% extends "base.html" %}
-
 {% block title %}Analysis · ANVAYA{% endblock %}
-{% block body_class %}analysis-page{% endblock %}
-
+{% block body_class %}analysis-page pa-page{% endblock %}
+{% block page_scripts %}<link rel="stylesheet" href="{{ url_for('static', filename='planning_analysis.css') }}">{% endblock %}
 {% block content %}
-<section class="analysis-hero" aria-labelledby="analysis-title">
-  <div>
-    <p class="eyebrow">Your academic picture</p>
-    <h2 id="analysis-title">Analysis Hub</h2>
-    <p class="lede">Detailed analysis stays here instead of crowding your Home page. Everything below is derived from your existing academic evidence and personal Notes.</p>
-  </div>
-  {% if analysis.academic.date %}<span class="date-chip">{{ analysis.academic.date }}</span>{% endif %}
+<section class="pa-hero" aria-labelledby="analysis-title"><div><p class="eyebrow">Analysis Hub</p><h2 id="analysis-title">Your learning, with evidence.</h2><p>See what happened. Choose what to revisit next.</p></div><a class="pa-button pa-primary" href="{{ url_for('web.planning') }}">{% if hub.summary.overdue_tasks %}Review overdue tasks{% else %}Plan your next session{% endif %} <span aria-hidden="true">↗</span></a></section>
+<form class="pa-filters" method="get" aria-label="Evidence filters">
+  <label>Course<select name="course"><option value="">All courses</option>{% for course in hub.courses %}<option value="{{ course.code }}"{% if hub.filters.course == course.code %} selected{% endif %}>{{ course.code }} · {{ course.name }}</option>{% endfor %}</select></label>
+  <label>Time window<select name="days">{% for days in [7,28,90] %}<option value="{{ days }}"{% if hub.filters.days|int == days %} selected{% endif %}>Last {{ days }} days</option>{% endfor %}</select></label>
+  <label>Assessment evidence<select name="evidence">{% for value,label in [('all','All evidence'),('evaluated','Evaluated'),('self_reported','Self-reported'),('pending','Pending')] %}<option value="{{ value }}"{% if hub.filters.evidence == value %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+  <button class="pa-button" type="submit">Apply filters</button>
+</form>
+{% if not hub.available %}<section class="notice-panel" role="status"><h3>Evidence overview is temporarily unavailable</h3><p>Some sources could not be read. Available Learning and Notes records remain below.</p></section>{% endif %}
+<section class="pa-metrics" aria-label="Evidence overview">
+<article><span>Evaluated sessions</span><strong>{{ hub.summary.evaluated_sessions if hub.summary.evaluated_sessions is not none else 'Unknown' }}</strong><small>Assessment outcomes · selected window</small></article>
+<article><span>Self-reported sessions</span><strong>{{ hub.summary.self_reported_sessions if hub.summary.self_reported_sessions is not none else 'Unknown' }}</strong><small>Learner marks · separately reported</small></article>
+<article><span>Pending sessions</span><strong>{{ hub.summary.pending_sessions if hub.summary.pending_sessions is not none else 'Unknown' }}</strong><small>No final scored result yet</small></article>
+<article><span>Overdue tasks</span><strong>{{ hub.summary.overdue_tasks if hub.summary.overdue_tasks is not none else 'Unknown' }}</strong><small>Open tasks past their due date</small></article>
 </section>
-
-{% if not analysis.academic.available %}
-<section class="notice-panel" role="status">
-  <h3>Academic analysis is temporarily unavailable</h3>
-  <p>{{ analysis.academic.message }}</p>
-</section>
-{% endif %}
-
-{% if not analysis.notes.available %}
-<section class="notice-panel" role="status">
-  <h3>Notes analysis is temporarily unavailable</h3>
-  <p>Your personal Notes could not be read. Existing Notes were not changed.</p>
-</section>
-{% endif %}
-
+<div class="pa-split">
+<section class="pa-panel" aria-labelledby="assessment-evidence-title"><div class="pa-heading"><div><p class="eyebrow">Assessment Studio</p><h3 id="assessment-evidence-title">Recorded outcomes</h3></div><span class="pa-badge">{{ hub.assessments|length }} sessions</span></div><p class="pa-caption">Each result keeps its own scale. Evaluated does not establish independent, unaided work.</p>
+{% if hub.assessments %}<div class="pa-table-wrap"><table class="pa-table"><caption class="visually-hidden">Assessment sessions for the selected filters</caption><thead><tr><th scope="col">Session</th><th scope="col">Evidence</th><th scope="col">Result</th></tr></thead><tbody>{% for item in hub.assessments %}<tr><td><a href="{{ item.url }}">{{ item.title }}</a><small>{{ item.course_code or 'Course not linked' }} · {{ item.date or 'Date not recorded' }} · {{ item.mode|replace('_',' ') }}</small></td><td><span class="pa-badge pa-{{ item.category }}">{{ item.category|replace('_',' ')|title }}</span><small>{{ item.question_count }} questions · {{ item.status|replace('_',' ') }}</small></td><td>{% if item.earned is not none and item.max_marks is not none %}<strong>{{ '%g'|format(item.earned) }} / {{ '%g'|format(item.max_marks) }}</strong><small>marks</small>{% else %}<span class="pa-muted">Not yet recorded</span>{% endif %}</td></tr>{% endfor %}</tbody></table></div>
+{% else %}<div class="pa-empty"><span class="pa-empty-mark" aria-hidden="true">◎</span><h4>No matching assessment evidence</h4><p>Try another course or time window. No result here means unknown, not zero performance.</p><a href="{{ url_for('web.assessments') }}">Open Assessment Studio →</a></div>{% endif %}</section>
+<aside class="pa-panel" aria-labelledby="effort-title"><p class="eyebrow">Execution record</p><h3 id="effort-title">Planned &amp; recorded effort</h3><dl class="pa-facts"><div><dt>Planned agenda effort</dt><dd>{% if hub.effort.planned_minutes is not none %}{{ hub.effort.planned_minutes }} min{% else %}Unknown{% endif %}</dd></div><div><dt>Actually recorded</dt><dd>{% if hub.effort.actual_minutes is not none %}{{ hub.effort.actual_minutes }} min{% else %}Not recorded{% endif %}</dd></div><div><dt>Effort logging coverage</dt><dd>{% if hub.source_status.get('effort') == 'available' %}{{ hub.effort.recorded_items }} / {{ hub.effort.total_items }} items{% else %}Unknown{% endif %}</dd></div><div><dt>Completed agenda items</dt><dd>{% if hub.source_status.get('effort') == 'available' %}{{ hub.effort.completed_items }} / {{ hub.effort.total_items }}{% else %}Unknown{% endif %}</dd></div></dl><p class="pa-caption">Agenda records in the selected window. Missing time logs do not mean no study occurred.</p><a class="pa-text-link" href="{{ url_for('web.planning_weekly_review', anchor_date=hub.date) }}">Open weekly review →</a></aside></div>
+<details class="pa-disclosure"><summary>Evidence sources &amp; limits</summary><div class="pa-disclosure-body">{% if hub.source_snapshot %}<p role="status"><strong>Committed academic snapshot</strong> · revision {{ hub.source_snapshot.revision }} · published {{ hub.source_snapshot.published_at }} · {{ hub.source_snapshot.age_seconds }} seconds old. This is not a live, post-publication update.</p>{% endif %}<p>Updated from existing records as of {{ hub.date }} · {{ hub.timezone }}. Unknown evidence is not failure, and activity is not measured mastery.</p><ul>{% for limit in hub.limits %}<li>{{ limit }}</li>{% endfor %}</ul>{% if hub.source_status %}<dl class="pa-source-list">{% for name,status in hub.source_status.items() %}<div><dt>{{ name|replace('_',' ')|title }}</dt><dd>{{ status|replace('_',' ') }}</dd></div>{% endfor %}</dl>{% endif %}</div></details>
+<section class="pa-panel" aria-labelledby="topic-observations-title"><div class="pa-heading"><div><p class="eyebrow">Inspect before acting</p><h3 id="topic-observations-title">Topic observations</h3></div><span class="pa-badge">Manual review</span></div>
+{% if hub.topics %}<ul class="pa-task-list">{% for topic in hub.topics %}<li><div><strong>{{ topic.course_code }} · {{ topic.name }}</strong><p>{{ topic.question_count }} distinct question IDs · {{ topic.session_count }} sessions · {{ topic.correct }} latest correct · {{ topic.incorrect }} latest incorrect</p><p>{{ topic.reason }}</p><small>Mapping {{ topic.mapping_status }} · {{ topic.first_observed }} to {{ topic.last_observed }}</small></div><a href="{{ topic.url }}">Inspect evidence →</a></li>{% endfor %}</ul>{% else %}<p class="pa-muted">Not enough evaluated topic evidence in this selection. No weakness or mastery is inferred.</p>{% endif %}</section>
+<div class="pa-section-label"><p class="eyebrow">Separate learning signals</p><h3>Practice, reading &amp; reflection</h3><p>Learning Studio observations remain distinct from Assessment Studio outcomes.</p></div>
 {% include 'learning_analysis_component.html' %}
-
-<section class="analysis-metric-grid" aria-label="Analysis summary">
-  <article class="analysis-kpi">
-    <span>Urgent deadlines</span>
-    <strong>{{ analysis.academic.summary.urgent_deadlines }}</strong>
-    <small>near-term academic pressure</small>
-  </article>
-  <article class="analysis-kpi">
-    <span>Study scheduled</span>
-    <strong>{{ analysis.academic.summary.scheduled_minutes }} min</strong>
-    <small>current planned study load</small>
-  </article>
-  <article class="analysis-kpi">
-    <span>Priority topics</span>
-    <strong>{{ analysis.academic.summary.priority_topics }}</strong>
-    <small>topics needing attention</small>
-  </article>
-  <article class="analysis-kpi">
-    <span>Risk watch</span>
-    <strong>{{ analysis.academic.summary.risk_courses }}</strong>
-    <small>courses with active risk evidence</small>
-  </article>
-  <article class="analysis-kpi">
-    <span>Personal Notes</span>
-    <strong>{% if analysis.notes.available %}{{ analysis.notes.summary.total }}{% else %}Notes data unavailable{% endif %}</strong>
-    <small>typed + handwritten</small>
-  </article>
-  <article class="analysis-kpi">
-    <span>Open doubts</span>
-    <strong>{% if analysis.notes.available %}{{ analysis.notes.summary.doubts }}{% else %}Notes data unavailable{% endif %}</strong>
-    <small>saved in Notes Study Tools</small>
-  </article>
-</section>
-
+{% if not analysis.academic.available %}<section class="notice-panel" role="status"><h3>Academic analysis is temporarily unavailable</h3><p>{{ analysis.academic.message }}</p></section>{% endif %}
+<section class="pa-metrics" aria-label="Personal Notes summary"><article><span>Personal Notes</span><strong>{% if analysis.notes.available %}{{ analysis.notes.summary.total }}{% else %}Notes data unavailable{% endif %}</strong></article><article><span>Open doubts</span><strong>{% if analysis.notes.available %}{{ analysis.notes.summary.doubts }}{% else %}Notes data unavailable{% endif %}</strong></article></section>
+{% if not analysis.notes.available %}<section class="notice-panel" role="status"><h3>Notes analysis is temporarily unavailable</h3><p>Your personal Notes could not be read. Existing Notes were not changed.</p></section>{% endif %}
+<div class="pa-section-label"><p class="eyebrow">Personal knowledge</p><h3>Notes &amp; saved thinking</h3><p>Counts describe your collection, not learning performance.</p></div>
 <div class="analysis-dashboard-grid">
   <section class="dashboard-panel analysis-panel analysis-note-types" aria-labelledby="analysis-note-types-title">
     <div class="panel-heading">
@@ -89,86 +58,6 @@
       </dl>
     </div>
     {% else %}<p class="empty-state">Notes data unavailable.</p>{% endif %}
-  </section>
-
-  <section class="dashboard-panel analysis-panel" aria-labelledby="analysis-study-title">
-    <div class="panel-heading">
-      <div>
-        <p class="eyebrow">Study allocation</p>
-        <h3 id="analysis-study-title">Scheduled minutes by course</h3>
-      </div>
-    </div>
-    {% if analysis.study_rows %}
-    <div class="analysis-bars">
-      {% for row in analysis.study_rows %}
-      <div class="analysis-bar-row">
-        <div class="analysis-bar-label"><strong>{{ row.course_code }}</strong><span>{{ row.minutes }} min</span></div>
-        <div class="analysis-bar-track"><span style="width: {{ row.percent }}%"></span></div>
-      </div>
-      {% endfor %}
-    </div>
-    {% else %}
-    <p class="empty-state">No scheduled study blocks are available for the current brief.</p>
-    {% endif %}
-  </section>
-
-  <section class="dashboard-panel analysis-panel analysis-wide" aria-labelledby="analysis-priority-title">
-    <div class="panel-heading">
-      <div>
-        <p class="eyebrow">Focus</p>
-        <h3 id="analysis-priority-title">Priority topics</h3>
-      </div>
-      <span class="count-badge">{{ analysis.priority_rows|length }}</span>
-    </div>
-    {% if analysis.priority_rows %}
-    <div class="analysis-priority-grid">
-      {% for item in analysis.priority_rows %}
-      <article class="analysis-priority-item">
-        <div class="analysis-priority-head">
-          <strong>{{ item.course_code }} · {{ item.topic }}</strong>
-          <span class="score-badge">score {{ '%g'|format(item.score) }}</span>
-        </div>
-        <div class="analysis-bar-track is-priority"><span style="width: {{ item.percent }}%"></span></div>
-        {% if item.performance %}
-        <p class="microcopy">Performance evidence: {{ item.performance.accuracy }}% across {{ item.performance.attempts }} attempt(s).</p>
-        {% endif %}
-        {% if item.reasons %}<p>{{ item.reasons|join('; ') }}</p>{% endif %}
-      </article>
-      {% endfor %}
-    </div>
-    {% else %}
-    <p class="empty-state">No unresolved priority topic is currently available.</p>
-    {% endif %}
-  </section>
-
-  <section class="dashboard-panel analysis-panel analysis-wide" aria-labelledby="analysis-risk-title">
-    <div class="panel-heading">
-      <div>
-        <p class="eyebrow">Watch list</p>
-        <h3 id="analysis-risk-title">Academic risk signals</h3>
-      </div>
-      <span class="count-badge">{{ analysis.risk_rows|length }}</span>
-    </div>
-    {% if analysis.risk_rows %}
-    <div class="analysis-risk-list">
-      {% for item in analysis.risk_rows %}
-      <article class="analysis-risk-item">
-        <div class="analysis-priority-head">
-          <strong>{{ item.course_code }} · {{ item.course_name }}</strong>
-          <span class="score-badge">risk {{ '%g'|format(item.score) }}</span>
-        </div>
-        <div class="analysis-bar-track is-risk"><span style="width: {{ item.percent }}%"></span></div>
-        <div class="tag-row">
-          {% for topic in item.weak_topics %}<span class="tag">weak: {{ topic }}</span>{% endfor %}
-          {% for topic in item.evidence_topics %}<span class="tag">evidence: {{ topic }}</span>{% endfor %}
-          {% if item.urgent_count %}<span class="tag">{{ item.urgent_count }} urgent assessment(s)</span>{% endif %}
-        </div>
-      </article>
-      {% endfor %}
-    </div>
-    {% else %}
-    <p class="empty-state">No major academic risk signal is active.</p>
-    {% endif %}
   </section>
 
   <section class="dashboard-panel analysis-panel" aria-labelledby="analysis-courses-title">
@@ -235,4 +124,5 @@
     {% endif %}
   </section>
 </div>
+<details class="pa-disclosure"><summary>Legacy academic observations · unreviewed</summary><div class="pa-disclosure-body"><p>These earlier summaries have not been validated for mapping or independent performance. Treat topic labels as candidates for manual review, not measured mastery or confirmed risk.</p><h4>Scheduled minutes by course</h4>{% for row in analysis.study_rows %}<p>{{ row.course_code }} · {{ row.minutes }} min</p>{% else %}<p>No scheduled study blocks are available for the current brief.</p>{% endfor %}<h4>Academic risk signals · unreviewed legacy observations</h4><p>These observations do not establish current risk.</p><h4>Priority topics · manual review</h4>{% for item in analysis.priority_rows %}<p><strong>{{ item.course_code }} · {{ item.topic }}</strong>{% if item.performance %} · Legacy performance observation: {{ item.performance.accuracy }}% across {{ item.performance.attempts }} attempt(s).{% endif %}{% if item.reasons %}<br>{{ item.reasons|join('; ') }}{% endif %}</p>{% else %}<p>No unresolved priority topic is currently available.</p>{% endfor %}</div></details>
 {% endblock %}

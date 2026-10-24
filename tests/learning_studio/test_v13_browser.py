@@ -76,12 +76,12 @@ def test_contextual_sidebar_exact_source_mistake_recheck_and_exam_modes(browser,
     page.goto(base+'?view=learn&section=lesson-20');expect(page.locator('.ls-lesson > h2')).to_contain_text('Lesson 20')
     page.goto(base+'?view=practice&question=q31');expect(page.locator('.ls-question-state')).to_contain_text('never practised')
     assert 'correct_index' not in page.content() and 'Compare the original source.' not in page.content()
-    form=page.locator('.ls-question');form.locator('input[value="0"]').check();form.locator('button[type=submit]').click();expect(page.locator('.ls-feedback')).to_contain_text('Incorrect')
+    form=page.locator('.ls-question');form.locator('input[type=radio][value="0"]').check();form.locator('button[type=submit]').click();expect(page.locator('.ls-feedback')).to_contain_text('Incorrect')
     form.locator('.ls-source-chips a').click();assert 'question=q31' in page.url and 'page=11' in page.url
     page.get_by_role('link',name='12',exact=True).click();assert 'question=q31' in page.url
     expect(page.locator('#ls-reading-status')).to_contain_text('Reading position saved');assert s.reading_state('synthetic',1)['current'].get('question_id')=='q31'
     page.goto(base);page.locator('#ls-resume').click();assert 'question=q31' in page.url and 'page=12' in page.url
-    page.locator('#ls-return-question').click();expect(form).to_have_attribute('data-question-id','q31');form.locator('input[value="1"]').check();form.locator('button[type=submit]').click();expect(page.locator('.ls-feedback')).to_contain_text('Correct retry recorded')
+    page.locator('#ls-return-question').click();expect(form).to_have_attribute('data-question-id','q31');form.locator('input[type=radio][value="1"]').check();form.locator('button[type=submit]').click();expect(page.locator('.ls-feedback')).to_contain_text('Correct retry recorded')
     expect(page.locator('.ls-question-state')).to_contain_text('recovered needs recheck');count=s.evidence()['attempts'];page.locator('.ls-deliberate-recheck').click()
     assert form.locator('input:checked').count()==0 and s.evidence()['attempts']==count
     page.goto(base+'?view=revision');expect(page.locator('.ls-block-recall')).to_have_count(12)

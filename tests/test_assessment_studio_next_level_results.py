@@ -107,7 +107,10 @@ def test_course_recovery_scope_and_post_redirect_context(tmp_path):
     service = _service(path)
     before = path.read_bytes()
     visible = service.workspace(course_id='course-ma')
-    assert len(visible['candidates']) == 2
+    # Rank has strong observed results and must not become a recovery task.
+    assert {item['topic_id'] for item in visible['candidates']} == {'topic-lu'}
+    assert all(item['action_family'] == 'evidence_check' and item['suggested_priority'] == 'P2'
+               for item in visible['candidates'])
     assert visible['selected_course_id'] == 'course-ma'
     assert service.workspace(course_id='missing')['candidates'] == ()
     assert path.read_bytes() == before
@@ -134,7 +137,9 @@ def test_course_filter_precedes_recommendation_limit_and_generation_uses_same_sc
             return {**report,'topics':(*distractors, *report['topics'])}
     service.intelligence = Evidence()
     scoped = service.workspace(course_id='course-ma')
-    assert len(scoped['candidates']) == 2
+    assert {item['topic_id'] for item in scoped['candidates']} == {'topic-lu'}
+    assert all(item['course_id'] == 'course-ma' for item in scoped['candidates'])
+    assert service.preview(course_id='course-ma', limit=1)['candidates'][0]['topic_id'] == 'topic-lu'
     service.generate([scoped['candidates'][0]['evidence_fingerprint']], course_id='course-ma')
     assert len(service.workspace(course_id='course-ma')['pending']) == 1
 

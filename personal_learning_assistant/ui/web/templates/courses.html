@@ -1,13 +1,13 @@
-{% extends "base.html" %}
+{% extends "workspace_base.html" %}
 
 {% block title %}Courses & Topics · Personal AI Learning Assistant{% endblock %}
 
 {% block content %}
-<section class="hero dashboard-hero" aria-labelledby="courses-title">
+<section class="workspace-header" aria-labelledby="courses-title">
   <div>
     <p class="eyebrow">Academic catalogue</p>
     <h2 id="courses-title">Courses & topics</h2>
-    <p class="lede">A read-only view of your current courses, topic status, confidence, and mastery progress.</p>
+    <p class="lede">Your courses and the topics inside them. Open a course outline to see its recorded status.</p>
   </div>
   {% if catalogue.available %}
     <p class="date-chip">{{ catalogue.summary.courses }} course{% if catalogue.summary.courses != 1 %}s{% endif %} · {{ catalogue.summary.topics }} topic{% if catalogue.summary.topics != 1 %}s{% endif %}</p>
@@ -25,6 +25,7 @@
   <p>This page is read-only, so course data was not changed. Add or import courses through the existing supported workflow first.</p>
 </section>
 {% else %}
+<details class="ws-catalogue-summary"><summary>Catalogue summary · {{ catalogue.summary.courses }} courses · {{ catalogue.summary.topics }} topics</summary>
 <section class="metric-grid" aria-label="Course summary">
   <article class="metric-card">
     <span class="metric-label">Courses</span>
@@ -48,7 +49,9 @@
   </article>
 </section>
 
-<section class="dashboard-grid" aria-label="Courses and topics">
+</details>
+<p class="ws-catalogue-note">Status and confidence below are recorded catalogue labels; they are not a new assessment of your understanding.</p>
+<section class="dashboard-grid ws-course-grid" aria-label="Courses and topics">
   {% for course in catalogue.courses %}
   <article class="dashboard-panel">
     <div class="panel-heading">
@@ -62,10 +65,11 @@
       </div>
     </div>
 
-    <p class="empty-state"><strong>{{ course.progress_percent }}% mastered</strong> · {{ course.mastered_count }}/{{ course.topic_count }} topics</p>
+    <p class="empty-state">{{ course.topic_count }} topics · {{ course.mastered_count }} marked mastered · Catalogue: {{ course.progress_percent }}% mastered</p>
 
     {% if course.topics %}
-    <ul class="dashboard-list" aria-label="{{ course.code }} topics">
+    <details class="ws-topic-outline"><summary>Course outline · {{ course.topic_count }} topics</summary>
+<ul class="dashboard-list" aria-label="{{ course.code }} topics">
       {% for topic in course.topics %}
       <li>
         <div class="list-main">
@@ -79,6 +83,7 @@
       </li>
       {% endfor %}
     </ul>
+    </details>
     {% else %}
     <p class="empty-state">No topics are recorded for this course yet.</p>
     {% endif %}

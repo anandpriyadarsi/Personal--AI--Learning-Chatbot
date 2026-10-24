@@ -273,3 +273,75 @@ def test_no_javascript_paper_review_amendment(chromium, live):
     expect(page.locator(".review-final")).to_contain_text("version 2")
     assert len(s.review_history(ids["paper"])) == 2
     context.close()
+
+
+def test_dark_palette_has_single_pause_and_saves_current_answer(chromium, live):
+    base, service, ids, clock = live
+    context = chromium.new_context(viewport={"width": 1366, "height": 860})
+    page = context.new_page()
+    page.goto(base + "/assessments/candidate/sessions/" + ids["online"])
+    palette = page.get_by_role("navigation", name="Question palette")
+    assert palette.get_by_role("button", name="Pause", exact=True).count() == 1
+    assert page.locator(".question button[name='command'][value='pause']").count() == 0
+    assert page.evaluate("getComputedStyle(document.documentElement).colorScheme") == "dark"
+    assert page.evaluate("getComputedStyle(document.body).backgroundColor") == "rgb(11, 15, 20)"
+    page.locator('input[value="B"]').check()
+    palette.get_by_role("button", name="Pause", exact=True).click()
+    expect(page.locator("#state-banner")).to_contain_text("Paused — answers saved")
+    saved = service.state(ids["online"])
+    assert saved["status"] == "paused"
+    assert saved["questions"][0]["response"]["selected_option_ids"] == ["B"]
+    frozen = saved["remaining_ms"]
+    clock.advance(7200)
+    page.reload()
+    assert service.state(ids["online"])["remaining_ms"] == frozen
+    palette.get_by_role("button", name="Resume", exact=True).click()
+    expect(page.locator("#state-banner")).to_contain_text("Solving in progress")
+    expect(page.locator('input[value="B"]')).to_be_checked()
+    context.close()
+
+
+def test_paper_pause_is_only_in_palette(chromium, live):
+    base, service, ids, _ = live
+    context = chromium.new_context()
+    page = context.new_page()
+    page.goto(base + "/assessments/candidate/sessions/" + ids["paper"])
+    palette = page.get_by_role("navigation", name="Question palette")
+    assert palette.get_by_role("button", name="Pause", exact=True).count() == 1
+    assert page.locator("#state-banner").get_by_role("button", name="Pause").count() == 0
+    palette.get_by_role("button", name="Pause", exact=True).click()
+    expect(page.locator("#state-banner")).to_contain_text("Paused — answers saved")
+    assert service.state(ids["paper"])["status"] == "paused"
+    context.close()
+
+
+def test_palette_navigation_saves_before_moving_and_pause_keeps_last_question(chromium, live):
+    base, service, ids, _ = live
+    context = chromium.new_context(viewport={"width": 1024, "height": 768})
+    page = context.new_page()
+    page.goto(base + "/assessments/candidate/sessions/" + ids["online"])
+    page.locator('input[value="B"]').check()
+    page.locator('[data-palette-go="2"]').click()
+    expect(page.locator(".question-head")).to_contain_text("QUESTION 2")
+    assert service.state(ids["online"])["current_ordinal"] == 2
+    assert service.state(ids["online"])["questions"][0]["response"]["selected_option_ids"] == ["B"]
+    page.locator('input[value="A"]').check()
+    page.get_by_role("navigation", name="Question palette").get_by_role(
+        "button", name="Pause", exact=True
+    ).click()
+    expect(page.locator("#state-banner")).to_contain_text("Paused — answers saved")
+    state = service.state(ids["online"])
+    assert state["status"] == "paused"
+    assert state["current_ordinal"] == 2
+    assert state["questions"][1]["response"]["selected_option_ids"] == ["A"]
+    page.reload()
+    assert "Paused — answers saved" in page.locator("#state-banner").inner_text()
+    page.get_by_role("navigation", name="Question palette").get_by_role(
+        "button", name="Resume", exact=True
+    ).click()
+    # A paused page intentionally renders every read-only question. Wait for
+    # the accepted resume and active-page repaint before testing one heading.
+    expect(page.locator("#state-banner")).to_contain_text("Solving in progress")
+    expect(page.locator(".question-head")).to_contain_text("QUESTION 2")
+    expect(page.locator('input[value="A"]')).to_be_checked()
+    context.close()

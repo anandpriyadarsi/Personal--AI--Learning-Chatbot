@@ -154,7 +154,11 @@ class TutorSessionService:
         level = str(support_level or "").strip().casefold()
         if level not in SUPPORT_LEVELS or level == "not_evaluated":
             raise TutorSessionError("invalid assistant support level")
-        if level in {"grounded", "mixed"} and not evidence:
+        # Grounded means the answer is fully supported by project evidence,
+        # so it must carry at least one evidence link. "mixed" means Source First
+        # content is not fully grounded; it may contain some project evidence or,
+        # when retrieval finds nothing useful, no project evidence at all.
+        if level == "grounded" and not evidence:
             raise TutorSessionError(
                 "{} assistant turn requires evidence".format(level)
             )
@@ -182,6 +186,29 @@ class TutorSessionService:
             created_at=self._now(),
             evidence=tuple(evidence),
         )
+
+    def update_session_metadata(self, session_id: str, metadata):
+        try:
+            payload = json.dumps(
+                dict(metadata or {}),
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            )
+        except (TypeError, ValueError) as error:
+            raise TutorSessionError(
+                "session metadata must be JSON-serializable"
+            ) from error
+        try:
+            return self.repository.update_session_metadata(
+                session_id,
+                payload,
+                self._now(),
+            )
+        except Exception as error:
+            raise TutorSessionError(
+                "tutor session metadata could not be updated"
+            ) from error
 
     def complete_session(self, session_id: str):
         return self.repository.set_session_status(

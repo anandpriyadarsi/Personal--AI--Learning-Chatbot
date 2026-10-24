@@ -1,5 +1,5 @@
 """Real browser development baseline; pause/self-marking are future acceptance."""
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import json
 import os
 from pathlib import Path
@@ -85,6 +85,10 @@ def test_active_attempt_reopens_after_real_server_restart_with_authoritative_tim
         thread = Thread(target=server.serve_forever, daemon=True)
         thread.start()
         page = context.new_page()
+        # The server fixture clock is frozen. Control the browser's monotonic
+        # clock too, so CI scheduling cannot miss the initial exact 30 seconds.
+        page.clock.install(time=clock.value - timedelta(minutes=1))
+        page.clock.pause_at(clock.value)
         page.goto(url + '?q=1')
         assert page.locator('input[value="B"]').is_checked()
         view = service.runner_view(sid)
@@ -97,6 +101,15 @@ def test_active_attempt_reopens_after_real_server_restart_with_authoritative_tim
         page.goto(url.replace('/assessments/sessions/' + sid, '/static/css/app.css'))
         with sqlite3.connect(path) as db:
             assert '\n'.join(db.iterdump()) == before
+        # Accrue elapsed focus only after the original static-GET purity check.
+        # Exercise real countdown callbacks as well as the initial server value.
+        page.goto(url + '?q=1')
+        playwright.expect(page.locator('#assessment-timer')).to_have_text('00:00:30')
+        clock.advance(2)
+        page.clock.run_for(2000)
+        playwright.expect(page.locator('#assessment-timer')).to_have_text('00:00:28')
+        assert service.runner_view(sid)['remaining_seconds'] == 28
+        assert service.runner_view(sid)['session']['expires_at'] == expiry
     finally:
         context.close()
         server.shutdown()

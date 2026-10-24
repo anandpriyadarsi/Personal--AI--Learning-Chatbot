@@ -7,6 +7,7 @@ import sqlite3
 from urllib.parse import urlsplit
 from flask import Blueprint, Flask, abort, jsonify, redirect, render_template, request, url_for
 from itsdangerous import URLSafeSerializer, BadSignature
+from personal_learning_assistant.services.assessment_execution_service import AssessmentExecutionNotFoundError
 
 
 def create_candidate_app(service, *, secret_key, landing_sessions=None):
@@ -54,6 +55,15 @@ def create_production_blueprint(service_factory, *, secret_key):
     """Opt-in private self-study routes mounted by the normal create_app."""
     root = Path(__file__).resolve().parent
     bp = Blueprint("assessment_extended", __name__, template_folder=str(root / "templates"))
+
+    @bp.record_once
+    def register_mutation_signer(state):
+        # Overview uses the *same* scoped, process-local signer as this
+        # blueprint for a native one-click POST resume. No GET mutation.
+        state.app.extensions["assessment_extended_mutation_signer"] = URLSafeSerializer(
+            secret_key, salt="assessment-candidate-mutation-v1"
+        )
+
     return _create_routes(bp, _ServiceProxy(service_factory),
                           secret_key=secret_key, production=True)
 
@@ -189,7 +199,7 @@ def _create_routes(app, service, *, secret_key, production):
                     None,
                 )
                 if q is None:
-                    raise LookupError("Question not found.")
+                    raise AssessmentExecutionNotFoundError("Question not found.")
                 if q["question_type"] in {"mcq", "msq"}:
                     response = {
                         "selected_option_ids": request.form.getlist("option_ids")
@@ -258,10 +268,12 @@ def _create_routes(app, service, *, secret_key, production):
                 pass
         return "Assessment request is unavailable.", code
 
-    @app.errorhandler(LookupError)
+    @app.errorhandler(AssessmentExecutionNotFoundError)
     def missing(error):
         return jsonify(ok=False, error="Attempt or question not found."), 404
 
+    @app.errorhandler(LookupError)
+    @app.errorhandler(OSError)
     @app.errorhandler(sqlite3.Error)
     def storage(error):
         return (

@@ -62,7 +62,7 @@ class SQLiteOperationalCalendarRepository:
                 "SELECT * FROM academic_events "
                 "WHERE deleted_at IS NULL AND status<>'cancelled' "
                 "AND substr(starts_at,1,10)<=? "
-                "AND (ends_at IS NULL OR substr(ends_at,1,10)>=?) "
+                "AND (NULLIF(recurrence_rule,'') IS NOT NULL OR ends_at IS NULL OR substr(ends_at,1,10)>=?) "
                 "ORDER BY starts_at,id",
                 (ends_on, starts_on),
             ).fetchall()

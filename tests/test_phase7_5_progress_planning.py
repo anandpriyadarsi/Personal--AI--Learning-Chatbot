@@ -345,7 +345,13 @@ def test_planning_page_renders_progress_priorities_and_saved_plans():
         "Data cleaning",
     ):
         assert expected in text
-    assert '<form' not in text.lower()
+    # V2 adds native GET-only filters; the landing page still cannot mutate state.
+    from html.parser import HTMLParser
+    class Forms(HTMLParser):
+        def handle_starttag(self, tag, attrs):
+            if tag == 'form':
+                assert dict(attrs).get('method', 'get').lower() == 'get'
+    Forms().feed(text)
     assert 'href="/planning"' in text
 
 

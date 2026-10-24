@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "workspace_base.html" %}
 
 {% block title %}{% if note %}{{ note.title }} · {% endif %}Obsidian · ANVAYA{% endblock %}
 
@@ -8,8 +8,9 @@
 {% endblock %}
 
 {% block content %}
-<nav class="obsidian-back" aria-label="Obsidian note navigation">
+<nav class="obsidian-back ws-reader-toolbar" aria-label="Obsidian note navigation">
   <a href="{{ url_for('web.obsidian') }}">← Back to Obsidian</a>
+  {% if note %}<button type="button" class="button secondary-button ws-focus-toggle" data-workspace-focus aria-pressed="false" hidden>Focus reading</button>{% endif %}
 </nav>
 
 {% if error_message %}
@@ -49,7 +50,7 @@
 {% endif %}
 
 <div class="obsidian-reader-layout">
-  <article class="dashboard-panel obsidian-reading-view" aria-label="Rendered Markdown note">
+  <article class="dashboard-panel obsidian-reading-view obsidian-rendered-note" aria-label="Rendered Markdown note">
     {{ note.rendered_html }}
 
     {% if note.backlinks %}

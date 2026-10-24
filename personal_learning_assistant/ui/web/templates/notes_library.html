@@ -1,13 +1,13 @@
-{% extends "base.html" %}
+{% extends "workspace_base.html" %}
 
 {% block title %}Notes Studio · ANVAYA{% endblock %}
 
 {% block content %}
 <section class="workspace-header notes-studio-header" aria-labelledby="notes-studio-title">
   <div>
-    <p class="eyebrow">Personal knowledge library</p>
+    <p class="eyebrow">Vault-backed study notes</p>
     <h2 id="notes-studio-title">Notes Studio</h2>
-    <p class="lede">Scan concise study cards, filter your vault, and open the full note only when you need it.</p>
+    <p class="lede">Find a key idea in your vault, then open the note for the full context.</p>
   </div>
   <div class="notes-studio-header-actions">
     <a class="button" href="{{ url_for('web.notes_new') }}">New note</a>
@@ -16,10 +16,11 @@
   </div>
 </section>
 
+<aside class="source-context" aria-label="Notes Studio source"><div><strong>Notes Studio · Obsidian vault</strong><p>These cards come from vault Markdown. Personal My Notes and any legacy JSON notes remain separate stores.</p></div></aside>
 <nav class="notes-library-lifecycle-nav" aria-label="Notes lifecycle views">
-  <a class="{% if dashboard.query.view == 'active' and not dashboard.query.pinned %}is-active{% endif %}" href="{{ url_for('web.notes') }}">Active</a>
-  <a class="{% if dashboard.query.pinned %}is-active{% endif %}" href="{{ url_for('web.notes', pinned='1') }}">Pinned</a>
-  <a class="{% if dashboard.query.view == 'archived' %}is-active{% endif %}" href="{{ url_for('web.notes', view='archived') }}">Archived</a>
+  <a class="{% if dashboard.query.view == 'active' and not dashboard.query.pinned %}is-active{% endif %}" href="{{ url_for('web.notes') }}"{% if dashboard.query.view == 'active' and not dashboard.query.pinned %} aria-current="page"{% endif %}>Active</a>
+  <a class="{% if dashboard.query.pinned %}is-active{% endif %}" href="{{ url_for('web.notes', pinned='1') }}"{% if dashboard.query.pinned %} aria-current="page"{% endif %}>Pinned</a>
+  <a class="{% if dashboard.query.view == 'archived' %}is-active{% endif %}" href="{{ url_for('web.notes', view='archived') }}"{% if dashboard.query.view == 'archived' %} aria-current="page"{% endif %}>Archived</a>
   <a href="{{ url_for('web.notes_trash') }}">Trash</a>
 </nav>
 

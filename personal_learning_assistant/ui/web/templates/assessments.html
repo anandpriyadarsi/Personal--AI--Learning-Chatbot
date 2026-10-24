@@ -5,6 +5,29 @@
   <div><p class="eyebrow">Your assessment workspace</p><h2 id="assessments-title">Assessment Studio</h2><p>Prepare, test, understand, improve.</p></div>
   <a class="button" href="{{ url_for('web.assessment_import') }}">Create with Alex <span aria-hidden="true">↗</span></a>
 </header>
+{% if paused_assessment_attempts %}
+<section class="assessment-resume-list" aria-labelledby="paused-attempts-heading">
+  <div class="assessment-section-heading">
+    <div><p class="eyebrow">Saved and paused</p><h3 id="paused-attempts-heading">Continue your assessment</h3></div>
+    <span class="assessment-resume-count">{{ paused_assessment_attempts|length }} paused</span>
+  </div>
+  {% for attempt in paused_assessment_attempts %}
+  <article class="assessment-resume-card">
+    <div>
+      <h4>{{ attempt.title }}</h4>
+      <p>Paused at question {{ attempt.current_ordinal }} · {{ 'Handwritten practice' if attempt.kind == 'paper_subjective' else 'Online practice' }} · {{ '%02d:%02d'|format(((attempt.remaining_ms+999)//1000)//60,((attempt.remaining_ms+999)//1000)%60) }} remaining</p>
+      <span class="assessment-resume-help">Responses and active time are saved. Resume returns to the question you left.</span>
+    </div>
+    <form method="post" action="{{ url_for('assessment_extended.mutate',sid=attempt.session_id,action='resume') }}">
+      <input type="hidden" name="mutation_token" value="{{ attempt.mutation_token }}">
+      <input type="hidden" name="request_id" value="{{ attempt.request_id }}">
+      <input type="hidden" name="expected_revision" value="{{ attempt.revision }}">
+      <button class="button" type="submit">Resume test →</button>
+    </form>
+  </article>
+  {% endfor %}
+</section>
+{% endif %}
 {% if assessment_extended_enabled %}
 <section class="assessment-mode-preview" aria-labelledby="assessment-modes-heading">
   <div class="assessment-mode-preview-copy">

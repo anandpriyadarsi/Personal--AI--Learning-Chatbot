@@ -65,6 +65,10 @@ def bounded(value, limit=2000):
     return value
 
 
+class AssessmentExecutionNotFoundError(LookupError):
+    """The requested attempt or question is absent from its owning store."""
+
+
 class AssessmentExecutionService:
     def __init__(self, path, *, now_fn=None, production=False):
         self.repository = AssessmentExecutionRepository(path, production=production)
@@ -78,7 +82,7 @@ class AssessmentExecutionService:
             "SELECT * FROM assessment_test_sessions WHERE id=?", (sid,)
         ).fetchone()
         if row is None or header is None:
-            raise LookupError("Attempt not found.")
+            raise AssessmentExecutionNotFoundError("Attempt not found.")
         meta = json.loads(row["metadata_json"])
         meta["revision"] = row["revision"]
         questions = [
@@ -307,6 +311,38 @@ class AssessmentExecutionService:
             h, m, questions = self._load(db, sid)
             return self._project(db, h, m, questions, now)
 
+    def paused_sessions(self, *, limit=6):
+        """Read-only overview of resumable, active-time frozen practice attempts.
+
+        Read a bounded index, then derive status from the authoritative
+        persisted clock. Only paused attempts are exposed; no answers, keys,
+        solutions or unofficial marks are returned.
+        """
+        if type(limit) is not int or not 1 <= limit <= 20:
+            raise ValueError("Invalid resume list limit.")
+        with self.repository.open() as db:
+            rows = db.execute(
+                "SELECT e.session_id FROM assessment_candidate_execution e "
+                "JOIN assessment_test_sessions s ON s.id=e.session_id "
+                "WHERE s.status='active' ORDER BY s.started_at DESC LIMIT 100"
+            ).fetchall()
+        result = []
+        for row in rows:
+            state = self.state(row["session_id"])
+            if state["status"] != "paused":
+                continue
+            result.append({
+                "session_id": state["session_id"],
+                "title": state["title"],
+                "kind": state["kind"],
+                "current_ordinal": state["current_ordinal"],
+                "remaining_ms": state["remaining_ms"],
+                "revision": state["revision"],
+            })
+            if len(result) >= limit:
+                break
+        return result
+
     def _review(self, db, sid):
         row = db.execute(
             "SELECT snapshot_json FROM assessment_candidate_self_reviews WHERE session_id=? ORDER BY revision DESC LIMIT 1",
@@ -410,7 +446,7 @@ class AssessmentExecutionService:
             if qid is not None:
                 q = next((q for q in questions if q["id"] == qid), None)
                 if q is None:
-                    raise LookupError("Question does not belong to this attempt.")
+                    raise AssessmentExecutionNotFoundError("Question does not belong to this attempt.")
             review_commands = {"self_save", "self_submit", "amend", "reveal"}
             if status == "expired" and h["status"] == "active":
                 self._terminal(db, h, m, now, used, "expired")

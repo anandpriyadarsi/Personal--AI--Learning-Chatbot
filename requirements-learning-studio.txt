@@ -5,6 +5,8 @@ pypdf==6.18.0
 Pillow==12.3.0
 PyYAML==6.0.3
 python-dotenv==1.2.3
+# Full-suite Tutor quota preflight uses the application's pinned HTTP client.
+requests==2.31.0
 pytest==9.1.1
 playwright==1.51.0
 # Required by the existing full-suite retrieval fixtures.

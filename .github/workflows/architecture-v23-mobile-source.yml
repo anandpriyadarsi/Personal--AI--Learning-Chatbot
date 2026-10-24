@@ -1,0 +1,53 @@
+name: V2.3 mobile source navigation
+on:
+  push:
+    branches: ['feature/architecture-v2-3-academic-evidence-2026-10']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: v23-source-investigation-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  diagnose:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    env:
+      ANVAYA_BROWSER_TESTS: '1'
+      PYTHONUTF8: '1'
+      PYTHONIOENCODING: utf-8
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements-learning-studio.txt
+      - run: python -m pip install -r requirements-learning-studio.txt -r requirements-assessment-browser.txt
+      - run: python scripts/architecture_checkout_eol.py --repo .
+      - run: python -m playwright install --with-deps chromium
+      - name: Native source-anchor repetition and controlled stylesheet regression
+        shell: python
+        run: |
+          import os,pathlib,subprocess,sys
+          out=pathlib.Path(os.environ['RUNNER_TEMP'])/'mobile-source'
+          out.mkdir()
+          os.environ['ANVAYA_VALIDATION_ARTIFACTS']=str(out)
+          with open(os.environ['GITHUB_ENV'],'a',encoding='utf-8') as stream:stream.write('SOURCE_DIAG='+str(out)+'\n')
+          code=subprocess.call([sys.executable,'-m','pytest','-q','-s','tests/learning_studio/test_mobile_source_v23.py','--junitxml='+str(out/'source.xml')])
+          import xml.etree.ElementTree as ET
+          cases=ET.parse(out/'source.xml').findall('.//testcase')
+          assert code==0 and len(cases)==13 and all(c.find('skipped') is None for c in cases),'Source navigation must pass all 13 cases with zero skips'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: source-investigation-${{ matrix.os }}-${{ github.sha }}
+          path: ${{ env.SOURCE_DIAG }}/**
+          if-no-files-found: warn

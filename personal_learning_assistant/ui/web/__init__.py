@@ -21,6 +21,11 @@ def create_app(config: Mapping[str, Any] | None = None) -> Flask:
     )
     app.config.from_mapping(
         TESTING=False,
+        LEARNING_LIBRARY_ENABLED=os.environ.get("ANVAYA_LIBRARY_ENABLED", "true").strip().lower() == "true",
+        LEARNING_LIBRARY_DATABASE_PATH=os.environ.get("ANVAYA_LIBRARY_DATABASE_PATH") or None,
+        ACADEMIC_EVIDENCE_ENABLED=os.environ.get('ANVAYA_EVIDENCE_ENABLED','true').strip().lower()=='true',
+        # Explicit opt-in: candidate actions require owner-applied optional 0016.
+        TUTOR_MEMORY_ENABLED=os.environ.get("ANVAYA_TUTOR_MEMORY_ENABLED", "false").strip().lower() == "true",
         JSON_SORT_KEYS=False,
         ASSESSMENT_COLAB_URL=os.environ.get("ANVAYA_COLAB_URL", ""),
         ASSESSMENT_CODING_HELPER_ENABLED=os.environ.get("ANVAYA_CODING_HELPER_ENABLED", "true").lower() == "true",
@@ -29,6 +34,9 @@ def create_app(config: Mapping[str, Any] | None = None) -> Flask:
     )
     if config:
         app.config.update(config)
+
+    from .tutor_rendering import render_tutor_markdown
+    app.jinja_env.filters["tutor_markdown"] = render_tutor_markdown
 
     # Process-local key: short-lived helper context becomes invalid on restart.
     from secrets import token_bytes
@@ -39,6 +47,14 @@ def create_app(config: Mapping[str, Any] | None = None) -> Flask:
     app.register_blueprint(assessment_tools_blueprint)
     from secrets import token_urlsafe
     app.extensions['learning_studio_csrf'] = token_urlsafe(32)
+    app.extensions['tutor_action_csrf'] = token_urlsafe(32)
+
+    @app.context_processor
+    def _tutor_action_context():
+        # Never expose an application secret as a reusable browser CSRF token.
+        # This is a process-local random token for explicit local-only actions.
+        return {"tutor_action_csrf": app.extensions["tutor_action_csrf"],
+                "tutor_request_id": token_urlsafe(24)}
     from .learning_studio import learning_blueprint
     app.register_blueprint(learning_blueprint)
     if app.config.get("ASSESSMENT_EXTENDED_ENABLED") is True:
@@ -55,5 +71,18 @@ def create_app(config: Mapping[str, Any] | None = None) -> Flask:
         app.register_blueprint(create_production_blueprint(
             extended_service, secret_key=token_bytes(32)
         ))
+    from .planning_approval_controls import register_approval_controls
+    register_approval_controls(app)
+    from .planning_proposals import register_planning_proposals
+    from .routes import _operational_planner_service
+    register_planning_proposals(app, _operational_planner_service)
+    from .academic_evidence import register_academic_evidence
+    register_academic_evidence(app)
+    from .learning_conversion_v24 import register_learning_conversion_v24
+    register_learning_conversion_v24(app)
+    from .learning_tutor_v24 import register_learning_tutor_v24
+    register_learning_tutor_v24(app)
+    from .learning_source_links_v24 import register_learning_source_links_v24
+    register_learning_source_links_v24(app)
     register_error_handlers(app)
     return app

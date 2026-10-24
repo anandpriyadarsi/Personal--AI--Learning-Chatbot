@@ -86,6 +86,7 @@ class FakePlanner:
         return {
             "available": True,
             "date": agenda_date,
+            "planning_fingerprint": "a"*64,
             "existing": None,
             "day_mode": "normal",
             "items": (),
@@ -102,8 +103,8 @@ class FakePlanner:
         self.calls.append(("generate_day", agenda_date))
         return {"status": "draft"}
 
-    def approve_day(self, agenda_date):
-        self.calls.append(("approve_day", agenda_date))
+    def approve_day(self, agenda_date, **context):
+        self.calls.append(("approve_day", agenda_date, context))
         return {"status": "approved"}
 
     def update_day_item(self, agenda_date, item_id, *, status, actual_minutes=None):
@@ -225,14 +226,28 @@ def test_month_approval_uses_expected_hash_and_prg():
 
 def test_day_commands_use_explicit_post_and_prg():
     fake = FakePlanner()
-    client = _app(fake).test_client()
+    app = _app(fake)
+    client = app.test_client()
     for path, data in (
         ("/planning/day/2026-10-12/generate", {}),
         ("/planning/day/2026-10-12/approve", {}),
         ("/planning/day/2026-10-12/items/i1", {"status": "completed", "actual_minutes": "40"}),
         ("/planning/day/2026-10-12/close", {"learned": "x"}),
     ):
+        if path.endswith('/approve'):
+            # The route must reject the obsolete date-only approval intent.
+            old = app.extensions['planner_approval_signer'].dumps({'date':'2026-10-12'})
+            before = tuple(fake.calls)
+            assert client.post(path, data={'approval_token': old}).status_code == 400
+            assert tuple(fake.calls) == before
+            from personal_learning_assistant.ui.web.planning_approval_controls import approval_token
+            with app.test_request_context():
+                data = {**data, 'approval_token': approval_token('2026-10-12','a'*64)}
         assert client.post(path, data=data).status_code == 303
+    approval = next(call for call in fake.calls if call[0] == 'approve_day')
+    assert approval[2]['proposal_context'] is None
+    assert approval[2]['expected_fingerprint']=='a'*64
+    assert approval[2]['local_timezone'] == 'Asia/Kolkata'
 
 
 def test_calendar_confirmed_assessment_slot_is_explicit_post():

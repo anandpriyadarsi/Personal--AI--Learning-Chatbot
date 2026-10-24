@@ -1,0 +1,142 @@
+name: Verification benchmark and protection audit
+on:
+  pull_request:
+    paths:
+      - 'scripts/verification_benchmark.py'
+      - 'tests/test_verification_benchmark.py'
+      - '.github/workflows/verification-benchmark.yml'
+      - 'docs/verification/**'
+  workflow_dispatch:
+  workflow_run:
+    workflows: ['ANVAYA synthetic architecture validation']
+    types: [completed]
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: verification-benchmark-${{ github.event.workflow_run.id || github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  benchmark-tests:
+    if: ${{ github.event_name != 'workflow_run' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify offline benchmark correctness
+        run: python -m unittest discover -s tests -p test_verification_benchmark.py -v
+      - name: Reproduce actual successful pre/post CI timings
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          gh api "repos/$REPO/actions/runs/39883294409/jobs?per_page=100" > baseline-architecture.json
+          gh api "repos/$REPO/actions/runs/39883294409" > baseline-architecture-run.json
+          gh api "repos/$REPO/actions/runs/39886333214/jobs?per_page=100" > smart-architecture.json
+          gh api "repos/$REPO/actions/runs/39886333214" > smart-architecture-run.json
+          python scripts/verification_benchmark.py \
+            --before baseline-architecture.json --after smart-architecture.json \
+            --before-metadata baseline-architecture-run.json --after-metadata smart-architecture-run.json \
+            --group architecture \
+            --before-run "https://github.com/$REPO/actions/runs/39883294409" \
+            --after-run "https://github.com/$REPO/actions/runs/39886333214" \
+            --output architecture-benchmark.json --markdown architecture-benchmark.md
+          gh api "repos/$REPO/actions/runs/39797255775/jobs?per_page=100" > baseline-ui.json
+          gh api "repos/$REPO/actions/runs/39797255775" > baseline-ui-run.json
+          gh api "repos/$REPO/actions/runs/39886333220/jobs?per_page=100" > smart-ui.json
+          gh api "repos/$REPO/actions/runs/39886333220" > smart-ui-run.json
+          python scripts/verification_benchmark.py \
+            --before baseline-ui.json --after smart-ui.json \
+            --before-metadata baseline-ui-run.json --after-metadata smart-ui-run.json \
+            --group ui \
+            --before-run "https://github.com/$REPO/actions/runs/39797255775" \
+            --after-run "https://github.com/$REPO/actions/runs/39886333220" \
+            --output ui-benchmark.json --markdown ui-benchmark.md
+          cat architecture-benchmark.md >> "$GITHUB_STEP_SUMMARY"
+          cat ui-benchmark.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Report actual protection state (read-only; no change)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          protected="$(gh api "repos/$REPO/branches/main" --jq .protected)"
+          echo "main.protected: $protected" >> "$GITHUB_STEP_SUMMARY"
+          if [[ "$protected" != "true" ]]; then
+            echo "WARNING: repository administrator must enable main ruleset / branch protection." >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: measured-historical-ci-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            architecture-benchmark.*
+            ui-benchmark.*
+            baseline-architecture.json
+            smart-architecture.json
+            baseline-ui.json
+            smart-ui.json
+            *-run.json
+          if-no-files-found: warn
+      - name: Syntax and whitespace
+        run: |
+          python -m compileall -q scripts/verification_benchmark.py tests/test_verification_benchmark.py
+          git diff --check
+  post-acceptance-benchmark:
+    # Runs using the audited default-branch script, NOT code from an untrusted PR.
+    # All API reads are read-only and contain only GitHub Actions timing metadata.
+    if: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_repository.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      RUN_ID: ${{ github.event.workflow_run.id }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Fetch exact GitHub Actions job metadata
+        shell: bash
+        run: |
+          gh api "repos/$REPO/actions/runs/39883294409/jobs?per_page=100" > baseline-jobs.json
+          gh api "repos/$REPO/actions/runs/$RUN_ID/jobs?per_page=100" > candidate-jobs.json
+          gh api "repos/$REPO/actions/runs/39883294409" > baseline-run.json
+          gh api "repos/$REPO/actions/runs/$RUN_ID" > candidate-run.json
+      - name: Compute measured cross-platform gate duration
+        shell: bash
+        run: |
+          python scripts/verification_benchmark.py \
+            --before baseline-jobs.json \
+            --after candidate-jobs.json \
+            --before-metadata baseline-run.json --after-metadata candidate-run.json \
+            --group architecture \
+            --before-run "https://github.com/$REPO/actions/runs/39883294409" \
+            --after-run "https://github.com/$REPO/actions/runs/$RUN_ID" \
+            --output verification-benchmark.json \
+            --markdown verification-benchmark.md
+          cat verification-benchmark.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Archive reproducible measured evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verification-benchmark-${{ github.event.workflow_run.id }}
+          path: |
+            baseline-jobs.json
+            candidate-jobs.json
+            baseline-run.json
+            candidate-run.json
+            verification-benchmark.json
+            verification-benchmark.md
+          retention-days: 30
+          if-no-files-found: warn

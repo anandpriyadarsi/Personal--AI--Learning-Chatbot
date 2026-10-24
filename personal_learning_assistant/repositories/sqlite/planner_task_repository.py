@@ -13,6 +13,10 @@ class PlannerTaskRepositoryError(RuntimeError):
     """Task persistence is unavailable or inconsistent."""
 
 
+class PlannerTaskRepositoryConflictError(PlannerTaskRepositoryError):
+    """An explicit manual intent conflicts with its canonical source or receipt."""
+
+
 class PlannerTaskRepositoryNotFoundError(PlannerTaskRepositoryError):
     """The requested planner task does not exist."""
 
@@ -112,10 +116,27 @@ class SQLitePlannerTaskRepository:
         finally:
             c.close()
 
-    def create_task(self, row):
+    def create_task(self, row, *, study_context=None):
         c = self._connect(writable=True)
         try:
             with transaction(c, immediate=True):
+                if study_context is not None:
+                    if (row.get('course_id') != study_context['course_id'] or
+                            row.get('topic_id') != study_context['topic_id']):
+                        raise PlannerTaskRepositoryConflictError('Study identity changed.')
+                    active = c.execute(
+                        'SELECT t.name FROM topics t JOIN courses c ON c.id=t.course_id '
+                        'WHERE c.id=? AND t.id=? AND c.deleted_at IS NULL AND t.deleted_at IS NULL',
+                        (study_context['course_id'],study_context['topic_id'])).fetchone()
+                    if active is None or (study_context.get('topic_name') is not None and
+                            active['name'] != study_context['topic_name']):
+                        raise PlannerTaskRepositoryConflictError('Course/topic context changed. Preview again.')
+                    existing = c.execute('SELECT * FROM planner_tasks WHERE id=?',(row['id'],)).fetchone()
+                    if existing is not None:
+                        keys=('title','description','course_id','topic_id','estimated_minutes','priority')
+                        if any(existing[k]!=row.get(k) for k in keys):
+                            raise PlannerTaskRepositoryConflictError('This study intent has a different saved context.')
+                        return dict(existing)
                 c.execute(
                     "INSERT INTO planner_tasks "
                     "(id,source_import_id,external_id,title,description,priority,"

@@ -105,7 +105,8 @@ def materialize_occurrences(
     excluded_dates=(),
     additional_dates=(),
 ):
-    start = max(_parse_date(first_date), _parse_date(window_start))
+    anchor = _parse_date(first_date)
+    start = max(anchor, _parse_date(window_start))
     end = _parse_date(window_end)
     if active_from:
         start = max(start, _parse_date(active_from))
@@ -123,8 +124,18 @@ def materialize_occurrences(
         for x in additional_dates
         if window_start <= str(x) <= window_end
     }
+    if (end - start).days > 366:
+        raise OperationalCalendarValidationError("Recurrence window may not exceed 367 days.")
+    weekdays = {_WEEKDAY[x] for x in rule.get("BYDAY", ())}
+    elapsed = max(0, (start - anchor).days)
+    if rule["FREQ"] == "DAILY":
+        seen_count = elapsed
+    else:
+        weeks, remainder = divmod(elapsed, 7)
+        seen_count = weeks * len(weekdays) + sum(
+            (anchor.weekday() + offset) % 7 in weekdays for offset in range(remainder)
+        )
     result = []
-    seen_count = 0
     current = start
     while current <= end:
         if rule.get("UNTIL") and current > rule["UNTIL"]:
@@ -140,7 +151,7 @@ def materialize_occurrences(
             if current.isoformat() not in excluded:
                 result.append(current)
         current += timedelta(days=1)
-    result.extend(additional)
+    result.extend(d for d in additional if start <= d <= end)
     return tuple(sorted(set(result)))
 
 
@@ -152,7 +163,7 @@ class OperationalCalendarService:
 
     def _event_occurrences(self, start: date, end: date):
         try:
-            rows = self.repository.list_academic_events(start.isoformat(), end.isoformat())
+            rows = self.repository.list_academic_events((start - timedelta(days=2)).isoformat(), (end + timedelta(days=2)).isoformat())
         except OperationalCalendarRepositoryError as error:
             raise OperationalCalendarUnavailableError(
                 "Operational calendar is temporarily unavailable."
@@ -161,21 +172,34 @@ class OperationalCalendarService:
         for row in rows:
             start_day = str(row["starts_at"])[:10]
             details = row.get("import_details") or {}
+            last_day = str(row.get("ends_at") or start_day)[:10]
+            span = max(0, (_parse_date(last_day) - _parse_date(start_day)).days)
+            # Offset-bearing source times have no local-zone contract here. Close all
+            # potentially affected local dates rather than interpreting UTC as local.
+            offset = any(datetime.fromisoformat(str(row[key])).tzinfo is not None
+                         for key in ("starts_at", "ends_at") if row.get(key))
+            padding = 2 if offset else 0
             if row.get("recurrence_rule"):
                 dates = materialize_occurrences(
                     recurrence_rule=row["recurrence_rule"],
                     first_date=start_day,
-                    window_start=start.isoformat(),
-                    window_end=end.isoformat(),
+                    window_start=(start - timedelta(days=span + padding)).isoformat(),
+                    window_end=(end + timedelta(days=padding)).isoformat(),
                     active_from=start_day,
                     excluded_dates=details.get("excluded_dates") or (),
                     additional_dates=details.get("additional_dates") or (),
                 )
             else:
-                d = _parse_date(start_day)
-                dates = (d,) if start <= d <= end else ()
+                dates = (_parse_date(start_day),)
+            dates = sorted({occurrence + timedelta(days=delta)
+                            for occurrence in dates
+                            for delta in range(-padding, span + padding + 1)
+                            if start <= occurrence + timedelta(days=delta) <= end})
             for d in dates:
                 start_time, end_time = _event_time_parts(row)
+                # Multi-day commitments conservatively occupy each affected day.
+                spans_days = bool(row.get("ends_at") and str(row["ends_at"])[:10] != start_day)
+                all_day = bool(row.get("all_day")) or spans_days or offset
                 items.append({
                     "id": row["id"],
                     "source": "academic_event",
@@ -184,9 +208,9 @@ class OperationalCalendarService:
                     "kind": row["event_kind"],
                     "course_id": row.get("course_id"),
                     "priority": "P0" if row["event_kind"] in {"class","lab","assessment","official_holiday"} else None,
-                    "start_time": "" if int(row.get("all_day") or 0) else start_time,
-                    "end_time": "" if int(row.get("all_day") or 0) else end_time,
-                    "all_day": bool(row.get("all_day")),
+                    "start_time": "" if all_day else start_time,
+                    "end_time": "" if all_day else end_time,
+                    "all_day": all_day,
                 })
         return items
 

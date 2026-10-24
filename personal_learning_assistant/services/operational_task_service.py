@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 
 from personal_learning_assistant.repositories.sqlite.planner_task_repository import (
     PlannerTaskRepositoryError,
+    PlannerTaskRepositoryConflictError,
     PlannerTaskRepositoryNotFoundError,
     SQLitePlannerTaskRepository,
 )
@@ -28,6 +29,10 @@ _ALLOWED = {
 
 class OperationalTaskError(RuntimeError):
     """Base safe task-layer error."""
+
+
+class OperationalTaskConflictError(OperationalTaskError):
+    """Manual study context conflicts with current identity or a prior receipt."""
 
 
 class OperationalTaskValidationError(OperationalTaskError):
@@ -124,6 +129,8 @@ class OperationalTaskService:
         topic_id=None,
         assessment_id=None,
         external_id=None,
+        _study_context=None,
+        _intent_id=None,
     ):
         title = str(title or "").strip()
         if not title or len(title) > MAX_TITLE:
@@ -141,7 +148,8 @@ class OperationalTaskService:
                 )
         now = self._now()
         row = {
-            "id": str(self._id_factory()),
+            "id": (str(uuid.uuid5(uuid.NAMESPACE_URL, "anvaya:manual-study:"+_intent_id))
+                   if _intent_id is not None else str(self._id_factory())),
             "source_import_id": None,
             "external_id": external_id,
             "title": title,
@@ -160,9 +168,30 @@ class OperationalTaskService:
             "updated_at": now,
         }
         try:
-            return self.repository.create_task(row)
+            return (self.repository.create_task(row, study_context=_study_context)
+                    if _study_context is not None else self.repository.create_task(row))
+        except PlannerTaskRepositoryConflictError as error:
+            raise OperationalTaskConflictError(str(error)) from error
         except PlannerTaskRepositoryError as error:
             raise OperationalTaskUnavailableError("The task could not be saved.") from error
+
+    def create_manual_study_task(self, *, intent_id, title, description, course_id,
+                                 topic_id, topic_name=None, estimated_minutes=30):
+        """One explicit user intent, one owner receipt; never recovery eligibility."""
+        try:
+            parsed=uuid.UUID(str(intent_id))
+        except (ValueError,TypeError,AttributeError) as error:
+            raise OperationalTaskValidationError('A canonical study intent UUID is required.') from error
+        if str(parsed)!=intent_id:
+            raise OperationalTaskValidationError('A canonical study intent UUID is required.')
+        if (type(estimated_minutes) is not int or not 1<=estimated_minutes<=180 or
+                not isinstance(course_id,str) or not 1<=len(course_id)<=120 or
+                not isinstance(topic_id,str) or not 1<=len(topic_id)<=120):
+            raise OperationalTaskValidationError('Choose exact course/topic and 1–180 practice minutes.')
+        return self.create_task(title=title,description=description,priority='P2',
+            course_id=course_id,topic_id=topic_id,estimated_minutes=estimated_minutes,
+            _study_context={'course_id':course_id,'topic_id':topic_id,'topic_name':topic_name},
+            _intent_id=intent_id)
 
     def create_assessment_recovery_task(
         self,

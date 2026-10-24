@@ -1,4 +1,7 @@
 /* Assessment lifecycle surfaces. Shared ANVAYA tokens and Notes course identity. */
+/* The closing palette translates beyond its shrinking track. Clip that
+   animation horizontally without creating a scroll container for sticky UI. */
+.assessment-exam-body .exam-layout { overflow-x: clip; }
 .assessment-page .content { max-width: 1440px; width: 100%; margin-inline: auto; }
 .assessment-nav { display: flex; gap: .25rem; flex-wrap: wrap; border-bottom: 1px solid var(--border); padding-bottom: .65rem; margin-bottom: 1.5rem; }
 .assessment-nav a { padding: .65rem .9rem; border-radius: .5rem; color: var(--text-muted); font-size: .88rem; text-decoration: none; }
@@ -120,3 +123,15 @@
 .assessment-mode-preview-actions p{font-size:.78rem;color:var(--text-muted);margin:.4rem 0 0}
 .assessment-mode-preview-actions code{display:block;font-size:.72rem;overflow-wrap:anywhere;word-break:break-word;white-space:normal;line-height:1.5;padding:.5rem .65rem;border:1px solid var(--border);border-radius:.4rem}
 @media(max-width:820px){.assessment-mode-preview{flex-direction:column;align-items:stretch;padding:1.1rem}.assessment-mode-preview-actions{max-width:none;min-width:0}}
+
+/* Durable paused-attempt resume sits above ordinary Assessment resources. */
+.assessment-resume-list{margin:0 0 1.5rem;border:1px solid rgba(85,194,184,.35);background:var(--surface);padding:1.1rem 1.35rem;border-radius:.8rem}
+.assessment-resume-list .assessment-section-heading{margin:0 0 .8rem}
+.assessment-resume-count{font-size:.76rem;font-weight:750;color:var(--accent)}
+.assessment-resume-card{display:flex;align-items:center;justify-content:space-between;gap:1.1rem;border-top:1px solid var(--border);padding:1rem .1rem}
+.assessment-resume-card h4{font-size:1rem;margin:0 0 .4rem}
+.assessment-resume-card p,.assessment-resume-help{color:var(--text-muted);font-size:.82rem;line-height:1.5}
+.assessment-resume-card p{margin:0 0 .25rem}
+.assessment-resume-card form{flex-shrink:0;margin:0}
+.assessment-resume-card form .button{min-height:42px}
+@media(max-width:720px){.assessment-resume-card{align-items:stretch;flex-direction:column}.assessment-resume-card form .button{width:100%}.assessment-resume-list{padding:.95rem}}

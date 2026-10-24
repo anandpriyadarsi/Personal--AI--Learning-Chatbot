@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import sqlite3
+import hashlib
+import json
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import quote
 
@@ -80,10 +83,36 @@ class SQLiteDailyAgendaRepository:
         finally:
             c.close()
 
-    def create_or_replace_draft(self, agenda_row, items):
+    @staticmethod
+    def _planning_fingerprint(c):
+        """Bounded conservative source guard, shared by read preview and locked write."""
+        digest = hashlib.sha256()
+        for table in ("planner_tasks", "academic_events", "routine_templates",
+                      "study_plan_items", "month_plan_import_items", "courses",
+                      "daily_agendas", "daily_agenda_items", "daily_reviews"):
+            digest.update(table.encode("ascii"))
+            rows = c.execute("SELECT * FROM " + table + " ORDER BY rowid LIMIT 10001")
+            for index, row in enumerate(rows):
+                if index >= 10000:
+                    raise DailyAgendaRepositoryError("Planner proposal source exceeds the safe preview limit.")
+                digest.update(json.dumps(dict(row), sort_keys=True, separators=(",", ":"), default=str).encode("utf-8"))
+        return digest.hexdigest()
+
+    def planning_fingerprint(self):
+        c = self._connect(writable=False)
+        try:
+            c.execute("BEGIN")
+            return self._planning_fingerprint(c)
+        finally:
+            c.close()
+
+    def create_or_replace_draft(self, agenda_row, items, *, expected_fingerprint=None):
         c = self._connect(writable=True)
+        saved_fingerprint = None
         try:
             with transaction(c, immediate=True):
+                if expected_fingerprint is not None and self._planning_fingerprint(c) != expected_fingerprint:
+                    raise DailyAgendaRepositoryConflictError("Planner sources changed. Preview again before saving.")
                 existing = c.execute(
                     "SELECT id,status FROM daily_agendas WHERE agenda_date=?",
                     (agenda_row["agenda_date"],),
@@ -132,14 +161,24 @@ class SQLiteDailyAgendaRepository:
                             item.get("completed_at"),
                         ),
                     )
+                if expected_fingerprint is not None:
+                    # Bind the exact committed draft and its sources while the
+                    # same write lock still excludes another writer. A later
+                    # read must not bless a source change after this save.
+                    saved_fingerprint = self._planning_fingerprint(c)
         finally:
             c.close()
-        return self.get_agenda(agenda_row["agenda_date"])
+        result = self.get_agenda(agenda_row["agenda_date"])
+        if saved_fingerprint is not None:
+            result['planning_fingerprint'] = saved_fingerprint
+        return result
 
-    def approve_agenda(self, agenda_date, *, approved_at, updated_at):
+    def approve_agenda(self, agenda_date, *, approved_at, updated_at, expected_fingerprint=None):
         c = self._connect(writable=True)
         try:
             with transaction(c, immediate=True):
+                if expected_fingerprint is not None and self._planning_fingerprint(c) != expected_fingerprint:
+                    raise DailyAgendaRepositoryConflictError("Planner sources changed. Preview again before approval.")
                 cur = c.execute(
                     "UPDATE daily_agendas SET status='approved',approved_at=?,updated_at=? "
                     "WHERE agenda_date=? AND status='draft'",
@@ -164,15 +203,27 @@ class SQLiteDailyAgendaRepository:
                 ).fetchone()
                 if agenda is None:
                     raise DailyAgendaRepositoryNotFoundError("Daily agenda was not found.")
-                if str(agenda["status"]) == "closed":
-                    raise DailyAgendaRepositoryConflictError("Closed agendas cannot change.")
+                if str(agenda["status"]) not in {"approved", "active"}:
+                    raise DailyAgendaRepositoryConflictError("Only approved agendas can record progress.")
                 item = c.execute(
-                    "SELECT source_type,source_id FROM daily_agenda_items "
+                    "SELECT source_type,source_id,status FROM daily_agenda_items "
                     "WHERE id=? AND agenda_id=?",
                     (item_id, agenda["id"]),
                 ).fetchone()
                 if item is None:
                     raise DailyAgendaRepositoryNotFoundError("Agenda item was not found.")
+                if str(item["status"]) == "completed":
+                    raise DailyAgendaRepositoryConflictError("Completed work cannot be recorded twice.")
+                study_source = None
+                if status == "completed" and item["source_type"] == "study_plan_item":
+                    study_source = c.execute(
+                        "SELECT * FROM study_plan_items WHERE id=?", (item["source_id"],)
+                    ).fetchone()
+                    if (study_source is None or study_source["plan_date"] != agenda_date
+                            or study_source["status"] in {"completed", "cancelled"}):
+                        raise DailyAgendaRepositoryConflictError(
+                            "The original study item is unavailable or already completed."
+                        )
                 c.execute(
                     "UPDATE daily_agenda_items SET status=?,actual_minutes=?,"
                     "completed_at=?,updated_at=? WHERE id=? AND agenda_id=?",
@@ -191,6 +242,37 @@ class SQLiteDailyAgendaRepository:
                         "updated_at=? WHERE id=? AND status<>'archived'",
                         (completed_at or updated_at, updated_at, item["source_id"]),
                     )
+                if study_source is not None:
+                    # Canonical source status is updated in the SAME transaction as the
+                    # agenda receipt. No separate Learning Studio evidence is forged.
+                    changed = c.execute(
+                        "UPDATE study_plan_items SET status='completed' "
+                        "WHERE id=? AND plan_date=? AND status NOT IN ('completed','cancelled')",
+                        (item["source_id"], agenda_date),
+                    )
+                    if changed.rowcount != 1:
+                        raise DailyAgendaRepositoryConflictError("The original study item changed.")
+                    if actual_minutes is not None and actual_minutes > 0:
+                        # User-reported effort only: this is not a verified timer,
+                        # independent practice attempt, or an evaluated score.
+                        ended = datetime.fromisoformat((completed_at or updated_at).replace("Z", "+00:00"))
+                        if ended.tzinfo is None:
+                            raise DailyAgendaRepositoryConflictError("Completion requires an aware timestamp.")
+                        started = ended - timedelta(minutes=actual_minutes)
+                        c.execute(
+                            "INSERT INTO study_sessions "
+                            "(id,started_at,ended_at,duration_minutes,course_id,topic_id,"
+                            "resource_id,assessment_id,note_id,plan_item_id,outcome,confidence,note,created_at) "
+                            "VALUES (?,?,?,?,?,?,?,?,?,?,'self_reported_planner_completion',NULL,?,?)",
+                            ("agenda-study:" + item_id,
+                             started.astimezone(timezone.utc).isoformat(),
+                             ended.astimezone(timezone.utc).isoformat(),
+                             actual_minutes, study_source["course_id"], study_source["topic_id"],
+                             study_source["resource_id"], study_source["assessment_id"],
+                             study_source["note_id"], item["source_id"],
+                             "Student-entered actual minutes; not independent or officially evaluated.",
+                             completed_at or updated_at),
+                        )
         finally:
             c.close()
         return self.get_agenda(agenda_date)
