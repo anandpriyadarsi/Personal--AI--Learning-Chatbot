@@ -40,7 +40,7 @@ def register_android_device(app, root):
         message = ('Restored missing Semester 1 subjects: ' + ', '.join(added) + '. '
                    if added else 'Your Semester 1 Learn subjects were already registered. ')
         message += ('Assessment Studio: {} missing course(s) and {} topic(s) restored. '
-                    'Existing history and progress were preserved.').format(
+                    'Existing study progress was preserved. Assessment history was preserved.').format(
                         synced['courses_added'], synced['topics_added'])
         return render_template('android_device.html',active_page='mobile-settings',message=message)
 
