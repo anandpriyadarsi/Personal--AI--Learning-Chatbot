@@ -103,16 +103,45 @@
       event.preventDefault(); event.stopImmediatePropagation(); setFocus(false); focusButton.focus();
     }
   }, true);
-  document.getElementById('ls-fullscreen').addEventListener('click', async () => {
-    try {
-      if (document.fullscreenElement) await document.exitFullscreen();
-      else { setFocus(true); await document.documentElement.requestFullscreen(); }
-    } catch (_error) { status.textContent = 'Fullscreen unavailable; Focus Reading still works.'; }
+  // Android WebView often denies the browser Fullscreen API. In that case the
+  // button must still toggle a real full-width, distraction-free reading mode.
+  const fullButton = document.getElementById('ls-fullscreen');
+  let fallbackFull = false;
+  function fullLabel() {
+    fullButton.textContent = document.fullscreenElement ? 'Exit fullscreen' : (fallbackFull ? 'Exit full view' : 'Fullscreen');
+    fullButton.setAttribute('aria-pressed', String(Boolean(document.fullscreenElement || fallbackFull)));
+  }
+  fullButton.addEventListener('click', async () => {
+    if (fallbackFull) {
+      fallbackFull = false;
+      setFocus(false);
+      fullLabel();
+      status.textContent = 'Standard reading view restored.';
+      return;
+    }
+    if (document.fullscreenElement) {
+      try { await document.exitFullscreen(); }
+      catch (_error) { status.textContent = 'Unable to exit native fullscreen. Use your device Back button.'; }
+      return;
+    }
+    setFocus(true);
+    if (typeof document.documentElement.requestFullscreen === 'function') {
+      try {
+        await document.documentElement.requestFullscreen();
+        fullLabel();
+        return;
+      } catch (_error) { /* WebView or device policy declined native fullscreen. */ }
+    }
+    fallbackFull = true;
+    fullLabel();
+    status.textContent = 'Distraction-free full view enabled. Android may keep its system bars visible.';
   });
-  document.addEventListener('fullscreenchange',()=>{
-    document.getElementById('ls-fullscreen').textContent=document.fullscreenElement?'Exit fullscreen':'Fullscreen';
-    status.textContent=document.fullscreenElement?'Fullscreen reading · Escape exits fullscreen.':'Fullscreen ended · Focus Reading remains available.';
+  document.addEventListener('fullscreenchange', () => {
+    fullLabel();
+    status.textContent = document.fullscreenElement ?
+      'Fullscreen reading enabled.' : 'Native fullscreen ended. Focus reading remains available.';
   });
+  fullLabel();
   const copyBrief = document.getElementById('ls-copy-brief');
   if (copyBrief) copyBrief.addEventListener('click', async () => {
     const brief = document.getElementById('ls-review-brief');
