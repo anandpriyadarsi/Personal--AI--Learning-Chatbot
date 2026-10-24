@@ -58,6 +58,10 @@ phase1_pip_freeze.txt
 .live_validation/
 .learning-studio-demo/
 learning-studio-evidence/
+
+# Android acceptance output (APK and synthetic captures are workflow artifacts).
+/android-evidence/
+/android/app/src/androidTest/assets/acceptance/
 playwright-report/
 test-results/
 

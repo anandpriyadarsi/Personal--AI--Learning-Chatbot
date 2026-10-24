@@ -22,7 +22,12 @@ def test_mistake_recheck_fresh_question_source_and_print(browser,quality_live,wi
     page.locator('.ls-fresh-question').click();expect(form).to_have_attribute('data-question-id','q11')
     form.locator('.ls-source-chips a').click();assert 'page=11' in page.url and 'question=q11' in page.url
     page.locator('#ls-return-question').click();expect(form).to_have_attribute('data-question-id','q11')
-    page.get_by_role('link',name='What still needs revision? · question denominators and rechecks',exact=True).click();expect(page.locator('main')).to_contain_text('1 of 31')
+    page.get_by_role('link',name='What still needs revision? · question denominators and rechecks',exact=True).click()
+    # The real reader flushes pending writes before cross-owner navigation.
+    # "1 of 31" also exists on the practice page: it cannot prove arrival.
+    page.wait_for_url(base+'/quality?format=html')
+    expect(page.get_by_role('heading',name='What still needs revision?',exact=True)).to_be_visible()
+    expect(page.locator('main')).to_contain_text('1 of 31')
     no_overflow(page);screenshot(page,f'v15-evidence-{width}.png')
     page.goto(base+'?view=revision&budget=full');page.emulate_media(media='print')
     expect(page.locator('.ls-page-review-flags li')).to_have_count(20);expect(page.locator('.ls-page-review-flags li').last).to_be_visible()

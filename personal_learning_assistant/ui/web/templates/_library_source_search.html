@@ -71,7 +71,6 @@
       <div class="tag-row knowledge-actions">
         <a class="button" href="{{ result.open_target }}">Read source <span aria-hidden="true">→</span></a>
         <form method="post" action="{{ url_for('web.knowledge_ask_source', document_id=result.item_id) }}">
-          <input type="hidden" name="csrf_token" value="{{ tutor_action_csrf }}">
           <input type="hidden" name="version_hash" value="{{ result.version_hash }}">
           <button class="button secondary-button" type="submit">Ask ANVAYA</button>
         </form>

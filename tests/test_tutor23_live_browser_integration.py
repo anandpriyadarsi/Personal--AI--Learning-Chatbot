@@ -79,9 +79,11 @@ def test_tutor_original_routes_and_new_controls_in_real_browser(browser, local_t
     try:
         page.goto(base + "/agent/sessions/session-1", wait_until="load")
         expect(page.get_by_role("heading", name="Pivot idea")).to_be_visible()
+        page.locator("#tutor-learning-details > summary").click()
         expect(page.get_by_text("Understand LU Factorization")).to_be_visible()
         expect(page.get_by_text("What multiplier eliminates 4 below pivot 2?")).to_be_visible()
         expect(page.get_by_text("Practice level 2 of 5")).to_be_visible()
+        page.locator("#tutor-learning-details > summary").click()
         assert page.get_by_text("Help me with **LU**.").count() == 1
         assert page.evaluate("document.documentElement.scrollWidth <= innerWidth + 1")
         assert fake.llm_calls == 0
@@ -95,6 +97,7 @@ def test_tutor_original_routes_and_new_controls_in_real_browser(browser, local_t
             root = Path(folder)
             root.mkdir(parents=True, exist_ok=True)
             page.screenshot(path=str(root / f"tutor23-reconciled-{width}.png"), full_page=True)
+        page.locator(".tutor-answer-details > summary").click()
         page.get_by_role("button", name="Not helpful").click()
         expect(page.get_by_role("heading", name="Pivot idea")).to_be_visible()
         assert seen == [("session-1", "assistant-1", False)]

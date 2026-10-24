@@ -288,6 +288,7 @@ class AssessmentExecutionService:
         return dict(
             session_id=h["id"],
             title=h["title_snapshot"],
+            course_code=h["course_code_snapshot"],
             instructions=h["instructions_snapshot"],
             kind=m["kind"],
             mode=m["mode"],
@@ -383,7 +384,7 @@ class AssessmentExecutionService:
                 "marked",
             },
             "heartbeat": set(),
-            "submit": set(),
+            "submit": {"question_id", "expected_response_revision", "response", "marked"},
             "finish_solving": set(),
             "attempt": {"question_id", "attempted"},
             "reveal": {"question_id"},
@@ -475,8 +476,8 @@ class AssessmentExecutionService:
                     and m["kind"] != "paper_subjective"
                 ):
                     raise ValueError("Paper practice only.")
-                if command in {"save", "navigate"} or (
-                    command == "pause" and "response" in payload
+                if command == "save" or (command == "navigate" and m["kind"] == "online_timed") or (
+                    command in {"pause", "submit"} and "response" in payload
                 ):
                     if m["kind"] != "online_timed" or q is None:
                         raise ValueError("Online question required.")
@@ -577,14 +578,13 @@ class AssessmentExecutionService:
                     if q is None or type(payload.get("attempted")) is not bool:
                         raise ValueError("Explicit attempted acknowledgement required.")
                     m["paper"].setdefault(qid, {})["attempted"] = payload["attempted"]
+                    db.execute("UPDATE assessment_test_sessions SET current_ordinal=? WHERE id=?",
+                               (q["ordinal"], sid))
                 elif command == "reveal":
-                    if q is None or (
-                        h["status"] == "active"
-                        and not m["paper"].get(qid, {}).get("attempted")
-                    ):
-                        raise ValueError(
-                            "Acknowledge attempted on paper before revealing."
-                        )
+                    if h["status"] == "active":
+                        raise ValueError("Finish solving before revealing solutions and marking rubrics.")
+                    if q is None:
+                        raise ValueError("Choose a question to review.")
                     p = m["paper"].setdefault(qid, {})
                     p.setdefault("revealed_at", iso(now))
                     p["rubric_sha256"] = digest(q["rubric_text"])
@@ -783,12 +783,50 @@ class AssessmentExecutionService:
             ],
         )
 
+    def coding_context(self, sid, question_id):
+        """Visible task only, with the extended active-time policy; no writes."""
+        from personal_learning_assistant.services.assessment_runner_service import AssessmentRunnerConflictError
+        with self.repository.open() as db:
+            h, m, questions = self._load(db, sid)
+            status, _, _, _ = self._clock(h, m, timestamp(self.now_fn()))
+            if m["kind"] != "online_timed" or status != "active":
+                raise AssessmentRunnerConflictError("Coding help requires an active CBT practice question.")
+            question = next((q for q in questions if q["id"] == question_id
+                             and q["ordinal"] == h["current_ordinal"]), None)
+            if question is None:
+                raise AssessmentRunnerConflictError("Open the current question before requesting help.")
+            return dict(mode=m["mode"], course_code=h["course_code_snapshot"],
+                        assessment_title=h["title_snapshot"], question_text=question["question_text"])
+
+    def practice_results(self, sid):
+        """Read-only practice feedback using the canonical deterministic scorer.
+
+        Never writes official evaluations, topic evidence or self-review marks.
+        A pending/custom/subjective answer remains explicitly ungraded.
+        """
+        from personal_learning_assistant.services.assessment_evaluation_service import _deterministic_score
+        with self.repository.open() as db:
+            h, m, questions = self._load(db, sid)
+            if m["kind"] != "online_timed" or h["status"] == "active":
+                return None
+            items = []
+            for question in questions:
+                score = _deterministic_score(question)
+                items.append(dict(ordinal=question["ordinal"],
+                    outcome=score["outcome"], awarded_marks_milli=score["awarded_marks_milli"],
+                    max_marks_milli=question["max_marks_milli"],
+                    feedback=score["feedback_text"], solution=question["solution_text"]))
+            return dict(items=items,
+                awarded_marks_milli=sum(item["awarded_marks_milli"] or 0 for item in items),
+                max_marks_milli=sum(item["max_marks_milli"] for item in items),
+                pending=sum(item["awarded_marks_milli"] is None for item in items))
+
     def authorized_guides(self, sid):
         """Query-only: only guides already deliberately revealed in this attempt."""
         with self.repository.open() as db:
             h, m, questions = self._load(db, sid)
             status, _, _, _ = self._clock(h, m, timestamp(self.now_fn()))
-            if m["kind"] != "paper_subjective" or status == "paused":
+            if m["kind"] != "paper_subjective" or h["status"] == "active":
                 return {}
             return {
                 q["id"]: dict(

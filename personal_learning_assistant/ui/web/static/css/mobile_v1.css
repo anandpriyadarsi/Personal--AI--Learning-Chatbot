@@ -1,0 +1,125 @@
+/* Mobile presentation only; existing routes and server state remain authoritative. */
+.mobile-dock {display:none}
+.mobile-connection {padding:.65rem 1rem;border-bottom:1px solid var(--border,#344452);background:var(--surface-elevated,#18232d);font-size:.85rem;line-height:1.5}
+.mobile-connection[hidden] {display:none}
+.mobile-connection button {margin-left:.4rem;padding:.4rem .7rem;min-height:44px}
+:root[data-theme="light"] {color-scheme:light;--anvaya-dark:#f4f7f8;--anvaya-light:#182b35;--anvaya-teal:#12675e;--surface-canvas:#f4f7f8;--surface-sidebar:#edf2f4;--surface:#fff;--surface-elevated:#e9f0f2;--surface-muted:#f0f5f6;--text:#182b35;--text-muted:#485d69;--border:#c3d1d7;--accent:#12675e;--focus-ring:#217c72;--surface-panel:#fff;--border-subtle:#c3d1d7}
+[data-theme="light"] body.workspace-v2 {--ws-canvas:#f4f7f8;--ws-surface:#fff;--ws-raised:#e9f0f2;--ws-line:#c3d1d7;--ws-ink:#182b35;--ws-muted:#485d69;--ws-accent:#12675e}
+[data-theme="light"] body :is(.topbar,.app-sidebar,.ws-focus,.ws-day,.ws-destination,.ws-icon,.ws-date,.dashboard-panel,.metric-card,.action-panel,.notice-panel,.error-panel,.ls-card,.ls-block,.ls-notice,.ls-question,.ls-question label,.ls-tabs a,.ls-reading-controls,.ls-v24-checkpoint,.agent-turn,.exam-palette,.exam-question,.pa-panel,.library-card,.resources-card,.notes-card,pre,dialog,.tag,.count-badge,.score-badge,th) {background:var(--surface,#fff);color:var(--text,#182b35);border-color:var(--border,#c3d1d7)}
+[data-theme="light"] body :is(input,select,textarea,button,.button,.nav-more-summary,.nav-item,.sidebar-footer,.ls-breadcrumb,.ls-text-alt,.microcopy,.empty-state) {color:var(--text,#182b35)}
+[data-theme="light"] body :is(input,select,textarea) {background:var(--surface-muted,#f0f5f6)}
+[data-theme="light"] body :is(button,.button,.ls-diagram li) {background:#d7eee8;color:#16483f}
+[data-theme="light"] body :is(.ws-focus p:not(.eyebrow),.ws-course,.ws-agenda small,.ws-destination small) {color:#485d69}
+[data-theme="light"] .brand-wordmark {filter:brightness(.25)}
+[data-theme="light"] body :is(.nav-item.is-active,.ls-tabs a[aria-current]) {background:#d7eee8;color:#16483f}
+.mobile-offline {margin:0;background:#0b0f14;color:#e8edf2;font:17px/1.65 system-ui,sans-serif;min-height:100dvh;display:grid;place-items:center}
+.mobile-offline main {max-width:38rem;padding:clamp(20px,5vw,48px);padding-bottom:max(24px,env(safe-area-inset-bottom))}
+.mobile-offline h1 {font-size:clamp(28px,7vw,40px);line-height:1.18;letter-spacing:-.035em}
+.mobile-offline p {color:#b6c3cd}.mobile-offline .eyebrow {font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#71ddd0}
+.mobile-offline .button {display:inline-block;color:#0b2420;background:#71ddd0;padding:12px 18px;border-radius:12px;font-weight:650;text-decoration:none}
+@media(max-width:860px) {
+ html {scroll-padding-bottom:6rem}
+ body {padding-bottom:calc(76px + env(safe-area-inset-bottom));-webkit-tap-highlight-color:transparent}
+ .content,body.workspace-v2 .content {padding:20px max(16px,env(safe-area-inset-right)) 28px max(16px,env(safe-area-inset-left));min-width:0}
+ .topbar,body.workspace-v2 .topbar {padding-top:max(8px,env(safe-area-inset-top));min-height:64px;gap:8px;background:var(--surface-sidebar)}
+ .topbar-actions .topbar-link {display:none}
+ .topbar-actions {min-width:0;max-width:40%}
+ .topbar-actions .global-search {min-width:0;width:100%}
+ .topbar-actions input {width:100%;min-width:0;font-size:16px!important}
+ .mobile-dock {position:fixed;inset:auto 0 0;z-index:35;display:flex;justify-content:space-around;gap:2px;padding:6px max(6px,env(safe-area-inset-right)) max(8px,env(safe-area-inset-bottom)) max(6px,env(safe-area-inset-left));background:var(--surface-sidebar,#0f151b);border-top:1px solid var(--border,#344452)}
+ .mobile-dock a {display:flex;flex:1;min-width:0;min-height:56px;max-width:96px;align-items:center;justify-content:center;flex-direction:column;gap:4px;text-decoration:none;color:var(--text-muted,#a9b4bf);border-radius:14px;font:600 11px/1.2 system-ui,sans-serif}
+ .mobile-dock svg {width:23px;height:23px}
+ .mobile-dock a[aria-current] {background:var(--accent-soft,rgba(85,194,184,.12));color:var(--accent,#55c2b8)}
+ .mobile-dock a:focus-visible {outline:3px solid var(--accent);outline-offset:-3px}
+ body:is(.ls-focus,.workspace-focus,.nav-open,.mobile-composing) .mobile-dock {display:none}
+ .app-footer {padding-bottom:16px}
+ .content :is(h1,h2,h3,p,article,section,div,form,li,fieldset,legend,details) {min-width:0}
+ body:not(.learning-reader) .content :is(h1,h2,h3,p,article,section,div,form,li,fieldset,legend,details) {overflow-wrap:anywhere}
+ .content :is(input,select,textarea) {font-size:16px;max-width:100%}
+ .content :is(button,.button,summary,select,input:not([type=radio]):not([type=checkbox])) {min-height:44px}
+ .content :is(input[type=radio],input[type=checkbox]) {min-width:20px;min-height:20px}
+ .content :is(.button,button) {white-space:normal}
+ .content :is(pre,.math-display,.math-block) {max-width:100%;overflow-x:auto}
+ .content textarea {width:100%;line-height:1.6}
+ .content .agent-message {white-space:pre-wrap;line-height:1.75;font-size:16px}
+ .content .agent-turn {padding:16px;border-radius:16px}
+ .content .agent-turn-user {border-left:3px solid var(--accent)}
+ .content .metric-grid {grid-template-columns:repeat(2,minmax(0,1fr))}
+ .content .ls-reader-content {line-height:1.8}
+ .content .ls-reading-controls {gap:6px;top:64px;flex-wrap:nowrap;overflow-x:auto;width:100%}
+ .content .ls-reading-controls>* {flex-shrink:0}
+ body.learning-reader .topbar {min-height:56px}
+ body.ls-focus .content .ls-reading-controls {top:4px}
+ .content .ws-home-grid {display:flex;flex-direction:column;gap:18px}
+ .content .ws-home-grid>* {width:100%;margin:0}
+ .content .ws-day {order:1}
+ .content .ws-home-library {order:2}
+ .content .ws-focus {padding:22px;background:linear-gradient(120deg,var(--surface-elevated),var(--surface))}
+ .content .ws-focus h2 {font-size:25px;line-height:1.2}
+ .content .ws-header {gap:10px;align-items:flex-start;margin-bottom:20px}
+ .content .ws-header h1 {font-size:28px}
+ .content .ws-date {display:none}
+ .content .ws-destinations {gap:10px}
+ .content .ws-destination {padding:16px;flex-direction:column;gap:10px}
+ .content .ws-destination strong {font-size:14px}
+ .content .ws-destination small {font-size:12px}
+ .content .ws-plan {flex-direction:column;align-items:flex-start;gap:10px;padding:18px}
+ .content .exam-layout {max-width:100%;overflow-x:clip}
+}
+@media(max-width:360px) {
+ .content,body.workspace-v2 .content {padding-left:12px;padding-right:12px}
+ .content .ws-destinations,.content .metric-grid {grid-template-columns:minmax(0,1fr)}
+ .topbar-actions {max-width:34%}
+ .mobile-brand-name {font-size:13px}
+}
+@media(max-height:500px) and (max-width:860px) {
+ .mobile-dock a {min-height:44px;flex-direction:row;gap:6px}.mobile-dock svg {width:20px;height:20px}
+ body {padding-bottom:60px}
+}
+@media(prefers-reduced-motion:reduce) {.mobile-dock * {transition:none!important;animation:none!important}}
+@media print {.mobile-dock,.mobile-connection {display:none!important}body {padding-bottom:0}}
+/* Authored Learning Studio styles predate themes and include fixed dark colors. */
+:root[data-theme="light"] body.learning-page :is(.ls-workspace-hero,.ls-v24-intro,.ls-v24-outline,.ls-study-template,.ls-study-pathways>div,.ls-course-filters,.ls-chemistry-track,.ls-empty-workspace,.ls-diagram li,.ls-v24-journey a,.ls-course-quicklinks a) {background:#edf4f3;color:#182b35;border-color:#b8d0ca}
+:root[data-theme="light"] body.learning-page .content :is(h1,h2,h3,h4,p,span,strong,li,summary,figcaption,blockquote,math) {color:#273f49}
+:root[data-theme="light"] body.learning-page .content :is(a,.ls-subject-code,.ls-subject-footer strong,.ls-pathway-number,.eyebrow,.ls-workspace-overline) {color:#12675e}
+:root[data-theme="light"] body.learning-page .ls-subject-chemistry {background:#edf4f3!important}
+:root[data-theme="light"] body.learning-reader #ls-reading-column {color:#273f49}
+:root[data-theme="light"] body.learning-reader .ls-block {background:#fff;border-color:#b8d0ca}
+:root[data-theme="light"] body.learning-reader .ls-v24-checkpoint {background:#e3f2ed;border-color:#b8d0ca}
+@media(max-width:860px) {.content .ws-destinations {grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:360px) {.content .ws-destinations {grid-template-columns:minmax(0,1fr)}}
+/* Dedicated assessment workspace keeps its native palette and save controls. */
+body.mobile-assessment {padding-bottom:env(safe-area-inset-bottom)}
+:root[data-theme="light"] body.mobile-assessment {background:#f4f7f8;color:#182b35}
+:root[data-theme="light"] body.mobile-assessment :is(.question,.status,.clock,.guide,.notice,.study-palette,.option) {background:#fff;color:#273f49;border-color:#c3d1d7}
+:root[data-theme="light"] body.mobile-assessment :is(.muted,.question-head,.eyebrow,.brand,.brand span,.clock strong,.preview,.mark-state,header a,nav a) {color:#273f49}
+@media(max-width:860px) {
+ /* Preserve the established first-concept reading budget; trim chrome, not prose. */
+ body.learning-reader .content {padding-top:8px}
+ body.learning-reader .ls-module-header {margin:.25rem 0}
+ body.learning-reader .ls-reading-controls {margin-bottom:.5rem}
+}
+:root[data-theme="light"] .assessment-runner.is-time-low .exam-timer-panel strong {color:#9e2431}
+@media(max-width:430px) {
+ /* Leave room for the refreshed lesson banner inside the phone app chrome. */
+ body.learning-reader.learning-view-learn .content {padding-top:4px}
+ body.learning-reader.learning-view-learn .ls-module-header {margin:0}
+}
+:root[data-theme="light"] body.learning-page .content .ls-workspace-primary,
+:root[data-theme="light"] body.learning-page .content .ls-workspace-primary span {background:#12675e;color:#fff}
+@media(max-width:860px) {
+ /* Keep scope legible while bringing the conversation onto the first screen. */
+ .tutor-session-page .hero {padding:16px;margin-bottom:12px;gap:10px}
+ .tutor-session-page .hero .lede {font-size:14px;line-height:1.5}
+ .tutor-session-page .metric-grid {gap:8px;margin-bottom:14px}
+ .tutor-session-page .metric-card {min-height:0;padding:10px;gap:4px}
+ .tutor-session-page .metric-card strong {font-size:15px;line-height:1.35}
+ .tutor-session-page .metric-card>span {font-size:11px;line-height:1.35}
+}
+
+/* Native setup uses the same touch-sized form rhythm as the academic studios. */
+.android-device-workspace form { display:grid; gap:1rem; margin:1rem 0; }
+.android-device-workspace label { display:grid; gap:.45rem; min-width:0; }
+.android-device-workspace input { width:100%; min-width:0; box-sizing:border-box; }
+.android-device-workspace button { min-height:44px; padding:.75rem 1rem; border:1px solid var(--border,#31424d); border-radius:12px; background:#6bd6cf; color:#0b151b; font:inherit; font-weight:700; cursor:pointer; }
+.android-device-workspace p { line-height:1.65; }
