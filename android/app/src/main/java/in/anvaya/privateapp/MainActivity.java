@@ -65,7 +65,7 @@ public class MainActivity extends Activity {
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
         settings.setAllowFileAccess(false);
-        settings.setAllowContentAccess(false);
+        // SAF file chooser supplies a user-selected content:// URI. File-system and\n        // file:// access stay disabled; navigation remains loopback-origin restricted.\n        settings.setAllowContentAccess(true);
         settings.setAllowFileAccessFromFileURLs(false);
         settings.setAllowUniversalAccessFromFileURLs(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
@@ -117,7 +117,17 @@ public class MainActivity extends Activity {
                 if (fileCallback != null) fileCallback.onReceiveValue(null);
                 fileCallback = callback;
                 Intent pick = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-                pick.setType("*/*"); pick.addCategory(Intent.CATEGORY_OPENABLE);
+                pick.addCategory(Intent.CATEGORY_OPENABLE);
+                pick.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                // Honor the requested MIME for PDF and other explicit import forms.
+                // Every returned URI is still validated before handing it to WebView.
+                String[] types = params.getAcceptTypes();
+                String mime = "*/*";
+                if (types != null && types.length == 1 && types[0] != null
+                    && types[0].contains("/") && !types[0].contains(",")) {
+                    mime = types[0];
+                }
+                pick.setType(mime);
                 pick.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, params.getMode() == FileChooserParams.MODE_OPEN_MULTIPLE);
                 try { startActivityForResult(pick, PICK_FILES); }
                 catch (android.content.ActivityNotFoundException e) { fileCallback.onReceiveValue(null); fileCallback=null; }
@@ -153,6 +163,14 @@ public class MainActivity extends Activity {
         }
         if (code == PICK_FILES && fileCallback != null) {
             Uri[] selected = WebChromeClient.FileChooserParams.parseResult(result,data);
+            if (selected != null) {
+                for (Uri chosen : selected) {
+                    if (chosen == null || !"content".equals(chosen.getScheme())) {
+                        selected = null; // Reject file:// or unexpected schemes.
+                        break;
+                    }
+                }
+            }
             fileCallback.onReceiveValue(selected); fileCallback = null;
         }
     }
