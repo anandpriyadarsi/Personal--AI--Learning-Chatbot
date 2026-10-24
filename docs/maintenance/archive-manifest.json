@@ -141,5 +141,6 @@
       "archive": "docs/archive/architecture/ANVAYA_NEXT_WORK_IMPLEMENTATION_PROMPT.md",
       "sha": "9bc65e7daa0785211e058a13113f439236bec2f4"
     }
-  ]
+  ],
+  "integration_base_sha": "1ead8fd3bce6b6b564c23f0e2798b07145cb8826"
 }

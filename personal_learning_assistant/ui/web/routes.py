@@ -894,6 +894,12 @@ def _render_notes_command_error(service, message, status):
 
 def _render_resources_command_error(service, message, status):
     query = {"search": "", "type": "", "status": ""}
+    if request.form.get("return_to") == "library" and current_app.config.get("LEARNING_LIBRARY_ENABLED", True):
+        return render_template(
+            "library.html", active_page="library", library_view="saved",
+            saved_dashboard=_safe_resources_workspace(service, query),
+            saved_error=message,
+        ), status
     return (
         render_template(
             "resources.html",
@@ -1853,14 +1859,14 @@ def assessment_test_start(assessment_id):
 
 @web_blueprint.get("/assessments/sessions/<session_id>")
 def assessment_session(session_id):
-    if _is_extended_session(session_id):
-        target = _extended_destination(session_id)
-        return redirect(target, code=303) if target else (
-            "Extended attempt is temporarily unavailable; answers are preserved.", 503
-        )
     from personal_learning_assistant.services.assessment_coding_helper import tool_options
     from personal_learning_assistant.services.coding_operations import OPERATION_CARDS
     try:
+        if _is_extended_session(session_id):
+            target = _extended_destination(session_id)
+            return redirect(target, code=303) if target else (
+                "Extended attempt is temporarily unavailable; answers are preserved.", 503
+            )
         ordinal = request.args.get("q", default=None, type=int)
         view = _assessment_runner_service().runner_view(
             session_id,
@@ -1879,6 +1885,9 @@ def assessment_session(session_id):
             operation_cards=OPERATION_CARDS,
         )
     except Exception as error:
+        if _assessment_runner_error_status(error) == 503:
+            current_app.logger.warning("Assessment attempt unavailable (%s).", type(error).__name__)
+            return "Assessment attempt is temporarily unavailable; answers are preserved.", 503
         return str(error), _assessment_runner_error_status(error)
 
 
@@ -2016,12 +2025,12 @@ def assessment_session_submit(session_id):
 
 @web_blueprint.get("/assessments/sessions/<session_id>/summary")
 def assessment_session_summary(session_id):
-    if _is_extended_session(session_id):
-        target = _extended_destination(session_id)
-        return redirect(target, code=303) if target else (
-            "Extended attempt is temporarily unavailable; answers are preserved.", 503
-        )
     try:
+        if _is_extended_session(session_id):
+            target = _extended_destination(session_id)
+            return redirect(target, code=303) if target else (
+                "Extended attempt is temporarily unavailable; answers are preserved.", 503
+            )
         summary = _assessment_runner_service().summary(session_id)
         return render_template(
             "assessment_test_summary.html",
@@ -2029,24 +2038,37 @@ def assessment_session_summary(session_id):
             summary=summary,
         )
     except Exception as error:
+        if _assessment_runner_error_status(error) == 503:
+            current_app.logger.warning("Assessment summary unavailable (%s).", type(error).__name__)
+            return "Assessment summary is temporarily unavailable; answers are preserved.", 503
         return str(error), _assessment_runner_error_status(error)
 
 
 @web_blueprint.post("/assessments/sessions/<session_id>/evaluate")
 def assessment_session_evaluate(session_id):
     try:
+        if _is_extended_session(session_id):
+            return "This private self-study attempt uses its own self-review. Open the attempt to review it.", 409
         _assessment_evaluation_service().create(session_id)
         return redirect(
             url_for("web.assessment_evaluation_results", session_id=session_id, created="1"),
             code=303,
         )
     except Exception as error:
+        if _assessment_evaluation_error_status(error) == 503:
+            current_app.logger.warning("Assessment evaluation unavailable (%s).", type(error).__name__)
+            return "Assessment evaluation is temporarily unavailable; answers are preserved.", 503
         return str(error), _assessment_evaluation_error_status(error)
 
 
 @web_blueprint.get("/assessments/sessions/<session_id>/evaluation")
 def assessment_evaluation_results(session_id):
     try:
+        if _is_extended_session(session_id):
+            target = _extended_destination(session_id)
+            return redirect(target, code=303) if target else (
+                "Extended attempt is temporarily unavailable; answers are preserved.", 503
+            )
         result = _assessment_evaluation_service().results(
             session_id, outcome=request.args.get("outcome", ""), question=request.args.get("question", "")
         )
@@ -2070,6 +2092,9 @@ def assessment_evaluation_results(session_id):
             error_message="",
         )
     except Exception as error:
+        if _assessment_evaluation_error_status(error) == 503:
+            current_app.logger.warning("Assessment results unavailable (%s).", type(error).__name__)
+            return "Assessment results are temporarily unavailable; answers are preserved.", 503
         return str(error), _assessment_evaluation_error_status(error)
 
 
@@ -2596,11 +2621,19 @@ def planning_month_plan_approve():
 def planning_day(agenda_date):
     try:
         day = _operational_planner_service().day_view(agenda_date)
+        from .planning_proposals import saved_proposal_context
+        context = saved_proposal_context(agenda_date)
+        needs_context = bool(day.get('existing') and day['existing']['status'] == 'draft' and any(
+            item['item_kind'] in {'task', 'study'} and (item.get('starts_at') or item.get('ends_at'))
+            for item in day['items']
+        ))
         return render_template(
             "planning_day.html",
             active_page="planning",
             day=day,
             error_message=request.args.get("error", "", type=str),
+            saved_proposal_context=context,
+            approval_context_unavailable=needs_context and context is None,
         )
     except (
         OperationalPlannerWebValidationError,
@@ -2627,11 +2660,23 @@ def planning_day_generate(agenda_date):
 
 @web_blueprint.post("/planning/day/<agenda_date>/approve")
 def planning_day_approve(agenda_date):
-    from .planning_approval_controls import valid_approval
+    from .planning_approval_controls import approval_context_revision, valid_approval
     if not valid_approval(agenda_date):
         return "Invalid or expired approval. Open the saved day and review it again.", 400
     try:
-        _operational_planner_service().approve_day(agenda_date)
+        from .planning_proposals import proposal_settings, saved_proposal_context
+        # Save and approval share this lock through the canonical transition;
+        # even an identical replacement must not swap its availability context
+        # after this request has checked the review token.
+        with current_app.extensions['planning_proposal_context_lock']:
+            context = saved_proposal_context(agenda_date)
+            intent = approval_context_revision()
+            if ((context is not None and intent['revision'] != context.get('saved_fingerprint'))
+                    or intent['nonce'] != (context.get('nonce') if context else None)):
+                raise OperationalPlannerWebConflictError("The saved draft changed since review. Open and review it again.")
+            _operational_planner_service().approve_day(
+                agenda_date, expected_fingerprint=intent['revision'], proposal_context=context, **proposal_settings(),
+            )
         return redirect(url_for("web.planning_day", agenda_date=agenda_date), code=303)
     except (
         OperationalPlannerWebValidationError,
@@ -3685,6 +3730,8 @@ def resources_create():
             request.form.get("resource_type", ""),
             request.form.get("link", ""),
         )
+        if request.form.get("return_to") == "library" and current_app.config.get("LEARNING_LIBRARY_ENABLED", True):
+            return redirect(url_for("web.learning_library", view="saved", created="1") + "#saved-resources", code=303)
         return redirect(url_for("web.resources", created="1"), code=303)
     except NotesResourcesWebValidationError:
         return _render_resources_command_error(
@@ -3706,6 +3753,8 @@ def resources_update_status(position):
     service = _notes_resources_service()
     try:
         service.update_resource_status(position, request.form.get("status", ""))
+        if request.form.get("return_to") == "library" and current_app.config.get("LEARNING_LIBRARY_ENABLED", True):
+            return redirect(url_for("web.learning_library", view="saved", updated="1") + "#saved-resources", code=303)
         return redirect(url_for("web.resources", updated="1"), code=303)
     except NotesResourcesWebValidationError:
         return _render_resources_command_error(
@@ -3999,23 +4048,15 @@ def obsidian_disable():
         )
 
 
-@web_blueprint.get("/knowledge")
-def knowledge():
-    """Search current study material without mutating the retrieval index."""
-    query = request.args.get("q", "", type=str)
+def _unified_study_search_dashboard(query, args):
+    """Shared read-only search projection for Library and legacy Knowledge URL.
 
-    # Preserve the Phase 7.5.8 injected-provider contract for regression tests
-    # and explicit diagnostic embeddings. Normal ANVAYA does not set this
-    # provider, so production continues into Unified Study Search below.
-    if current_app.config.get("KNOWLEDGE_DASHBOARD_PROVIDER") is not None:
-        dashboard = dict(_knowledge_dashboard(query))
-        dashboard["legacy_phase758"] = True
-        return render_template("knowledge.html", active_page="knowledge", dashboard=dashboard)
-
-    course_id = request.args.get("course_id", "", type=str).strip()
-    topic_id = request.args.get("topic_id", "", type=str).strip()
-    source_type = request.args.get("source_type", "", type=str).strip()
-    provider = request.args.get("provider", "", type=str).strip()
+    Source indexes and academic records keep their existing owners.
+    """
+    course_id = args.get("course_id", "", type=str).strip()
+    topic_id = args.get("topic_id", "", type=str).strip()
+    source_type = args.get("source_type", "", type=str).strip()
+    provider = args.get("provider", "", type=str).strip()
     warning = ""
     results = ()
     service = _unified_search_service()
@@ -4064,6 +4105,23 @@ def knowledge():
         },
         "legacy_phase758": False,
     }
+    return dashboard
+
+
+@web_blueprint.get("/knowledge")
+def knowledge():
+    """Search current study material without mutating the retrieval index."""
+    query = request.args.get("q", "", type=str)
+
+    # Preserve the Phase 7.5.8 injected-provider contract for regression tests
+    # and explicit diagnostic embeddings. Normal ANVAYA does not set this
+    # provider, so production continues into Unified Study Search below.
+    if current_app.config.get("KNOWLEDGE_DASHBOARD_PROVIDER") is not None:
+        dashboard = dict(_knowledge_dashboard(query))
+        dashboard["legacy_phase758"] = True
+        return render_template("knowledge.html", active_page="knowledge", dashboard=dashboard)
+
+    dashboard = _unified_study_search_dashboard(query, request.args)
     return render_template("knowledge.html", active_page="knowledge", dashboard=dashboard)
 
 
@@ -4216,6 +4274,8 @@ def knowledge_companion_archive(document_id, entry_id):
 
 @web_blueprint.post("/knowledge/item/<document_id>/ask")
 def knowledge_ask_source(document_id):
+    if not _tutor_action_token_matches():
+        return "Tutor action token is invalid.", 403
     try:
         session_id = _academic_agent_service().create_source_session(
             document_id=document_id,
@@ -4266,13 +4326,19 @@ def academic_agent():
 @web_blueprint.post("/agent/sessions")
 def academic_agent_create_session():
     """Create tutor conversation scope without invoking the tutor provider."""
+    if not _tutor_action_token_matches():
+        return "Tutor action token is invalid.", 403
     service = _academic_agent_service()
     try:
+        topic_scope = {}
+        if request.form.get("topic_id", "").strip():
+            topic_scope["topic_id"] = request.form["topic_id"]
         session_id = service.create_session(
             course_id=request.form.get("course_id", ""),
             mode=request.form.get("mode", "concept"),
             source_policy=request.form.get("source_policy", "source_only"),
             title=request.form.get("title", ""),
+            **topic_scope,
         )
         return redirect(
             url_for("web.academic_agent_session", session_id=session_id),
@@ -4336,8 +4402,14 @@ def academic_agent_session(session_id):
 def academic_agent_ask(session_id):
     """Run one explicit grounded tutor question and redirect to the transcript."""
     service = _academic_agent_service()
+    if not _tutor_action_token_matches():
+        return _render_session_error(service, session_id, "Tutor action token is invalid.", 403)
     try:
-        service.ask(session_id, request.form.get("question", ""))
+        request_id = request.form.get("request_id", "")
+        if request_id:
+            service.ask(session_id, request.form.get("question", ""), request_id=request_id)
+        else:
+            service.ask(session_id, request.form.get("question", ""))
         return redirect(
             url_for("web.academic_agent_session", session_id=session_id),
             code=303,
@@ -4358,6 +4430,7 @@ def academic_agent_ask(session_id):
         )
     except AcademicAgentWebUnavailableError as error:
         safe_messages = {
+            "Tutor answer could not be saved. Refresh the session and try again.",
             "AI tutor is not configured on this machine.",
             "The AI tutor could not complete this request. Your academic data was not changed.",
             "Grounded academic sources are temporarily unavailable.",
@@ -4374,6 +4447,79 @@ def academic_agent_ask(session_id):
         return _render_session_error(service, session_id, message, 503)
 
 
+
+def _tutor_action_token_matches():
+    """Check a process-local token for state-changing Tutor POSTs."""
+    from hmac import compare_digest
+    supplied = str(request.form.get("csrf_token") or "")
+    expected = str(current_app.extensions.get("tutor_action_csrf") or "")
+    return bool(expected and supplied and compare_digest(supplied, expected))
+
+
+@web_blueprint.post("/agent/sessions/<session_id>/memory-candidates")
+def academic_agent_memory_candidate_propose(session_id):
+    """Student-initiated proposal from stable Tutor signals only."""
+    service = _academic_agent_service()
+    if not current_app.config.get("TUTOR_MEMORY_ENABLED", False):
+        return _render_session_error(service, session_id, "Tutor memory review is not enabled.", 404)
+    if not _tutor_action_token_matches():
+        return _render_session_error(service, session_id, "Tutor action token is invalid.", 403)
+    try:
+        service.propose_memory_candidate(session_id, request.form.get("signal_index", ""))
+        return redirect(url_for("web.academic_agent_session", session_id=session_id), code=303)
+    except AcademicAgentWebValidationError:
+        return _render_session_error(service, session_id, "The selected study pattern is not eligible for memory review.", 400)
+    except AcademicAgentWebNotFoundError:
+        return _render_session_error(service, session_id, "Tutor session was not found.", 404)
+    except AcademicAgentWebUnavailableError:
+        return _render_session_error(service, session_id, "Tutor memory review is unavailable; check optional database authorization.", 503)
+
+
+@web_blueprint.post("/agent/sessions/<session_id>/memory-candidates/<candidate_id>/review")
+def academic_agent_memory_candidate_review(session_id, candidate_id):
+    """Explicit one-time acceptance or rejection of a scoped memory candidate."""
+    service = _academic_agent_service()
+    if not current_app.config.get("TUTOR_MEMORY_ENABLED", False):
+        return _render_session_error(service, session_id, "Tutor memory review is not enabled.", 404)
+    if not _tutor_action_token_matches():
+        return _render_session_error(service, session_id, "Tutor action token is invalid.", 403)
+    action = str(request.form.get("action", "")).strip().lower()
+    if action not in {"accept", "reject"}:
+        return _render_session_error(service, session_id, "Choose Accept or Reject.", 400)
+    try:
+        service.review_memory_candidate(
+            session_id, candidate_id,
+            action=action, review_note=request.form.get("review_note", ""),
+        )
+        return redirect(url_for("web.academic_agent_session", session_id=session_id), code=303)
+    except AcademicAgentWebValidationError:
+        return _render_session_error(service, session_id, "Memory review was not valid or was already completed.", 400)
+    except AcademicAgentWebNotFoundError:
+        return _render_session_error(service, session_id, "Memory candidate was not found in this course.", 404)
+    except AcademicAgentWebUnavailableError:
+        return _render_session_error(service, session_id, "Tutor memory review could not be saved.", 503)
+
+
+@web_blueprint.post("/agent/sessions/<session_id>/turns/<turn_id>/feedback")
+def academic_agent_feedback(session_id, turn_id):
+    """Explicit optional feedback, never a mastery or academic progress event."""
+    service = _academic_agent_service()
+    if not _tutor_action_token_matches():
+        return _render_session_error(service, session_id, "Tutor action token is invalid.", 403)
+    raw = str(request.form.get("helpful", "")).strip().casefold()
+    if raw not in {"1", "0"}:
+        return _render_session_error(service, session_id, "Tutor feedback value is invalid.", 400)
+    try:
+        service.record_feedback(session_id, turn_id, helpful=raw == "1")
+        return redirect(url_for("web.academic_agent_session", session_id=session_id), code=303)
+    except AcademicAgentWebValidationError:
+        return _render_session_error(service, session_id, "Tutor feedback target is invalid.", 400)
+    except AcademicAgentWebNotFoundError:
+        return _render_session_error(service, session_id, "Tutor answer was not found.", 404)
+    except AcademicAgentWebUnavailableError:
+        return _render_session_error(service, session_id, "Tutor feedback could not be saved.", 503)
+
+
 @web_blueprint.get("/healthz")
 def healthz():
     """Return a side-effect-free health response for local startup checks."""
@@ -4382,3 +4528,136 @@ def healthz():
         service="personal-learning-assistant-web",
         status="ok",
     )
+
+
+
+# Bounded Library projection. Read-only and independent of the legacy Resources editor.
+def _learning_library_service():
+    from personal_learning_assistant.services.learning_library_service import LearningLibraryService
+    factory = current_app.config.get("LEARNING_LIBRARY_SERVICE_FACTORY")
+    if factory is not None:
+        return factory()
+    import config as installed_config
+    source = (current_app.config.get("LEARNING_LIBRARY_DATABASE_PATH")
+              or current_app.config.get("ACADEMIC_DATABASE_PATH")
+              or installed_config.DATABASE_PATH)
+    return LearningLibraryService(
+        database_path=source,
+        wal_snapshot_provider=current_app.config.get("ACADEMIC_WAL_SNAPSHOT_PROVIDER"))
+
+
+def _library_source_reader_available(service):
+    # IDs are local to a database. Never send a Library ID to a different
+    # Knowledge source, including when an install overrides only Library's path.
+    from pathlib import Path
+    try:
+        source = service.repository.database_path.resolve()
+        reader_source = Path(_knowledge_reader_service().database_path).resolve()
+        return source == reader_source
+    except Exception:
+        return False
+
+
+def _source_lesson_target(document_id, content_hash):
+    from pathlib import Path
+    if any(current_app.config.get(flag, True) is not True for flag in
+           ('LEARNING_SOURCE_LINKS_V24_ENABLED','ACADEMIC_EVIDENCE_ENABLED','LEARNING_LIBRARY_ENABLED')):
+        return None
+    try:
+        import config as installed
+        factory=current_app.config.get('ACADEMIC_EVIDENCE_SERVICE_FACTORY')
+        academic=factory().path if callable(factory) else current_app.config.get('ACADEMIC_DATABASE_PATH',installed.DATABASE_PATH)
+        paths=(academic,_learning_library_service().repository.database_path,_knowledge_reader_service().database_path)
+        if len({Path(p).resolve() for p in paths})!=1:return None
+        from .learning_source_links_v24 import source_links_target
+        return source_links_target(document_id,content_hash)
+    except (AttributeError,OSError,TypeError,ValueError):return None
+
+
+@web_blueprint.app_context_processor
+def source_lesson_helpers():
+    return {'source_lesson_target':_source_lesson_target}
+
+
+@web_blueprint.get("/library")
+def learning_library():
+    from flask import abort
+    from personal_learning_assistant.domain.learning_library_models import LibraryQuery
+    from personal_learning_assistant.services.learning_library_service import LibraryUnavailableError
+    if not current_app.config.get("LEARNING_LIBRARY_ENABLED", True):
+        abort(404)
+    view = request.args.get("view", "browse", type=str)
+    if view not in ("browse", "search", "saved") or len(request.args.getlist("view")) > 1:
+        return render_template("library.html", active_page="library", library=None,
+                               library_view="browse",
+                               error_message="Choose a valid Library view."), 400
+    if view == "saved":
+        # Legacy references stay in their authoritative JSON store. This is
+        # only an interface consolidation, never an implicit source import.
+        filters = ("saved_q", "saved_type", "saved_status")
+        if (any(len(request.args.getlist(key)) > 1 for key in filters)
+                or any(len(request.args.get(key, "")) > 200 for key in filters)):
+            return render_template("library.html", active_page="library",
+                                   library_view="saved", saved_error="Choose valid reference filters.",
+                                   saved_dashboard=unavailable_resources_dashboard()), 400
+        query = {
+            "search": request.args.get("saved_q", "", type=str),
+            "type": request.args.get("saved_type", "", type=str),
+            "status": request.args.get("saved_status", "", type=str),
+        }
+        saved_dashboard = _safe_resources_workspace(_notes_resources_service(), query)
+        return render_template("library.html", active_page="library",
+                               library_view="saved", saved_dashboard=saved_dashboard,
+                               saved_error="")
+    if view == "search":
+        # Full-content search is a separate read-only projection; it must not
+        # require or mutate the Library listing, index, or resource registry.
+        if (any(len(request.args.getlist(key)) > 1 for key in
+                ("q", "course_id", "topic_id", "source_type", "provider"))
+                or len(request.args.get("q", "")) > 500):
+            return render_template("library.html", active_page="library", library=None,
+                                   library_view="browse",
+                                   error_message="Choose valid search text and filters."), 400
+        dashboard = _unified_study_search_dashboard(request.args.get("q", ""), request.args)
+        return render_template("library.html", active_page="library", library=None,
+                               library_view="search", dashboard=dashboard)
+    try:
+        if any(len(request.args.getlist(key)) > 1 for key in
+               ("course_id", "item_kind", "page", "page_size", "q")):
+            raise ValueError("Duplicate filters")
+        query = LibraryQuery(
+            course_id=request.args.get("course_id") or None,
+            item_kind=request.args.get("item_kind", "all"),
+            page=int(request.args.get("page", "1")),
+            page_size=int(request.args.get("page_size", "25")),
+            search=request.args.get("q", "").strip())
+    except ValueError:
+        return render_template("library.html", active_page="library", library=None,
+                               error_message="Choose valid search text, course, item kind and page."), 400
+    try:
+        service = _learning_library_service()
+        page = service.list_items(query)
+    except LibraryUnavailableError:
+        return render_template("library.html", active_page="library", library=None,
+                               error_message="Library is temporarily unavailable"), 503
+    return render_template("library.html", active_page="library", library=page,
+                           source_reader_available=_library_source_reader_available(service))
+
+
+@web_blueprint.get("/library/resources/<resource_id>")
+def learning_library_resource(resource_id):
+    from flask import abort
+    from personal_learning_assistant.services.learning_library_service import (
+        LibraryNotFoundError, LibraryUnavailableError)
+    if not current_app.config.get("LEARNING_LIBRARY_ENABLED", True):
+        abort(404)
+    try:
+        service = _learning_library_service()
+        detail = service.resource_detail(resource_id)
+    except LibraryNotFoundError:
+        abort(404)
+    except LibraryUnavailableError:
+        return render_template("library.html", active_page="library", library=None,
+                               error_message="Library is temporarily unavailable"), 503
+    return render_template("library_resource.html", active_page="library", resource=detail,
+                           source_reader_available=_library_source_reader_available(service))

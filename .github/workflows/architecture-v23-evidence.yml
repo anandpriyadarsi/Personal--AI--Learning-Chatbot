@@ -1,0 +1,109 @@
+name: Architecture V2.3 academic evidence acceptance
+on:
+  push:
+    branches: ['feature/architecture-v2-3-academic-evidence-2026-10']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: academic-evidence-v23-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  acceptance:
+    name: V2.3 evidence (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    env:
+      ANVAYA_BROWSER_TESTS: '1'
+      PYTHONDONTWRITEBYTECODE: '1'
+      PYTHONUTF8: '1'
+      PYTHONIOENCODING: 'utf-8'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements-learning-studio.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: python -m pip install -r requirements-learning-studio.txt -r requirements-assessment-browser.txt
+      - run: python scripts/architecture_checkout_eol.py --repo .
+      - run: python -m playwright install --with-deps chromium
+      - name: Record exact source and evidence directory
+        shell: python
+        run: |
+          import json,os,pathlib,subprocess,sys
+          out=pathlib.Path(os.environ['RUNNER_TEMP'])/'academic-evidence-v23'
+          out.mkdir()
+          source={'head':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),'tree':subprocess.check_output(['git','rev-parse','HEAD^{tree}'],text=True).strip(),'platform':sys.platform,'private_iks':'BLOCKED: originals unavailable','installed_windows_b3_wal':'BLOCKED: no installed authority'}
+          (out/'source.json').write_text(json.dumps(source,indent=2),encoding='utf-8')
+          with open(os.environ['GITHUB_ENV'],'a',encoding='utf-8') as stream:
+              stream.write('ANVAYA_V23_RESULTS='+str(out)+'\n')
+              stream.write('ANVAYA_VALIDATION_ARTIFACTS='+str(out/'screenshots')+'\n')
+      - name: Versioned evidence contract; zero skips
+        shell: python
+        run: |
+          import os,pathlib,subprocess,sys,xml.etree.ElementTree as ET
+          out=pathlib.Path(os.environ['ANVAYA_V23_RESULTS'])
+          tests=['tests/test_academic_evidence_v23.py','tests/test_academic_evidence_v23_web.py','tests/test_academic_evidence_v23_browser.py','tests/learning_studio/test_educational_projection_v23.py','tests/test_manual_study_intent_v23.py','tests/test_architecture_planning_context.py','tests/learning_studio/test_mobile_source_v23.py']
+          assert all(pathlib.Path(path).is_file() for path in tests),'Required acceptance file missing'
+          with (out/'focused.log').open('w',encoding='utf-8') as stream:
+              code=subprocess.call([sys.executable,'-m','pytest','-q',*tests,'--junitxml='+str(out/'focused.xml')],stdout=stream,stderr=subprocess.STDOUT)
+          print((out/'focused.log').read_text(encoding='utf-8'))
+          cases=ET.parse(out/'focused.xml').findall('.//testcase') if (out/'focused.xml').exists() else []
+          assert code==0 and cases and all(c.find('skipped') is None for c in cases),'Focused contract must pass with zero skips'
+      - name: Synthetic screenshot contact sheet for review
+        if: always()
+        shell: python
+        run: |
+          import base64,io,os,pathlib
+          from PIL import Image,ImageOps,ImageDraw
+          out=pathlib.Path(os.environ['ANVAYA_V23_RESULTS'])
+          names=['original-reader-390.png','v23-lesson-390.png','v23-authored-blocks-1366.png','v23-evidence-signals-390.png']
+          files=[out/'screenshots'/name for name in names]
+          if all(path.is_file() for path in files):
+              sheet=Image.new('RGB',(1600,1320),'#101c24')
+              draw=ImageDraw.Draw(sheet)
+              for index,path in enumerate(files):
+                  with Image.open(path) as source:
+                      source=source.convert('RGB')
+                      crop=source.crop((0,0,source.width,min(source.height,1800)))
+                      thumb=ImageOps.contain(crop,(380,1260))
+                      x=index*400;sheet.paste(thumb,(x,40));draw.text((x+5,12),path.stem,fill='white')
+              sheet.save(out/'screenshots'/'review-contact-sheet.jpg',quality=80)
+              encoded=io.BytesIO();sheet.resize((1200,990)).save(encoded,format='JPEG',quality=70)
+              print('V23_CONTACT_SHEET_BASE64:'+base64.b64encode(encoded.getvalue()).decode('ascii'))
+      - name: Whole repository regression; approved private skips disclosed
+        shell: python
+        run: |
+          import os,pathlib,subprocess,sys,xml.etree.ElementTree as ET
+          out=pathlib.Path(os.environ['ANVAYA_V23_RESULTS'])
+          with (out/'full.log').open('w',encoding='utf-8') as stream:
+              code=subprocess.call([sys.executable,'-m','pytest','-q','--junitxml='+str(out/'full.xml')],stdout=stream,stderr=subprocess.STDOUT)
+          print((out/'full.log').read_text(encoding='utf-8'))
+          allowed={('tests.learning_studio.test_browser','test_external_recovered_pilot_real_browser'),('tests.learning_studio.test_pilot','test_external_bad_v3_source_is_rejected'),('tests.learning_studio.test_recovered_pilot','test_external_recovered_pilot_strict_import_and_durable_evidence'),('tests.learning_studio.test_recovered_pilot','test_external_pilot_demo_does_not_fabricate_course_mappings')}
+          cases=ET.parse(out/'full.xml').findall('.//testcase') if (out/'full.xml').exists() else []
+          skipped={(c.get('classname'),c.get('name')) for c in cases if c.find('skipped') is not None}
+          print('Unavailable external private checks, not passes:',sorted(skipped))
+          assert code==0 and cases and skipped<=allowed,'Full regression failed or unexpected skips'
+      - name: Node, compilation and source hygiene
+        shell: python
+        run: |
+          import pathlib,subprocess,sys
+          subprocess.run(['node','--test',*[str(p) for p in sorted(pathlib.Path('tests/js').glob('*.test.cjs'))]],check=True)
+          subprocess.run([sys.executable,'-m','compileall','-q','personal_learning_assistant','tests','scripts'],check=True)
+          subprocess.run(['git','diff','--check'],check=True)
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: academic-evidence-v23-${{ matrix.os }}-${{ github.sha }}
+          path: ${{ env.ANVAYA_V23_RESULTS }}/**
+          if-no-files-found: warn

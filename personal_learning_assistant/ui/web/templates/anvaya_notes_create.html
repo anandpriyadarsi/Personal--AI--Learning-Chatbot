@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "workspace_base.html" %}
 
 {% block title %}Create Note · ANVAYA{% endblock %}
 
@@ -9,7 +9,7 @@
   <div>
     <p class="eyebrow">New personal note</p>
     <h2>Create note</h2>
-    <p class="lede">Choose how you want to add this note. The date and time are saved automatically.</p>
+    <p class="lede">Start with a blank page or bring in your handwritten work. Both live in your personal My Notes library.</p>
   </div>
 </section>
 
@@ -28,12 +28,12 @@
   </a>
 </div>
 
-<section class="dashboard-panel anvaya-card-style-picker-info">
+<details class="source-disclosure anvaya-card-style-picker-info"><summary>Choose a card style for your library</summary>
   <p class="eyebrow">Card appearance</p>
-  <h3>18 designs available after you choose note type</h3>
+  <h3>18 card designs</h3>
   <p class="anvaya-card-picker-help">
     The note form has three clickable families — IRIS Card (the IRIS Academic family), Preview Card and Minimal Square.
     Opening a family reveals six visual templates. You select the exact template for that note before saving.
   </p>
-</section>
+</details>
 {% endblock %}

@@ -1,10 +1,11 @@
-{% extends "base.html" %}
-{% block title %}{{ item.title }} · Knowledge · ANVAYA{% endblock %}
+{% extends "workspace_base.html" %}
+{% block title %}{{ item.title }} · Library · ANVAYA{% endblock %}
 {% block page_scripts %}
+{{ super() }}
 <script defer src="{{ url_for('static', filename='js/study_reader_tracker.js') }}"></script>
 {% endblock %}
 {% block content %}
-<nav class="obsidian-back"><a href="{{ url_for('web.knowledge') }}">← Back to Knowledge</a></nav>
+<nav class="ws-reader-toolbar" aria-label="Library source reader"><a href="{{ url_for('web.learning_library', view='search') }}">← Back to Library</a><button class="button secondary-button ws-focus-toggle" type="button" data-workspace-focus hidden aria-pressed="false">Focus reading</button></nav>
 
 <header class="workspace-header">
   <div>
@@ -14,26 +15,31 @@
     <p class="microcopy">{{ (item.course_labels + item.topic_labels)|join(' · ') }}</p>
     {% endif %}
   </div>
-  <div class="tag-row">
+  <div class="tag-row">{% set lesson_target=source_lesson_target(item.document_id,item.version_hash) %}{% if lesson_target %}<a class="button secondary-button" href="{{ lesson_target }}">Find source-linked lessons</a>{% endif %}
     {% if item.open_original_url %}<a class="button secondary-button" href="{{ item.open_original_url }}" target="_blank" rel="noopener noreferrer">Open original ↗</a>{% endif %}
     <form method="post" action="{{ url_for('web.knowledge_ask_source', document_id=item.document_id) }}">
+      <input type="hidden" name="csrf_token" value="{{ tutor_action_csrf }}">
       <input type="hidden" name="version_hash" value="{{ item.version_hash }}">
       <button class="button" type="submit">Ask ANVAYA</button>
     </form>
   </div>
 </header>
 
-<div class="obsidian-reader-layout">
-  <article class="dashboard-panel obsidian-reading-view">
+<p class="knowledge-provenance">{{ item.source_label }} · {{ item.content|length }} passage{% if item.content|length != 1 %}s{% endif %} from this source. Saved questions and notes stay alongside your reading.</p>
+<div class="knowledge-reader-layout">
+  <article class="dashboard-panel knowledge-reader-document" aria-label="Source content">
     {% for chunk in item.content %}
       <section class="knowledge-reader-chunk">
-        {% if chunk.page_number %}<p class="eyebrow">Page {{ chunk.page_number }}</p>{% endif %}
+        <p class="eyebrow">{% if chunk.page_number %}Page {{ chunk.page_number }}{% else %}Passage {{ loop.index }}{% endif %}</p>
         <p>{{ chunk.text }}</p>
       </section>
+    {% else %}<p class="empty-state">No readable passages are available for this source.{% if item.open_original_url %} Open the original to continue reading.{% endif %}</p>
     {% endfor %}
   </article>
 
+  <details class="source-disclosure knowledge-reader-tools" open><summary>Study tools &amp; reading history</summary>
   {% include "_study_companion.html" %}
+  </details>
 </div>
 
 <div id="study-reader-data" hidden

@@ -16,9 +16,23 @@ def git(*args):
     )
     return result.stdout.strip()
 
+
+def integration_changes(manifest):
+    """Audit this cleanup delta separately from accepted intervening features."""
+    base = manifest.get('integration_base_sha', BASE_SHA)
+    git('merge-base', '--is-ancestor', base, 'HEAD')
+    return git('diff', '--name-only', '--no-renames', base, 'HEAD').splitlines()
+
+
+def verify_forwarding_document(record, text):
+    expected = ('# Archived document\n\n[Read the preserved original]('
+                + record['archive'] + ').\n')
+    assert text == expected, f"Missing or incorrect historical document link: {record['original']}"
+
 def main():
     manifest_path = ROOT / "docs" / "maintenance" / "archive-manifest.json"
-    records = json.loads(manifest_path.read_text(encoding="utf-8"))["renames"]
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    records = manifest["renames"]
     assert len(records) == 28, f"Unexpected archived report count: {len(records)}"
     unique_old = set()
     unique_new = set()
@@ -28,7 +42,7 @@ def main():
         unique_old.add(old); unique_new.add(new)
         assert old.startswith(("PHASE3_", "PHASE4_", "PHASE5_", "PHASE6_", "PHASE7_", "ANVAYA_", "ASSESSMENT_"))
         assert new.startswith("docs/archive/") and new.endswith("/" + old)
-        assert not (ROOT / old).exists(), f"Obsolete root path still present: {old}"
+        verify_forwarding_document(record, (ROOT / old).read_text(encoding='utf-8'))
         assert (ROOT / new).is_file(), f"Archived report absent: {new}"
         base_sha = git("rev-parse", BASE_SHA + ":" + old)
         current_sha = git("rev-parse", "HEAD:" + new)
@@ -42,8 +56,9 @@ def main():
         "scripts/repository_cleanup_verify.py",
         "scripts/repository_hygiene_report.py",
         ".gitignore",
+        "tests/test_repository_cleanup_verify.py",
     }
-    changes = git("diff", "--name-only", "--no-renames", BASE_SHA, "HEAD").splitlines()
+    changes = integration_changes(manifest)
     modified = set(changes) - unique_old - unique_new - allowed_additions
     assert not modified, f"Unapproved changes beyond archived documentation: {sorted(modified)}"
     # Never weaken an existing exclusion during a hygiene-only cleanup.
@@ -79,14 +94,14 @@ def main():
             dangling.append((path.relative_to(ROOT).as_posix(), sorted(matches)))
     assert not dangling, f"Active source references relocated root docs: {dangling}"
     try:
-        git("diff", "--check", BASE_SHA, "HEAD")
+        git("diff", "--check", manifest.get('integration_base_sha', BASE_SHA), "HEAD")
     except subprocess.CalledProcessError as error:
         print("Whitespace check STDOUT:", error.stdout)
         print("Whitespace check STDERR:", error.stderr)
         raise
-    print(f"PASS: {len(records)} byte-identical documentation moves; "
+    print(f"PASS: {len(records)} byte-identical archives with historical forwarding links; "
           f"{len(changes)} changed paths within allowlist; "
-          "no application runtime, academic data or test source was modified.")
+          "no application runtime or academic data was modified.")
 
 if __name__ == "__main__":
     main()

@@ -5,15 +5,15 @@ WEB = ROOT / "personal_learning_assistant" / "ui" / "web"
 
 
 def test_home_is_action_first_without_developer_copy():
-    source = (WEB / "templates" / "home.html").read_text(encoding="utf-8")
-    assert "What do you want to work on?" in source
-    assert "home-command-center" in source
-    assert "Open ANVAYA Tutor" in source
-    assert "Ask questions, explain concepts, or continue a study conversation." in source
-    assert "quick-actions" in source
-    assert "Phase 7.5.2" not in source
-    assert "read-only view" not in source
-    assert source.index("home-command-center") < source.index("action-panel") < source.index("metric-grid")
+    from personal_learning_assistant.ui.web import create_app
+    from tests.test_phase7_5_home_dashboard import _dashboard_fixture
+    app = create_app({'TESTING': True, 'HOME_DASHBOARD_PROVIDER': _dashboard_fixture})
+    text = app.test_client().get('/').get_data(as_text=True)
+    main = text.split('<main', 1)[1]
+    assert 'MA103N · LU Factorization' in main
+    assert 'Provisional suggestion' in main
+    assert main.index('MA103N · LU Factorization') < main.index('Your study spaces')
+    assert 'Phase 7.5.2' not in main
 
 
 def test_shell_is_compact_and_avoids_sidebar_scrollbar():
@@ -40,15 +40,18 @@ def test_sticky_topbar_has_scroll_offset_for_focused_home_content():
 
 
 def test_home_quick_actions_only_link_to_existing_workspaces():
-    source = (WEB / "templates" / "home.html").read_text(encoding="utf-8")
-    for endpoint in (
-        "web.academic_agent",
-        "web.notes",
-        "web.resources",
-        "web.assessments",
-        "web.planning",
-        "web.knowledge",
-    ):
-        assert "url_for('{}')".format(endpoint) in source
-    assert "web.tasks" not in source
-    assert "web.obsidian" not in source
+    from html.parser import HTMLParser
+    from personal_learning_assistant.ui.web import create_app
+    from tests.test_phase7_5_home_dashboard import _dashboard_fixture
+    class Links(HTMLParser):
+        def __init__(self):
+            super().__init__(); self.links = []
+        def handle_starttag(self, tag, attrs):
+            if tag == 'a': self.links.append(dict(attrs).get('href'))
+    app = create_app({'TESTING': True, 'HOME_DASHBOARD_PROVIDER': _dashboard_fixture})
+    parser = Links(); parser.feed(app.test_client().get('/').get_data(as_text=True))
+    expected = {'/agent', '/notes', '/resources', '/assessments', '/planning', '/knowledge', '/obsidian', '/learning'}
+    assert expected.issubset(set(parser.links))
+    adapter = app.url_map.bind('localhost')
+    for href in expected:
+        assert adapter.match(href, method='GET')

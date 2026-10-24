@@ -1,0 +1,81 @@
+name: Smart Verification V1.0 fast feedback
+on:
+  pull_request:
+  push:
+    branches: ['feature/smart-verification-v1-2026-10']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: smart-verification-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  fast-feedback:
+    name: Change-aware Python and JavaScript smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+      PYTHONUTF8: '1'
+      PYTHONIOENCODING: 'utf-8'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements-learning-studio.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install tracked test dependencies
+        run: python -m pip install -r requirements-learning-studio.txt
+      - name: Verify selector invariants first
+        run: python -m pytest -q tests/test_smart_verify.py --junitxml=smart-selector.xml
+      - name: Change-aware fast feedback (not merge acceptance)
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [[ -z "$BASE_SHA" || "$BASE_SHA" =~ ^0+$ ]]; then
+            BASE_SHA="$(git rev-parse HEAD^)"
+          fi
+          python scripts/smart_verify.py --mode fast --base "$BASE_SHA" --head HEAD --execute --json smart-verification.json
+      - name: JavaScript contract tests
+        shell: bash
+        run: node --test tests/js/*.test.cjs
+      - name: Record exact source and limitation
+        if: always()
+        shell: python
+        run: |
+          import json, os, pathlib, subprocess
+          report = pathlib.Path("smart-verification.json")
+          data = json.loads(report.read_text()) if report.is_file() else {"status": "NO_REPORT", "requires_full": True}
+          sha = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+          lines = [
+              "## ANVAYA Smart Verification V1.0",
+              "Exact source: " + sha,
+              "Selection: " + data["status"],
+              "Area(s): " + (", ".join(data.get("areas", [])) or "none"),
+              "Executed module(s): " + str(len(data.get("selected", []))),
+              "Full regression required: " + str(data.get("requires_full", True)),
+              "",
+              "This is fast feedback only. Merge acceptance still requires the independent",
+              "cross-platform architecture validation, protected browser checks and",
+              "any feature-specific or real-provider certification.",
+          ]
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as stream:
+              stream.write("\n".join(lines) + "\n")
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: smart-verification-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            smart-verification.json
+            smart-verification.xml
+            smart-selector.xml
+          if-no-files-found: warn

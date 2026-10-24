@@ -22,7 +22,13 @@
       .replace(/\\dim\b/g, "dim")
       .replace(/\\,/g, " ")
       .replace(/\\;/g, " ");
-    for (const [source, target] of SYMBOLS) text = text.split(source).join(target);
+    // Match complete TeX commands. Prefix replacement corrupts both supported
+    // commands (\\infty) and unsupported ones (\\left must stay literal).
+    for (const [source, target] of [...SYMBOLS].sort((a, b) => b[0].length - a[0].length)) {
+      const literal = source.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const boundary = /[A-Za-z]$/.test(source) ? '(?![A-Za-z])' : '';
+      text = text.replace(new RegExp(literal + boundary, 'g'), target);
+    }
     return text
       .replace(/\b(?:sum|sigma)\s*\(\s*([A-Za-z][A-Za-z0-9]*)\s*=\s*([^()]+?)\s+to\s+([^()]+?)\s*\)/gi, "∑_{$1=$2}^{$3}")
       .replace(/[Σ∑]\s*\(\s*([A-Za-z][A-Za-z0-9]*)\s*=\s*([^()]+?)\s+to\s+([^()]+?)\s*\)/g, "∑_{$1=$2}^{$3}")

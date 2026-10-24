@@ -1,0 +1,28 @@
+{% extends "workspace_base.html" %}
+{% block title %}Source-linked lessons · ANVAYA{% endblock %}
+{% block workspace_assets %}{{ super() }}<link rel="stylesheet" href="{{ url_for('static',filename='css/academic_evidence.css') }}">{% endblock %}
+{% block content %}
+<div class="ae-workspace">
+  <header class="ae-hero">
+    <p class="eyebrow">ANVAYA / Library and learning</p>
+    <h1>Learn from this exact source</h1>
+    <p>Published lessons with a matching registered PDF and a current reviewed course and topic link.</p>
+    <nav class="ae-actions" aria-label="Source navigation"><a href="/library">Library</a><a href="/knowledge">Knowledge</a><a href="/academic-evidence">Study evidence</a></nav>
+  </header>
+  {% if error_message %}
+  <section class="ae-card" role="alert"><h2>Source links unavailable</h2><p>{{ error_message }}</p><p>Return to the current Library or Knowledge source and retry.</p></section>
+  {% elif view %}
+  <section class="ae-card" aria-label="Source-linked lessons">
+    <p>These links use the published source snapshot. Authored content may still need an independent source review; study signals do not establish mastery.</p>
+    {% if view.blocked_matches %}<p role="status">{{ view.blocked_matches }} matching lesson{% if view.blocked_matches != 1 %}s{% endif %} withheld because source validation or a current reviewed topic link is unavailable.</p>{% endif %}
+    {% for lesson in view.lessons %}
+    <article class="ae-card">
+      <h2>{{ lesson.title }}</h2><p>Published revision {{ lesson.revision }} · Reviewed current topic mapping</p>
+      <div class="ae-actions"><a href="{{ lesson.lesson_url }}">Open lesson</a><a href="{{ lesson.evidence_url }}">Review evidence</a></div>
+    </article>
+    {% else %}<h2>No current linked lessons</h2><p>No available published lesson on this page matches the exact source and current reviewed topic mapping.</p>{% endfor %}
+    {% if previous_url or next_url %}<nav class="ae-actions" aria-label="Lesson pages">{% if previous_url %}<a href="{{ previous_url }}">Previous lessons</a>{% endif %}{% if next_url %}<a href="{{ next_url }}">Next lessons</a>{% endif %}</nav>{% endif %}
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

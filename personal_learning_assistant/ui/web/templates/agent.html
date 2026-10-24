@@ -2,6 +2,10 @@
 
 {% block title %}Academic Agent · Personal AI Learning Assistant{% endblock %}
 
+{% block page_scripts %}
+<script defer src="{{ url_for('static', filename='js/tutor_chat.js') }}"></script>
+{% endblock %}
+
 {% block content %}
 <section class="hero dashboard-hero" aria-labelledby="agent-title">
   <div>
@@ -64,15 +68,25 @@
         <p class="eyebrow">Persistent tutor</p>
         <h3>Start a tutor session</h3>
       </div>
-      <span class="tag">Source Only default</span>
+      <span class="tag">Source First default</span>
     </div>
     <form method="post" action="{{ url_for('web.academic_agent_create_session') }}">
+      <input type="hidden" name="csrf_token" value="{{ tutor_action_csrf }}">
       <p>
         <label for="session-course">Course</label><br>
         <select id="session-course" name="course_id">
           <option value="">No course scope</option>
           {% for course in workspace.courses %}
             <option value="{{ course.id }}">{{ course.code }} · {{ course.name }}</option>
+          {% endfor %}
+        </select>
+      </p>
+      <p>
+        <label for="session-topic">Topic (optional)</label><br>
+        <select id="session-topic" name="topic_id">
+          <option value="">Whole selected course</option>
+          {% for topic in workspace.tutor_topics|default([]) %}
+          <option value="{{ topic.id }}" data-course-id="{{ topic.course_id }}">{{ topic.name }}</option>
           {% endfor %}
         </select>
       </p>
@@ -88,7 +102,7 @@
         <label for="session-policy">Source policy</label><br>
         <select id="session-policy" name="source_policy">
           {% for policy in workspace.source_policies %}
-            <option value="{{ policy }}"{% if policy == 'source_only' %} selected{% endif %}>{% if policy == 'source_only' %}Source Only{% else %}Source First{% endif %}</option>
+            <option value="{{ policy }}"{% if policy == 'source_first' %} selected{% endif %}>{% if policy == 'source_only' %}Source Only{% else %}Source First{% endif %}</option>
           {% endfor %}
         </select>
       </p>
@@ -98,7 +112,8 @@
       </p>
       <button type="submit">Create tutor session</button>
     </form>
-    <p class="empty-state">Creating a session only stores its tutor scope. It does not call the LLM. Course, mode, and source policy stay fixed after creation.</p>
+    <p class="empty-state">Source First uses project materials when available and clearly labels general explanations. Choose Source Only when you want no unsupported outside material.</p>
+    <p class="empty-state">Creating a session only stores its tutor scope. It does not call the LLM. Course, topic, mode, and source policy stay fixed after creation. Choose the whole course if you plan to switch topics.</p>
   </article>
 </section>
 

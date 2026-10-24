@@ -69,3 +69,7 @@ test('parses display-style summation and product limits', () => {
     {symbol: '∏', lower: 'k=0', upper: 'n', end: 11}
   );
 });
+
+test('TeX symbols match whole commands without corrupting unknown notation', () => {
+  assert.equal(math.replaceSymbols('\\infty \\in \\left \\infinite'), '∞ ∈ \\left \\infinite');
+});

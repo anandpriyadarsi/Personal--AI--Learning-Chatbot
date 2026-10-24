@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "workspace_base.html" %}
 
 {% block title %}{% if editor.mode == "edit" %}Edit {{ editor.title }}{% else %}New note{% endif %} · Notes Studio · ANVAYA{% endblock %}
 
@@ -11,9 +11,9 @@
   {% endif %}
 </nav>
 
-<header class="notes-editor-header" aria-labelledby="notes-editor-title">
+<header class="notes-editor-header" aria-label="Safe Note Editor" aria-labelledby="notes-editor-title">
   <div>
-    <p class="eyebrow">Safe Note Editor</p>
+    <p class="eyebrow">Notes Studio · Vault editor</p>
     <h2 id="notes-editor-title">{% if editor.mode == "edit" %}Edit note{% else %}Create a new note{% endif %}</h2>
     <p class="lede">
       Markdown remains authoritative in your Obsidian vault. Saves use atomic writes and conflict protection.
@@ -31,7 +31,7 @@
 {% endif %}
 
 <div class="notes-editor-layout">
-  <main class="dashboard-panel notes-editor-main">
+  <section class="dashboard-panel notes-editor-main">
     <form class="notes-editor-form" method="post" action="{% if editor.mode == 'edit' %}{{ url_for('web.notes_edit_save') }}{% else %}{{ url_for('web.notes_new_create') }}{% endif %}">
       {% if editor.mode == "edit" %}
         <input type="hidden" name="note_id" value="{{ editor.note_id }}">
@@ -116,6 +116,7 @@
         </label>
       </div>
 
+      <p class="editor-save-note">Changes are saved only when you submit this form.</p>
       <div class="notes-editor-save-row">
         <button class="button" type="submit">{% if editor.mode == "edit" %}Save changes{% else %}Create note{% endif %}</button>
         {% if editor.mode == "edit" %}
@@ -125,7 +126,7 @@
         {% endif %}
       </div>
     </form>
-  </main>
+  </section>
 
   <aside class="notes-editor-sidebar" aria-label="Editor help and attachments">
     <section class="dashboard-panel notes-editor-side-panel">

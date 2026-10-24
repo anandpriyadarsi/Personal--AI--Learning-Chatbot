@@ -32,7 +32,7 @@ from personal_learning_assistant.repositories.sqlite.planner_task_repository imp
 )
 
 
-EVIDENCE_VERSION = "assessment-intelligence-recovery-v1"
+EVIDENCE_VERSION = "assessment-intelligence-recovery-v2-observed-only"
 MAX_RECOMMENDATIONS = 8
 
 _ACTIONS = {
@@ -110,19 +110,6 @@ _ACTIONS = {
     },
 }
 
-_MISTAKE_TO_FAMILY = {
-    "concept_gap": "concept_rebuild",
-    "wrong_method": "procedure_rebuild",
-    "calculation_error": "procedure_rebuild",
-    "formula_recall": "recall_rebuild",
-    "careless": "accuracy_rebuild",
-    "misread": "accuracy_rebuild",
-    "guessing": "accuracy_rebuild",
-    "time_pressure": "speed_rebuild",
-    "incomplete_reasoning": "reasoning_rebuild",
-}
-
-
 class AdaptiveAcademicLoopError(RuntimeError):
     pass
 
@@ -169,44 +156,6 @@ def _fingerprint(evidence):
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
-def _priority(topic):
-    questions = int(topic.get("question_count") or 0)
-    mistakes = int(topic.get("mistake_count") or 0)
-    performance = topic.get("weighted_performance_percent")
-    if questions >= 2 and performance is not None and float(performance) < 40:
-        return "P0"
-    if mistakes >= 3:
-        return "P0"
-    if questions >= 2 and performance is not None and float(performance) < 70:
-        return "P1"
-    if mistakes:
-        return "P1"
-    return "P2"
-
-
-def _dominant_family(topic):
-    if int(topic.get("question_count") or 0) < 2:
-        return "evidence_check"
-    categories = []
-    for item in topic.get("mistake_categories") or ():
-        categories.append(
-            (
-                -int(item.get("count") or 0),
-                str(item.get("category") or ""),
-            )
-        )
-    for _negative_count, category in sorted(categories):
-        family = _MISTAKE_TO_FAMILY.get(category)
-        if family:
-            return family
-    performance = topic.get("weighted_performance_percent")
-    if performance is not None and float(performance) < 60:
-        return "concept_rebuild"
-    if int(topic.get("partial_count") or 0) >= 2:
-        return "reasoning_rebuild"
-    return "evidence_check"
-
-
 def _evidence_snapshot(topic):
     return {
         "version": EVIDENCE_VERSION,
@@ -236,16 +185,22 @@ def _evidence_snapshot(topic):
             "time_per_available_mark_seconds"
         ),
         "recovery_signals": list(topic.get("recovery_signals") or ()),
+        "automatic_remediation_eligible": False,
+        "remediation_exclusion_reasons": ["mapping_snapshot_unknown", "independence_unknown"],
     }
 
 
 def _candidate(topic):
     evidence = _evidence_snapshot(topic)
-    family = _dominant_family(topic)
+    # This adapter has no immutable mapping/independence authority. Multiple
+    # questions or mistake labels cannot qualify recent independent evidence.
+    # Keep the existing explicitly reviewed workflow diagnostic-only until a
+    # separately versioned evidence policy establishes those prerequisites.
+    family = "evidence_check"
     action = _ACTIONS[family]
     topic_label = evidence["topic_label"] or "Unmapped topic"
     course_code = evidence["course_code"] or "Course"
-    priority = _priority(topic)
+    priority = "P2"
     action_plan = [
         {"kind": kind, "instruction": instruction}
         for kind, instruction in action["steps"]
@@ -258,7 +213,7 @@ def _candidate(topic):
     )
     fingerprint = _fingerprint(evidence)
     summary = (
-        "{} confirmed question(s), {} session(s), {} weighted marks performance, "
+        "{} observed question(s), {} session(s), {} weighted marks performance, "
         "{} confirmed mistake(s)."
     ).format(
         evidence["question_count"],
@@ -274,14 +229,19 @@ def _candidate(topic):
         "{}. {}".format(index, item["instruction"])
         for index, item in enumerate(action_plan, start=1)
     )
+    summary += (
+        " Historical mapping review and independent-attempt provenance are unavailable. "
+        "These observations do not establish a current weakness; verify with recent "
+        "qualified independent evidence before remediation."
+    )
     description = (
-        "Assessment Studio recovery recommendation for {} · {}. "
-        "Evidence: {} Plan: {}"
+        "Assessment Studio optional diagnostic for {} · {}. "
+        "Observed results: {} Plan: {}"
     ).format(course_code, topic_label, summary, step_text)
     alex_prompt = (
         "Act as my academic tutor for {course} topic '{topic}'. "
-        "Use this confirmed ANVAYA assessment evidence: {summary} "
-        "Guide me through this recovery sequence without giving final answers "
+        "Use these observed ANVAYA grading outcomes with their provenance limitations: {summary} "
+        "Guide me through this diagnostic sequence without giving final answers "
         "before I attempt them: {steps} Finish with a short closed-book exit "
         "check and tell me whether I can explain the topic from blank."
     ).format(
@@ -311,7 +271,7 @@ def _candidate(topic):
             separators=(",", ":"),
         ),
         "alex_prompt": alex_prompt,
-        "suggested_title": "Recovery: {} — {}".format(
+        "suggested_title": "Diagnostic: {} — {}".format(
             topic_label, action["label"]
         ),
         "suggested_description": description,
@@ -385,9 +345,12 @@ class AdaptiveAcademicLoopService:
                        if not course_id or str(item.get("course_id")) == str(course_id))
         candidates = tuple(
             _candidate(topic)
-            for topic in topics[: max(1, min(int(limit), MAX_RECOMMENDATIONS))]
+            for topic in topics
             if str(topic.get("course_id") or "")
-        )
+            and topic.get("band") != "strong"
+            and (topic.get("weighted_performance_percent") is None
+                 or float(topic["weighted_performance_percent"]) < 80)
+        )[: max(1, min(int(limit), MAX_RECOMMENDATIONS))]
         return {
             "available": True,
             "has_evidence": bool(candidates),
@@ -521,6 +484,32 @@ class AdaptiveAcademicLoopService:
             )
         if current["status"] == "applied":
             return current
+
+        # Saved proposals retain their historical policy and are not upgraded
+        # by a safer preview. Reject legacy/inconsistent proposals before
+        # accepting them or calling the planner; the user must review a newly
+        # generated diagnostic. Applied history remains idempotent above.
+        evidence = current.get("evidence")
+        if (current.get("evidence_version") != EVIDENCE_VERSION
+                or not isinstance(evidence, dict)
+                or evidence.get("version") != EVIDENCE_VERSION
+                or current.get("action_family") != "evidence_check"
+                or current.get("suggested_priority") != "P2"
+                or _fingerprint(evidence) != current.get("evidence_fingerprint")):
+            raise AdaptiveAcademicLoopConflictError(
+                "This recommendation uses outdated evidence. Refresh, review and "
+                "generate a new diagnostic before applying."
+            )
+        if current["status"] == "pending":
+            preview = self.preview(course_id=current["course_id"])
+            if not any(item["evidence_fingerprint"] == current["evidence_fingerprint"]
+                       for item in preview["candidates"]):
+                raise AdaptiveAcademicLoopConflictError(
+                    "Assessment evidence changed. Refresh, review and generate a "
+                    "new diagnostic before applying."
+                )
+        # An accepted current diagnostic resumes its durable reviewed payload
+        # after a planner outage, even when later observations changed.
 
         expected_revision = self._revision(
             payload.get("revision", current["revision"])

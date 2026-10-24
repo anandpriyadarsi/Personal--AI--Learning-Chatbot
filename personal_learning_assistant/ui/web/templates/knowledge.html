@@ -1,14 +1,16 @@
-{% extends "base.html" %}
+{% extends "workspace_base.html" %}
 
 {% block title %}{% if dashboard.legacy_phase758 %}Knowledge Base & RAG{% else %}Knowledge{% endif %} · ANVAYA{% endblock %}
 
 {% block page_scripts %}
+{{ super() }}
 {% if not dashboard.legacy_phase758 %}
 <script defer src="{{ url_for('static', filename='js/knowledge_search.js') }}"></script>
 {% endif %}
 {% endblock %}
 
 {% block content %}
+<div class="knowledge-workspace">
 {% if dashboard.legacy_phase758 %}
 <section class="hero dashboard-hero" aria-labelledby="knowledge-title">
   <div>
@@ -27,6 +29,7 @@
   <p>{{ dashboard.message }}</p>
 </section>
 {% else %}
+<details class="source-disclosure knowledge-legacy-index"><summary>Index status and retrieval details</summary>
 <section class="metric-grid" aria-label="Knowledge index status">
   <article class="metric-card">
     <span class="metric-label">Generation</span>
@@ -49,8 +52,9 @@
     <span>{{ dashboard.index.lexical_backend }}{% if dashboard.index.embedding_model %} · {{ dashboard.index.embedding_model }}{% endif %}</span>
   </article>
 </section>
+</details>
 
-<section class="dashboard-panel" aria-labelledby="knowledge-search-title">
+<section class="knowledge-search-panel" aria-labelledby="knowledge-search-title">
   <div class="panel-heading">
     <div>
       <p class="eyebrow">Retrieval query</p>
@@ -117,7 +121,8 @@
   {% endif %}
 </section>
 
-<section class="dashboard-panel" aria-labelledby="rag-context-title">
+<details class="source-disclosure knowledge-context-preview"><summary>RAG context preview</summary>
+<section aria-labelledby="rag-context-title">
   <div class="panel-heading">
     <div>
       <p class="eyebrow">Grounding payload</p>
@@ -131,6 +136,7 @@
     <p class="empty-state">No grounded context was assembled for this query.</p>
   {% endif %}
 </section>
+</details>
 {% endif %}
 {% endif %}
 
@@ -138,111 +144,29 @@
 
 <section class="hero dashboard-hero" aria-labelledby="knowledge-title">
   <div>
-    <p class="eyebrow">Study Search</p>
+    <p class="eyebrow">Your research workspace</p>
     <h2 id="knowledge-title">Knowledge</h2>
-    <p class="lede">Search your notes, PDFs, lectures and learning resources. Open a source, study it, save key points or doubts, and ask ANVAYA from that evidence.</p>
+    <p class="lede">Find the source behind an idea. Search your study material, read the evidence, and keep useful questions close.</p>
   </div>
-  <a class="button secondary-button" href="{{ url_for('web.retrieval_diagnostics') }}">Retrieval diagnostics</a>
 </section>
 
-<section class="dashboard-panel" aria-labelledby="knowledge-search-title">
-  <form method="get" action="{{ url_for('web.knowledge') }}" class="knowledge-search-form">
-    <label for="knowledge-query">What do you want to understand?</label>
-    <div class="tag-row">
-      <input id="knowledge-query" name="q" type="search" value="{{ dashboard.query }}" maxlength="500"
-             autocomplete="off" placeholder="e.g. why does LU factorization work?" required
-             data-suggest-url="{{ url_for('web.search_suggest') }}">
-      <button type="submit">Search</button>
-    </div>
-    <div class="knowledge-filter-grid">
-      <label>Course
-        <select name="course_id">
-          <option value="">All courses</option>
-          {% for course in dashboard.filter_options.courses %}
-          <option value="{{ course.id }}"{% if dashboard.filters.course_id == course.id %} selected{% endif %}>{{ course.code }} · {{ course.name }}</option>
-          {% endfor %}
-        </select>
-      </label>
-      <label>Topic
-        <select name="topic_id">
-          <option value="">All topics</option>
-          {% for topic in dashboard.filter_options.topics %}
-          <option value="{{ topic.id }}"{% if dashboard.filters.topic_id == topic.id %} selected{% endif %}>{{ topic.name }}</option>
-          {% endfor %}
-        </select>
-      </label>
-      <label>Source
-        <select name="source_type">
-          <option value="">All sources</option>
-          {% for source in dashboard.filter_options.source_types %}
-          <option value="{{ source }}"{% if dashboard.filters.source_type == source %} selected{% endif %}>{{ source|replace('_',' ')|title }}</option>
-          {% endfor %}
-        </select>
-      </label>
-      <label>Provider
-        <select name="provider">
-          <option value="">All providers</option>
-          {% for provider in dashboard.filter_options.providers %}
-          <option value="{{ provider }}"{% if dashboard.filters.provider == provider %} selected{% endif %}>{{ provider }}</option>
-          {% endfor %}
-        </select>
-      </label>
-    </div>
-    <div id="knowledge-suggestions" class="knowledge-suggestions" hidden></div>
-  </form>
-</section>
+{% set library_search = false %}
+{% set search_target = url_for('web.knowledge') %}
+{% set search_clear_url = url_for('web.knowledge', q=dashboard.query) %}
+{% set search_reset_url = url_for('web.knowledge') %}
+{% set search_related_base = url_for('web.knowledge') ~ '?q=' %}
+{% include "_library_source_search.html" %}
 
-{% if dashboard.warning %}
-<section class="notice-panel"><h3>Knowledge needs attention</h3><p>{{ dashboard.warning }}</p></section>
-{% endif %}
-
-{% if dashboard.searched %}
-<section class="dashboard-panel">
-  <div class="panel-heading">
-    <div>
-      <p class="eyebrow">Best matching study material</p>
-      <h3>Results for “{{ dashboard.query }}”</h3>
-    </div>
-    <span class="tag">{{ dashboard.results|length }} source{% if dashboard.results|length != 1 %}s{% endif %}</span>
-  </div>
-
-  {% if dashboard.results %}
-  <div class="knowledge-result-list">
-    {% for result in dashboard.results %}
-    <article class="dashboard-panel knowledge-result-card">
-      <div class="panel-heading">
-        <div>
-          <p class="eyebrow">{{ result.source_label }}</p>
-          <h3>{{ result.title }}</h3>
-          {% if result.subtitle %}<p class="microcopy">{{ result.subtitle }}</p>{% endif %}
-        </div>
-        {% if result.times_opened %}
-        <span class="tag">Read {{ result.times_opened }}× · {{ (result.total_active_seconds / 60)|round(0, 'floor')|int }} min</span>
-        {% endif %}
-      </div>
-      <p>{{ result.snippet }}</p>
-      <div class="tag-row">
-        {% if result.page_numbers %}
-          <span class="tag">Page{% if result.page_numbers|length != 1 %}s{% endif %} {{ result.page_numbers|join(', ') }}</span>
-        {% endif %}
-        {% for reason in result.relevance_reasons %}<span class="tag">{{ reason }}</span>{% endfor %}
-      </div>
-      <div class="tag-row knowledge-actions">
-        <a class="button" href="{{ result.open_target }}">Open</a>
-        <form method="post" action="{{ url_for('web.knowledge_ask_source', document_id=result.item_id) }}">
-          <input type="hidden" name="version_hash" value="{{ result.version_hash }}">
-          <button class="button secondary-button" type="submit">Ask ANVAYA</button>
-        </form>
-        <a class="button secondary-button" href="{{ url_for('web.knowledge', q=result.title) }}">Related</a>
-      </div>
-    </article>
-    {% endfor %}
-  </div>
-  {% else %}
-  <p class="empty-state">No matching current study source was found. Try a course code, topic name, note title, or different wording.</p>
-  {% endif %}
-</section>
-{% endif %}
+<footer class="source-context">
+  <div><strong>Sources stay in their own libraries</strong><p>Search helps you find material. Your personal notes, vault files, and learning resources remain separate.</p></div>
+  <nav class="knowledge-source-links" aria-label="Browse source libraries">
+    <a href="{{ url_for('web.notes') }}">My Notes</a>
+    <a href="{{ url_for('web.obsidian') }}">Obsidian</a>
+    <a href="{{ url_for('web.resources') }}">Resources</a>
+  </nav>
+</footer>
+<details class="source-disclosure"><summary>Search diagnostics</summary><p class="microcopy">Inspect retrieval status and source provenance when search needs attention.</p><p><a href="{{ url_for('web.retrieval_diagnostics') }}">Open retrieval diagnostics →</a></p></details>
 
 {% endif %}
+</div>
 {% endblock %}

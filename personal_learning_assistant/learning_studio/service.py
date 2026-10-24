@@ -29,8 +29,13 @@ class LearningStudioService(ProgressMixin, ReviewStoreMixin, MappingReviewMixin,
         self.source_loader = source_loader
         self.catalogue_loader = catalogue_loader
 
-    def stage(self, package, assets=None, coverage=None, *, candidate=False):
+    def stage(self, package, assets=None, coverage=None, *, candidate=False, expected_parent=None):
         require(isinstance(package, dict) and isinstance(package.get('source'), dict), 'Missing source/package.')
+        if expected_parent is not None:
+            require(isinstance(expected_parent,dict) and set(expected_parent)=={'revision','digest'},'Invalid reviewed parent binding.')
+            integer(expected_parent['revision'],1,1000000)
+            require(isinstance(expected_parent['digest'],str) and len(expected_parent['digest'])==64 and
+                all(c in '0123456789abcdef' for c in expected_parent['digest']),'Invalid reviewed parent digest.')
         raw = self.source_loader(package['source'].get('source_id'))
         p = validate_package(package, self.catalogue_loader(), raw, assets)
         if coverage is not None:
@@ -39,6 +44,18 @@ class LearningStudioService(ProgressMixin, ReviewStoreMixin, MappingReviewMixin,
         encoded = canonical(p)
         digest = hashlib.sha256(encoded.encode()).hexdigest()
         with self.store.connection(write=True) as con:
+            if expected_parent is not None:
+                parent,prior=self._row(con,p['module_id'],expected_parent['revision'])
+                require(parent['digest']==expected_parent['digest'] and
+                    p['module_revision']==expected_parent['revision']+1 and
+                    p['source']==prior['source'] and raw==parent['source_blob'],
+                    'Reviewed parent/source changed. Review again.',409)
+                active=con.execute('SELECT revision FROM active_modules WHERE module_id=?',(p['module_id'],)).fetchone()
+                receipt=con.execute('SELECT digest FROM modules WHERE module_id=? AND revision=?',
+                    (p['module_id'],p['module_revision'])).fetchone()
+                require((active is not None and active['revision']==expected_parent['revision']) or
+                    (receipt is not None and receipt['digest']==digest),
+                    'The active parent changed. Review again.',409)
             existing = con.execute('SELECT digest FROM modules WHERE module_id=? AND revision=?',
                                    (p['module_id'], p['module_revision'])).fetchone()
             if existing:
@@ -220,6 +237,23 @@ class LearningStudioService(ProgressMixin, ReviewStoreMixin, MappingReviewMixin,
             con.execute('INSERT INTO attempts(event_id,owner,module_id,revision,source_hash,question_id,question_revision,selection,correct,attempt_number,timestamp) VALUES(?,?,?,?,?,?,?,?,?,?,?)',
                 (payload['event_id'], *context, int(payload['selection'] == q['correct_index']), number, now()))
             row = con.execute('SELECT * FROM attempts WHERE event_id=?', (payload['event_id'],)).fetchone()
+            return self._feedback(row, q)
+
+    def attempt_feedback(self, module_id, revision, event_id, *, question_id):
+        """Read feedback only for a verified recorded local-owner attempt."""
+        identity(event_id); identity(question_id)
+        with self.store.connection() as con:
+            _, p = self._row(con, module_id, revision)
+            row = con.execute('SELECT * FROM attempts WHERE event_id=? AND owner=? AND module_id=? AND revision=?',
+                              (event_id, OWNER, module_id, revision)).fetchone()
+            require(row is not None, 'Recorded attempt not found for this revision.', 404)
+            q = next((q for q in p['questions'] if q['id'] == question_id), None)
+            require(q is not None and row['question_id'] == question_id and
+                    row['question_revision'] == q['revision'] and row['source_hash'] == p['source']['sha256'],
+                    'Recorded attempt context does not match this question and source.', 409)
+            require(type(row['selection']) is int and 0 <= row['selection'] < len(q['options']) and
+                    row['correct'] in (0, 1) and row['correct'] == int(row['selection'] == q['correct_index']),
+                    'Recorded attempt outcome requires review.', 409)
             return self._feedback(row, q)
 
     @staticmethod

@@ -181,6 +181,7 @@ def apply_migrations(
     *,
     migrations_path: MigrationPath = DEFAULT_MIGRATIONS_PATH,
     enable_extended_assessment: bool = False,
+    enable_tutor_memory_candidates: bool = False,
 ) -> Tuple[int, ...]:
     """Apply pending schema migrations atomically and return applied versions.
 
@@ -193,6 +194,7 @@ def apply_migrations(
     # start normally and verify their 0015 checksum on every boot.
     optional = Path(migrations_path).parent / "optional_migrations" / "0015_assessment_self_study_sessions.sql"
     extension = None
+    tutor_extension = None
     if Path(migrations_path).resolve() == DEFAULT_MIGRATIONS_PATH.resolve():
         if not optional.is_file() or optional.is_symlink():
             raise MigrationFormatError("Reserved Assessment migration 0015 source is missing.")
@@ -202,11 +204,24 @@ def apply_migrations(
         except UnicodeDecodeError as exc:
             raise MigrationFormatError("Optional migration must be UTF-8.") from exc
         extension = Migration(15, "assessment_self_study_sessions", optional, _checksum(raw), sql)
-    elif enable_extended_assessment:
-        raise MigrationFormatError("Optional Assessment migration requires the default source inventory.")
-    all_migrations = migrations + ((extension,) if extension else ())
+        # Tutor V2.2 candidates are separately opt-in. Reserved 0016 must
+        # never reuse the historical 0009 identity (owned by Assessment).
+        tutor_optional = Path(migrations_path).parent / "optional_migrations" / "0016_tutor_memory_candidates.sql"
+        if not tutor_optional.is_file() or tutor_optional.is_symlink():
+            raise MigrationFormatError("Reserved Tutor migration 0016 source is missing.")
+        tutor_raw = tutor_optional.read_bytes()
+        try:
+            tutor_sql = tutor_raw.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise MigrationFormatError("Optional Tutor migration must be UTF-8.") from exc
+        tutor_extension = Migration(16, "tutor_memory_candidates", tutor_optional, _checksum(tutor_raw), tutor_sql)
+    elif enable_extended_assessment or enable_tutor_memory_candidates:
+        raise MigrationFormatError("Optional migrations require the default source inventory.")
+    all_migrations = migrations + ((extension,) if extension else ()) + ((tutor_extension,) if tutor_extension else ())
     if enable_extended_assessment and extension is None:
         raise MigrationFormatError("Reserved Assessment extension source is unavailable.")
+    if enable_tutor_memory_candidates and tutor_extension is None:
+        raise MigrationFormatError("Reserved Tutor extension source is unavailable.")
     connection = connect_database(
         database_path,
         synchronous="FULL",
@@ -222,6 +237,8 @@ def apply_migrations(
             if migration.version in applied:
                 continue
             if extension is not None and migration.version == extension.version and not enable_extended_assessment:
+                continue
+            if tutor_extension is not None and migration.version == tutor_extension.version and not enable_tutor_memory_candidates:
                 continue
 
             with transaction(connection, immediate=True):

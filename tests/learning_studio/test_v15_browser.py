@@ -14,8 +14,8 @@ def test_mistake_recheck_fresh_question_source_and_print(browser,quality_live,wi
     page.goto(base+'?view=practice&question=q31');form=page.locator('.ls-question')
     assert 'correct_index' not in page.content() and 'Compare the original source.' not in page.content()
     page.locator('.ls-neutral-hint > summary').focus();page.keyboard.press('Enter');expect(page.locator('.ls-neutral-hint p')).to_be_visible()
-    form.locator('input[value="0"]').check();form.locator('button[type=submit]').click();expect(page.locator('.ls-feedback')).to_contain_text('Incorrect')
-    form.locator('input[value="1"]').check();form.locator('button[type=submit]').click();expect(page.locator('.ls-question-state')).to_contain_text('recovered needs recheck')
+    form.locator('input[type=radio][value="0"]').check();form.locator('button[type=submit]').click();expect(page.locator('.ls-feedback')).to_contain_text('Incorrect')
+    form.locator('input[type=radio][value="1"]').check();form.locator('button[type=submit]').click();expect(page.locator('.ls-question-state')).to_contain_text('recovered needs recheck')
     page.locator('.ls-deliberate-recheck').focus();page.keyboard.press('Space');expect(page.locator('.ls-feedback')).to_contain_text('Deliberate recheck')
     assert s.evidence()['attempts']==2
     page.reload();expect(page.locator('.ls-recheck-evidence')).to_contain_text('unverified / insufficient evidence')

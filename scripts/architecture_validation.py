@@ -23,6 +23,16 @@ import xml.etree.ElementTree as ET
 
 
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+from scripts.architecture_private_fixtures import FIXTURES, PrivateFixtureStage, private_temporary_directory, redact, validate_pair
+
+EXTERNAL_TEST_IDS = {
+    ('tests.learning_studio.test_browser', 'test_external_recovered_pilot_real_browser'),
+    ('tests.learning_studio.test_pilot', 'test_external_bad_v3_source_is_rejected'),
+    ('tests.learning_studio.test_recovered_pilot', 'test_external_recovered_pilot_strict_import_and_durable_evidence'),
+    ('tests.learning_studio.test_recovered_pilot', 'test_external_pilot_demo_does_not_fabricate_course_mappings'),
+}
 MARKER = '.anvaya-validation-output.json'
 PURPOSE = {'schema': 'anvaya.synthetic-validation-output', 'version': 1}
 
@@ -96,7 +106,7 @@ def export_source(repo: Path, target: Path) -> dict:
             'snapshot_fingerprint': hashlib.sha256(json.dumps(hashes, sort_keys=True).encode()).hexdigest()}
 
 
-def test_status(exit_code: int, xml: Path) -> dict:
+def test_status(exit_code: int, xml: Path, *, allow_external_skips: bool = False) -> dict:
     result = {'status': 'FAIL' if exit_code else 'BLOCKED', 'exit_code': exit_code,
               'tests': 0, 'failures': [], 'errors': [], 'skips': []}
     if xml.exists():
@@ -109,11 +119,54 @@ def test_status(exit_code: int, xml: Path) -> dict:
                 element = case.find(tag)
                 if element is not None:
                     result[field].append({'id': name, 'message': element.get('message', '')})
+        approved = {'::'.join(parts) for parts in EXTERNAL_TEST_IDS} if allow_external_skips else set()
+        result['unexpected_skips'] = [s for s in result['skips'] if s['id'] not in approved]
         if exit_code or result['failures'] or result['errors']:
             result['status'] = 'FAIL'
-        elif cases and not result['skips']:
+        elif result['unexpected_skips']:
+            # Preserve the original harness contract: an ordinary omitted
+            # test is BLOCKED, never passed. Public full-suite validation
+            # treats any non-approved skip as a hard merge-gate failure.
+            result['status'] = 'FAIL' if allow_external_skips else 'BLOCKED'
+        elif cases:
             result['status'] = 'PASS'
     return result
+
+
+def development_gate_status(categories: dict, *, private_fixtures: bool = False) -> str:
+    """Allow ONLY explicitly recorded private skips in public synthetic CI.
+
+    A genuine failure, an unexpected skip, a missing original test identity, or
+    a failed runnable category still rejects the development gate. Private
+    certification is stricter: every original IKS case must actually pass.
+    """
+    pilot = categories.get('external_pilots', {})
+    outcomes = pilot.get('outcomes', {})
+    expected = {'::'.join(identity) for identity in EXTERNAL_TEST_IDS}
+    if set(outcomes) != expected or any(value not in ('PASS', 'SKIP') for value in outcomes.values()):
+        return 'FAIL'
+    if private_fixtures and pilot.get('status') != 'PASS':
+        return 'FAIL'
+    tested = {name: result for name, result in categories.items() if name != 'external_pilots'}
+    return 'PASS' if tested and all(result.get('status') == 'PASS' for result in tested.values()) else 'FAIL'
+
+
+def external_pilot_acceptance(xml: Path) -> dict:
+    outcomes = {'::'.join(identity): 'NOT_RUN' for identity in sorted(EXTERNAL_TEST_IDS)}
+    if xml.exists():
+        for case in ET.parse(xml).findall('.//testcase'):
+            identity = (case.get('classname', ''), case.get('name', ''))
+            key = '::'.join(identity)
+            if identity not in EXTERNAL_TEST_IDS:
+                continue
+            if outcomes[key] != 'NOT_RUN':
+                outcomes[key] = 'DUPLICATE'
+            else:
+                outcomes[key] = ('FAIL' if case.find('failure') is not None or case.find('error') is not None
+                                 else 'SKIP' if case.find('skipped') is not None else 'PASS')
+    values = set(outcomes.values())
+    status = 'FAIL' if values & {'FAIL', 'DUPLICATE'} else 'PASS' if values == {'PASS'} else 'BLOCKED'
+    return {'status': status, 'outcomes': outcomes, 'scope': 'This platform only; installed authority remains BLOCKED'}
 
 
 def write_summary(directory: Path, report: dict) -> None:
@@ -126,7 +179,10 @@ def write_summary(directory: Path, report: dict) -> None:
              '| Category | Status | Exit | Reproduce |', '|---|---|---:|---|']
     for name, value in report['categories'].items():
         lines.append(f"| {name} | {value['status']} | {value.get('exit_code', '')} | `{value.get('reproduce', '')}` |")
-    lines += ['', f"GATE_A_DEV_PLATFORM: **{report.get('GATE_A_DEV_PLATFORM', 'NOT RUN')}**",
+    lines += ['', 'Public synthetic CI may PASS when the four *named* private tests SKIP, but those cases remain BLOCKED and are never certified.',
+              'Unexpected skips, missing private-test identities, or any test failure still FAIL. Private certification requires all four real tests PASS.',
+              f"EXTERNAL_IKS_CERTIFICATION: **{report.get('EXTERNAL_IKS_CERTIFICATION', 'BLOCKED')}**",
+              f"GATE_A_DEV_PLATFORM: **{report.get('GATE_A_DEV_PLATFORM', 'NOT RUN')}**",
               f"GATE_A_DEV_AUTOMATED: **{report['GATE_A_DEV_AUTOMATED']}** (requires matching Ubuntu and Windows jobs)",
               f"GATE_A_LOCAL_PRODUCTION_AUTHORITY: **{report['GATE_A_LOCAL_PRODUCTION_AUTHORITY']}**",
               '', 'Known desired product behavior (a reproduced defect is not fixed):',
@@ -135,7 +191,7 @@ def write_summary(directory: Path, report: dict) -> None:
     (directory / 'VALIDATION_SUMMARY.md').write_text('\n'.join(lines) + '\n', encoding='utf-8')
 
 
-def clean_environment(directory: Path, source: Path) -> dict:
+def clean_environment(directory: Path, source: Path, *, allow_private_fixtures=False, fixture_environment=None) -> dict:
     # Preserve runtime essentials, never provider credentials or a user dotenv.
     names = {'PATH', 'SYSTEMROOT', 'WINDIR', 'COMSPEC', 'PATHEXT', 'TEMP', 'TMP',
              'TMPDIR', 'LANG', 'LC_ALL', 'LD_LIBRARY_PATH', 'PLAYWRIGHT_BROWSERS_PATH'}
@@ -150,33 +206,80 @@ def clean_environment(directory: Path, source: Path) -> dict:
                 'ANVAYA_BROWSER_TESTS': '1',
                 'ANVAYA_BROWSER_ARTIFACTS': str(directory / 'screenshots'),
                 'TZ': 'Asia/Kolkata'})
+    if allow_private_fixtures:
+        validated = validate_pair(fixture_environment if fixture_environment is not None else os.environ, repo=ROOT, output=directory)
+        env.update({row['environment']: row['path'] for row in validated.values()})
+        # The unchanged external browser acceptance captures genuine slides when
+        # this optional variable exists. Keep it unset for private certification.
+        env.pop('ANVAYA_BROWSER_ARTIFACTS', None)
     return env
 
 
 def run_command(name: str, command: list[str], source: Path, run: Path, env: dict, *, xml=None, timeout=900) -> dict:
     log = run / (name + '.log')
     started = time.monotonic()
+    private = any(spec['environment'] in env for spec in FIXTURES.values())
+    # Private raw output never touches the public evidence directory, even if
+    # interrupted or a child writes malformed/non-UTF8 JUnit.
+    private_directory = private_temporary_directory(prefix='anvaya-private-diagnostic-', repo=source, output=run) if private else None
+    raw_log = Path(private_directory.name) / 'stdout.log' if private else log
+    raw_xml = Path(private_directory.name) / 'junit.xml' if private and xml else xml
+    actual_command = [arg.replace(str(xml), str(raw_xml)) if private and xml else arg for arg in command]
+    code = 127
     try:
-        with log.open('w', encoding='utf-8') as stream:
-            process = subprocess.run(command, cwd=source, env=env, stdout=stream,
-                                     stderr=subprocess.STDOUT, timeout=timeout, check=False)
-        code = process.returncode
-    except (OSError, subprocess.TimeoutExpired) as error:
-        with log.open('a', encoding='utf-8') as stream:
-            stream.write(type(error).__name__ + ': ' + str(error))
-        code = 124 if isinstance(error, subprocess.TimeoutExpired) else 127
-    result = test_status(code, xml) if xml else {'status': 'PASS' if code == 0 else 'FAIL', 'exit_code': code}
-    result.update({'command': command, 'reproduce': subprocess.list2cmdline(command),
+        try:
+            with raw_log.open('w', encoding='utf-8', errors='replace') as stream:
+                process = subprocess.run(actual_command, cwd=source, env=env, stdout=stream,
+                                         stderr=subprocess.STDOUT, timeout=timeout, check=False)
+            code = process.returncode
+        except (OSError, subprocess.TimeoutExpired) as error:
+            if not private:
+                with log.open('a', encoding='utf-8') as stream:
+                    stream.write(type(error).__name__ + ': ' + str(error))
+            code = 124 if isinstance(error, subprocess.TimeoutExpired) else 127
+        if private and raw_xml and raw_xml.exists():
+            try:
+                # Rebuild only the outcome-bearing JUnit structure. Never copy
+                # unrecognised elements/attributes or source-bearing diagnostics.
+                original = ET.parse(raw_xml)
+                safe_root = ET.Element('testsuites')
+                suite = ET.SubElement(safe_root, 'testsuite', name=name)
+                for index, case in enumerate(original.findall('.//testcase'), 1):
+                    identity = (case.get('classname', ''), case.get('name', ''))
+                    classname, testname = identity if identity in EXTERNAL_TEST_IDS else ('private_validation', 'case-%06d' % index)
+                    clean_case = ET.SubElement(suite, 'testcase', {'classname': classname, 'name': testname})
+                    for tag in ('failure', 'error', 'skipped'):
+                        if case.find(tag) is not None:
+                            ET.SubElement(clean_case, tag, message='Private-source diagnostic withheld; outcome retained')
+                suite.set('tests', str(len(list(suite))))
+                for tag, attribute in [('failure', 'failures'), ('error', 'errors'), ('skipped', 'skipped')]:
+                    suite.set(attribute, str(len(suite.findall('testcase/' + tag))))
+                ET.ElementTree(safe_root).write(xml, encoding='utf-8', xml_declaration=True)
+            except (ET.ParseError, OSError, UnicodeError):
+                code = code or 125
+    finally:
+        if private:
+            log.write_text('Private-fixture run: stdout withheld to protect source payloads.\n'
+                           + 'Exit code: ' + str(code) + '\n', encoding='utf-8')
+            private_directory.cleanup()
+    result = test_status(code, xml, allow_external_skips=(name == 'full_pytest' and not private)) if xml else {'status': 'PASS' if code == 0 else 'FAIL', 'exit_code': code}
+    public_command = list(command)
+    if private and '-c' in public_command:
+        index = public_command.index('-c') + 1
+        if index < len(public_command):
+            public_command[index] = '<inline command withheld>'
+    result.update({'command': public_command, 'reproduce': subprocess.list2cmdline(public_command),
                    'cwd': str(source), 'environment_policy': 'clean_environment: runtime whitelist, provider credentials removed, loopback-only Python sockets',
                    'seconds': round(time.monotonic() - started, 3), 'timeout_seconds': timeout, 'log': log.name})
     print(name + ': ' + result['status'], flush=True)
-    return result
+    return json.loads(redact(json.dumps(result), env))
 
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--require-clean', action='store_true', help='Require a clean committed source tree (CI)')
+    parser.add_argument('--private-fixtures', action='store_true', help='Opt in to both pinned originals on an authorised private runner; paths must be outside source/artifacts')
     args = parser.parse_args(argv)
     run = prepare_output(args.output, ROOT)
     report = {'source': {}, 'categories': {}, 'GATE_A_DEV_PLATFORM': 'BLOCKED',
@@ -184,13 +287,19 @@ def main(argv=None) -> int:
               'validation_scope': 'Single platform. Cross-platform acceptance is emitted by the CI aggregate job only after both matrix jobs pass.',
               'require_clean_source': args.require_clean,
               'GATE_A_LOCAL_PRODUCTION_AUTHORITY': 'BLOCKED',
+              'EXTERNAL_IKS_CERTIFICATION': 'BLOCKED',
               'known_product_behaviour': {key: 'FAIL' for key in ['A', 'B', 'C', 'D', *['P%02d' % n for n in range(1, 9)]]}}
     source = run / 'source'
+    staging = None
     try:
         if args.require_clean:
             require_clean_source(ROOT)
         report['source'] = export_source(ROOT, source)
-        env = clean_environment(run, source)
+        if args.private_fixtures:
+            staging = PrivateFixtureStage(os.environ, repo=ROOT, output=args.output)
+        env = clean_environment(run, source, allow_private_fixtures=args.private_fixtures,
+                                fixture_environment=staging.environment if staging else None)
+        report['external_fixtures'] = staging.manifest if staging else {'status': 'BLOCKED', 'reason': 'Private fixture opt-in not enabled'}
         report['environment'] = {'python': sys.version, 'platform': platform.platform(),
                                  'sqlite': sqlite3.sqlite_version, 'node': subprocess.check_output(['node', '--version'], text=True).strip(),
                                  'packages': {name: importlib.metadata.version(name) for name in ['Flask', 'pytest', 'numpy', 'pandas', 'matplotlib', 'playwright', 'tzdata']}}
@@ -199,12 +308,14 @@ def main(argv=None) -> int:
             report['categories'][name] = run_command(name, args, source, run, env, **kwargs)
         def pytest(name, files=(), *, timeout=900):
             xml = run / (name + '.xml')
-            command(name, [sys.executable, '-m', 'pytest', '-q', *files, '--junitxml=' + str(xml)], xml=xml, timeout=timeout)
+            command(name, [sys.executable, '-m', 'pytest', '-q', '--durations=25', *files, '--junitxml=' + str(xml)], xml=xml, timeout=timeout)
         # Full unchanged suite, including existing browser tests; no selection flags.
-        # A complete Windows run reached 861s; a slower runner was killed at
-        # 900s before XML/failure details. Keep a finite full-suite budget with
-        # headroom, without changing selection, assertions or exit handling.
-        pytest('full_pytest', timeout=1800)
+        # Windows full-suite evidence on 22 Oct reached 94% before the 1800s
+        # subprocess deadline. Allow bounded completion without weakening
+        # selection, assertions, skip policy or exit handling.
+        pytest('full_pytest', timeout=2100)
+        report['categories']['external_pilots'] = external_pilot_acceptance(run / 'full_pytest.xml')
+        report['EXTERNAL_IKS_CERTIFICATION'] = report['categories']['external_pilots']['status']
         pytest('focused', ['tests/test_phase7_5_progress_planning.py', 'tests/test_phase7_5_operational_planner_routes.py',
                           'tests/test_assessment_studio_phase_e.py', 'tests/test_assessment_studio_phase_f.py', 'tests/test_phase7_5_15_14_focus_companion_analysis.py'])
         order = ['tests/test_phase7_5_academic_agent_web.py', 'tests/test_phase7_5_anvaya_shell.py', 'tests/test_phase2_closure_architecture.py']
@@ -212,7 +323,7 @@ def main(argv=None) -> int:
         pytest('fixture_order_phase2_first', list(reversed(order)))
         pytest('characterization', ['tests/test_architecture_characterization.py'])
         # Desired regressions are distinguished from the remaining defect witnesses.
-        for repaired in ('B', 'C', 'P01', 'P02', 'P03', 'P04', 'P05', 'P06', 'P07', 'P08'):
+        for repaired in ('A', 'B', 'C', 'D', 'P01', 'P02', 'P03', 'P04', 'P05', 'P06', 'P07', 'P08'):
             report['known_product_behaviour'][repaired] = report['categories']['characterization']['status']
         pytest('headless_browser', ['tests/test_assessment_live_browser.py', 'tests/test_architecture_live_browser.py', 'tests/test_topic_read_safety_browser.py'])
         command('node', ['node', '--test', *[str(p.relative_to(source)) for p in sorted((source / 'tests/js').glob('*.test.cjs'))]])
@@ -225,11 +336,14 @@ def main(argv=None) -> int:
         # Also check the actual feature delta; export cleanliness cannot hide whitespace errors.
         report['categories']['feature_diff_check'] = run_command('feature_diff_check', ['git', 'diff', '--check'], ROOT, run, env)
         report['categories']['feature_cached_diff_check'] = run_command('feature_cached_diff_check', ['git', 'diff', '--cached', '--check'], ROOT, run, env)
-        report['GATE_A_DEV_PLATFORM'] = 'PASS' if all(r['status'] == 'PASS' for r in report['categories'].values()) else 'FAIL'
+        report['GATE_A_DEV_PLATFORM'] = development_gate_status(
+            report['categories'], private_fixtures=args.private_fixtures)
     except Exception as error:
         report['categories']['setup'] = {'status': 'BLOCKED', 'error': type(error).__name__ + ': ' + str(error)}
         report['GATE_A_DEV_PLATFORM'] = 'BLOCKED'
     finally:
+        if staging:
+            staging.close()
         write_summary(run, report)
         print('RESULTS: ' + str(run), flush=True)
     return 0 if report['GATE_A_DEV_PLATFORM'] == 'PASS' else 1
