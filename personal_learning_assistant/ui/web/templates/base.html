@@ -40,7 +40,6 @@
           <a class="nav-item{% if active_page == 'learning' %} is-active{% endif %}" href="{{ url_for('learning.library') }}"{% if active_page == 'learning' %} aria-current="page"{% endif %}>Learning Studio</a>
           {% if config.get('LEARNING_LIBRARY_ENABLED', True) %}<a class="nav-item{% if active_page == 'library' %} is-active{% endif %}" href="{{ url_for('web.learning_library') }}"{% if active_page == 'library' %} aria-current="page"{% endif %}>Library</a>{% endif %}
           <a class="nav-item{% if active_page == 'notes' %} is-active{% endif %}" href="{{ url_for('web.notes') }}"{% if active_page == 'notes' %} aria-current="page"{% endif %}>Notes</a>
-          <a class="nav-item{% if active_page == 'resources' %} is-active{% endif %}" href="{{ url_for('web.resources') }}"{% if active_page == 'resources' %} aria-current="page"{% endif %}>Resources</a>
         </div>
 
         <div class="nav-section">
@@ -51,10 +50,9 @@
           <a class="nav-item{% if active_page == 'analysis' %} is-active{% endif %}" href="{{ url_for('web.analysis') }}"{% if active_page == 'analysis' %} aria-current="page"{% endif %}>Analysis</a>
         </div>
 
-        <details class="nav-more"{% if active_page in ('knowledge', 'planning', 'obsidian') %} open{% endif %}>
+        <details class="nav-more"{% if active_page in ('planning', 'obsidian') %} open{% endif %}>
           <summary class="nav-more-summary">More <span aria-hidden="true">⌄</span></summary>
           <div class="nav-more-items">
-            <a class="nav-item{% if active_page == 'knowledge' %} is-active{% endif %}" href="{{ url_for('web.knowledge') }}"{% if active_page == 'knowledge' %} aria-current="page"{% endif %}>Knowledge</a>
             <a class="nav-item{% if active_page == 'planning' %} is-active{% endif %}" href="{{ url_for('web.planning') }}"{% if active_page == 'planning' %} aria-current="page"{% endif %}>Planning</a>
             <a class="nav-item{% if active_page == 'obsidian' %} is-active{% endif %}" href="{{ url_for('web.obsidian') }}"{% if active_page == 'obsidian' %} aria-current="page"{% endif %}>Obsidian</a>
             <span class="nav-item is-disabled" aria-disabled="true"><span class="nav-label">Progress</span><span class="nav-status">Soon</span></span>
@@ -91,7 +89,7 @@
               type="search"
               maxlength="500"
               placeholder="Search learning material"
-              data-search-url="{{ url_for('web.knowledge') }}"
+              data-search-url="{{ url_for('web.learning_library', view='search') }}"
               aria-label="Search learning material"
             >
           </div>

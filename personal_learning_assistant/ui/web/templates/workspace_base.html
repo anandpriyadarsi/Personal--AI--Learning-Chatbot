@@ -9,7 +9,7 @@
 <nav class="primary-nav" aria-label="Primary navigation">
 {% for label, links in [
   ('Workspace', [('home','web.home','Home'),('learning','learning.library','Learning Studio'),('assessments','web.assessments','Assessments'),('agent','web.academic_agent','Tutor')]),
-  ('Library', [('library','web.learning_library','Library'),('notes','web.notes','My Notes'),('obsidian','web.obsidian','Obsidian'),('knowledge','web.knowledge','Knowledge'),('resources','web.resources','Resources')]),
+  ('Library', [('library','web.learning_library','Library'),('notes','web.notes','My Notes'),('obsidian','web.obsidian','Obsidian')]),
   ('Academics', [('planning','web.planning','Planning'),('analysis','web.analysis','Analysis'),('evidence','academic_evidence.index','Study evidence'),('courses','web.courses','Courses'),('calendar','web.calendar','Calendar')])
 ] %}
 <div class="nav-section">
@@ -31,12 +31,13 @@
 <noscript><details class="ws-fallback-nav"><summary>Navigate your workspace</summary><nav aria-label="Workspace navigation without JavaScript">
 {% if config.get('LEARNING_LIBRARY_ENABLED', True) %}<a href="{{ url_for('web.learning_library') }}">Library</a>{% endif %}
 {% if config.get('ACADEMIC_EVIDENCE_ENABLED', True) %}<a href="{{ url_for('academic_evidence.index') }}">Study evidence</a>{% endif %}
-{% for endpoint, title in [('web.home','Home'),('learning.library','Learning Studio'),('web.assessments','Assessments'),('web.notes','My Notes'),('web.obsidian','Obsidian'),('web.knowledge','Knowledge'),('web.planning','Planning'),('web.analysis','Analysis'),('web.academic_agent','Tutor'),('web.resources','Resources'),('web.courses','Courses'),('web.calendar','Calendar')] %}<a href="{{ url_for(endpoint) }}">{{ title }}</a>{% endfor %}
+{% for endpoint, title in [('web.home','Home'),('learning.library','Learning Studio'),('web.assessments','Assessments'),('web.notes','My Notes'),('web.obsidian','Obsidian'),('web.planning','Planning'),('web.analysis','Analysis'),('web.academic_agent','Tutor'),('web.courses','Courses'),('web.calendar','Calendar')] %}<a href="{{ url_for(endpoint) }}">{{ title }}</a>{% endfor %}
 </nav></details></noscript>
 {% endblock %}
 
 {% block global_search %}
-          <form class="global-search" role="search" method="get" action="{{ url_for('web.knowledge') }}">
+          <form class="global-search" role="search" method="get" action="{{ url_for('web.learning_library') }}">
+            <input type="hidden" name="view" value="search">
             <label class="visually-hidden" for="global-study-search">Search learning material</label>
             <input
               id="global-study-search"
@@ -44,7 +45,7 @@
               type="search"
               maxlength="500"
               placeholder="Search learning material"
-              data-search-url="{{ url_for('web.knowledge') }}"
+              data-search-url="{{ url_for('web.learning_library', view='search') }}"
               aria-label="Search learning material"
             >
           </form>

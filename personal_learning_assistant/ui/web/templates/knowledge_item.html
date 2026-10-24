@@ -1,11 +1,11 @@
 {% extends "workspace_base.html" %}
-{% block title %}{{ item.title }} · Knowledge · ANVAYA{% endblock %}
+{% block title %}{{ item.title }} · Library · ANVAYA{% endblock %}
 {% block page_scripts %}
 {{ super() }}
 <script defer src="{{ url_for('static', filename='js/study_reader_tracker.js') }}"></script>
 {% endblock %}
 {% block content %}
-<nav class="ws-reader-toolbar" aria-label="Knowledge reader"><a href="{{ url_for('web.knowledge') }}">← Back to Knowledge</a><button class="button secondary-button ws-focus-toggle" type="button" data-workspace-focus hidden aria-pressed="false">Focus reading</button></nav>
+<nav class="ws-reader-toolbar" aria-label="Library source reader"><a href="{{ url_for('web.learning_library', view='search') }}">← Back to Library</a><button class="button secondary-button ws-focus-toggle" type="button" data-workspace-focus hidden aria-pressed="false">Focus reading</button></nav>
 
 <header class="workspace-header">
   <div>
