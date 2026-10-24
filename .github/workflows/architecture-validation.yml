@@ -2,7 +2,7 @@ name: ANVAYA synthetic architecture validation
 
 on:
   push:
-    branches: ['anvaya/**', 'phase7.5.**']
+    branches: ['main', 'anvaya/**', 'phase7.5.**']
   pull_request:
   workflow_dispatch:
 

@@ -196,9 +196,9 @@ def test_external_recovered_pilot_real_browser(browser,real_live):
     assert_focus(page, True)
     q=p['questions'][0];form=page.locator('.ls-question').first
     wrong=(q['correct_index']+1)%len(q['options'])
-    form.locator(f'input[value="{wrong}"]').check();form.locator('button').click()
+    form.locator(f'input[type="radio"][value="{wrong}"]').check();form.locator('button').click()
     page.wait_for_function('document.querySelector(".ls-feedback").textContent.includes("Incorrect")')
-    form.locator(f'input[value="{q["correct_index"]}"]').check();form.locator('button').click()
+    form.locator(f'input[type="radio"][value="{q["correct_index"]}"]').check();form.locator('button').click()
     page.wait_for_function('document.querySelector(".ls-feedback").textContent.includes("Correct")')
     page.click('#ls-contents');page.locator('.ls-dialog-views a').filter(has_text='My Weak Questions').click()
     assert 'recovered needs recheck' in page.locator('#ls-reading-column').inner_text()
