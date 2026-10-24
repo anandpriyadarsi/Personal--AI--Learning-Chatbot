@@ -64,3 +64,15 @@ def test_real_upload_reopen_rename_delete_no_preload(protected_browser,live_medi
         page.reload();expect(page.locator('.notes-media-row')).to_have_count(1)
         assert len(repo.get_note(note)['assets'])==1
         assert not errors,errors
+
+
+def test_failed_upload_keeps_selection_for_retry(protected_browser,live_media):
+    base,note,_=live_media
+    with protected_browser.new_context(viewport={'width':390,'height':844}) as context:
+        page=context.new_page();page.goto(f'{base}/notes/view/{note}')
+        picker=page.locator('#notes-media-files')
+        picker.set_input_files({'name':'not-valid.mp3','mimeType':'audio/mpeg','buffer':b'<html>not media</html>'})
+        page.get_by_role('button',name='Attach Media',exact=True).click()
+        expect(page.locator('#notes-media-status')).to_contain_text('Choose a valid')
+        assert picker.evaluate('(input)=>input.files.length')==1
+        assert not page.get_by_role('button',name='Attach Media',exact=True).is_disabled()

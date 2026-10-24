@@ -53,10 +53,13 @@ def _checked(raw):
         raise ValueError('Invalid backup archive') from error
 
 
-def export_backup(root):
+def export_backup(root, *, include_media=True):
     root = Path(root)
     files = {}
     for path in sorted((root/'data').rglob('*')):
+        relative = path.relative_to(root).as_posix()
+        if not include_media and relative.startswith('data/anvaya_notes_assets/') and '/media/' in relative:
+            continue
         if path.is_symlink(): raise ValueError('Symlinks cannot be exported')
         if not path.is_file() or path.name.endswith(('-wal','-shm','-journal')): continue
         if path.stat().st_size > MAX_BYTES: raise ValueError('Backup file too large')
@@ -70,10 +73,19 @@ def export_backup(root):
                         if target.execute('PRAGMA integrity_check').fetchone()[0] != 'ok':
                             raise ValueError('Database integrity check failed')
                 files[name] = destination.read_bytes()
-        else: files[name] = path.read_bytes()
+        else:
+            payload = path.read_bytes()
+            if not include_media and name=='data/anvaya_notes.json':
+                notes = json.loads(payload)
+                if not isinstance(notes,list): raise ValueError('Invalid notes store')
+                for note in notes:
+                    if isinstance(note,dict): note['media'] = []
+                payload = json.dumps(notes,ensure_ascii=False).encode('utf-8')
+            files[name] = payload
         if len(files) >= MAX_FILES or sum(map(len, files.values())) > MAX_BYTES:
             raise ValueError('Backup exceeds limits')
     manifest = {'format':FORMAT,'files':{k:hashlib.sha256(v).hexdigest() for k,v in files.items()}}
+    if not include_media: manifest['media_excluded'] = True
     out = io.BytesIO()
     with zipfile.ZipFile(out,'w',compression=zipfile.ZIP_DEFLATED) as archive:
         for name, payload in files.items(): archive.writestr(name,payload)

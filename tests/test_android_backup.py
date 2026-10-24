@@ -61,3 +61,25 @@ def test_restore_rejects_incompatible_schema_before_replacing_current_data(tmp_p
     with pytest.raises(ValueError):stage_restore(dest,raw)
     assert (dest/'data/notes.json').read_text()=='original synthetic notes'
     assert not (dest/'restore-pending.zip').exists()
+
+
+def test_explicit_records_only_backup_preserves_academics_with_large_media(tmp_path):
+    import json
+    from personal_learning_assistant.android_backup import export_backup, _checked
+    data=tmp_path/'data';media=data/'anvaya_notes_assets/note/media'
+    media.mkdir(parents=True)
+    blob=media/'lecture.mp4'
+    with blob.open('wb') as out: out.truncate(101*1024*1024)
+    (data/'anvaya_notes_assets/note/page.pdf').write_bytes(b'%PDF-1.4 synthetic')
+    notes=[{'id':'note','title':'Chemistry','note_kind':'handwritten','assets':[{'id':'page'}],
+            'media':[{'id':'lecture','size':blob.stat().st_size}]}]
+    path=data/'anvaya_notes.json';path.write_text(json.dumps(notes))
+    (data/'academic.json').write_text('{"progress":42}')
+    raw=export_backup(tmp_path,include_media=False)
+    files=_checked(raw)
+    assert files['data/academic.json']==b'{"progress":42}'
+    assert json.loads(files['data/anvaya_notes.json'])[0]['media']==[]
+    assert json.loads(path.read_text())==notes
+    assert blob.exists()
+    assert not any('/media/' in key for key in files)
+    assert files['data/anvaya_notes_assets/note/page.pdf']==b'%PDF-1.4 synthetic'

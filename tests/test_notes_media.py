@@ -142,9 +142,60 @@ def test_http_lazy_list_csrf_upload_download_and_note_ownership(setup):
     assert download.mimetype=='audio/mpeg'
     assert download.headers['Content-Disposition'].startswith('attachment;')
     assert download.headers['Cache-Control']=='no-store'
-    assert client.get(item['url'],headers={'Range':'bytes=0-9'}).status_code==206
+    download.close()
+    with client.get(item['url'],headers={'Range':'bytes=0-9'}) as partial:
+        assert partial.status_code==206
+        assert partial.data==SAMPLES['mp3'][:10]
     assert client.get(f"/notes/media/unknown/{item['id']}/open").status_code==404
     assert client.post(f"{root}/{item['id']}/rename",json={'filename':'Teacher'},headers={'X-Notes-CSRF':token}).status_code==200
     assert client.post(f"{root}/{item['id']}/delete",headers={'X-Notes-CSRF':token}).status_code==200
     assert len(client.get(root).json['attachments'])==1
     assert len(repo.get_note(note)['assets'])==1
+
+@pytest.mark.parametrize('damage',['missing','corrupt'])
+def test_reattach_original_repairs_damaged_duplicate(setup,damage):
+    repo,_,note=setup
+    media=store(repo)
+    item=media.add(note,[('Teacher.mp3',io.BytesIO(SAMPLES['mp3']))])[0]
+    path=media.resolve(note,item['id'])['path']
+    if damage=='missing': path.unlink()
+    else: path.write_bytes(b'broken')
+    repaired=media.add(note,[('original.mp3',io.BytesIO(SAMPLES['mp3']))])[0]
+    assert repaired['id']==item['id']
+    assert len(media.list(note))==1
+    assert media.resolve(note,item['id'])['path'].read_bytes()==SAMPLES['mp3']
+
+
+def test_repair_rollback_restores_corrupt_original_on_metadata_failure(setup,monkeypatch):
+    from personal_learning_assistant.services.notes_media_service import AnvayaNotesUnavailableError
+    from personal_learning_assistant.repositories.json.anvaya_notes_repository import AnvayaNotesRepositoryError
+    repo,_,note=setup
+    media=store(repo)
+    item=media.add(note,[('Teacher.mp3',io.BytesIO(SAMPLES['mp3']))])[0]
+    path=media.resolve(note,item['id'])['path'];path.write_bytes(b'broken')
+    def fail(_): raise AnvayaNotesRepositoryError('disk failure')
+    monkeypatch.setattr(repo,'_save',fail)
+    with pytest.raises(AnvayaNotesUnavailableError): media.add(note,[('original.mp3',io.BytesIO(SAMPLES['mp3']))])
+    assert path.read_bytes()==b'broken'
+
+
+def test_slow_stream_does_not_hold_notes_write_lock(setup):
+    from threading import Event
+    repo,service,note=setup
+    media=store(repo)
+    existing=media.add(note,[('ok.mp3',io.BytesIO(SAMPLES['mp3']))])[0]
+    entered,release=Event(),Event()
+    class Slow(io.BytesIO):
+        def read(self,size=-1):
+            if not entered.is_set():
+                entered.set(); assert release.wait(5)
+            return super().read(size)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        upload=pool.submit(media.add,note,[('video.mp4',Slow(SAMPLES['mp4']))])
+        assert entered.wait(2)
+        rename=pool.submit(media.rename,note,existing['id'],'Renamed')
+        try:
+            assert rename.result(timeout=1)['filename']=='Renamed.mp3'
+        finally: release.set()
+        upload.result(timeout=3)
+    assert [item['filename'] for item in media.list(note)]==['Renamed.mp3','video.mp4']

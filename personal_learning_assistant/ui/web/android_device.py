@@ -147,9 +147,13 @@ def register_android_device(app, root):
     @device.get('/mobile/device/export')
     def export():
         from personal_learning_assistant.android_backup import export_backup
-        try: raw=export_backup(root)
-        except (ValueError,OSError,sqlite3.Error):abort(409)
-        return send_file(io.BytesIO(raw),mimetype='application/zip',as_attachment=True,download_name='ANVAYA-private-backup.zip')
+        include_media=request.args.get('include_media')!='0'
+        try: raw=export_backup(root,include_media=include_media)
+        except (ValueError,OSError,sqlite3.Error):
+            return render_template('android_device.html',active_page='mobile-settings',message=
+                'This backup exceeds the 100 MB backup limit or could not be read. Use “Back up study records without audio/video” below to keep your study records backed up. Export media separately from each note.'),409
+        name='ANVAYA-private-backup.zip' if include_media else 'ANVAYA-study-records-without-media.zip'
+        return send_file(io.BytesIO(raw),mimetype='application/zip',as_attachment=True,download_name=name)
 
     @device.post('/mobile/device/restore')
     def restore():

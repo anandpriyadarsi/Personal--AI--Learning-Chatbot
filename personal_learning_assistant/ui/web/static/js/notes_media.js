@@ -32,7 +32,8 @@
       await request(url, {method: 'POST', ...options, headers: {'X-Notes-CSRF': root.dataset.csrf, ...options.headers}});
       await load();
       message(success);
-    } catch (error) { message(error.message || 'Media could not be saved. Try again.'); }
+      return true;
+    } catch (error) { message(error.message || 'Media could not be saved. Try again.'); return false; }
     finally { busy = false; submit.disabled = false; root.setAttribute('aria-busy', 'false'); }
   };
   const render = (items) => {
@@ -85,8 +86,8 @@
     if (picker.files.length > 20 || Array.from(picker.files).some((file) => file.size > 512 * 1024 * 1024)) {
       message('Choose up to 20 files, each 512 MB or smaller.'); return;
     }
-    await mutate(root.dataset.url, {body: new FormData(form)}, 'Media attached. Tap a file to open it.');
-    picker.value = '';
+    const saved = await mutate(root.dataset.url, {body: new FormData(form)}, 'Media attached. Tap a file to open it.');
+    if (saved) picker.value = '';
   });
   // Metadata only, once the handwritten reader loads. No media bytes, duration,
   // thumbnails or video processing during page navigation.

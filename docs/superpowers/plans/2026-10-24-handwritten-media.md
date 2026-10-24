@@ -20,26 +20,26 @@ No internal player or transcoding. Preserve academic stores. Eight requested for
 ### Task 1: Persistent streamed media and routes
 Files: services/notes_media_service.py, ui/web/notes_media.py, ui/web/__init__.py; tests/test_notes_media.py.
 Interface: NotesMediaStore(repository).list/add/rename/delete/resolve. Add accepts (filename, readable stream) pairs and returns public metadata; resolve verifies and returns file metadata plus canonical Path, never bytes. Routes delegate to the existing configured Notes repository. All mutations require process-local CSRF.
-- [ ] Write storage/HTTP tests; observe missing feature failures.
-- [ ] Implement bounded header/stream validation, hashing, locked atomic metadata mutation, deduplication and rollback.
-- [ ] Verify supported formats, restart, rename/remove, corruption, unsafe paths, concurrent retry, partial failure, download headers and CSRF.
+- [x] Write storage/HTTP tests; observe missing feature failures.
+- [x] Implement bounded header/stream validation, hashing, locked atomic metadata mutation, deduplication and rollback.
+- [x] Verify supported formats, restart, rename/remove, corruption, unsafe paths, concurrent retry, partial failure, download headers and CSRF.
 
 ### Task 2: Lazy mobile note interface
 Files: templates/anvaya_notes_reader.html, static/js/notes_media.js, static/css/notes_media.css; tests/test_notes_media_browser.py.
 Consumes public routes. Uses textContent for file names, native ordinary links for open/share, download fallback, existing theme variables and accessible forms.
-- [ ] Add browser journey and run it red.
-- [ ] Implement simple list/attach/overflow forms; disable duplicate submissions; never render audio/video elements or preload file bytes.
-- [ ] Run real 360/390/desktop upload/reopen/rename/delete/layout journey.
+- [x] Add browser journey and run it red.
+- [x] Implement simple list/attach/overflow forms; disable duplicate submissions; never render audio/video elements or preload file bytes.
+- [x] Run real 360/390/desktop upload/reopen/rename/delete/layout journey.
 
 ### Task 3: Android external application handoff
 Files: MainActivity.java, MediaRequest.java, MediaIntents.java, MediaFileProvider.java, media_paths.xml, AndroidManifest.xml, app/build.gradle, notes_media_service.py; JVM and instrumentation tests.
 Consumes validated note/attachment IDs. Native resolver consumes filesDir, noteId, assetId and returns path/MIME/name. Keep this interface native-only. ACTION_VIEW/ACTION_SEND receive read-only content URI and ClipData.
-- [ ] Write URL, URI/intent/provider and no-handler/return tests before implementation.
-- [ ] Implement gesture/origin-gated link interception and background resolver; retain note while dispatching; offer share/export if no player exists.
-- [ ] Build/debug JVM tests; run emulator instrumentation via existing workflow if local SDK unavailable.
+- [x] Write URL, URI/intent/provider and no-handler/return tests before implementation.
+- [x] Implement gesture/origin-gated link interception and background resolver; retain note while dispatching; offer share/export if no player exists.
+- [x] Build/debug JVM tests; run emulator instrumentation via existing workflow if local SDK unavailable.
 
 ### Task 4: Delivery
-- [ ] Run relevant existing notes/runtime regressions and broader suite; disclose failures/skips.
+- [x] Run relevant existing notes/runtime regressions and broader suite; disclose failures/skips.
 - [ ] Commit feature only, publish branch/PR with exact verification evidence, trigger existing Android build/regression/emulator workflow.
 - [ ] Review whole change; correct important findings with regression tests.
 - [ ] Deliver tested APK if build succeeds; clearly distinguish physical player testing from synthetic instrumentation.

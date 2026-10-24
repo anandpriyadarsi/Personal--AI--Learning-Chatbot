@@ -97,74 +97,94 @@ class NotesMediaStore:
         rows = [note if row.get('id')==note['id'] else row for row in rows]
         self.repository._save(rows)
 
-    @_serialized_write
     def add(self, note_id, uploads):
-        note = self._note(note_id)
+        self._note(note_id)
         uploads = list(uploads)
         if not uploads or len(uploads)>MAX_MEDIA_BATCH:
             raise AnvayaNotesValidationError('Choose between 1 and 20 media files.')
-        items = list(note.get('media', []))
-        created = []
-        result = []
+        staged = []
+        paths = []
         request_bytes = 0
         try:
             directory = self._directory(note_id, create=True)
+            # Disk I/O is deliberately outside the notes lock. Only the final
+            # metadata compare/commit is serialized with note edits.
             for filename, stream in uploads:
                 filename = _name(filename)
                 suffix = Path(filename).suffix.lower()
                 asset_id = uuid4().hex
                 path = directory / (asset_id+suffix)
-                created.append(path)
+                paths.append(path)
                 digest = hashlib.sha256()
                 size = 0
                 header = b''
-                # Exclusive creation and a shared note-store lock avoid collision
-                # or stale-note overwrite even on repeated/concurrent submissions.
                 with path.open('xb') as output:
                     while True:
                         chunk = stream.read(CHUNK)
-                        if not chunk:
-                            break
+                        if not chunk: break
                         size += len(chunk)
                         request_bytes += len(chunk)
                         if size>MAX_MEDIA_BYTES or request_bytes>MAX_MEDIA_REQUEST_BYTES:
                             raise AnvayaNotesValidationError('Each file must be 512 MB or smaller; one upload must be under 1 GB.')
-                        if len(header)<4096:
-                            header = (header+chunk)[:4096]
+                        if len(header)<4096: header = (header+chunk)[:4096]
                         digest.update(chunk)
                         output.write(chunk)
                     output.flush()
                     os.fsync(output.fileno())
                 mime = media_mime(filename, header)
-                sha = digest.hexdigest()
-                duplicate = next((item for item in items if item.get('sha256')==sha and item.get('mimetype')==mime and item.get('size')==size), None)
-                if duplicate:
-                    # Only deduplicate a still-present, intact original.
-                    self.resolve(note_id, duplicate['id']) if duplicate in note.get('media', []) else None
-                    path.unlink()
-                    result.append(_public(note_id, duplicate))
-                    continue
-                item = {'id':asset_id,'filename':filename,'stored_name':path.name,
-                        'mimetype':mime,'size':size,'sha256':sha}
-                items.append(item)
-                result.append(_public(note_id,item))
-            self._save(note, items)
-            return result
+                staged.append({'id':asset_id,'filename':filename,'stored_name':path.name,
+                               'mimetype':mime,'size':size,'sha256':digest.hexdigest()})
+            return self._commit_add(note_id, staged)
         except (OSError, AnvayaNotesRepositoryError) as error:
-            if isinstance(error, AnvayaNotesNotFoundError):
-                raise
+            if isinstance(error, AnvayaNotesNotFoundError): raise
             raise AnvayaNotesUnavailableError('Media could not be saved. Check available storage and try again.') from error
         finally:
-            # After a successful JSON commit keep referenced files. On failure
-            # remove every newly written file, preserving older note metadata.
             try:
                 committed = {item['stored_name'] for item in self.repository.get_note(note_id).get('media', [])}
             except AnvayaNotesRepositoryError:
-                committed = {p.name for p in created}  # uncertain disk state: do not destroy data
-            for path in created:
+                committed = {p.name for p in paths}  # uncertain disk state: preserve data
+            for path in paths:
                 if path.name not in committed:
                     try: path.unlink(missing_ok=True)
                     except OSError: pass
+
+    @_serialized_write
+    def _commit_add(self, note_id, staged):
+        note = self._note(note_id)  # latest fields, including edits during upload
+        items = list(note.get('media', []))
+        result = []
+        repairs = []
+        success = False
+        try:
+            for item in staged:
+                path = self._path(note_id,item)
+                duplicate = next((old for old in items if old.get('sha256')==item['sha256']
+                                  and old.get('mimetype')==item['mimetype'] and old.get('size')==item['size']),None)
+                if duplicate:
+                    if duplicate in note.get('media', []):
+                        try: self.resolve(note_id,duplicate['id'])
+                        except (AnvayaNotesNotFoundError,AnvayaNotesUnavailableError):
+                            original = self._path(note_id,duplicate)
+                            backup = original.with_name(original.name+'.replace-'+uuid4().hex)
+                            had_original = original.exists()
+                            if had_original: original.rename(backup)
+                            repairs.append((original,backup,had_original))
+                            path.rename(original)
+                    result.append(_public(note_id,duplicate))
+                else:
+                    items.append(item)
+                    result.append(_public(note_id,item))
+            self._save(note,items)
+            success = True
+            return result
+        finally:
+            for original,backup,had_original in reversed(repairs):
+                if success:
+                    try: backup.unlink(missing_ok=True)
+                    except OSError: pass
+                else:
+                    original.unlink(missing_ok=True)
+                    if had_original: backup.rename(original)
 
     def _find(self, note_id, asset_id):
         note = self._note(note_id)

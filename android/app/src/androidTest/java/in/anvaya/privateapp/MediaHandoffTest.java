@@ -84,9 +84,9 @@ public class MediaHandoffTest {
         // Resolve a real production-owned synthetic note/file, never a test-only
         // implementation path. Native errors/chooser cancellation keep it open.
         String fixture="__import__('personal_learning_assistant.services.anvaya_notes_service',fromlist=['AnvayaNotesService']).AnvayaNotesService().create_handwritten_note({'title':'Synthetic media return note'},[('page.pdf',b'%PDF-1.4 synthetic')])['id']";
-        String note=com.chaquo.python.Python.getInstance().getModule("builtins").callAttr("eval",fixture).toString();
+        String note=com.chaquo.python.Python.getInstance().getModule("builtins").callAttr("eval",fixture,com.chaquo.python.Python.getInstance().getModule("builtins").callAttr("dict")).toString();
         String add="__import__('personal_learning_assistant.services.notes_media_service',fromlist=['NotesMediaStore']).NotesMediaStore(__import__('personal_learning_assistant.repositories.json.anvaya_notes_repository',fromlist=['AnvayaNotesRepository']).AnvayaNotesRepository()).add('"+note+"',[('audio.mp3',__import__('io').BytesIO(b'ID3'+b'0'*40))])[0]['id']";
-        String asset=com.chaquo.python.Python.getInstance().getModule("builtins").callAttr("eval",add).toString();
+        String asset=com.chaquo.python.Python.getInstance().getModule("builtins").callAttr("eval",add,com.chaquo.python.Python.getInstance().getModule("builtins").callAttr("dict")).toString();
         String[] url={null}; CountDownLatch loaded=new CountDownLatch(1);
         instrumentation.runOnMainSync(()->web[0].evaluateJavascript("location.origin",value->{url[0]=value.substring(1,value.length()-1);loaded.countDown();}));
         assertTrue(loaded.await(10,TimeUnit.SECONDS));
@@ -105,7 +105,7 @@ public class MediaHandoffTest {
         instrumentation.addMonitor(monitor);
         try {
             MediaRequest request=MediaRequest.parse(new LocalOrigin(url[0]),url[0]+"/notes/media/"+note+"/"+asset+"/open",true,true);
-            instrumentation.runOnMainSync(()->activity.openExternalMedia(request));
+            tapMediaLink(instrumentation,web[0]);
             deadline=System.currentTimeMillis()+20000;
             while(dispatches.get()==0 && System.currentTimeMillis()<deadline) Thread.sleep(100);
             assertEquals(1,dispatches.get());
@@ -132,6 +132,41 @@ public class MediaHandoffTest {
             Thread.sleep(1000);
             waitForText(instrumentation,web[0],"Synthetic media return note");
         } finally {instrumentation.removeMonitor(cancel);}
+    }
+    private void tapMediaLink(android.app.Instrumentation instrumentation,android.webkit.WebView web) throws Exception {
+        long deadline=System.currentTimeMillis()+10000;
+        String[] bounds={null};
+        while(System.currentTimeMillis()<deadline) {
+            CountDownLatch done=new CountDownLatch(1);
+            instrumentation.runOnMainSync(()->web.evaluateJavascript("(()=>{const a=document.querySelector('.notes-media-open');if(!a)return null;a.scrollIntoView({block:'center'});const r=a.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2,width:innerWidth}})()",value->{bounds[0]=value;done.countDown();}));
+            assertTrue(done.await(10,TimeUnit.SECONDS));
+            if(bounds[0]!=null && !"null".equals(bounds[0])) break;
+            Thread.sleep(100);
+        }
+        assertNotNull(bounds[0]);
+        org.json.JSONObject point=new org.json.JSONObject(bounds[0]);
+        int[] location=new int[2];instrumentation.runOnMainSync(()->web.getLocationOnScreen(location));
+        float scale=web.getWidth()/(float)point.getDouble("width");
+        float x=location[0]+(float)point.getDouble("x")*scale;
+        float y=location[1]+(float)point.getDouble("y")*scale;
+        long now=android.os.SystemClock.uptimeMillis();
+        android.view.MotionEvent down=android.view.MotionEvent.obtain(now,now,android.view.MotionEvent.ACTION_DOWN,x,y,0);
+        android.view.MotionEvent up=android.view.MotionEvent.obtain(now,now+80,android.view.MotionEvent.ACTION_UP,x,y,0);
+        instrumentation.getUiAutomation().injectInputEvent(down,true);
+        instrumentation.getUiAutomation().injectInputEvent(up,true);down.recycle();up.recycle();
+    }
+    @Test public void mediaRemainsAfterForceStop() throws Exception {
+        android.app.Instrumentation instrumentation=InstrumentationRegistry.getInstrumentation();
+        MainActivity activity=(MainActivity)instrumentation.startActivitySync(new Intent(instrumentation.getTargetContext(),MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        long deadline=System.currentTimeMillis()+90000;
+        while(System.currentTimeMillis()<deadline) {
+            android.webkit.WebView[] web={null};
+            instrumentation.runOnMainSync(()->web[0]=findWeb(activity.getWindow().getDecorView()));
+            if(web[0]!=null) break;
+            Thread.sleep(100);
+        }
+        String check="(lambda s: all(s.resolve(n['id'],a['id'])['path'].is_file() for n in s.repository.list_notes() if n.get('title')=='Synthetic media return note' for a in n.get('media',[])) and any(n.get('title')=='Synthetic media return note' and n.get('media') for n in s.repository.list_notes()))(__import__('personal_learning_assistant.services.notes_media_service',fromlist=['NotesMediaStore']).NotesMediaStore(__import__('personal_learning_assistant.repositories.json.anvaya_notes_repository',fromlist=['AnvayaNotesRepository']).AnvayaNotesRepository()))";
+        assertTrue(com.chaquo.python.Python.getInstance().getModule("builtins").callAttr("eval",check,com.chaquo.python.Python.getInstance().getModule("builtins").callAttr("dict")).toBoolean());
     }
     private android.webkit.WebView findWeb(android.view.View view) {
         if(view instanceof android.webkit.WebView) return (android.webkit.WebView)view;

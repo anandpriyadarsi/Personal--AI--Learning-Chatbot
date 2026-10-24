@@ -394,3 +394,35 @@ def test_library_pdf_upload_picker_entrypoint_and_source_integrity(tmp_path):
             assert con.execute('SELECT count(*) FROM knowledge_chunks').fetchone()[0] > 0
         r.stop()
     ''')
+
+
+def test_media_upload_does_not_hold_dynamic_navigation_lock(tmp_path):
+    run(tmp_path, '''
+        from personal_learning_assistant.android_runtime import start
+        from personal_learning_assistant.services.anvaya_notes_service import AnvayaNotesService
+        from personal_learning_assistant.services.notes_media_service import NotesMediaStore
+        import io, threading, urllib.request
+        r=start()
+        note=AnvayaNotesService().create_handwritten_note({'title':'Synthetic streaming note'},[('page.pdf',b'%PDF-1.4')])['id']
+        entered=threading.Event(); release=threading.Event()
+        original=NotesMediaStore.add
+        def slow(self,*args):
+            entered.set()
+            assert release.wait(5)
+            return original(self,*args)
+        NotesMediaStore.add=slow
+        response=[]
+        def upload():
+            with r.app.test_client() as c:
+                c.set_cookie('anvaya_native',r.token,domain='127.0.0.1')
+                result=c.post('/notes/media/'+note,base_url=r.origin,headers={'Origin':r.origin,'X-Notes-CSRF':r.app.extensions['notes_media_csrf']},data={'files':(io.BytesIO(b'ID3'+b'0'*40),'audio.mp3')})
+                response.append(result.status_code)
+        thread=threading.Thread(target=upload);thread.start()
+        assert entered.wait(3)
+        try:
+            req=urllib.request.Request(r.origin+'/healthz',headers={'Cookie':'anvaya_native='+r.token})
+            assert urllib.request.urlopen(req,timeout=2).status==200
+        finally:
+            release.set();thread.join(5);r.stop()
+        assert response==[201],response
+    ''')

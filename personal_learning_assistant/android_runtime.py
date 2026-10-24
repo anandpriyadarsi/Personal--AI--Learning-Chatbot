@@ -53,7 +53,9 @@ class Runtime:
                 abort(403)
             # Do not queue CSS/JS/image loads behind academic database requests.
             # All navigation, downloads and writes retain the original lock.
-            if not is_public_static_asset():
+            # Note-media routes use only atomic JSON/file storage, never cached
+            # SQLite readers. Stream uploads without blocking academic navigation.
+            if not is_public_static_asset() and request.blueprint != 'notes_media':
                 request_lock.acquire()
                 g.native_request_lock = True
 

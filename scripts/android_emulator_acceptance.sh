@@ -24,8 +24,13 @@ adb shell am force-stop in.anvaya.privateapp
 adb install -r android/app/build/outputs/apk/debug/app-debug.apk | tee android-evidence/update-install.log
 adb shell am instrument -w -r -e class in.anvaya.privateapp.OfflineSmokeTest\#testNoteAfterForceStop in.anvaya.privateapp.test/androidx.test.runner.AndroidJUnitRunner | tee android-evidence/reopen-note.log
 python -c "from pathlib import Path;s=Path('android-evidence/reopen-note.log').read_text();assert 'OK (1 test)' in s and not any(v in s for v in ('FAILURES','INSTRUMENTATION_FAILED','shortMsg='))"
-adb shell am instrument -w -r -e class in.anvaya.privateapp.MediaHandoffTest in.anvaya.privateapp.test/androidx.test.runner.AndroidJUnitRunner | tee android-evidence/media-handoff.log
-python -c "from pathlib import Path;s=Path('android-evidence/media-handoff.log').read_text();assert 'OK (' in s and not any(v in s for v in ('FAILURES','INSTRUMENTATION_FAILED','shortMsg='))"
+for method in actualExternalUidReadsContentUriWithReadOnlyGrantAndReturns providerCannotOpenPagesOrWriteAndShareCarriesGrant absentPlayerAndChooserCancellationPreserveNote; do
+  adb shell am instrument -w -r -e class in.anvaya.privateapp.MediaHandoffTest\#"$method" in.anvaya.privateapp.test/androidx.test.runner.AndroidJUnitRunner | tee "android-evidence/media-$method.log"
+  python -c "from pathlib import Path;s=Path('android-evidence/media-$method.log').read_text();assert 'OK (1 test)' in s and not any(v in s for v in ('FAILURES','INSTRUMENTATION_FAILED','shortMsg='))"
+done
+adb shell am force-stop in.anvaya.privateapp
+adb shell am instrument -w -r -e class in.anvaya.privateapp.MediaHandoffTest\#mediaRemainsAfterForceStop in.anvaya.privateapp.test/androidx.test.runner.AndroidJUnitRunner | tee android-evidence/media-after-force-stop.log
+python -c "from pathlib import Path;s=Path('android-evidence/media-after-force-stop.log').read_text();assert 'OK (1 test)' in s and not any(v in s for v in ('FAILURES','INSTRUMENTATION_FAILED','shortMsg='))"
 adb shell getprop ro.build.version.release > android-evidence/android-version.txt
 adb shell getprop ro.product.cpu.abi > android-evidence/abi.txt
 for name in android-library-content-search android-library-saved-reference android-library-reference-after-force-stop android-tutor-conversation android-tutor-composer-keyboard android-tutor-after-force-stop android-today android-note-saved android--learning android--agent android--assessments android--library android--mobile-settings android--mobile-device android-note-after-force-stop android-sqlite-task-saved android-sqlite-task-after-force-stop android-active-lesson android-learning-mistake android-library-reader android-assessment-paused android-paper-step-review android-assessment-after-force-stop android-assessment-resumed android-paper-review-after-force-stop android-notes-landscape android-conversion-capability android-selection-cbt android-selection-handwritten android-handwritten-paused android-handwritten-after-force-stop android-handwritten-resumed; do
