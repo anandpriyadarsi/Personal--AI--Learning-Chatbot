@@ -31,9 +31,17 @@ def register_android_device(app, root):
     def restore_subjects():
         from personal_learning_assistant.services.android_subject_restore import restore_semester_one_subjects
         added = restore_semester_one_subjects()
+        from personal_learning_assistant.services.android_assessment_catalogue import synchronize_android_assessment_courses
+        import config
+        synced = synchronize_android_assessment_courses(
+            config.DATABASE_PATH, backup_path=config.BACKUP_PATH
+        )
+        app.extensions['academic_wal_publisher'].request_refresh()
         message = ('Restored missing Semester 1 subjects: ' + ', '.join(added) + '. '
-                   if added else 'Your Semester 1 subjects are already registered. ')
-        message += 'Original course templates are available in Learning Studio. Existing study progress was preserved.'
+                   if added else 'Your Semester 1 Learn subjects were already registered. ')
+        message += ('Assessment Studio: {} missing course(s) and {} topic(s) restored. '
+                    'Existing study progress was preserved. Assessment history was preserved.').format(
+                        synced['courses_added'], synced['topics_added'])
         return render_template('android_device.html',active_page='mobile-settings',message=message)
 
     def _register_local_pdf(upload):
