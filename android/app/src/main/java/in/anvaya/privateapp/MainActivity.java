@@ -24,6 +24,9 @@ public class MainActivity extends Activity {
     private String downloadUrl;
     private String downloadCookie;
     private String origin;
+    private final java.util.concurrent.atomic.AtomicBoolean mediaBusy=new java.util.concurrent.atomic.AtomicBoolean();
+    private static final int EXTERNAL_MEDIA=43;
+    private long downloadLimit=100L*1024*1024;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -85,6 +88,8 @@ public class MainActivity extends Activity {
             }));
         web.setWebViewClient(new WebViewClient() {
             @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest req) {
+                MediaRequest media=MediaRequest.parse(allowed,req.getUrl().toString(),req.isForMainFrame(),req.hasGesture());
+                if(media!=null) {openExternalMedia(media);return true;}
                 if (allowed.permits(req.getUrl().toString()) && req.isForMainFrame()
                     && "/mobile/restart".equals(req.getUrl().getPath()) && req.hasGesture()) {
                     new AlertDialog.Builder(MainActivity.this).setTitle("Close ANVAYA?")
@@ -106,12 +111,17 @@ public class MainActivity extends Activity {
         web.setDownloadListener((url, agent, disposition, mime, length) -> {
             if (!allowed.permits(url)) return;
             DownloadSpec spec=DownloadSpec.from(URLUtil.guessFileName(url,disposition,mime),mime);
+            downloadLimit=MediaRequest.isDownload(allowed,url) ? 512L*1024*1024 : 100L*1024*1024;
             downloadUrl=url; downloadCookie=CookieManager.getInstance().getCookie(url);
             Intent save=new Intent(Intent.ACTION_CREATE_DOCUMENT);
             save.addCategory(Intent.CATEGORY_OPENABLE);
             save.setType(spec.mime);
             save.putExtra(Intent.EXTRA_TITLE,spec.name);
-            startActivityForResult(save,SAVE_FILE);
+            try {startActivityForResult(save,SAVE_FILE);}
+            catch(android.content.ActivityNotFoundException | SecurityException error) {
+                downloadUrl=null;downloadCookie=null;
+                Toast.makeText(this,"No file-saving application is available on this phone.",Toast.LENGTH_LONG).show();
+            }
         });
         web.setWebChromeClient(new WebChromeClient() {
             @Override public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback,
@@ -137,10 +147,52 @@ public class MainActivity extends Activity {
             }
         });
     }
+    /** Native-only resolver: JS supplies no paths, URLs, cookies or MIME overrides. */
+    void openExternalMedia(MediaRequest request) {
+        if(!mediaBusy.compareAndSet(false,true)) return;
+        Toast.makeText(this,"Opening attachment…",Toast.LENGTH_SHORT).show();
+        new Thread(() -> {
+            try {
+                List<PyObject> item=Python.getInstance().getModule("personal_learning_assistant.services.notes_media_service")
+                    .callAttr("resolve_android_media",getFilesDir().getCanonicalPath(),request.noteId,request.assetId).asList();
+                java.io.File file=new java.io.File(item.get(0).toString());
+                Uri uri=androidx.core.content.FileProvider.getUriForFile(this,getPackageName()+".note_media",file,item.get(2).toString());
+                String mime=item.get(1).toString();
+                runOnUiThread(() -> {
+                    mediaBusy.set(false);
+                    if(isFinishing() || isDestroyed()) return;
+                    if(request.share) shareMedia(uri,mime);
+                    else {
+                        try {startActivityForResult(MediaIntents.view(uri,mime),EXTERNAL_MEDIA);}
+                        catch(android.content.ActivityNotFoundException error) {noMediaPlayer(request,uri,mime);}
+                        catch(SecurityException | IllegalArgumentException error) {mediaError();}
+                    }
+                });
+            } catch(Exception error) {
+                runOnUiThread(() -> {mediaBusy.set(false);mediaError();});
+            }
+        },"anvaya-media-open").start();
+    }
+    private void shareMedia(Uri uri,String mime) {
+        try {startActivityForResult(Intent.createChooser(MediaIntents.share(uri,mime),"Share attachment"),EXTERNAL_MEDIA);}
+        catch(android.content.ActivityNotFoundException | SecurityException | IllegalArgumentException error) {
+            Toast.makeText(this,"No sharing app is available. Use Download in the attachment menu.",Toast.LENGTH_LONG).show();
+        }
+    }
+    private void noMediaPlayer(MediaRequest request,Uri uri,String mime) {
+        new AlertDialog.Builder(this).setTitle("No compatible player found")
+            .setMessage("Install a player that supports this format, or share or save the file to open it later.")
+            .setPositiveButton("Share file",(dialog,which)->shareMedia(uri,mime))
+            .setNeutralButton("Save file",(dialog,which)->web.loadUrl(origin+"/notes/media/"+request.noteId+"/"+request.assetId+"/file"))
+            .setNegativeButton("Cancel",null).show();
+    }
+    private void mediaError() {
+        if(!isFinishing() && !isDestroyed()) Toast.makeText(this,"Attachment could not be opened. It may be missing or damaged. Try attaching the original file again.",Toast.LENGTH_LONG).show();
+    }
     @Override protected void onActivityResult(int code, int result, Intent data) {
         super.onActivityResult(code,result,data);
         if (code == SAVE_FILE && result == RESULT_OK && data != null && data.getData() != null) {
-            final Uri destination=data.getData(); final String address=downloadUrl, cookie=downloadCookie;
+            final Uri destination=data.getData(); final String address=downloadUrl, cookie=downloadCookie; final long limit=downloadLimit;
             downloadUrl=null; downloadCookie=null;
             new Thread(() -> {
                 try {
@@ -153,7 +205,7 @@ public class MainActivity extends Activity {
                          java.io.OutputStream output=getContentResolver().openOutputStream(destination,"wt")) {
                         byte[] buffer=new byte[32768]; int count; long total=0;
                         while((count=input.read(buffer))!=-1) {
-                            total+=count; if(total>100L*1024*1024) throw new java.io.IOException("Download too large");
+                            total+=count; if(total>limit) throw new java.io.IOException("Download too large");
                             output.write(buffer,0,count);
                         }
                     } finally { connection.disconnect(); }
@@ -163,6 +215,9 @@ public class MainActivity extends Activity {
                 }
             },"anvaya-export").start();
         }
+        if(code==SAVE_FILE) {downloadUrl=null;downloadCookie=null;}
+        // Player/chooser cancellation and returning from the external Activity
+        // leave the current WebView/document untouched.
         if (code == PICK_FILES && fileCallback != null) {
             Uri[] selected = WebChromeClient.FileChooserParams.parseResult(result,data);
             if (selected != null) {

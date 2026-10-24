@@ -1,0 +1,6 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- Synthetic external recipient exists only in the test APK. -->
+        <activity android:name="in.anvaya.privateapp.test.MediaReceiverActivity" android:exported="true" />
+    </application>
+</manifest>

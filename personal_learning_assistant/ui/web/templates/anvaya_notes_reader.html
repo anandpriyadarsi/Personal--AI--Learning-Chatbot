@@ -3,9 +3,15 @@
 {% block title %}{{ note.title if note else 'Note' }} · ANVAYA{% endblock %}
 {% block body_class %}{{ super() }} notes-focus-page{% endblock %}
 
+{% block workspace_assets %}
+{{ super() }}
+{% if note and note.note_kind == 'handwritten' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/notes_media.css') }}">{% endif %}
+{% endblock %}
+
 {% block page_scripts %}
 {{ super() }}
 <script defer src="{{ url_for('static', filename='js/anvaya_notes_reader.js') }}"></script>
+{% if note and note.note_kind == 'handwritten' %}<script defer src="{{ url_for('static', filename='js/notes_media.js') }}"></script>{% endif %}
 {% endblock %}
 
 {% block content %}
@@ -60,6 +66,21 @@
       {% endif %}
     {% endfor %}
   </div>
+</section>
+{% endif %}
+
+{% if note.note_kind == 'handwritten' %}
+<section id="notes-media" class="notes-media" aria-label="Attached Media" data-url="{{ url_for('notes_media.attachments', note_id=note.id) }}" data-csrf="{{ notes_media_csrf }}">
+  <h3>Attached Media</h3>
+  <p>Open audio and video in an installed player. In a browser, download the file and open it with your device app.</p>
+  <form id="notes-media-upload" class="notes-media-upload" enctype="multipart/form-data">
+    <label>Audio or video files<input id="notes-media-files" type="file" name="files" multiple required accept=".mp3,.wav,.m4a,.aac,.mp4,.mkv,.mov,.webm,audio/*,video/*"></label>
+    <button class="button" type="submit">Attach Media</button>
+  </form>
+  <p><small>MP3, WAV, M4A, AAC, MP4, MKV, MOV, WebM · Up to 512 MB per file, 20 files per upload.</small></p>
+  <p id="notes-media-status" class="notes-media-status" role="status" aria-live="polite">Loading attachments…</p>
+  <ul id="notes-media-list" class="notes-media-list"></ul>
+  <noscript>Enable JavaScript to attach and manage audio or video files.</noscript>
 </section>
 {% endif %}
 

@@ -89,5 +89,7 @@ def create_app(config: Mapping[str, Any] | None = None) -> Flask:
     register_learning_source_links_v24(app)
     from .mobile import register_mobile
     register_mobile(app)
+    from .notes_media import register_notes_media
+    register_notes_media(app)
     register_error_handlers(app)
     return app
