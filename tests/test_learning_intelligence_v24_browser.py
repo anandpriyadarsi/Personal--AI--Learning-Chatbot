@@ -224,6 +224,9 @@ def test_cross_owner_navigation_drains_writes_enqueued_while_waiting(browser, li
     base, _ = live_v24
     page = browser.new_page(viewport={'width':1366,'height':1000})
     held = []
+    navigations = []
+    page.on('request', lambda r: navigations.append(r.url)
+            if r.is_navigation_request() and '/academic-evidence/' in r.url else None)
     try:
         page.goto(base+'/learning/modules/uc100n-demo/1?view=learn')
         page.wait_for_load_state('networkidle')
@@ -234,14 +237,23 @@ def test_cross_owner_navigation_drains_writes_enqueued_while_waiting(browser, li
         assert held
         page.locator('.ls-v24-journey').get_by_role('link',name='03 Review evidence and choose a next step').click(no_wait_after=True)
         page.locator('#ls-text-size').select_option('20')
+        # Wait for the actual second write to start. A slow first response is
+        # allowed; the negative navigation window must not assume it is <300ms.
+        with page.expect_request(lambda r:r.url.endswith('/progress') and r.method=='POST'):
+            held.pop().continue_()
         from playwright.sync_api import TimeoutError as BrowserTimeout
         with pytest.raises(BrowserTimeout):
             with page.expect_request(lambda r:r.is_navigation_request() and '/academic-evidence/' in r.url,timeout=300):
-                held.pop().continue_()
+                pass
+        assert not navigations
         assert held
         held.pop().continue_()
         page.wait_for_url('**/academic-evidence/learning/uc100n-demo/1#signals-title',timeout=3000)
         expect(page.locator('#signals-title')).to_be_visible()
+        page.unroute('**/progress')
+        page.goto(base+'/learning/modules/uc100n-demo/1?view=learn')
+        page.wait_for_load_state('networkidle')
+        expect(page.locator('#ls-text-size')).to_have_value('20')
     finally:
         for route in held:route.abort()
         page.close()
