@@ -29,6 +29,9 @@ def test_private_bootstrap_and_saved_note_survive_new_process(tmp_path):
             return urllib.request.urlopen(urllib.request.Request(base+path, data=data,
                 headers={'Cookie':cookie, 'Origin':base}))
         assert req('/learning').status == 200
+        # Learn and Assessment must expose the same verified first-year subjects.
+        picker = req('/assessments/import?kind=test').read().decode('utf-8')
+        assert 'UC103N' in picker and 'MA103N' in picker
         note = urllib.parse.urlencode({'title':'Synthetic offline note',
              'body':'Restart preserves this synthetic study record.'}).encode()
         assert req('/notes/create/typed', note).status == 200
@@ -40,6 +43,7 @@ def test_private_bootstrap_and_saved_note_survive_new_process(tmp_path):
             except urllib.error.HTTPError as e: raise AssertionError(path + ' ' + str(e.code))
         with sqlite3.connect(runtime.root / 'data/learning_assistant.db') as db:
             assert db.execute('PRAGMA integrity_check').fetchone()[0] == 'ok'
+            assert db.execute("SELECT count(*) FROM courses WHERE code IN ('MA103N','UC100N','CY100N','DE100N','UC103N') AND deleted_at IS NULL").fetchone()[0] == 5
             assert db.execute("SELECT count(*) FROM planner_tasks WHERE title='Synthetic persistent task'").fetchone()[0]==1
             assert db.execute('SELECT count(*) FROM schema_migrations').fetchone()[0] == 15
         print(runtime.token)
