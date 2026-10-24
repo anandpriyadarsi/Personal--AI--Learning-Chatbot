@@ -39,7 +39,8 @@ sha256sum "$verified_apk" > android-evidence/TESTED_APK_SHA256.txt
 adb shell dumpsys package in.anvaya.privateapp > android-evidence/installed-package.txt
 adb shell settings get global wifi_on > android-evidence/wifi-on.txt
 adb shell settings get global mobile_data > android-evidence/mobile-data.txt
-aapt_tool="$(rg --files "$ANDROID_HOME/build-tools" | sed -n '/\/aapt$/p' | sort -V | tail -1)"
+aapt_tool="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+test -n "$aapt_tool" && test -x "$aapt_tool"
 "$aapt_tool" dump badging "$verified_apk" > android-evidence/apk-badging.txt
 "$(dirname "$aapt_tool")/apksigner" verify --print-certs "$verified_apk" > android-evidence/apk-signature.txt
 python - <<'PACKAGE_CHECK'
