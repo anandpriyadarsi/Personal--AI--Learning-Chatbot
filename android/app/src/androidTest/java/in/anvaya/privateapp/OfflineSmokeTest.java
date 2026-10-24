@@ -151,7 +151,16 @@ public class OfflineSmokeTest {
             FileOutputStream out=new FileOutputStream(pending)) {
             byte[] bytes=new byte[32768];int n;while((n=in.read(bytes))!=-1)out.write(bytes,0,n);
         }
-        open();screenshot("android-today");
+        open();
+        java.util.concurrent.atomic.AtomicBoolean chosenContentReadable = new java.util.concurrent.atomic.AtomicBoolean();
+        java.util.concurrent.atomic.AtomicBoolean unrestrictedFileAccess = new java.util.concurrent.atomic.AtomicBoolean();
+        getInstrumentation().runOnMainSync(() -> {
+            chosenContentReadable.set(web.getSettings().getAllowContentAccess());
+            unrestrictedFileAccess.set(web.getSettings().getAllowFileAccess());
+        });
+        assertTrue("SAF PDF uploads need user-selected content URI access", chosenContentReadable.get());
+        assertFalse("Unrestricted file URI access must remain disabled", unrestrictedFileAccess.get());
+        screenshot("android-today");
         go("/notes/create/typed");
         waitFor("!!document.querySelector('textarea[name=body]')");
         js("document.querySelector('[name=title]').value='Synthetic Android restart note';document.querySelector('[name=body]').value='Saved offline through the real Android WebView and production Notes service.';document.querySelector('.anvaya-native-note-form').requestSubmit()");
@@ -163,7 +172,12 @@ public class OfflineSmokeTest {
         waitFor("!!document.querySelector('.planner-task-list') && document.querySelector('.planner-task-list').innerText.includes('Synthetic Android SQLite task')");
         screenshot("android-sqlite-task-saved");
         for(String path:new String[]{"/learning","/agent","/assessments","/library","/mobile/settings","/mobile/device"}) {
-            go(path);screenshot("android-"+path.replace('/','-'));
+            go(path);
+            if ("/library".equals(path)) {
+                assertEquals("PDF picker is available in the Library", "true",
+                    js("!!document.querySelector('#library-pdf-upload input[type=file][accept=\"application/pdf\"]')"));
+            }
+            screenshot("android-"+path.replace('/','-'));
             assertEquals("No document overflow at "+path,"true",js("document.documentElement.scrollWidth<=innerWidth+1"));
         }
         // The loop above already completed this page. Reloading the same URL
