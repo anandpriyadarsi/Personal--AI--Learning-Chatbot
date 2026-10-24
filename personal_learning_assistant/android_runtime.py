@@ -52,8 +52,17 @@ class Runtime:
         @app.teardown_request
         def release_native_request(error):
             if getattr(g, 'native_request_lock', False):
-                g.native_request_lock = False
-                request_lock.release()
+                try:
+                    # Werkzeug serves WebView requests on different threads.
+                    # Close the cached SQLite reader on its owning request
+                    # thread before the next serialized request can reuse it.
+                    from personal_learning_assistant.services.unified_search_runtime import get_unified_search_runtime
+                    get_unified_search_runtime(
+                        database_path=root/'data/learning_assistant.db',
+                        index_root=root/'data/tutor_retrieval').close()
+                finally:
+                    g.native_request_lock = False
+                    request_lock.release()
 
         @app.after_request
         def native_headers(response):

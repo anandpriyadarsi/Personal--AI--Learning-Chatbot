@@ -1,6 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 mkdir -p android-evidence
+git rev-parse HEAD HEAD^{tree} > android-evidence/source.txt
+capture_exit_evidence() {
+  result=$?
+  trap - EXIT
+  adb logcat -d -v threadtime > android-evidence/logcat.txt 2>&1 || true
+  if [ "$result" -ne 0 ]; then
+    adb exec-out screencap -p > android-evidence/failed-installed-viewport.png || true
+  fi
+  exit "$result"
+}
+trap capture_exit_evidence EXIT
 adb install -r android/app/build/outputs/apk/debug/app-debug.apk
 adb install -r android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 adb shell svc wifi disable

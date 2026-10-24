@@ -6,7 +6,7 @@
 {% set base=url_for('learning.module',module_id=quality.module_id,revision=quality.module_revision) %}
 <header class="ls-evidence-header"><p class="ls-lesson-eyebrow">Learning review · Revision {{ quality.module_revision }}</p><h1>What still needs revision?</h1><p>See recorded attempts and decide what to revisit. Independent recheck remains unverified / insufficient evidence.</p></header>
 <div class="ls-evidence-metrics" aria-label="Practice evidence totals">
-<div><strong>{{ quality.summary.distinct_attempted }} / {{ quality.summary.total_questions }}</strong><span>Distinct questions attempted</span></div>
+<div><strong>{{ quality.summary.distinct_attempted }} of {{ quality.summary.total_questions }}</strong><span>Distinct questions attempted</span></div>
 <div><strong>{{ quality.summary.unanswered }}</strong><span>Not yet practised</span></div>
 <div><strong>{{ quality.summary.wrong }}</strong><span>Latest answer wrong</span></div>
 <div><strong>{{ quality.summary.retry_correct }}</strong><span>Retry correct · needs recheck</span></div>

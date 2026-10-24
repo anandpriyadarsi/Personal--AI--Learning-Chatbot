@@ -277,6 +277,7 @@ def test_unified_library_source_search_and_saved_reference_survive_restart(tmp_p
         assert req('/resources/1/status',b'return_to=library&status=Completed').status == 200
         r.stop()
     ''')
+
     run(tmp_path, '''
         from personal_learning_assistant.android_runtime import start
         import urllib.request
@@ -287,5 +288,38 @@ def test_unified_library_source_search_and_saved_reference_survive_restart(tmp_p
         saved=page('/library?view=saved&saved_status=Completed')
         assert 'Synthetic persistent reference' in saved
         assert 'knowledge-result-card' in page('/library?view=search&q=Mean')
+        r.stop()
+    ''')
+
+
+def test_library_search_survives_different_live_request_threads(tmp_path):
+    run(tmp_path, r'''
+        from personal_learning_assistant.android_runtime import start
+        from tests.academic_evidence_v23_fixtures import source_pdf
+        from threading import Thread, Event
+        import urllib.request, urllib.parse
+        r=start()
+        headers={'Cookie':'anvaya_native='+r.token,'Origin':r.origin}
+        def req(path, data=None, extra=None):
+            return urllib.request.urlopen(urllib.request.Request(r.origin+path,data=data,headers={**headers,**(extra or {})}))
+        boundary='anvaya-library-thread-fixture'
+        upload=(b'--'+boundary.encode()+b'\r\nContent-Disposition: form-data; name="source"; filename="study.pdf"\r\nContent-Type: application/pdf\r\n\r\n'+source_pdf()+b'\r\n--'+boundary.encode()+b'--\r\n')
+        assert req('/mobile/device/source',upload,{'Content-Type':'multipart/form-data; boundary='+boundary}).status==200
+        assert req('/mobile/device/tutor-index',urllib.parse.urlencode({'csrf_token':r.app.extensions['tutor_action_csrf']}).encode()).status==200
+        ready, release=Event(),Event()
+        bodies=[]
+        def search(hold=False):
+            client=r.app.test_client()
+            client.set_cookie('anvaya_native',r.token,domain='127.0.0.1')
+            bodies.append(client.get('/library?view=search&q=Mean',base_url=r.origin).text)
+            if hold:
+                ready.set()
+                assert release.wait(10)
+        first=Thread(target=search,args=(True,));first.start()
+        assert ready.wait(10)
+        second=Thread(target=search);second.start();second.join(10)
+        release.set();first.join(10)
+        assert not first.is_alive() and not second.is_alive()
+        assert len(bodies)==2 and all('knowledge-result-card' in body for body in bodies)
         r.stop()
     ''')
