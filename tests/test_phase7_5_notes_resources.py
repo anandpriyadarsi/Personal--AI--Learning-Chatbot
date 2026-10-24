@@ -90,13 +90,18 @@ def test_routes_expose_explicit_notes_and_resources_command_endpoints():
     assert "repositories.json.resource_repository" not in source
 
 
-def test_base_navigation_exposes_notes_and_resources_as_links():
+def test_base_navigation_exposes_notes_and_library_with_preserved_resource_commands():
     repo_root = Path(__file__).resolve().parents[1]
     source = (repo_root / "personal_learning_assistant/ui/web/templates/base.html").read_text(encoding="utf-8")
     assert "url_for('web.notes')" in source
-    assert "url_for('web.resources')" in source
+    assert "url_for('web.learning_library')" in source
     assert "active_page == 'notes'" in source
-    assert "active_page == 'resources'" in source
+    assert "active_page == 'library'" in source
+    assert "url_for('web.resources')" not in source
+    saved = (repo_root / "personal_learning_assistant/ui/web/templates/_library_saved_resources.html").read_text(encoding="utf-8")
+    assert "url_for('web.resources_create')" in saved
+    assert "url_for('web.resources_update_status'" in saved
+    assert 'name="return_to" value="library"' in saved
 
 
 class _ReadFakeWebService:

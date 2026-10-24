@@ -308,7 +308,7 @@ def main(argv=None) -> int:
             report['categories'][name] = run_command(name, args, source, run, env, **kwargs)
         def pytest(name, files=(), *, timeout=900):
             xml = run / (name + '.xml')
-            command(name, [sys.executable, '-m', 'pytest', '-q', *files, '--junitxml=' + str(xml)], xml=xml, timeout=timeout)
+            command(name, [sys.executable, '-m', 'pytest', '-q', '--durations=25', *files, '--junitxml=' + str(xml)], xml=xml, timeout=timeout)
         # Full unchanged suite, including existing browser tests; no selection flags.
         # Windows full-suite evidence on 22 Oct reached 94% before the 1800s
         # subprocess deadline. Allow bounded completion without weakening
