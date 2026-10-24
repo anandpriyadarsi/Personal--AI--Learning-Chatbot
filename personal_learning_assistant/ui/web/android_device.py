@@ -32,8 +32,9 @@ def register_android_device(app, root):
         from personal_learning_assistant.services.android_subject_restore import restore_semester_one_subjects
         added = restore_semester_one_subjects()
         from personal_learning_assistant.services.android_assessment_catalogue import synchronize_android_assessment_courses
+        import config
         synced = synchronize_android_assessment_courses(
-            root / 'data/learning_assistant.db', backup_path=root / 'backups'
+            config.DATABASE_PATH, backup_path=config.BACKUP_PATH
         )
         app.extensions['academic_wal_publisher'].request_refresh()
         message = ('Restored missing Semester 1 subjects: ' + ', '.join(added) + '. '
