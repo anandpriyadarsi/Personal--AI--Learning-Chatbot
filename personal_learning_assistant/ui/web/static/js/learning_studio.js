@@ -80,7 +80,7 @@
     if (remembered.enabled) document.body.classList.toggle('sidebar-collapsed', window.innerWidth > 860 && remembered.collapsed);
     setFocus(remembered.enabled);
   }
-  focusButton.addEventListener('click', () => setFocus(!document.body.classList.contains('ls-focus')));
+  focusButton.addEventListener('click', () => { const enabled = !document.body.classList.contains('ls-focus'); setFocus(enabled); if (!enabled) { fallbackFull = false; fullLabel(); } });
   contentsButton.addEventListener('click', () => dialog.showModal());
   document.getElementById('ls-close-rail')?.addEventListener('click',()=>{toggle.click();toggle.focus();});
   document.addEventListener('keydown',event=>{
@@ -100,7 +100,7 @@
     if (event.key !== 'Escape') return;
     if (dialog.open) { event.preventDefault(); event.stopImmediatePropagation(); closeContents(); }
     else if (document.body.classList.contains('ls-focus')) {
-      event.preventDefault(); event.stopImmediatePropagation(); setFocus(false); focusButton.focus();
+      event.preventDefault(); event.stopImmediatePropagation(); setFocus(false); fallbackFull = false; fullLabel(); focusButton.focus();
     }
   }, true);
   // Android WebView often denies the browser Fullscreen API. In that case the
@@ -134,7 +134,7 @@
     }
     fallbackFull = true;
     fullLabel();
-    status.textContent = 'Distraction-free full view enabled. Android may keep its system bars visible.';
+    status.textContent = 'Native fullscreen unavailable; distraction-free full view enabled. Android may keep system bars visible.';
   });
   document.addEventListener('fullscreenchange', () => {
     fullLabel();
