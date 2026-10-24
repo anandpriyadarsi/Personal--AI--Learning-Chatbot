@@ -45,7 +45,7 @@ def test_source_layout_waits_for_its_delayed_stylesheet(browser,live):
     held=[]
     try:
         page.goto(url+'/learning/modules/synthetic/1?view=learn')
-        page.route('**/static/css/learning_studio.css',lambda route:held.append(route))
+        page.route('**/static/css/learning_studio.css*',lambda route:held.append(route))
         page.locator('.ls-source-chips a').first.click()
         page.wait_for_function("document.querySelector('#source-page-1') !== null")
         initial=page.evaluate(LAYOUT)

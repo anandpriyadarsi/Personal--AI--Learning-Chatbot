@@ -75,7 +75,7 @@ class LearningLibraryService:
     def resource_detail(self, resource_id: str) -> LibraryResourceDetail:
         row, rel = self.repository.resource_detail(resource_id)
         documents = tuple(LibraryDocumentView(
-            d['id'], document_title(d['path_key']), d['kind'], d['mime_type'],
+            d['id'], d.get('display_title', document_title(d['path_key'])), d['kind'], d['mime_type'],
             d['content_hash'], d['extraction_status'], _source_target(d['id']),
         ) for d in rel['documents'])
         return LibraryResourceDetail(
@@ -83,3 +83,14 @@ class LearningLibraryService:
             _labels(rel['courses']), _labels(rel['topics']), documents, _labels(rel['notes']),
             _external_url(row['canonical_uri']),
         )
+
+    def rename(self, kind, item_id, title, *, expected_title):
+        from personal_learning_assistant.repositories.sqlite.library_display_repository import (
+            LibraryDisplayRepository, validate_title)
+        title = validate_title(title)  # Validate before opening any writable store.
+        original = self.repository.original_title(kind, item_id)
+        duplicate = self.repository.title_exists(title,kind=kind,item_id=item_id)
+        result = LibraryDisplayRepository(self.repository.database_path).rename(
+            kind,item_id,title,expected_title=expected_title,original_title=original)
+        result['duplicate'] = result['duplicate'] or duplicate
+        return result

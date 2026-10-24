@@ -80,7 +80,10 @@
     if (remembered.enabled) document.body.classList.toggle('sidebar-collapsed', window.innerWidth > 860 && remembered.collapsed);
     setFocus(remembered.enabled);
   }
-  focusButton.addEventListener('click', () => { const enabled = !document.body.classList.contains('ls-focus'); setFocus(enabled); if (!enabled) { fallbackFull = false; fullLabel(); } });
+  focusButton.addEventListener('click', () => {
+    if (fullActive) leaveFull();
+    else setFocus(!document.body.classList.contains('ls-focus'));
+  });
   contentsButton.addEventListener('click', () => dialog.showModal());
   document.getElementById('ls-close-rail')?.addEventListener('click',()=>{toggle.click();toggle.focus();});
   document.addEventListener('keydown',event=>{
@@ -98,45 +101,96 @@
   dialog.querySelectorAll('a').forEach(a => a.addEventListener('click', () => dialog.close()));
   document.addEventListener('keydown', event => {
     if (event.key !== 'Escape') return;
+    if (document.getElementById('ls-media-dialog')?.open) return;
     if (dialog.open) { event.preventDefault(); event.stopImmediatePropagation(); closeContents(); }
     else if (document.body.classList.contains('ls-focus')) {
-      event.preventDefault(); event.stopImmediatePropagation(); setFocus(false); fallbackFull = false; fullLabel(); focusButton.focus();
+      event.preventDefault(); event.stopImmediatePropagation();
+      if (fullActive) leaveFull(); else setFocus(false);
+      focusButton.focus();
     }
   }, true);
   // Android WebView often denies the browser Fullscreen API. In that case the
   // button must still toggle a real full-width, distraction-free reading mode.
   const fullButton = document.getElementById('ls-fullscreen');
   let fallbackFull = false;
+  let fullActive = false;
+  let fullPending = false;
+  let fullGeneration = 0;
+  let previousFocus = false;
+  let fullScroll = 0;
+  // A same-document history entry lets Android WebView's ordinary goBack()
+  // leave full view before leaving the current chapter. No native bridge needed.
+  const fullHistoryKey = 'anvayaReaderFull';
   function fullLabel() {
     fullButton.textContent = document.fullscreenElement ? 'Exit fullscreen' : (fallbackFull ? 'Exit full view' : 'Fullscreen');
     fullButton.setAttribute('aria-pressed', String(Boolean(document.fullscreenElement || fallbackFull)));
   }
+  function restoreFull() {
+    fullGeneration += 1;
+    fullPending = false;
+    // Preserve what is being read now, including movement made in full view.
+    const anchor = Array.from(column.querySelectorAll('.ls-block,.ls-source-page,h2')).find(el => el.getBoundingClientRect().bottom > 80);
+    const top = anchor?.getBoundingClientRect().top;
+    fullActive = false; fallbackFull = false;
+    setFocus(previousFocus); fullLabel();
+    if (anchor) window.scrollBy(0,anchor.getBoundingClientRect().top-top);
+    status.textContent = 'Standard reading view restored.';
+  }
+  function leaveFull() {
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    restoreFull();
+    if (history.state?.[fullHistoryKey]) history.back();
+  }
+  window.addEventListener('popstate', () => {
+    if (fullActive && !history.state?.[fullHistoryKey]) {
+      if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+      restoreFull();
+    } else if (!fullActive && history.state?.[fullHistoryKey]) {
+      // Forward restores the existing reader entry, never pushes another one.
+      previousFocus = Boolean(history.state.anvayaReaderPriorFocus);
+      fullActive = true; fallbackFull = true;
+      setFocus(true); fullLabel();
+      status.textContent = 'Reader full view restored. System bars may remain visible.';
+    }
+  });
+  // Reloading a full-view entry has no live fullscreen session. Remove its
+  // marker so a later toggle cannot manufacture nested Back traps.
+  if (history.state?.[fullHistoryKey]) {
+    const clean = {...history.state}; delete clean[fullHistoryKey];
+    history.replaceState(clean,'');
+  }
   fullButton.addEventListener('click', async () => {
-    if (fallbackFull) {
-      fallbackFull = false;
-      setFocus(false);
-      fullLabel();
-      status.textContent = 'Standard reading view restored.';
-      return;
-    }
-    if (document.fullscreenElement) {
-      try { await document.exitFullscreen(); }
-      catch (_error) { status.textContent = 'Unable to exit native fullscreen. Use your device Back button.'; }
-      return;
-    }
+    if (fullPending) return;
+    if (fullActive) { leaveFull(); return; }
+    fullPending = true;
+    const generation = ++fullGeneration;
+    previousFocus = document.body.classList.contains('ls-focus');
+    fullScroll = window.scrollY;
+    fullActive = true;
+    try { history.pushState({...history.state,[fullHistoryKey]:true,anvayaReaderPriorFocus:previousFocus},'',location.href); }
+    catch (_error) { /* Visible exit still works when history is unavailable. */ }
     setFocus(true);
     if (typeof document.documentElement.requestFullscreen === 'function') {
       try {
         await document.documentElement.requestFullscreen();
-        fullLabel();
+        if (generation !== fullGeneration || !fullActive) {
+          if (document.fullscreenElement) await document.exitFullscreen().catch(() => {});
+          return;
+        }
+        fullLabel(); fullPending = false;
         return;
       } catch (_error) { /* WebView or device policy declined native fullscreen. */ }
     }
+    if (generation !== fullGeneration || !fullActive) return;
     fallbackFull = true;
+    fullPending = false;
     fullLabel();
     status.textContent = 'Native fullscreen unavailable; distraction-free full view enabled. Android may keep system bars visible.';
   });
   document.addEventListener('fullscreenchange', () => {
+    if (!document.fullscreenElement && fullActive && !fallbackFull && !fullPending) {
+      leaveFull(); return;
+    }
     fullLabel();
     status.textContent = document.fullscreenElement ?
       'Fullscreen reading enabled.' : 'Native fullscreen ended. Focus reading remains available.';
