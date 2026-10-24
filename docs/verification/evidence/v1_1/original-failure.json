@@ -1,0 +1,230 @@
+{
+  "run_url": "https://github.com/anandpriyadarsi/Personal--AI--Learning-Chatbot/actions/runs/39901787974",
+  "source_sha": "a27c82f7766930ed4d95e14adb4ff49c11eb586f",
+  "source_manifest_sha256": "d596dea449b3f091b3f84bf1849dc9215f1338e9ddd344f0306ff9a9212dec90",
+  "artifacts": {
+    "ubuntu": {
+      "archive_sha256": "2a104a1a82a55b2c58cee2167983295ff6062bffccae128ca9edd2afedcc17d6",
+      "suite": {
+        "name": "pytest",
+        "errors": "0",
+        "failures": "1",
+        "skipped": "4",
+        "tests": "2942",
+        "time": "647.170",
+        "timestamp": "2026-10-23T10:14:09.349644+05:30",
+        "hostname": "runnervm8k3b6"
+      },
+      "categories": {
+        "full_pytest": {
+          "status": "FAIL",
+          "seconds": 648.704,
+          "tests": 2942,
+          "exit_code": 1,
+          "unexpected_skips": []
+        },
+        "external_pilots": {
+          "status": "BLOCKED"
+        },
+        "focused": {
+          "status": "PASS",
+          "seconds": 5.776,
+          "tests": 54,
+          "exit_code": 0,
+          "unexpected_skips": []
+        },
+        "fixture_order_agent_first": {
+          "status": "PASS",
+          "seconds": 4.223,
+          "tests": 41,
+          "exit_code": 0,
+          "unexpected_skips": []
+        },
+        "fixture_order_phase2_first": {
+          "status": "PASS",
+          "seconds": 7.078,
+          "tests": 41,
+          "exit_code": 0,
+          "unexpected_skips": []
+        },
+        "characterization": {
+          "status": "PASS",
+          "seconds": 9.434,
+          "tests": 17,
+          "exit_code": 0,
+          "unexpected_skips": []
+        },
+        "headless_browser": {
+          "status": "PASS",
+          "seconds": 66.672,
+          "tests": 43,
+          "exit_code": 0,
+          "unexpected_skips": []
+        },
+        "node": {
+          "status": "PASS",
+          "seconds": 0.214,
+          "exit_code": 0
+        },
+        "pip_check": {
+          "status": "PASS",
+          "seconds": 0.315,
+          "exit_code": 0
+        },
+        "pip_freeze": {
+          "status": "PASS",
+          "seconds": 0.315,
+          "exit_code": 0
+        },
+        "compile": {
+          "status": "PASS",
+          "seconds": 1.267,
+          "exit_code": 0
+        },
+        "migration_fixture": {
+          "status": "PASS",
+          "seconds": 0.365,
+          "exit_code": 0
+        },
+        "source_diff_check": {
+          "status": "PASS",
+          "seconds": 0.004,
+          "exit_code": 0
+        },
+        "source_cached_diff_check": {
+          "status": "PASS",
+          "seconds": 0.004,
+          "exit_code": 0
+        },
+        "feature_diff_check": {
+          "status": "PASS",
+          "seconds": 0.004,
+          "exit_code": 0
+        },
+        "feature_cached_diff_check": {
+          "status": "PASS",
+          "seconds": 0.004,
+          "exit_code": 0
+        }
+      }
+    },
+    "windows": {
+      "archive_sha256": "387d85c1d116c0db88558d7b9f2e5048fc7486e920068a4d2ecf5dad7fd25c26",
+      "suite": {
+        "name": "pytest",
+        "errors": "0",
+        "failures": "0",
+        "skipped": "4",
+        "tests": "2942",
+        "time": "1781.607",
+        "timestamp": "2026-10-23T05:44:57.790386+01:00",
+        "hostname": "runnervm0xl3a"
+      },
+      "categories": {
+        "full_pytest": {
+          "status": "PASS",
+          "seconds": 1787.578,
+          "tests": 2942,
+          "exit_code": 0,
+          "unexpected_skips": []
+        },
+        "external_pilots": {
+          "status": "BLOCKED"
+        },
+        "focused": {
+          "status": "PASS",
+          "seconds": 17.25,
+          "tests": 54,
+          "exit_code": 0,
+          "unexpected_skips": []
+        },
+        "fixture_order_agent_first": {
+          "status": "PASS",
+          "seconds": 9.469,
+          "tests": 41,
+          "exit_code": 0,
+          "unexpected_skips": []
+        },
+        "fixture_order_phase2_first": {
+          "status": "PASS",
+          "seconds": 25.453,
+          "tests": 41,
+          "exit_code": 0,
+          "unexpected_skips": []
+        },
+        "characterization": {
+          "status": "PASS",
+          "seconds": 31.297,
+          "tests": 17,
+          "exit_code": 0,
+          "unexpected_skips": []
+        },
+        "headless_browser": {
+          "status": "PASS",
+          "seconds": 110.406,
+          "tests": 43,
+          "exit_code": 0,
+          "unexpected_skips": []
+        },
+        "node": {
+          "status": "PASS",
+          "seconds": 0.797,
+          "exit_code": 0
+        },
+        "pip_check": {
+          "status": "PASS",
+          "seconds": 0.484,
+          "exit_code": 0
+        },
+        "pip_freeze": {
+          "status": "PASS",
+          "seconds": 0.391,
+          "exit_code": 0
+        },
+        "compile": {
+          "status": "PASS",
+          "seconds": 1.672,
+          "exit_code": 0
+        },
+        "migration_fixture": {
+          "status": "PASS",
+          "seconds": 0.437,
+          "exit_code": 0
+        },
+        "source_diff_check": {
+          "status": "PASS",
+          "seconds": 0.047,
+          "exit_code": 0
+        },
+        "source_cached_diff_check": {
+          "status": "PASS",
+          "seconds": 0.031,
+          "exit_code": 0
+        },
+        "feature_diff_check": {
+          "status": "PASS",
+          "seconds": 0.047,
+          "exit_code": 0
+        },
+        "feature_cached_diff_check": {
+          "status": "PASS",
+          "seconds": 0.031,
+          "exit_code": 0
+        }
+      }
+    }
+  },
+  "failure": {
+    "test": {
+      "classname": "tests.test_architecture_manual_academic_journey_browser",
+      "name": "test_student_manually_chooses_study_then_rechecks_exact_revision[1366]",
+      "time": "3.413"
+    },
+    "traceback": "browser = <Browser type=<BrowserType name=chromium executable_path=/home/runner/work/_temp/anvaya-chromium/chromium-1161/chrome-linux/chrome> version=134.0.6998.35>\nacademic_journey = ('http://127.0.0.1:44187', PosixPath('/tmp/pytest-of-runner/pytest-0/test_student_manually_chooses_2/learning_assistan...2d6a022f0>, <personal_learning_assistant.services.academic_wal_snapshot.AcademicSnapshotFeed object at 0x7f72d6740fe0>)\nwidth = 1366\n\n    @pytest.mark.parametrize('width', [390, 768, 1366])\n    def test_student_manually_chooses_study_then_rechecks_exact_revision(browser, academic_journey, width):\n        base, path, learning, lesson, writer, feed = academic_journey\n        context = browser.new_context(viewport={'width': width, 'height': 1000})\n        page = context.new_page()\n        errors, external = [], []\n        page.on('pageerror', lambda error: errors.append(str(error)))\n        def local_only(route):\n            if route.request.url.startswith(base + '/'):\n                route.continue_()\n            else:\n                external.append(route.request.url)\n                route.abort()\n        context.route('**/*', local_only)\n        try:\n            response = page.goto(base + '/assessments/sessions/s1/evaluation')\n            assert response.status == 200\n            expect(page.locator('main')).to_contain_text('Evaluation')\n            before = academic_inventory(path)\n            page.goto(base + '/analysis')\n            expect(page.locator('.pa-table')).to_contain_text('3 / 4')\n            # Inspect the real session represented by the row, not a generic CTA.\n            source = page.locator('.pa-table a[href=\"/assessments/sessions/s1/evaluation\"]')\n            expect(source).to_have_count(1)\n            source.click()\n            assert page.url.endswith('/assessments/sessions/s1/evaluation')\n            page.goto(base + '/analysis')\n            expect(page.locator('main')).to_contain_text('Candidate for manual review')\n            assert academic_inventory(path) == before\n            page.goto(base + '/planning/tasks')\n            create = page.locator('form[action=\"/planning/tasks\"]')\n            create.locator('input[name=title]').fill('Manual choice: revise synthetic lesson revision 1')\n            create.locator('input[name=estimated_minutes]').fill('30')\n            create.locator('input[name=preferred_day]').fill('2026-09-28')\n            create.locator('textarea[name=description]').fill(\n                'Student selected after inspecting assessment s1. Learning module synthetic revision 1; '\n                'source SHA256 ' + lesson['source']['sha256'] + '. No automatic cross-source mapping established.')\n            create.get_by_role('button', name='Add task', exact=True).click()\n            expect(page.locator('.planner-task-list')).to_contain_text('Manual choice: revise synthetic')\n            page.goto(base + '/planning/day/2026-09-28')\n            page.locator('input[name=start]').fill('18:00')\n            page.locator('input[name=end]').fill('20:00')\n            page.get_by_role('button', name='Preview available time').click()\n            assert page.get_by_role('button', name='Complete', exact=True).count() == 0\n            page.get_by_role('button', name='Save proposal as draft').click()\n            expect(page.locator('main')).to_contain_text('18:00\u201320:00 \u00b7 UTC')\n            page.get_by_role('button', name='Approve day', exact=True).click()\n            page.locator('input[name=actual_minutes]').fill('35')\n            page.get_by_role('button', name='Complete', exact=True).click()\n            expect(page.locator('.planner-agenda-items')).to_contain_text('recorded 35 min')\n            feed.publish(writer, at=NOW)\n            page.goto(base + '/analysis')\n            expect(page.locator('aside[aria-labelledby=effort-title]')).to_contain_text('35 min')\n            signals = page.locator('section[aria-labelledby=learning-signals-title]')\n            revision = signals.get_by_role('link', name='Open revision', exact=True)\n            expect(revision).to_have_attribute('href', '/learning/modules/synthetic/1?view=revision')\n            revision.click()\n            assert '/learning/modules/synthetic/1?view=revision' in page.url\n            page.goto(base + '/analysis')\n            signals.get_by_role('link', name='Recheck', exact=True).click()\n            assert '/learning/modules/synthetic/1' in page.url and '#question-q1' in page.url\n            expect(page.locator('.ls-question')).to_have_attribute('data-question-id', 'q1')\n            page.locator('.ls-question input[type=radio][value=\"1\"]').check()\n            page.locator('.ls-question button[type=submit]').click()\n            expect(page.locator('.ls-question-state')).to_contain_text('recovered needs recheck')\n            page.reload()\n            expect(page.locator('.ls-recheck-evidence')).to_contain_text('unverified / insufficient evidence')\n>           before = academic_inventory(path)\n                     ^^^^^^^^^^^^^^^^^^^^^^^^\n\n/home/runner/work/_temp/anvaya-architecture-results/run-penlizoq/source/tests/test_architecture_manual_academic_journey_browser.py:144: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n/home/runner/work/_temp/anvaya-architecture-results/run-penlizoq/source/tests/test_architecture_manual_academic_journey_browser.py:26: in academic_inventory\n    return {name: digest for name, digest in inventory(path.parent).items()\n                                             ^^^^^^^^^^^^^^^^^^^^^^\n/home/runner/work/_temp/anvaya-architecture-results/run-penlizoq/source/tests/test_planning_analysis_v2.py:21: in inventory\n    return {str(p.relative_to(root)): hashlib.sha256(p.read_bytes()).hexdigest()\n                                                     ^^^^^^^^^^^^^^\n/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/pathlib.py:1019: in read_bytes\n    with self.open(mode='rb') as f:\n         ^^^^^^^^^^^^^^^^^^^^\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = PosixPath('/tmp/pytest-of-runner/pytest-0/test_student_manually_chooses_2/learning_studio.sqlite3-journal')\nmode = 'rb', buffering = -1, encoding = None, errors = None, newline = None\n\n    def open(self, mode='r', buffering=-1, encoding=None,\n             errors=None, newline=None):\n        \"\"\"\n        Open the file pointed to by this path and return a file object, as\n        the built-in open() function does.\n        \"\"\"\n        if \"b\" not in mode:\n            encoding = io.text_encoding(encoding)\n>       return io.open(self, mode, buffering, encoding, errors, newline)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE       FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-runner/pytest-0/test_student_manually_chooses_2/learning_studio.sqlite3-journal'\n\n/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/pathlib.py:1013: FileNotFoundError"
+  },
+  "minimal_reproduction": {
+    "method": "Execute original a27c82f academic_inventory function against current deterministic disappearing-journal regression; no production files changed",
+    "before": "1 failed, 1 passed; FileNotFoundError on unrelated learning_studio.sqlite3-journal",
+    "after": "2 passed; canonical database/WAL/SHM mutation assertions retained"
+  }
+}

@@ -28,7 +28,7 @@ CRITICAL = (
     "personal_learning_assistant/repositories/sqlite/migration_runner.py",
     "scripts/architecture_validation.py", "scripts/validation_guard/**",
 )
-IGNORED = ("docs/**", "*.md", "*.rst", ".gitignore", "LICENSE", "*.png", "*.jpg", "*.svg")
+IGNORED = ("docs/**", "*.md", "*.rst", "LICENSE", "*.png", "*.jpg", "*.svg")
 
 # Patterns are deliberately conservative. Cross-component changes union all
 # applicable suites; unclassified application paths require full regression.
@@ -79,7 +79,8 @@ def matching(path: str, patterns: Iterable[str]) -> bool:
 def changed_paths(base: str, head: str, cwd: Path = ROOT) -> list[str]:
     if not base or not head:
         raise ValueError("Both base and head must be supplied; cannot guess a diff")
-    command = ["git", "diff", "--name-only", "--diff-filter=ACMRD", "-z", f"{base}...{head}"]
+    # Treat renames as deletion + addition so both affected areas are retained.
+    command = ["git", "diff", "--no-renames", "--name-only", "--diff-filter=ACMRDT", "-z", f"{base}...{head}"]
     result = subprocess.run(command, cwd=cwd, capture_output=True, check=True)
     return sorted({p.decode("utf-8").replace("\\", "/") for p in result.stdout.split(b"\0") if p})
 
@@ -111,6 +112,8 @@ def make_plan(files: Iterable[str], mode: str, root: Path = ROOT) -> Plan:
         if path.startswith("tests/") and path.endswith(".py"):
             if (root / path).is_file():
                 direct.add(path)
+            else:
+                reasons.append(f"Missing or deleted test module: {path}")
             # Changed tests need their related area, even if the implementation
             # file is unchanged. Existing regression modules can touch anything.
             categories = {area for area, patterns in TESTS.items() if matching(path, patterns)}
@@ -124,23 +127,30 @@ def make_plan(files: Iterable[str], mode: str, root: Path = ROOT) -> Plan:
         found = {area for area, patterns in SOURCES.items() if matching(path, patterns)}
         if found:
             areas.update(found)
-        elif path.endswith((".py", ".js", ".cjs", ".html", ".css", ".sql")) or path.startswith(("scripts/", ".github/", "personal_learning_assistant/")):
+        else:
             reasons.append(f"Unmapped implementation/infrastructure: {path}")
     # Never allow an empty diff to be treated as coverage evidence.
     if not changed:
         reasons.append("No changed files supplied")
-    requires_full = bool(reasons) or mode == "full"
     if mode == "full":
         selected = sorted(p.relative_to(root).as_posix() for p in (root / "tests").rglob("test_*.py"))
     else:
         chosen = set(direct)
         for area in areas:
             if mode == "fast":
-                chosen.update(p for p in SMOKE[area] if (root / p).is_file())
+                for path in SMOKE[area]:
+                    if (root / path).is_file():
+                        chosen.add(path)
+                    else:
+                        reasons.append(f"Missing smoke test reference: {path}")
             else:
-                chosen.update(p.relative_to(root).as_posix() for p in (root / "tests").rglob("test_*.py")
-                              if matching(p.relative_to(root).as_posix(), TESTS[area]))
+                affected = {p.relative_to(root).as_posix() for p in (root / "tests").rglob("test_*.py")
+                            if matching(p.relative_to(root).as_posix(), TESTS[area])}
+                if not affected:
+                    reasons.append(f"Missing focused test coverage: {area}")
+                chosen.update(affected)
         selected = sorted(p for p in chosen if (root / p).is_file())
+    requires_full = bool(reasons) or mode == "full"
     status = ("FULL_REQUIRED" if requires_full and mode != "full" else
               "DOCS_ONLY" if not selected and not requires_full else "SELECTED")
     return Plan(mode, changed, sorted(areas), selected, requires_full, reasons, status)
