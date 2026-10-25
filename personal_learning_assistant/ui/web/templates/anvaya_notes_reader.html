@@ -65,7 +65,7 @@
       {% if asset.mimetype == 'application/pdf' %}
       <div class="anvaya-native-pdf">
         <div class="anvaya-native-file-heading"><strong>{{ asset.filename }}</strong><a href="{{ asset.url }}" target="_blank" rel="noopener noreferrer">Open PDF ↗</a></div>
-        <iframe src="{{ asset.url }}" title="{{ asset.filename }}"></iframe>
+        {% if not config.get('PRIVATE_MOBILE_MODE') %}<iframe src="{{ asset.url }}" title="{{ asset.filename }}" loading="lazy"></iframe>{% endif %}
       </div>
       {% else %}
       <figure class="anvaya-native-image-page">
