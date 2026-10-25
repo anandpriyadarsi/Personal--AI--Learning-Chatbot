@@ -112,3 +112,10 @@ def test_test_loss_requires_visible_missing_smoke(tmp_path):
 def test_path_normalization(tmp_path):
     p = module.plan([r"personal_learning_assistant\\services\\notes_media_service.py"], root(tmp_path))
     assert "handwritten_media" in p["streams"]
+
+def test_assessment_authoring_prompt_is_not_docs_only(tmp_path):
+    p = module.plan(["ANVAYA_ASSESSMENT_PACKAGE_AUTHORING_PROMPT.md"], root(tmp_path))
+    assert "assessment_review" in p["streams"]
+    assert p["python_tests"]
+    assert any("question-authoring policy" in reason for reason in p["reasons"])
+
