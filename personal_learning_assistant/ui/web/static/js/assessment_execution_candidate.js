@@ -62,3 +62,28 @@
   if (root.dataset.status === 'paused') document.getElementById('state-banner').focus();
   else if (root.dataset.status === 'active') document.querySelector('.question').focus({ preventScroll: true });
 })();
+
+
+// The review controls exist only after server-confirmed submission.
+(() => {
+  "use strict";
+  const results = document.getElementById("cbt-results");
+  if (!results) return;
+  const filters = [...results.querySelectorAll("[data-review-filter]")];
+  const cards = [...document.querySelectorAll(".cbt-feedback-card[data-review-outcome]")];
+  const links = [...results.querySelectorAll("[data-review-index]")];
+  const choose = (outcome) => {
+    filters.forEach(button => {
+      button.setAttribute("aria-pressed", String(button.dataset.reviewFilter === outcome));
+    });
+    cards.forEach(card => { card.hidden = outcome !== "all" && card.dataset.reviewOutcome !== outcome; });
+    links.forEach(link => { link.hidden = outcome !== "all" && link.dataset.reviewIndex !== outcome; });
+  };
+  filters.forEach(button => button.addEventListener("click", () => choose(button.dataset.reviewFilter)));
+  document.querySelectorAll('a[href^="#question-"]').forEach(link => {
+    link.addEventListener("click", () => {
+      const target = document.getElementById(link.getAttribute("href").slice(1));
+      if (target && target.hidden) choose("all");
+    });
+  });
+})();
