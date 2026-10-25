@@ -7,6 +7,7 @@
 {% block workspace_assets %}{{ super() }}<link rel="stylesheet" href="{{ url_for('static', filename='css/library.css') }}">{% endblock %}
 {% block content %}
 <div class="library-hub materials-workspace">
+  <p><a class="button" href="{{ url_for('native_library.home') }}">Files — upload and manage original documents</a></p>
   <section class="materials-hero" aria-labelledby="library-title">
     <div class="materials-hero-copy">
       <p class="eyebrow">ANVAYA / Academic Library</p>
