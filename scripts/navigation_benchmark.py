@@ -16,6 +16,7 @@ parser.add_argument('--output',required=True)
 parser.add_argument('--samples',type=int,default=25)
 args=parser.parse_args()
 sys.path.insert(0,args.repo)
+sys.path.insert(0,str(Path(args.repo)/'tests'))
 from pypdf import PdfWriter
 from werkzeug.serving import make_server, WSGIRequestHandler
 from playwright.sync_api import sync_playwright
@@ -39,7 +40,10 @@ class Quiet(WSGIRequestHandler):
 
 with tempfile.TemporaryDirectory(prefix='anvaya-benchmark-') as directory:
     root=Path(directory)
-    db=root/'academic.db';apply_migrations(db)
+    from tests.test_phase7_5_academic_agent_web import build_test_web_service
+    (root/'tutor').mkdir()
+    tutor,db,_,_,_=build_test_web_service(root/'tutor')
+    # Every page reads the same disposable canonical owner, as on the device.
     with sqlite3.connect(db) as con:
         con.execute('PRAGMA journal_mode=DELETE')
         for i in range(200):
@@ -54,8 +58,6 @@ with tempfile.TemporaryDirectory(prefix='anvaya-benchmark-') as directory:
     buffer=io.BytesIO();writer.write(buffer);raw=buffer.getvalue()
     studio=LearningStudioService(root/'learning_studio.sqlite3',source_loader=lambda _:raw,catalogue_loader=catalogue)
     studio.stage(package(raw));studio.publish('synthetic',1)
-    from tests.test_phase7_5_academic_agent_web import build_test_web_service
-    tutor,_,_,_,_=build_test_web_service(root/'tutor')
     app=create_app({'ACADEMIC_AGENT_WEB_SERVICE_FACTORY':lambda:tutor,'TESTING':True,'ACADEMIC_DATABASE_PATH':db,'LEARNING_LIBRARY_DATABASE_PATH':db,
         'KNOWLEDGE_READER_SERVICE_FACTORY':lambda:KnowledgeReaderService(database_path=db),
         'LEARNING_STUDIO_SERVICE_FACTORY':lambda:studio})
