@@ -10,6 +10,11 @@ on:
 permissions:
   contents: read
 
+# Replaced PR heads should not burn CI minutes after a new commit.
+concurrency:
+  group: assessment-studio-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   assessment:
     if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
