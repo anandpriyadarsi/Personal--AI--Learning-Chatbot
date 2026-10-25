@@ -28,11 +28,9 @@ BASE_SMOKES = {
 }
 NEW_SMOKES = {
     "performance_reader": ("tests/test_navigation_asset_cache.py", "tests/test_library_document_rename.py",
-                           "tests/learning_studio/test_mobile_reader_delivery.py"),
-    "handwritten_media": ("tests/test_notes_media_service.py", "tests/test_notes_media_routes.py",
-                          "tests/test_notes_media_browser.py", "tests/test_notes_media_android.py"),
-    "native_documents": ("tests/test_native_document_library.py", "tests/test_native_library_routes.py",
-                         "tests/test_native_library_browser.py"),
+                           "tests/learning_studio/test_reader_payload_performance.py"),
+    "handwritten_media": ("tests/test_notes_media.py", "tests/test_notes_media_android_contract.py"),
+    "native_documents": ("tests/test_native_document_library.py", "tests/test_native_library_routes.py"),
     "assessment_review": ("tests/test_assessment_two_modes.py", "tests/test_assessment_studio_authoring_ux.py",
                           "tests/test_assessment_execution_candidate.py"),
 }
