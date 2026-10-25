@@ -17,7 +17,7 @@ def live(tmp_path):
     p = package(); p['title'] = 'Long source heading ' * 14
     publish(service, p)
     app = create_app({'TESTING': True, 'LEARNING_STUDIO_SERVICE_FACTORY': lambda: service})
-    server = make_server('127.0.0.1', 0, app)
+    server = make_server('127.0.0.1', 0, app, threaded=True)
     thread = threading.Thread(target=server.serve_forever, daemon=True); thread.start()
     yield f'http://127.0.0.1:{server.server_port}', service
     server.shutdown(); thread.join(timeout=10); server.server_close()
@@ -162,7 +162,7 @@ def real_live(recovered_pilot):
     improved,_,improved_assets=normalize_pilot(Path(os.environ['ANVAYA_TEST_RECOVERED_PILOT_ZIP']).read_bytes(),source_id=service.module(p['module_id'],1)['source']['source_id'])
     service.stage(improved,improved_assets);service.publish(improved['module_id'],2)
     app=create_app({'TESTING':True,'LEARNING_STUDIO_SERVICE_FACTORY':lambda:service})
-    server=make_server('127.0.0.1',0,app)
+    server=make_server('127.0.0.1',0,app,threaded=True)
     thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
     yield f'http://127.0.0.1:{server.server_port}',p,source
     server.shutdown();thread.join(timeout=10);server.server_close()

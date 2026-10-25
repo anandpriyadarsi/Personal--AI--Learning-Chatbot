@@ -39,7 +39,7 @@ def quality_live(tmp_path):
     report=build_coverage(p,raw,reviewer='Synthetic fixture author',method='Mechanical source locations; not semantic approval')
     report['unresolved']=[{'id':'synthetic-issue','pages':[13],'snippet':'Synthetic comparison','issue':'Meaning remains unverified','next_action':'Inspect original qualifiers before proposing a new revision.'}]
     s=LearningStudioService(tmp_path/'learning_studio.sqlite3',source_loader=lambda _:raw,catalogue_loader=catalogue);s.stage(p,assets,report);s.publish('synthetic',1)
-    app=create_app({'TESTING':True,'LEARNING_STUDIO_SERVICE_FACTORY':lambda:s});server=make_server('127.0.0.1',0,app)
+    app=create_app({'TESTING':True,'LEARNING_STUDIO_SERVICE_FACTORY':lambda:s});server=make_server('127.0.0.1',0,app,threaded=True)
     t=threading.Thread(target=server.serve_forever,daemon=True);t.start()
     yield f'http://127.0.0.1:{server.server_port}',s,p
     server.shutdown();t.join(10);server.server_close()
