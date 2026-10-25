@@ -92,6 +92,8 @@ class Runtime:
         self.thread.join(timeout=5)
         self.server.server_close()
         self.app.extensions['academic_wal_publisher'].stop()
+        library=self.app.extensions.get('native_document_library')
+        if library is not None: library.close()
 
 
 def _offline_network_policy():
@@ -170,6 +172,7 @@ def _start(root_path=None):
         'MOBILE_ALLOW_CLOUD_AI': False, 'MOBILE_AI_DATA_ACK': '',
         'ASSESSMENT_EXTENDED_ENABLED': True, 'ACADEMIC_DATABASE_PATH': config.DATABASE_PATH,
         'LEARNING_LIBRARY_DATABASE_PATH': config.DATABASE_PATH,
+        'NATIVE_LIBRARY_ROOT':root/'data/native_library',
         'LEARNING_STUDIO_DATABASE': str(root/'data/learning_studio.sqlite3'),
         'LEARNING_STUDIO_SOURCE_DATABASE': str(config.DATABASE_PATH),
         'LEARNING_STUDIO_SOURCE_ROOTS': {'documents': root/'data/documents'},

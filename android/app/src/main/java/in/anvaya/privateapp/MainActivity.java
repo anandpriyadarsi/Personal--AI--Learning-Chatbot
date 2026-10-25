@@ -21,6 +21,9 @@ public class MainActivity extends Activity {
     private ValueCallback<Uri[]> fileCallback;
     private static final int PICK_FILES = 41;
     private static final int SAVE_FILE = 42;
+    private static final int VIEW_PDF = 43;
+    private boolean documentBusy;
+    private String viewerBrowserUrl;
     private String downloadUrl;
     private String downloadCookie;
     private String origin;
@@ -65,7 +68,8 @@ public class MainActivity extends Activity {
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
         settings.setAllowFileAccess(false);
-        // SAF file chooser supplies a user-selected content:// URI. File-system and\n        // file:// access stay disabled; navigation remains loopback-origin restricted.\n        settings.setAllowContentAccess(true);
+        // SAF supplies only user-selected content URIs. File access stays disabled.
+        settings.setAllowContentAccess(true);
         settings.setAllowFileAccessFromFileURLs(false);
         settings.setAllowUniversalAccessFromFileURLs(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
@@ -95,7 +99,12 @@ public class MainActivity extends Activity {
                         }).show();
                     return true;
                 }
-                return !allowed.permits(req.getUrl().toString());
+                String address=req.getUrl().toString();
+                if(req.isForMainFrame() && NativeDocumentRequest.parse(origin,address)!=null) {
+                    if(req.hasGesture()) openNativeDocument(address);
+                    return true;
+                }
+                return !allowed.permits(address);
             }
             @Override public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest req) {
                 if (allowed.permits(req.getUrl().toString())) return null;
@@ -105,6 +114,7 @@ public class MainActivity extends Activity {
         });
         web.setDownloadListener((url, agent, disposition, mime, length) -> {
             if (!allowed.permits(url)) return;
+            if(openNativeDocument(url))return;
             DownloadSpec spec=DownloadSpec.from(URLUtil.guessFileName(url,disposition,mime),mime);
             downloadUrl=url; downloadCookie=CookieManager.getInstance().getCookie(url);
             Intent save=new Intent(Intent.ACTION_CREATE_DOCUMENT);
@@ -137,8 +147,67 @@ public class MainActivity extends Activity {
             }
         });
     }
+    private boolean openNativeDocument(String address) {
+        NativeDocumentRequest request=NativeDocumentRequest.parse(origin,address);
+        if(request==null)return false;
+        if(documentBusy)return true;
+        documentBusy=true;
+        final String cookie=CookieManager.getInstance().getCookie(origin);
+        new Thread(()->{
+            java.net.HttpURLConnection connection=null;
+            try {
+                java.io.File directory=new java.io.File(getCacheDir(),"shared-originals");directory.mkdirs();
+                // Only old, explicit share/view copies are removed; originals live in filesDir.
+                java.io.File[] old=directory.listFiles();
+                if(old!=null)for(java.io.File folder:old)if(folder.isDirectory()&&System.currentTimeMillis()-folder.lastModified()>86400000L){
+                    java.io.File[] files=folder.listFiles();if(files!=null)for(java.io.File file:files)file.delete();folder.delete();
+                }
+                connection=(java.net.HttpURLConnection)new java.net.URL(request.originalAddress).openConnection();
+                connection.setInstanceFollowRedirects(false);connection.setConnectTimeout(10000);connection.setReadTimeout(30000);
+                connection.setRequestProperty("Cookie",cookie);
+                if(connection.getResponseCode()!=200)throw new java.io.IOException("Original unavailable");
+                String mime=connection.getContentType();
+                if(!"application/pdf".equals(mime)&&!"application/vnd.ms-powerpoint".equals(mime)&&
+                   !"application/vnd.openxmlformats-officedocument.presentationml.presentation".equals(mime))throw new java.io.IOException("Unsupported original");
+                DownloadSpec spec=DownloadSpec.from(URLUtil.guessFileName(address,connection.getHeaderField("Content-Disposition"),mime),mime);
+                java.io.File folder=new java.io.File(directory,java.util.UUID.randomUUID().toString());folder.mkdir();
+                java.io.File original=new java.io.File(folder,spec.name);
+                try(java.io.InputStream input=connection.getInputStream();java.io.FileOutputStream output=new java.io.FileOutputStream(original)){
+                    byte[] buffer=new byte[32768];int n;long total=0;
+                    while((n=input.read(buffer))!=-1){total+=n;if(total>100L*1024*1024)throw new java.io.IOException("Original too large");output.write(buffer,0,n);}
+                    output.getFD().sync();
+                }catch(Exception error){original.delete();folder.delete();throw error;}
+                Uri uri=androidx.core.content.FileProvider.getUriForFile(this,getPackageName()+".documents",original);
+                runOnUiThread(()->{
+                    documentBusy=false;if(isFinishing()||isDestroyed())return;
+                    try {
+                        if(request.share){
+                            Intent share=new Intent(Intent.ACTION_SEND);share.setType(spec.mime);share.putExtra(Intent.EXTRA_STREAM,uri);
+                            share.setClipData(android.content.ClipData.newRawUri("Original document",uri));
+                            share.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);startActivity(Intent.createChooser(share,"Share original document"));
+                        }else if("application/pdf".equals(spec.mime)){
+                            viewerBrowserUrl=request.browserAddress;
+                            Intent view=new Intent(this,PdfPageActivity.class);view.setData(uri);view.putExtra("page",request.position);
+                            startActivityForResult(view,VIEW_PDF);
+                        }else{
+                            Intent view=new Intent(Intent.ACTION_VIEW);view.setDataAndType(uri,spec.mime);
+                            view.setClipData(android.content.ClipData.newRawUri("Original document",uri));view.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                            Toast.makeText(this,"Open slide "+request.position+" in your viewer. Slide linking is not supported.",Toast.LENGTH_LONG).show();
+                            startActivity(Intent.createChooser(view,"Open original slides"));
+                        }
+                    }catch(android.content.ActivityNotFoundException error){Toast.makeText(this,"No compatible viewer. Use Download original to save the file.",Toast.LENGTH_LONG).show();}
+                });
+            }catch(Exception error){runOnUiThread(()->{documentBusy=false;Toast.makeText(this,"Could not open original. Return to Library or download it.",Toast.LENGTH_LONG).show();});}
+            finally{if(connection!=null)connection.disconnect();}
+        },"anvaya-original-document").start();
+        return true;
+    }
+
     @Override protected void onActivityResult(int code, int result, Intent data) {
         super.onActivityResult(code,result,data);
+        if(code==VIEW_PDF && result==RESULT_OK && data!=null && data.getBooleanExtra("find",false) && viewerBrowserUrl!=null) {
+            web.loadUrl(viewerBrowserUrl+"&position="+Math.max(1,Math.min(2500,data.getIntExtra("page",1))));
+        }
         if (code == SAVE_FILE && result == RESULT_OK && data != null && data.getData() != null) {
             final Uri destination=data.getData(); final String address=downloadUrl, cookie=downloadCookie;
             downloadUrl=null; downloadCookie=null;

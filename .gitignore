@@ -70,3 +70,6 @@ test-results/
 Thumbs.db
 .idea/
 .vscode/
+
+# Original private document Library and private search sidecar
+data/native_library/
