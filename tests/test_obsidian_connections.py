@@ -16,6 +16,13 @@ def archive(entries):
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w") as zip_file:
         for name, value in entries:
+            if isinstance(name,str):
+                entry=zipfile.ZipInfo(name)
+                # Preserve hostile raw names even on Windows, where ZipInfo's
+                # constructor otherwise turns backslashes into forward slashes.
+                entry.filename=name
+                entry.orig_filename=name
+                name=entry
             zip_file.writestr(name, value)
     return buffer.getvalue()
 
@@ -227,3 +234,16 @@ def test_stale_desktop_connection_on_android_offers_snapshot_reconnect(connected
     settings = client.get("/library/connected-sources/obsidian")
     assert b"Import snapshot" in settings.data
     assert b'name="vault_path"' not in settings.data
+
+
+def test_windows_zip_name_normalization_cannot_hide_unsafe_original_name(connected,monkeypatch):
+    service,config,_=connected
+    raw=archive([('.obsidian/',b''),('Vault\\escape.md','# Escape')])
+    before=config.load_config()
+    monkeypatch.setattr(zipfile.os,'sep','\\')
+    with zipfile.ZipFile(io.BytesIO(raw)) as zipped:
+        info=zipped.infolist()[1]
+        assert info.filename=='Vault/escape.md'
+        assert info.orig_filename=='Vault\\escape.md'
+    with pytest.raises(ValueError):service.import_snapshot(raw)
+    assert config.load_config()==before

@@ -74,7 +74,7 @@ class ObsidianConnectionService:
                 markers = set()
                 seen = set()
                 for item in entries:
-                    parts = _safe_zip_path(item.filename)
+                    parts = _safe_zip_path(item.orig_filename)
                     if not parts:
                         _invalid("The ZIP contains an empty path.")
                     mode = (item.external_attr >> 16) & 0o170000
