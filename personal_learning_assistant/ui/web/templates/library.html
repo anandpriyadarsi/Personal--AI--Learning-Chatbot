@@ -1,6 +1,7 @@
 {% extends "workspace_base.html" %}
 {% block page_scripts %}
 {{ super() }}
+<script defer src="{{ url_for('static', filename='js/library_rename.js') }}"></script>
 {% if library_view == 'search' %}<script defer src="{{ url_for('static', filename='js/knowledge_search.js') }}"></script>{% endif %}
 {% endblock %}
 {% block title %}Library · ANVAYA{% endblock %}
@@ -93,7 +94,8 @@
             <div class="materials-resource-glyph" aria-hidden="true">{{ 'R' if item.reference.kind == 'resource' else 'D' }}</div>
             <div class="library-card-main">
               <div class="materials-resource-meta"><span class="materials-type">{{ 'Resource' if item.reference.kind == 'resource' else 'Ungrouped document' }}</span><span class="materials-separator">·</span><span>{{ item.item_type }}</span>{% if item.provider %}<span class="materials-separator">·</span><span>{{ item.provider }}</span>{% endif %}</div>
-              <h3>{% if item.reference.kind == 'resource' or source_reader_available %}<a href="{{ item.open_target }}">{{ item.title }}</a>{% else %}{{ item.title }}{% endif %}</h3>
+              <h3>{% if item.reference.kind == 'resource' or source_reader_available %}<a href="{{ item.open_target }}" data-library-title="{{ item.key }}">{{ item.title }}</a>{% else %}<span data-library-title="{{ item.key }}">{{ item.title }}</span>{% endif %}</h3>
+              <button type="button" class="library-rename-action" data-library-rename="{{ url_for('library_rename.rename',kind=item.reference.kind,item_id=item.reference.id) }}" data-key="{{ item.key }}">Rename</button>
               <div class="library-labels">{% for course in item.courses %}<span class="library-label">{{ course.label }}</span>{% endfor %}</div>
               <p class="library-extraction">{{ item.extraction_summary }}{% if item.learning_status %}<span aria-hidden="true"> · </span>{{ item.learning_status|replace('_', ' ')|capitalize }} · {{ item.document_count }} document{{ '' if item.document_count == 1 else 's' }}{% endif %}</p>
             </div>
@@ -122,4 +124,5 @@
   <p class="materials-data-note">Browse materials contains canonical registered sources; Saved links &amp; progress shows separate legacy bookmarks. None are silently imported or presented as indexed sources.</p>
   {% endif %}
 </div>
+{% include '_library_rename_dialog.html' %}
 {% endblock %}

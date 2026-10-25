@@ -24,6 +24,7 @@ public class MainActivity extends Activity {
     private String downloadUrl;
     private String downloadCookie;
     private String origin;
+    private boolean backPending;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -177,8 +178,30 @@ public class MainActivity extends Activity {
         }
     }
     @Override public void onBackPressed() {
-        if (web != null && web.canGoBack()) web.goBack();
-        else super.onBackPressed();
+        final WebView target = web;
+        final String page = target == null ? null : target.getUrl();
+        if (backPending) return;
+        if (target == null || page == null || allowed == null || !allowed.permits(page)) {
+            super.onBackPressed();
+            return;
+        }
+        // Native WebView history may lag the renderer's same-document history.
+        // Let the trusted local reader close its active mode before a page Back.
+        // This evaluates fixed app code; no JavaScript bridge is exposed.
+        backPending = true;
+        target.evaluateJavascript("(() => {"
+            + "const modal=document.querySelector('dialog[open]');"
+            + "if(modal){modal.close();return true;}"
+            + "const focus=document.getElementById('ls-focus');"
+            + "if(focus&&document.body.classList.contains('ls-focus')){focus.click();return true;}"
+            + "return false;})()", consumed -> {
+                backPending = false;
+                if (target != web || isFinishing() || isDestroyed()) return;
+                if ("true".equals(consumed)) return;
+                if (!page.equals(target.getUrl())) return;
+                if (target.canGoBack()) target.goBack();
+                else MainActivity.super.onBackPressed();
+            });
     }
     @Override protected void onDestroy() {
         if (fileCallback != null) fileCallback.onReceiveValue(null);

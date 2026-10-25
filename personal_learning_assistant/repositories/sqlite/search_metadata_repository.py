@@ -20,6 +20,15 @@ class SQLiteSearchMetadataRepository:
             raise TypeError("connection must be an explicit sqlite3.Connection")
         self.connection = connection
         self.connection.row_factory = sqlite3.Row
+        self._display_titles = None
+        self.connection.create_function('search_display_title',3,
+            lambda kind,ident,fallback:self._titles().get((kind,ident),fallback))
+
+    def _titles(self):
+        if self._display_titles is None:
+            from .library_display_repository import connection_titles
+            self._display_titles = connection_titles(self.connection)
+        return self._display_titles
 
     def document(self, document_id: str):
         row = self.connection.execute(
@@ -57,6 +66,9 @@ class SQLiteSearchMetadataRepository:
             if primary is not None and str(primary["title"]).strip()
             else str(row["path_key"] or row["canonical_uri"] or document_id)
         )
+        titles = self._titles()
+        title = titles.get(('document',str(row['id'])),
+            titles.get(('resource',str(primary['id'])),title) if primary else title)
         source_kind = str(
             primary["resource_type"] if primary is not None else row["kind"]
         )
@@ -145,8 +157,8 @@ class SQLiteSearchMetadataRepository:
         ).fetchall():
             results.append(("topic", str(row["name"]), "Academic topic"))
         for row in self.connection.execute(
-            "SELECT title,resource_type,provider FROM resources "
-            "WHERE deleted_at IS NULL AND title LIKE ? ESCAPE '\\' "
+            "SELECT search_display_title('resource',id,title) AS title,resource_type,provider FROM resources "
+            "WHERE deleted_at IS NULL AND search_display_title('resource',id,title) LIKE ? ESCAPE '\\' "
             "ORDER BY title,id LIMIT ?",
             (pattern, int(limit)),
         ).fetchall():
@@ -155,6 +167,11 @@ class SQLiteSearchMetadataRepository:
             if provider:
                 subtitle = "{} · {}".format(subtitle, provider)
             results.append(("resource", str(row["title"]), subtitle))
+        for row in self.connection.execute(
+            "SELECT search_display_title('document',id,'') AS title FROM knowledge_documents "
+            "WHERE search_display_title('document',id,'') LIKE ? ESCAPE '\\' ORDER BY id LIMIT ?",
+            (pattern,int(limit))):
+            results.append(('resource',str(row['title']),'Document'))
         return tuple(results[: int(limit)])
 
     def metadata_document_matches(
@@ -184,7 +201,8 @@ class SQLiteSearchMetadataRepository:
             pattern = "%{}%".format(escaped)
             clauses.append(
                 "("
-                "lower(COALESCE(r.title,'')) LIKE lower(?) ESCAPE '\\' OR "
+                "lower(search_display_title('resource',r.id,COALESCE(r.title,''))) LIKE lower(?) ESCAPE '\\' OR "
+                "lower(search_display_title('document',kd.id,'')) LIKE lower(?) ESCAPE '\\' OR "
                 "lower(COALESCE(c.code,'')) LIKE lower(?) ESCAPE '\\' OR "
                 "lower(COALESCE(c.name,'')) LIKE lower(?) ESCAPE '\\' OR "
                 "lower(COALESCE(t.name,'')) LIKE lower(?) ESCAPE '\\' OR "
@@ -192,7 +210,7 @@ class SQLiteSearchMetadataRepository:
                 "lower(COALESCE(kd.canonical_uri,'')) LIKE lower(?) ESCAPE '\\'"
                 ")"
             )
-            params.extend((pattern,) * 6)
+            params.extend((pattern,) * 7)
 
         sql = (
             "SELECT DISTINCT kd.id "

@@ -206,3 +206,10 @@
 .library-saved-resources {min-width:0;margin:1rem 0}
 .library-saved-resources .materials-create {margin:1.1rem 0}
 .library-saved-resources .library-items {margin-top:1rem}
+.library-rename-action{min-height:44px;padding:.4rem .75rem;border:1px solid #41616c;border-radius:.5rem;background:transparent;color:inherit;cursor:pointer}
+.library-rename-dialog{width:min(28rem,calc(100vw - 32px));box-sizing:border-box;max-height:calc(100dvh - 32px);overflow:auto;border:1px solid #45656e;border-radius:1rem;padding:1.25rem;background:#14232c;color:#edf5f4}
+.library-rename-dialog::backdrop{background:#000a}
+.library-rename-dialog h2{margin-top:0}.library-rename-dialog p{line-height:1.55;overflow-wrap:anywhere}
+.library-rename-dialog input{display:block;width:100%;box-sizing:border-box;min-height:44px;margin:.5rem 0 1rem;padding:.65rem;background:#0c1720;color:inherit;border:1px solid #708a8e;border-radius:.4rem;font:inherit}
+.library-rename-dialog .form-actions{display:flex;justify-content:flex-end;gap:.6rem}.library-rename-dialog button{min-height:44px}
+.library-rename-status:empty,#library-rename-error:empty{display:none}.library-rename-status{padding:.75rem;border:1px solid #447265;border-radius:.5rem}

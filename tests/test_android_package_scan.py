@@ -13,7 +13,7 @@ PUBLIC_CERT = b'-----BEGIN CERTIFICATE-----\nMAA=\n-----END CERTIFICATE-----\n'
 def scan(tmp_path, entries):
     evidence = tmp_path / 'android-evidence'
     evidence.mkdir()
-    (evidence / 'apk-badging.txt').write_text("name='in.anvaya.privateapp' versionCode='13' versionName='1.1.2-unified-test' sdkVersion:'24' targetSdkVersion:'35' armeabi-v7a arm64-v8a x86_64")
+    (evidence / 'apk-badging.txt').write_text("name='in.anvaya.privateapp' versionCode='14' versionName='1.1.3-reader-rename-test' sdkVersion:'24' targetSdkVersion:'35' armeabi-v7a arm64-v8a x86_64")
     with zipfile.ZipFile(evidence / 'ANVAYA-Unified-Android-test.apk', 'w') as archive:
         for name, value in entries.items():
             archive.writestr(name, value)

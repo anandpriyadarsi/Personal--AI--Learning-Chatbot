@@ -90,4 +90,8 @@ def create_app(config: Mapping[str, Any] | None = None) -> Flask:
     from .mobile import register_mobile
     register_mobile(app)
     register_error_handlers(app)
+    from .library_rename import register_library_rename
+    register_library_rename(app)
+    from .asset_cache import register_asset_cache
+    register_asset_cache(app)
     return app

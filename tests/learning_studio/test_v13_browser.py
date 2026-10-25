@@ -39,7 +39,7 @@ def quality_live(tmp_path):
     report=build_coverage(p,raw,reviewer='Synthetic fixture author',method='Mechanical source locations; not semantic approval')
     report['unresolved']=[{'id':'synthetic-issue','pages':[13],'snippet':'Synthetic comparison','issue':'Meaning remains unverified','next_action':'Inspect original qualifiers before proposing a new revision.'}]
     s=LearningStudioService(tmp_path/'learning_studio.sqlite3',source_loader=lambda _:raw,catalogue_loader=catalogue);s.stage(p,assets,report);s.publish('synthetic',1)
-    app=create_app({'TESTING':True,'LEARNING_STUDIO_SERVICE_FACTORY':lambda:s});server=make_server('127.0.0.1',0,app)
+    app=create_app({'TESTING':True,'LEARNING_STUDIO_SERVICE_FACTORY':lambda:s});server=make_server('127.0.0.1',0,app,threaded=True)
     t=threading.Thread(target=server.serve_forever,daemon=True);t.start()
     yield f'http://127.0.0.1:{server.server_port}',s,p
     server.shutdown();t.join(10);server.server_close()
@@ -63,6 +63,13 @@ def test_contextual_sidebar_exact_source_mistake_recheck_and_exam_modes(browser,
     page.goto(base+'?view=learn&section=lesson-01');rail=page.locator('.ls-lesson-rail')
     if width<=390:
         concept=page.locator('.ls-block-teaching p').last.bounding_box();assert concept and concept['y']+concept['height']<844
+        # Compact titles must remain expandable; never discard the full name
+        # to meet the first-screen reading budget or shrink its touch target.
+        title=page.locator('.ls-study-header h1');summary=page.locator('.ls-study-header > details > summary')
+        collapsed=title.bounding_box()['height'];summary.click()
+        assert title.bounding_box()['height']>collapsed
+        assert summary.bounding_box()['height']>=44
+        expect(title).to_have_text(p['title']);summary.click()
     if width>860:
         expect(rail).to_be_visible();before=page.locator('#ls-reading-column').bounding_box()['width'];page.click('#nav-toggle')
         page.wait_for_function('(w)=>document.querySelector("#ls-reading-column").getBoundingClientRect().width>w+150',arg=before);page.click('#nav-toggle')
