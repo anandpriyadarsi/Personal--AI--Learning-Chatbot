@@ -254,9 +254,11 @@ public class OfflineSmokeTest {
         js("document.documentElement.requestFullscreen=()=>Promise.reject(new Error('WebView fallback acceptance'));document.querySelector('#ls-fullscreen').click()");
         waitFor("document.querySelector('#ls-fullscreen').textContent==='Exit full view' && document.body.classList.contains('ls-focus')");
         waitFor("getComputedStyle(document.querySelector('.topbar')).display==='none' && getComputedStyle(document.querySelector('.mobile-dock')).display==='none'");
+        waitFor("(()=>{const n=document.querySelector('#ls-control-status').getBoundingClientRect(),t=document.querySelector('.ls-reading-controls').getBoundingClientRect();return n.top>=t.top && n.bottom<=t.bottom+1})()");
         screenshot("android-reader-full-view");
         getInstrumentation().runOnMainSync(()->activity.setRequestedOrientation(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE));
         waitFor("innerWidth>innerHeight && document.body.classList.contains('ls-focus') && document.documentElement.scrollWidth<=innerWidth+1");
+        waitFor("(()=>{const n=document.querySelector('#ls-control-status').getBoundingClientRect(),t=document.querySelector('.ls-reading-controls').getBoundingClientRect();return n.top>=t.top && n.bottom<=t.bottom+1})()");
         assertEquals("Rotation retains the same reader and lesson","true",js("location.pathname==='/learning/modules/uc100n-demo/1' && getComputedStyle(document.querySelector('.topbar')).display==='none'"));
         screenshot("android-reader-full-view-landscape");
         getInstrumentation().runOnMainSync(()->activity.setRequestedOrientation(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT));

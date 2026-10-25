@@ -54,6 +54,9 @@
   body.ls-focus.learning-reader .app-footer,body.ls-focus.learning-reader .topbar,body.ls-focus.learning-reader .app-sidebar,body.ls-focus.learning-reader .mobile-bottom-nav,body.ls-focus.learning-reader .bottom-nav{display:none!important}
   body.ls-focus.learning-reader #main-content{padding:8px 10px 30px!important}
   body.ls-focus.learning-reader .ls-reading-controls{top:0}
+  /* Reserve space for reader feedback instead of covering phone/landscape text. */
+  body.ls-focus.learning-reader .ls-reading-controls{flex-wrap:wrap;overflow:visible}
+  body.ls-focus.learning-reader #ls-control-status:not(:empty){position:static;flex:1 0 100%;box-sizing:border-box;box-shadow:none;padding:6px 8px;font-size:.75rem;line-height:1.4}
 }
 @media print{.learning-reader .ls-graph-advanced{display:none}.learning-reader .ls-source-peek{display:none}.learning-reader .ls-map-callout{display:none}}
 .learning-reader .ls-media-dialog{width:calc(100vw - 16px);height:calc(100dvh - 16px);max-width:none;max-height:none;box-sizing:border-box;margin:auto;padding:12px;background:#10212b;color:#edf5f4;border:1px solid #45656e;border-radius:.75rem}
