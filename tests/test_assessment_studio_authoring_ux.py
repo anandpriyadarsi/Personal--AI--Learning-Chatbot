@@ -126,7 +126,8 @@ def test_master_prompt_edit_persists_and_reset_restores_repository_default(tmp_p
     )
     custom = service.workspace(workspace_kind="exam", course_id="course-ma")
     assert custom["prompt_is_custom"] is True
-    assert custom["resolved_prompt"] == "CUSTOM Exam MA103N Linear Algebra"
+    assert custom["resolved_prompt"].startswith("CUSTOM Exam MA103N Linear Algebra")
+    assert "MANDATORY SELF-CONTAINED QUESTION RULE" in custom["resolved_prompt"]
     assert custom["prompt_revision"] == 1
 
     service.save_master_prompt(
@@ -134,7 +135,8 @@ def test_master_prompt_edit_persists_and_reset_restores_repository_default(tmp_p
     )
     updated = service.workspace(workspace_kind="test", course_id="course-ma")
     assert updated["prompt_revision"] == 2
-    assert updated["resolved_prompt"] == "CUSTOM V2 Test MA103N"
+    assert updated["resolved_prompt"].startswith("CUSTOM V2 Test MA103N")
+    assert "MANDATORY SELF-CONTAINED QUESTION RULE" in updated["resolved_prompt"]
 
     service.reset_master_prompt()
     reset = service.workspace(workspace_kind="quiz", course_id="course-ma")
@@ -312,4 +314,5 @@ def test_master_prompt_contract_contains_context_and_strict_package_requirements
     assert "mcq" in prompt
     assert "msq" in prompt
     assert "review_required" in prompt
+    assert "SELF-CONTAINED QUESTION QUALITY GATE" in prompt
     assert "Do not globally assume JEE Advanced" in prompt or "Do not assume one global JEE Advanced" in prompt

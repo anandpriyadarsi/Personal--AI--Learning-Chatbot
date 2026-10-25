@@ -80,3 +80,53 @@ nav.study-palette .palette-question.is-current{border-color:var(--accent);backgr
 .practice-tools{margin-top:14px;color:var(--text-muted)}
 .practice-tools>summary{min-height:44px;cursor:pointer;padding-block:10px}
 .practice-tools>.workspace-home{display:inline-block;padding:12px}
+
+
+/* Post-submit CBT practice review: accessible status and answer comparison. */
+.cbt-practice-result{border-color:rgba(85,194,184,.5)}
+.cbt-practice-result h2{font-size:clamp(21px,3vw,28px);margin:5px 0 12px}
+.cbt-total{margin:0 0 16px}
+.cbt-total strong{font-size:clamp(25px,4vw,38px);letter-spacing:-.03em}
+.cbt-pending-note{display:block;font-size:13px;color:#f6c987}
+.cbt-result-metrics{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:9px;margin:16px 0}
+.cbt-result-metrics>div{border:1px solid var(--border);border-radius:10px;background:var(--surface-muted);padding:12px;min-width:0}
+.cbt-result-metrics strong{font-size:25px;line-height:1.2;display:block;font-variant-numeric:tabular-nums}
+.cbt-result-metrics span{font-size:12px;color:var(--text-muted);display:block;margin-top:5px}
+.cbt-review-guide{font-size:14px;line-height:1.6}
+.cbt-review-filters{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0 12px}
+.cbt-review-filters button{min-height:42px;background:var(--surface-muted);color:var(--text);border-color:var(--border);padding:8px 12px}
+.cbt-review-filters button[aria-pressed=true]{background:var(--accent-soft);border-color:var(--accent);color:var(--text)}
+.cbt-review-index{display:grid;grid-template-columns:repeat(auto-fit,minmax(82px,1fr));gap:8px;position:static}
+.cbt-review-index a.cbt-review-chip{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;border:1px solid var(--border);border-radius:9px;min-height:55px;padding:8px;color:var(--text);background:var(--surface-muted);font-weight:700;font-size:13px;text-decoration:none}
+.cbt-review-chip small{font-size:10px;font-weight:500;color:var(--text-muted)}
+.cbt-review-chip.cbt-outcome-correct{border-color:#4a9f70}
+.cbt-review-chip.cbt-outcome-incorrect{border-color:#c87676}
+.cbt-review-chip.cbt-outcome-partially_correct{border-color:#cbad65}
+.cbt-review-chip:hover,.cbt-review-chip:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.cbt-review-chip[hidden],.cbt-feedback-card[hidden]{display:none!important}
+.cbt-question-outcome{display:inline-flex;gap:6px;flex-wrap:wrap;align-items:center;border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-size:13px}
+.cbt-question-outcome.cbt-outcome-correct{color:#93efb6;border-color:#4a9f70}
+.cbt-question-outcome.cbt-outcome-incorrect{color:#ffb1b1;border-color:#bc6969}
+.cbt-question-outcome.cbt-outcome-partially_correct{color:#f6d692;border-color:#cbad65}
+.option.cbt-answer-correct,.option.cbt-answer-correct:has(input:checked),.cbt-answer-panel.cbt-answer-correct{border-color:#479665;background:#17352c;color:#d9fce4}
+.option.cbt-answer-incorrect,.option.cbt-answer-incorrect:has(input:checked),.cbt-answer-panel.cbt-answer-incorrect{border-color:#c47474;background:#3b2228;color:#ffe4e4}
+.cbt-option-note{margin-left:auto;text-align:right;min-width:70px;font-size:11px;font-weight:700;color:inherit}
+.cbt-answer-review{border-top:1px solid var(--border);margin-top:22px;padding-top:18px}
+.cbt-answer-comparison{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.cbt-answer-panel{border:1px solid var(--border);border-radius:10px;padding:14px 16px;min-width:0}
+.cbt-answer-panel.cbt-answer-neutral{background:var(--surface-muted);color:var(--text)}
+.cbt-answer-panel h3{font-size:14px;margin:0 0 10px}
+.cbt-answer-panel ul{padding-left:20px;margin:0}
+.cbt-answer-panel li{overflow-wrap:anywhere;line-height:1.6}
+.cbt-answer-panel p{margin:0}
+.cbt-answer-feedback{font-size:14px;color:var(--text-muted);margin:14px 0}
+.cbt-solution{border:1px solid var(--border);border-radius:8px;background:var(--surface-muted);padding:12px 14px}
+.cbt-solution summary{font-weight:700;cursor:pointer;min-height:35px}
+@media(max-width:768px){
+ .cbt-result-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .cbt-result-metrics>div:last-child{grid-column:1 / -1}
+ .cbt-review-index{grid-template-columns:repeat(4,minmax(0,1fr))}
+ .cbt-answer-comparison{grid-template-columns:1fr}
+ .cbt-option-note{font-size:10px}
+ .cbt-review-filters button{flex:1 1 auto}
+}

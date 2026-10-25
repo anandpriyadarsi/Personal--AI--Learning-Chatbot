@@ -799,27 +799,106 @@ class AssessmentExecutionService:
                         assessment_title=h["title_snapshot"], question_text=question["question_text"])
 
     def practice_results(self, sid):
-        """Read-only practice feedback using the canonical deterministic scorer.
+        """Read-only, post-submission CBT scoring and question review.
 
-        Never writes official evaluations, topic evidence or self-review marks.
-        A pending/custom/subjective answer remains explicitly ungraded.
+        The private results (especially answer keys) are NEVER projected while
+        the attempt is active. No official evaluations, mastery, or topic
+        evidence are written by this method.
         """
         from personal_learning_assistant.services.assessment_evaluation_service import _deterministic_score
+
         with self.repository.open() as db:
             h, m, questions = self._load(db, sid)
             if m["kind"] != "online_timed" or h["status"] == "active":
                 return None
+
             items = []
+            counts = {
+                "correct": 0, "incorrect": 0, "partially_correct": 0,
+                "unanswered": 0, "pending_review": 0,
+            }
             for question in questions:
                 score = _deterministic_score(question)
-                items.append(dict(ordinal=question["ordinal"],
-                    outcome=score["outcome"], awarded_marks_milli=score["awarded_marks_milli"],
+                outcome = score["outcome"]
+                counts[outcome] = counts.get(outcome, 0) + 1
+
+                response = json.loads(question["response_json"] or "{}")
+                answer_key = json.loads(question["answer_key_json"] or "{}")
+                options = json.loads(question["options_json"] or "[]")
+                qtype = question["question_type"]
+                selected_ids = [
+                    str(value) for value in response.get("selected_option_ids", [])
+                ] if qtype in ("mcq", "msq") else []
+                correct_ids = [
+                    str(value) for value in answer_key.get("correct_option_ids", [])
+                ] if qtype in ("mcq", "msq") else []
+                option_text = {
+                    str(option["id"]): str(option.get("text") or "")
+                    for option in options
+                    if isinstance(option, dict) and option.get("id") is not None
+                }
+                selected_answers = [
+                    "{}. {}".format(value, option_text.get(value, ""))
+                    for value in selected_ids
+                ]
+                correct_answers = [
+                    "{}. {}".format(value, option_text.get(value, ""))
+                    for value in correct_ids
+                ]
+                if qtype not in ("mcq", "msq"):
+                    parts = response.get("parts")
+                    if isinstance(parts, list) and parts:
+                        selected_answers = [
+                            "Blank {}: {}".format(index, value or "Not answered")
+                            for index, value in enumerate(parts, 1)
+                        ]
+                    else:
+                        raw_answer = str(
+                            response.get("value") or response.get("text") or ""
+                        ).strip()
+                        selected_answers = [raw_answer] if raw_answer else []
+                    correct_answers = [
+                        str(value)
+                        for value in answer_key.get("accepted_answers", [])
+                    ]
+                items.append(dict(
+                    session_question_id=question["id"],
+                    ordinal=question["ordinal"],
+                    outcome=outcome,
+                    awarded_marks_milli=score["awarded_marks_milli"],
                     max_marks_milli=question["max_marks_milli"],
-                    feedback=score["feedback_text"], solution=question["solution_text"]))
-            return dict(items=items,
-                awarded_marks_milli=sum(item["awarded_marks_milli"] or 0 for item in items),
-                max_marks_milli=sum(item["max_marks_milli"] for item in items),
-                pending=sum(item["awarded_marks_milli"] is None for item in items))
+                    penalty_marks_milli=score.get("penalty_marks_milli", 0),
+                    feedback=score["feedback_text"],
+                    solution=question["solution_text"],
+                    selected_option_ids=selected_ids,
+                    correct_option_ids=correct_ids,
+                    selected_answers=selected_answers,
+                    correct_answers=correct_answers,
+                    question_type=qtype,
+                ))
+
+            graded_attempted = (
+                counts["correct"] + counts["incorrect"]
+                + counts["partially_correct"]
+            )
+            return dict(
+                items=items,
+                by_id={item["session_question_id"]: item for item in items},
+                counts=counts,
+                total_questions=len(items),
+                attempted_count=len(items) - counts["unanswered"],
+                accuracy_percent=(
+                    round(100 * counts["correct"] / graded_attempted, 1)
+                    if graded_attempted else None
+                ),
+                awarded_marks_milli=sum(
+                    item["awarded_marks_milli"] or 0 for item in items
+                ),
+                max_marks_milli=sum(
+                    item["max_marks_milli"] for item in items
+                ),
+                pending=counts["pending_review"],
+            )
 
     def authorized_guides(self, sid):
         """Query-only: only guides already deliberately revealed in this attempt."""

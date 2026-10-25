@@ -237,3 +237,84 @@ def test_extended_cbt_preserves_uc100n_tools_with_active_context_policy(tmp_path
     command(ext(),sid,'pause')
     assert client.post(url,json={'action':'concept','topic':'Pandas'}).status_code in (400,409)
     assert len(calls)==1
+
+
+def test_cbt_wrong_choice_shows_correct_key_and_red_green_review_only_after_submit(tmp_path):
+    app, path, aid, ext, _ = _production(tmp_path)
+    client = app.test_client()
+    sid = start(client, aid, "cbt").location.rsplit("/", 1)[1]
+    service = ext()
+    state = service.state(sid)
+    q = state["questions"][0]
+    url = "/assessments/extended/sessions/" + sid
+    active_html = client.get(url).text
+    assert service.practice_results(sid) is None
+    assert 'id="cbt-results"' not in active_html
+    assert "Your incorrect choice" not in active_html
+    assert "Correct answer" not in active_html
+
+    token = re.search('name="mutation_token" value="([^"]+)"', active_html).group(1)
+    submit = client.post(url + "/save", headers={"Origin": "http://localhost"}, data={
+        "mutation_token": token,
+        "request_id": uuid4().hex,
+        "expected_revision": state["revision"],
+        "question_id": q["session_question_id"],
+        "expected_response_revision": q["response_revision"],
+        "option_ids": "A",
+        "command": "submit",
+    })
+    assert submit.status_code == 303
+    result = service.practice_results(sid)
+    first = result["by_id"][q["session_question_id"]]
+    assert first["outcome"] == "incorrect"
+    assert first["selected_option_ids"] == ["A"]
+    assert first["correct_option_ids"] == ["B"]
+    assert first["selected_answers"][0].startswith("A.")
+    assert first["correct_answers"][0].startswith("B.")
+    assert result["counts"]["incorrect"] >= 1
+    assert result["accuracy_percent"] is not None
+
+    html = client.get(submit.location).text
+    assert 'id="cbt-results"' in html
+    assert "Test Results &amp; Analysis" in html
+    assert 'data-review-filter="incorrect"' in html
+    assert "Your incorrect choice" in html
+    assert "Correct answer" in html
+    assert "Why? Read the step-by-step explanation" in html
+    assert 'class="option cbt-answer-incorrect"' in html
+    assert 'class="option cbt-answer-correct"' in html
+    with sqlite3.connect(path) as db:
+        assert db.execute("SELECT count(*) FROM assessment_session_evaluations").fetchone()[0] == 0
+        assert db.execute("SELECT count(*) FROM question_attempts").fetchone()[0] == 0
+
+
+def test_completed_extended_cbt_reopens_private_analysis_from_library_and_history(tmp_path):
+    from personal_learning_assistant.services.assessment_workspace_service import (
+        build_assessment_workspace_service,
+    )
+    app, path, aid, ext, _ = _production(tmp_path)
+    client = app.test_client()
+    sid = start(client, aid, "cbt").location.rsplit("/", 1)[1]
+    command(ext(), sid, "submit")
+    workspace = build_assessment_workspace_service(path)
+    completed = next(
+        row for row in workspace.library()["rows"]
+        if row.get("session_id") == sid
+    )
+    assert completed["action_label"] == "Review answers & analysis"
+    assert completed["action_url"] == "/assessments/extended/sessions/" + sid
+    assert completed["category"] == "results"
+    history = workspace.history(aid)
+    saved = next(row for row in history["rows"] if row["session_id"] == sid)
+    assert saved["action_url"] == completed["action_url"]
+    assert "Test Results &amp; Analysis" in client.get(saved["action_url"]).text
+
+
+def test_extended_history_remains_safe_on_databases_without_android_tables(tmp_path):
+    from personal_learning_assistant.services.assessment_workspace_service import (
+        build_assessment_workspace_service,
+    )
+    from test_assessment_studio_phase_b import _database as basic_db
+    path = basic_db(tmp_path)
+    workspace = build_assessment_workspace_service(path)
+    assert workspace.library()["available"] is True
