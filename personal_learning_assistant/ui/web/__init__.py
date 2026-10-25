@@ -85,4 +85,8 @@ def create_app(config: Mapping[str, Any] | None = None) -> Flask:
     from .learning_source_links_v24 import register_learning_source_links_v24
     register_learning_source_links_v24(app)
     register_error_handlers(app)
+    from .library_rename import register_library_rename
+    register_library_rename(app)
+    from .asset_cache import register_asset_cache
+    register_asset_cache(app)
     return app

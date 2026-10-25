@@ -1,1 +1,39 @@
-{% extends 'base.html' %}{% block content %}<h1>Review registered course/topic mapping</h1><p>Exact current catalogue identities; semantic fit requires explicit confirmation. Applying a mapping creates a new staged revision.</p><div id="ls-mapping" data-csrf="{{ csrf_token }}"><label for="ls-candidate">Registered course/topic</label><select id="ls-candidate"><option value="">Choose a registered candidate</option>{% for c in review.candidates %}<option value="{{ loop.index0 }}">{{ c.course_code }} · {{ c.course_name }} / {{ c.topic_name }}</option>{% endfor %}</select><label for="ls-mapping-confidence">Confidence</label><input id="ls-mapping-confidence" type="number" min=".9" max="1" step=".01" value=".9"><label><input id="ls-mapping-confirm" type="checkbox">I confirmed the semantic course/topic fit.</label><button id="ls-mapping-apply" type="button">Create next staged revision</button><p id="ls-mapping-result" role="status"></p></div><script type="application/json" id="ls-candidates">{{ review.candidates|tojson }}</script><script defer src="{{ url_for('static',filename='js/learning_mapping.js') }}"></script>{% if not review.available %}<p>Catalogue unavailable. Continue source-first learning.</p>{% endif %}<noscript>Mapping needs JavaScript; ordinary learning remains available.</noscript>{% endblock %}
+{% extends "base.html" %}
+{% block title %}Link learning module to subject · ANVAYA{% endblock %}
+{% block content %}
+<section class="dashboard-panel" style="max-width:760px;margin:1rem auto;padding:clamp(1rem,3vw,1.8rem)">
+  <p class="eyebrow">Learning Studio · academic organisation</p>
+  <h1>Link this module to a subject</h1>
+  <p>Choose the <strong>registered course and topic</strong> that this module really teaches. You can read the original module without linking it.</p>
+  <p>This action <strong>creates a new staged revision</strong>, retaining the existing module, learning history and original PDF. Review and publish the new revision after linking.</p>
+  <div id="ls-mapping" data-csrf="{{ csrf_token }}" data-preview-url="{{ url_for('learning.preview',module_id=review.module_id,revision=review.revision+1) }}">
+    {% if review.available and review.candidates %}
+      <label for="ls-candidate">Subject and topic</label>
+      <select id="ls-candidate" style="display:block;width:100%;max-width:100%;min-height:48px;margin:.5rem 0 1rem">
+        <option value="">Select a subject and topic</option>
+        {% for c in review.candidates %}
+        <option value="{{ loop.index0 }}">{{ c.course_code }} · {{ c.course_name }} — {{ c.topic_name }}</option>
+        {% endfor %}
+      </select>
+      <details style="margin:.75rem 0">
+        <summary>Advanced: mapping confidence</summary>
+        <p>This is your confidence in the topic match, not a measure of student mastery.</p>
+        <label for="ls-mapping-confidence">Reviewed confidence (0.90 to 1.00)</label>
+        <input id="ls-mapping-confidence" type="number" inputmode="decimal" min=".9" max="1" step=".01" value=".9" style="display:block;max-width:100%;min-height:44px">
+      </details>
+      <label style="display:flex;gap:.5rem;align-items:start;margin:1rem 0">
+        <input id="ls-mapping-confirm" type="checkbox" style="width:20px;height:20px;flex:none">
+        <span>I checked the material and confirm this topic genuinely matches the module.</span>
+      </label>
+      <button id="ls-mapping-apply" type="button" style="min-height:48px">Link and stage new revision</button>
+      <p id="ls-mapping-result" role="status" aria-live="polite"></p>
+    {% else %}
+      <p>Registered subject/topic catalogue unavailable or empty. Add the correct subject and topic under <a href="{{ url_for('web.courses') }}">Courses</a> first; existing source notes are safe.</p>
+    {% endif %}
+  </div>
+  <p><a href="{{ url_for('learning.preview',module_id=review.module_id,revision=review.revision) }}">← Back to module</a></p>
+  <script type="application/json" id="ls-candidates">{{ review.candidates|tojson }}</script>
+  {% if review.available and review.candidates %}<script defer src="{{ url_for('static',filename='js/learning_mapping.js') }}"></script>{% endif %}
+  <noscript>Linking requires JavaScript. Reading and existing notes remain available.</noscript>
+</section>
+{% endblock %}
