@@ -4,6 +4,7 @@ on:
   push:
     branches: ['main', 'anvaya/**', 'phase7.5.**']
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
 
 permissions:
@@ -16,6 +17,7 @@ concurrency:
 
 jobs:
   development:
+    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
     name: Synthetic development (${{ matrix.os }})
     strategy:
       fail-fast: false
@@ -89,7 +91,7 @@ jobs:
   acceptance:
     name: Cross-platform development acceptance
     needs: development
-    if: always()
+    if: ${{ always() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
     runs-on: ubuntu-latest
     steps:
       - name: Record aggregate gate for this exact source SHA
