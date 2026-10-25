@@ -47,6 +47,11 @@ def test_test_changes_and_docs_are_distinct():
     assert p.affected(['ANVAYA_ASSESSMENT_PACKAGE_AUTHORING_PROMPT.md'])['components']
 
 
+@pytest.mark.parametrize('path', ['docs/academic_source.md', 'docs/assessment_authoring_prompt.md', 'docs/fixtures/source.json'])
+def test_docs_directory_cannot_hide_academic_or_executable_inputs(path):
+    assert policy().affected([path])['components']
+
+
 def test_unknown_and_empty_are_broad():
     p = policy()
     for paths in ([], ['../escape.py'], ['runtime.bin']):

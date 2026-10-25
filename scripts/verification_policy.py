@@ -92,7 +92,10 @@ def affected(paths):
             broad = True
             reasons.append('Unsafe path; all components required')
             continue
-        if path.startswith('docs/') or path in ('README.md', 'LICENSE', '.gitignore'):
+        ordinary_documentation = (path.startswith('docs/') and Path(path).suffix.lower() in (
+            '.md','.rst','.png','.jpg','.jpeg','.svg','.webp') and not any(
+            term in path.lower() for term in ('academic_source','source_identity','assessment','authoring','prompt')))
+        if ordinary_documentation or path in ('README.md', 'LICENSE', '.gitignore'):
             continue
         found = {c for c in COMPONENTS if matches(path, SOURCE[c]) or matches(path, TEST[c])}
         # Assessment presentation requires both secrecy and persistence, even
