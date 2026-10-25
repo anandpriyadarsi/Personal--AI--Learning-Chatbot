@@ -95,7 +95,9 @@ _PAGE_DEPENDENT_QUESTION_RE = re.compile(
     r"\b(?:page|slide)\s*(?:number\s*|no\.?\s*)?\d+\b"
     r"|\b(?:on|in)\s+(?:the\s+|this\s+)?(?:page|slide|pdf|ppt)\b"
     r"|\b(?:image|figure|diagram|chart|visual)\s+(?:above|below|on\s+page)\b"
-    r"|\b(?:shown|depicted)\s+(?:in|on)\s+(?:the\s+)?(?:figure|image|slide|page)\b",
+    r"|\b(?:shown|depicted)\s+(?:in|on)\s+(?:the\s+)?(?:figure|image|slide|page)\b"
+    r"|\b(?:the|this|that|following|above|below)\s+"
+    r"(?:image|figure|diagram|chart|picture|screenshot|visual)\b",
     flags=re.IGNORECASE,
 )
 
