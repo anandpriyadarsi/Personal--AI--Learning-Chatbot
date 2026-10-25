@@ -81,6 +81,7 @@ public class MediaHandoffTest {
             Thread.sleep(100);
         }
         assertNotNull("Workspace WebView",web[0]);
+        waitForWorkspace(instrumentation,web[0]);
         // Resolve a real production-owned synthetic note/file, never a test-only
         // implementation path. Native errors/chooser cancellation keep it open.
         String fixture="__import__('personal_learning_assistant.services.anvaya_notes_service',fromlist=['AnvayaNotesService']).AnvayaNotesService().create_handwritten_note({'title':'Synthetic media return note'},[('page.pdf',b'%PDF-1.4 synthetic')])['id']";
@@ -176,6 +177,20 @@ public class MediaHandoffTest {
         }
         return null;
     }
+    private void waitForWorkspace(android.app.Instrumentation instrumentation,android.webkit.WebView web) throws Exception {
+        // Native construction precedes the async capability-cookie callback and
+        // first loadUrl. about:blank has origin "null" and must not be used as
+        // the base for the reader URL. Wait for the real authenticated document.
+        long deadline=System.currentTimeMillis()+30000;
+        while(System.currentTimeMillis()<deadline) {
+            CountDownLatch done=new CountDownLatch(1);String[] value={null};
+            instrumentation.runOnMainSync(()->web.evaluateJavascript("location.origin.startsWith('http://127.0.0.1:') && document.readyState==='complete' && !!document.querySelector('main')",result->{value[0]=result;done.countDown();}));
+            assertTrue(done.await(10,TimeUnit.SECONDS));
+            if("true".equals(value[0])) return;
+            Thread.sleep(100);
+        }
+        fail("Authenticated workspace did not finish its initial load");
+    }
     private void waitForText(android.app.Instrumentation instrumentation,android.webkit.WebView web,String text) throws Exception {
         long deadline=System.currentTimeMillis()+30000;
         while(System.currentTimeMillis()<deadline) {
@@ -185,7 +200,10 @@ public class MediaHandoffTest {
             if("true".equals(value[0])) return;
             Thread.sleep(100);
         }
-        fail("Note was not retained after external activity");
+        CountDownLatch diagnostic=new CountDownLatch(1);String[] state={null};
+        instrumentation.runOnMainSync(()->web.evaluateJavascript("JSON.stringify({url:location.href,ready:document.readyState,hasMain:!!document.querySelector('main'),text:document.body?.innerText.slice(0,1000)})",result->{state[0]=result;diagnostic.countDown();}));
+        diagnostic.await(10,TimeUnit.SECONDS);
+        fail("Expected synthetic note state: "+state[0]);
     }
 
 }
