@@ -166,5 +166,8 @@
     <a class="button secondary-button" href="{% if editor.id %}{{ url_for('web.anvaya_note_reader', note_id=editor.id) }}{% else %}{{ url_for('web.notes') }}{% endif %}">Cancel</a>
   </div>
 </form>
+{% if editor.id %}
+<section class="dashboard-panel"><h3>Audio, video and document attachments</h3><p>Save your text changes first, then attach files to this main note or any mini-note.</p><a class="button secondary-button" href="{{ url_for('web.anvaya_note_reader', note_id=editor.id) }}#notes-media">Manage attachments</a></section>
+{% else %}<p>After creating this note, use Attach Media to add audio, video, images and documents, or + Add Section to organise smaller notes.</p>{% endif %}
 <script defer src="{{ url_for('static', filename='js/anvaya_notes_editor.js') }}"></script>
 {% endblock %}

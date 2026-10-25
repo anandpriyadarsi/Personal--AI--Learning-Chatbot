@@ -193,6 +193,26 @@ class AnvayaNotesRepository:
             raise
 
     @_serialized_write
+    def create_notes(self, records):
+        """Create a validated text-only batch in one atomic index replacement."""
+        rows = self.list_notes()
+        ids = {str(row.get("id") or "") for row in rows}
+        created = []
+        for record in records:
+            note = deepcopy(dict(record))
+            note_id = _safe_id(note.get("id"))
+            if note_id in ids:
+                raise AnvayaNotesConflictError("Note id already exists.")
+            if note.get("assets"):
+                raise AnvayaNotesRepositoryError("Text-only batch cannot contain assets.")
+            ids.add(note_id)
+            note["assets"] = []
+            created.append(note)
+        if created:
+            self._save(rows + created)
+        return deepcopy(created)
+
+    @_serialized_write
     def update_note(
         self,
         note_id,

@@ -7,7 +7,7 @@ import android.net.Uri;
 /** Real files with temporary read access; Android owns selection and playback. */
 public final class MediaIntents {
     private static Intent grant(Intent intent,Uri uri,String mime) {
-        if(!"content".equals(uri.getScheme()) || mime==null || !(mime.startsWith("audio/") || mime.startsWith("video/"))) {
+        if(uri==null || !"content".equals(uri.getScheme()) || !NoteAttachmentType.supportsMime(mime)) {
             throw new IllegalArgumentException("Invalid media handoff");
         }
         intent.setClipData(ClipData.newRawUri("ANVAYA attachment",uri));

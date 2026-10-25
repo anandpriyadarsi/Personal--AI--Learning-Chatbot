@@ -70,6 +70,26 @@ public class MediaHandoffTest {
         assertNotNull(share.getParcelableExtra(Intent.EXTRA_STREAM));
         assertTrue((share.getFlags() & Intent.FLAG_GRANT_READ_URI_PERMISSION)!=0);
     }
+    @Test public void documentAndImageAttachmentsHaveExactMimesAndReadOnlyAccess() throws Exception {
+        Context context=InstrumentationRegistry.getInstrumentation().getTargetContext();
+        String[] extensions={"png","jpg","jpeg","pdf","txt","md","csv","docx","pptx","xlsx"};
+        String[] mimes={"image/png","image/jpeg","image/jpeg","application/pdf","text/plain","text/markdown","text/csv",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"};
+        File folder=new File(context.getFilesDir(),"data/anvaya_notes_assets/synthetic/media");folder.mkdirs();
+        for(int i=0;i<extensions.length;i++) {
+            File source=new File(folder,"synthetic_document."+extensions[i]);
+            try {
+                try(FileOutputStream output=new FileOutputStream(source)) {output.write(65);}
+                Uri uri=FileProvider.getUriForFile(context,context.getPackageName()+".note_media",source);
+                assertEquals(mimes[i],context.getContentResolver().getType(uri));
+                try(InputStream input=context.getContentResolver().openInputStream(uri)) {assertEquals(65,input.read());}
+                try {context.getContentResolver().openFileDescriptor(uri,"rw");fail("Attachment allowed write access");}
+                catch(FileNotFoundException expected) {}
+            } finally {source.delete();}
+        }
+    }
     @Test public void absentPlayerAndChooserCancellationPreserveNote() throws Exception {
         android.app.Instrumentation instrumentation=InstrumentationRegistry.getInstrumentation();
         Intent launch=new Intent(instrumentation.getTargetContext(),MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -127,7 +147,7 @@ public class MediaHandoffTest {
             instrumentation.waitForIdleSync();
             android.view.accessibility.AccessibilityNodeInfo root=instrumentation.getUiAutomation().getRootInActiveWindow();
             assertNotNull(root);
-            assertFalse(root.findAccessibilityNodeInfosByText("No compatible player found").isEmpty());
+            assertFalse(root.findAccessibilityNodeInfosByText("No compatible app found").isEmpty());
             // Android back dismisses this native fallback; the same WebView/note remains.
             instrumentation.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK);
             waitForText(instrumentation,web[0],"Synthetic media return note");
@@ -212,7 +232,11 @@ public class MediaHandoffTest {
             CountDownLatch done=new CountDownLatch(1);String[] value={null};
             instrumentation.runOnMainSync(()->web.evaluateJavascript("location.origin.startsWith('http://127.0.0.1:') && document.readyState==='complete' && !!document.querySelector('main')",result->{value[0]=result;done.countDown();}));
             assertTrue(done.await(10,TimeUnit.SECONDS));
-            if("true".equals(value[0])) return;
+            if("true".equals(value[0])) {
+                boolean[] revealed={false};
+                instrumentation.runOnMainSync(()->revealed[0]=web.getImportantForAccessibility()==android.view.View.IMPORTANT_FOR_ACCESSIBILITY_AUTO && web.hasWindowFocus());
+                if(revealed[0]) return;
+            }
             Thread.sleep(100);
         }
         fail("Authenticated workspace did not finish its initial load");

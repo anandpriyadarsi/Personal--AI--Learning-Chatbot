@@ -20,13 +20,25 @@ MAX_MEDIA_REQUEST_BYTES = 1024 * 1024 * 1024
 CHUNK = 65536
 MIMES = {'.mp3':'audio/mpeg', '.wav':'audio/wav', '.m4a':'audio/mp4',
          '.aac':'audio/aac', '.mp4':'video/mp4', '.mkv':'video/x-matroska',
-         '.mov':'video/quicktime', '.webm':'video/webm'}
+         '.mov':'video/quicktime', '.webm':'video/webm',
+         '.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.pdf':'application/pdf',
+         '.txt':'text/plain','.md':'text/markdown','.csv':'text/csv',
+         '.docx':'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+         '.pptx':'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+         '.xlsx':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}
 
 
 def media_mime(filename, header):
     """Recognize the container only; the external player determines codec support."""
     suffix = Path(filename).suffix.lower()
     valid = {
+        '.png':header.startswith(b'\x89PNG\r\n\x1a\n'),
+        '.jpg':header.startswith(b'\xff\xd8\xff'),'.jpeg':header.startswith(b'\xff\xd8\xff'),
+        '.pdf':header.startswith(b'%PDF-'),
+        '.txt':bool(header) and b'\x00' not in header,
+        '.md':bool(header) and b'\x00' not in header,
+        '.csv':bool(header) and b'\x00' not in header,
+        '.docx':header.startswith(b'PK\x03\x04'),'.pptx':header.startswith(b'PK\x03\x04'),'.xlsx':header.startswith(b'PK\x03\x04'),
         '.mp3': header.startswith(b'ID3') or (len(header)>1 and header[0]==255 and header[1]&224==224),
         '.wav': header[:4]==b'RIFF' and header[8:12]==b'WAVE',
         '.aac': len(header)>1 and header[0]==255 and header[1]&246==240,
@@ -36,8 +48,8 @@ def media_mime(filename, header):
         '.mkv': header.startswith(b'\x1aE\xdf\xa3') and b'matroska' in header,
         '.webm': header.startswith(b'\x1aE\xdf\xa3') and b'webm' in header,
     }.get(suffix, False)
-    if not valid or len(header)<12:
-        raise AnvayaNotesValidationError('Choose a valid MP3, WAV, M4A, AAC, MP4, MKV, MOV or WebM file.')
+    if not valid:
+        raise AnvayaNotesValidationError('Choose a valid supported audio, video, image, PDF, text or Office document.')
     return MIMES[suffix]
 
 
@@ -59,7 +71,7 @@ def _name(value, suffix=None):
 def _public(note_id, item):
     base = f'/notes/media/{note_id}/{item["id"]}'
     return {key:item[key] for key in ('id','filename','mimetype','size')} | {
-        'url':base+'/file', 'open_url':base+'/open', 'share_url':base+'/share'}
+        'section_id':item.get('section_id',''), 'url':base+'/file', 'open_url':base+'/open', 'share_url':base+'/share'}
 
 
 class NotesMediaStore:
@@ -75,9 +87,13 @@ class NotesMediaStore:
             raise
         except AnvayaNotesRepositoryError as error:
             raise AnvayaNotesUnavailableError('The note could not be read.') from error
-        if note.get('note_kind') != 'handwritten':
-            raise AnvayaNotesValidationError('Attach media to a handwritten note.')
+        if note.get('note_kind') not in ('typed','handwritten'):
+            raise AnvayaNotesValidationError('Choose a typed or handwritten note.')
         return note
+
+    def _section(self,note,section_id):
+        if section_id and section_id not in [s['id'] for s in note.get('sections',[])]+(['original-content'] if note.get('body') else []):
+            raise AnvayaNotesValidationError('Section no longer exists. Refresh before attaching.')
 
     def _directory(self, note_id, *, create=False):
         path = self.repository.assets_root.absolute() / _safe_id(note_id) / 'media'
@@ -97,8 +113,8 @@ class NotesMediaStore:
         rows = [note if row.get('id')==note['id'] else row for row in rows]
         self.repository._save(rows)
 
-    def add(self, note_id, uploads):
-        self._note(note_id)
+    def add(self, note_id, uploads, *, section_id=''):
+        self._section(self._note(note_id),section_id)
         uploads = list(uploads)
         if not uploads or len(uploads)>MAX_MEDIA_BATCH:
             raise AnvayaNotesValidationError('Choose between 1 and 20 media files.')
@@ -133,7 +149,7 @@ class NotesMediaStore:
                     os.fsync(output.fileno())
                 mime = media_mime(filename, header)
                 staged.append({'id':asset_id,'filename':filename,'stored_name':path.name,
-                               'mimetype':mime,'size':size,'sha256':digest.hexdigest()})
+                               'mimetype':mime,'size':size,'sha256':digest.hexdigest(),'section_id':section_id})
             return self._commit_add(note_id, staged)
         except (OSError, AnvayaNotesRepositoryError) as error:
             if isinstance(error, AnvayaNotesNotFoundError): raise
@@ -157,8 +173,10 @@ class NotesMediaStore:
         success = False
         try:
             for item in staged:
+                self._section(note,item.get('section_id',''))
                 path = self._path(note_id,item)
                 duplicate = next((old for old in items if old.get('sha256')==item['sha256']
+                                  and old.get('section_id','')==item.get('section_id','')
                                   and old.get('mimetype')==item['mimetype'] and old.get('size')==item['size']),None)
                 if duplicate:
                     if duplicate in note.get('media', []):

@@ -12,7 +12,7 @@ public class MediaFileProvider extends FileProvider {
     private String checkedMime(Uri uri) throws FileNotFoundException {
         List<String> parts=uri.getPathSegments();
         if(parts.size()!=4 || !"note_media".equals(parts.get(0)) || !parts.get(1).matches("[A-Za-z0-9_-]+")
-            || !"media".equals(parts.get(2)) || !parts.get(3).matches("[A-Za-z0-9_-]+\\.(mp3|wav|m4a|aac|mp4|mkv|mov|webm)")) {
+            || !"media".equals(parts.get(2)) || NoteAttachmentType.mimeForFilename(parts.get(3)) == null) {
             throw new FileNotFoundException("Attachment unavailable");
         }
         try {
@@ -20,13 +20,7 @@ public class MediaFileProvider extends FileProvider {
             File file=new File(base,"data/anvaya_notes_assets/"+parts.get(1)+"/media/"+parts.get(3));
             if(!file.getCanonicalFile().equals(file.getAbsoluteFile()) || !file.isFile()) throw new FileNotFoundException("Attachment unavailable");
         } catch(IOException error) {throw new FileNotFoundException("Attachment unavailable");}
-        String suffix=parts.get(3).substring(parts.get(3).lastIndexOf('.')+1);
-        switch(suffix) {
-            case "mp3":return "audio/mpeg";case "wav":return "audio/wav";
-            case "m4a":return "audio/mp4";case "aac":return "audio/aac";
-            case "mp4":return "video/mp4";case "mkv":return "video/x-matroska";
-            case "mov":return "video/quicktime";default:return "video/webm";
-        }
+        return NoteAttachmentType.mimeForFilename(parts.get(3));
     }
     @Override public ParcelFileDescriptor openFile(Uri uri,String mode) throws FileNotFoundException {
         if(!"r".equals(mode)) throw new FileNotFoundException("Attachment is read-only");
