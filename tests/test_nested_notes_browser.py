@@ -68,3 +68,45 @@ def test_nested_mobile_accordion_search_edit_attachments_restart(protected_brows
             page.evaluate('scrollTo(0,0)');page.screenshot(path=str(folder/'nested-notes-390.png'))
             page.locator('.mini-note summary').nth(1).click();expect(page.locator('.mini-note-files a')).to_have_count(2)
             page.locator('.mini-note').nth(1).scroll_into_view_if_needed();page.screenshot(path=str(folder/'section-attachments-390.png'))
+
+
+def test_focus_reading_shows_entire_note_and_read_only_media(protected_browser,live):
+    base,_,note=live
+    with protected_browser.new_context(viewport={'width':390,'height':844}) as context:
+        page=context.new_page();errors=[]
+        page.on('pageerror',lambda error:errors.append(str(error)))
+        page.goto(f'{base}/notes/view/{note}')
+        # Normal mode retains authoring and attachment management.
+        page.locator('#notes-media-files').set_input_files(
+            {'name':'Day 4.mp3','mimeType':'audio/mpeg','buffer':SAMPLES['mp3']})
+        page.get_by_role('button',name='Attach Media',exact=True).click()
+        expect(page.locator('.notes-media-row')).to_have_count(1)
+        page.locator('#section-search').fill('resilient')
+        expect(page.locator('.mini-note')).to_have_count(1)
+
+        page.get_by_role('button',name='Focus reading',exact=True).click()
+        expect(page.get_by_role('button',name='Exit focus',exact=True)).to_be_visible()
+        # Focus overrides any active section filter and opens all note content.
+        expect(page.locator('.mini-note[open]')).to_have_count(4)
+        expect(page.get_by_text('Distinctive content for search: resilient')).to_be_visible()
+        expect(page.get_by_text('Read clearly.')).to_be_visible()
+        expect(page.locator('.anvaya-native-reader-header > a')).to_be_hidden()
+        expect(page.locator('#section-add')).to_be_hidden()
+        expect(page.locator('.section-controls')).to_be_hidden()
+        expect(page.locator('.mini-note-actions').first).to_be_hidden()
+        expect(page.locator('.mini-note-files').first).to_be_hidden()
+        expect(page.locator('#notes-media-upload')).to_be_hidden()
+        expect(page.locator('.notes-media-menu')).to_be_hidden()
+        expect(page.locator('.notes-media-open')).to_be_visible()
+        assert page.locator('.notes-media-open').inner_text()=='Day 4.mp3'
+        assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
+        assert not errors,errors
+
+        page.get_by_role('button',name='Exit focus',exact=True).click()
+        # The original search and all editing/media controls return.
+        expect(page.locator('.mini-note')).to_have_count(1)
+        expect(page.locator('#section-search')).to_have_value('resilient')
+        expect(page.locator('.anvaya-native-reader-header > a')).to_be_visible()
+        expect(page.locator('#section-add')).to_be_visible()
+        expect(page.locator('#notes-media-upload')).to_be_visible()
+        expect(page.locator('.notes-media-menu')).to_be_visible()
