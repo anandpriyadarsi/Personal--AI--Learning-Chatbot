@@ -4,6 +4,7 @@ on:
   push:
     branches: ['feature/assessment-pause-paper-**']
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
 
 permissions:
@@ -11,6 +12,7 @@ permissions:
 
 jobs:
   assessment:
+    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
     name: Assessment regressions (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 40
@@ -92,7 +94,7 @@ jobs:
 
   acceptance:
     name: Assessment isolated cross-platform gate
-    if: always()
+    if: ${{ always() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
     needs: assessment
     runs-on: ubuntu-latest
     steps:
