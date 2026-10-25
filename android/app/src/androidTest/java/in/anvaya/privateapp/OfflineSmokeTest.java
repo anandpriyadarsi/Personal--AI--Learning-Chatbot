@@ -135,6 +135,10 @@ public class OfflineSmokeTest {
         }));
         assertTrue("WebView compositor frame",rendered.await(10,TimeUnit.SECONDS));
         getInstrumentation().waitForIdleSync();
+        // UI-thread idle does not mean the emulator display has composed the
+        // latest WebView frame. Wait for accessibility/display quiescence too;
+        // screenshots are evidence, never navigation timing measurements.
+        getInstrumentation().getUiAutomation().waitForIdle(300,5000);
         Bitmap image=getInstrumentation().getUiAutomation().takeScreenshot();
         assertNotNull("Actual emulator capture",image);
         File folder=new File(getInstrumentation().getTargetContext().getFilesDir(),"evidence");folder.mkdirs();
@@ -249,10 +253,24 @@ public class OfflineSmokeTest {
         screenshot("android-active-lesson");
         js("document.documentElement.requestFullscreen=()=>Promise.reject(new Error('WebView fallback acceptance'));document.querySelector('#ls-fullscreen').click()");
         waitFor("document.querySelector('#ls-fullscreen').textContent==='Exit full view' && document.body.classList.contains('ls-focus')");
+        waitFor("getComputedStyle(document.querySelector('.topbar')).display==='none' && getComputedStyle(document.querySelector('.mobile-dock')).display==='none'");
         screenshot("android-reader-full-view");
+        getInstrumentation().runOnMainSync(()->activity.setRequestedOrientation(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE));
+        waitFor("innerWidth>innerHeight && document.body.classList.contains('ls-focus') && document.documentElement.scrollWidth<=innerWidth+1");
+        assertEquals("Rotation retains the same reader and lesson","true",js("location.pathname==='/learning/modules/uc100n-demo/1' && getComputedStyle(document.querySelector('.topbar')).display==='none'"));
+        screenshot("android-reader-full-view-landscape");
+        getInstrumentation().runOnMainSync(()->activity.setRequestedOrientation(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT));
+        waitFor("innerHeight>innerWidth && document.body.classList.contains('ls-focus')");
         getInstrumentation().runOnMainSync(()->activity.onBackPressed());
         waitFor("document.querySelector('#ls-fullscreen').textContent==='Fullscreen' && !document.body.classList.contains('ls-focus')");
         assertEquals("Back retains the current lesson","true",js("location.pathname==='/learning/modules/uc100n-demo/1'"));
+        waitFor("getComputedStyle(document.querySelector('.topbar')).display!=='none' && getComputedStyle(document.querySelector('.mobile-dock')).display!=='none'");
+        waitFor("!!document.querySelector('.ls-primary-lesson-visual img') && document.querySelector('.ls-primary-lesson-visual img').naturalWidth>0");
+        js("document.querySelector('.ls-primary-lesson-visual img').click()");
+        waitFor("document.querySelector('#ls-media-dialog').open && document.querySelector('#ls-media-dialog img').naturalWidth>0");
+        screenshot("android-reader-expanded-figure");
+        getInstrumentation().runOnMainSync(()->activity.onBackPressed());
+        waitFor("!document.querySelector('#ls-media-dialog').open && location.pathname==='/learning/modules/uc100n-demo/1'");
         go("/learning/modules/uc100n-demo/1?view=practice&question=mean-score");
         js("document.querySelector('.ls-question input[value=\"0\"]').checked=true;document.querySelector('.ls-question button[type=submit]').click()");
         waitFor("document.querySelector('.ls-feedback').innerText.includes('Incorrect')");
@@ -270,6 +288,7 @@ public class OfflineSmokeTest {
         waitFor("document.querySelector('#library-rename-dialog').open");
         js("document.querySelector('#library-rename-title').value='Synthetic friendly source';document.querySelector('#library-rename-form').requestSubmit()");
         waitFor("document.querySelector('#library-rename-status').textContent.includes('saved') && !document.querySelector('#library-rename-dialog').open");
+        js("document.querySelector('[data-library-title]').scrollIntoView({block:'center'})");
         screenshot("android-library-renamed");
         checkDownload("/learning/modules/uc100n-demo/1/source.pdf","application/pdf","synthetic-uc100n.pdf");
         checkDownload("/learning/modules/uc100n-demo/1/review-brief","text/plain","learning-review-brief.txt");
@@ -314,6 +333,7 @@ public class OfflineSmokeTest {
         open();
         go("/library?q=Synthetic%20friendly%20source");
         waitFor("document.body.innerText.includes('Synthetic friendly source')");
+        js("document.querySelector('[data-library-title]').scrollIntoView({block:'center'})");
         screenshot("android-library-renamed-after-force-stop");
         String tutorPath=activity.getSharedPreferences("synthetic-evidence",0).getString("tutorPath",null);
         assertNotNull("Tutor path survived restart",tutorPath);
