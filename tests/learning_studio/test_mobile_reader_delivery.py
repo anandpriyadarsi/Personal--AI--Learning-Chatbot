@@ -55,3 +55,19 @@ def test_fullscreen_pending_back_and_forward_do_not_leave_ghost_modes(browser,qu
     page.click('#ls-fullscreen');expect(page.locator('#ls-fullscreen')).to_have_text('Exit full view')
     page.click('#ls-fullscreen');expect(page.locator('#ls-fullscreen')).to_have_text('Fullscreen')
     page.close()
+
+
+@pytest.mark.parametrize('width,height',[(320,700),(640,320)])
+def test_full_view_status_reserves_toolbar_space(browser,quality_live,width,height):
+    from playwright.sync_api import expect
+    url,_,_=quality_live
+    page=browser.new_page(viewport={'width':width,'height':height})
+    page.goto(url+'/learning/modules/synthetic/1?view=learn&section=lesson-13')
+    page.evaluate('() => {document.documentElement.requestFullscreen=()=>Promise.reject(new Error("denied"))}')
+    page.click('#ls-fullscreen')
+    expect(page.locator('#ls-fullscreen')).to_have_text('Exit full view')
+    notice=page.locator('#ls-control-status').bounding_box()
+    toolbar=page.locator('.ls-reading-controls').bounding_box()
+    assert notice['y']>=toolbar['y'] and notice['y']+notice['height']<=toolbar['y']+toolbar['height']+1
+    assert page.locator('#ls-control-status').evaluate('(el)=>getComputedStyle(el).position')=='static'
+    no_overflow(page);page.close()
