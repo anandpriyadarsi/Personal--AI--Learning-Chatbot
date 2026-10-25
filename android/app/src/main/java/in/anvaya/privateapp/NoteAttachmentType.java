@@ -3,6 +3,14 @@ package in.anvaya.privateapp;
 /** Exact storage filenames accepted by the read-only note attachment provider. */
 final class NoteAttachmentType {
     private NoteAttachmentType() {}
+    static boolean supportsMime(String mime) {
+        if (mime == null) return false;
+        for (String suffix : new String[]{"mp3","wav","m4a","aac","mp4","mkv","mov","webm",
+                "png","jpg","pdf","txt","md","csv","docx","pptx","xlsx"}) {
+            if (mime.equals(mimeForFilename("asset." + suffix))) return true;
+        }
+        return false;
+    }
     static String mimeForFilename(String filename) {
         if (filename == null || !filename.matches("[A-Za-z0-9_-]+\\.[a-z0-9]+")) return null;
         switch (filename.substring(filename.lastIndexOf('.') + 1)) {

@@ -27,7 +27,7 @@ def test_provider_attachment_mimes_are_exact_and_reject_path_payloads(tmp_path):
         "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     }
     checks = "\n".join(
-        f'if (!"{mime}".equals(NoteAttachmentType.mimeForFilename("asset_1-2.{suffix}"))) throw new AssertionError("{suffix}");'
+        f'if (!"{mime}".equals(NoteAttachmentType.mimeForFilename("asset_1-2.{suffix}")) || !NoteAttachmentType.supportsMime("{mime}")) throw new AssertionError("{suffix}");'
         for suffix, mime in expected.items()
     )
     harness = tmp_path / "AttachmentBoundary.java"
@@ -37,6 +37,9 @@ public class AttachmentBoundary {
 ''' + checks + '''
   String[] bad = {null, "", "../secret.pdf", "foo/bar.pdf", "%2e%2e.pdf", "a.pdf.exe", "a.PDF", ".pdf", "a.html", "a.svg", "a.zip", "a\\\\b.pdf", "a.pdf?x=1"};
   for (String name : bad) if (NoteAttachmentType.mimeForFilename(name) != null) throw new AssertionError(name);
+  for (String mime : new String[]{null,"text/html","image/svg+xml","application/javascript","audio/*","video/*","application/octet-stream"}) {
+    if (NoteAttachmentType.supportsMime(mime)) throw new AssertionError(mime);
+  }
  }
 }''')
     compile_result = subprocess.run(

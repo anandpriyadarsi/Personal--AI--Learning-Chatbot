@@ -38,6 +38,17 @@ for class in StartupSplashTest; do
 done
 adb shell am instrument -w -r -e class in.anvaya.privateapp.MediaHandoffTest\#documentAndImageAttachmentsHaveExactMimesAndReadOnlyAccess in.anvaya.privateapp.test/androidx.test.runner.AndroidJUnitRunner | tee android-evidence/universal-attachments.log
 python -c "from pathlib import Path;s=Path('android-evidence/universal-attachments.log').read_text();assert 'OK (1 test)' in s and not any(v in s for v in ('FAILURES','INSTRUMENTATION_FAILED','shortMsg='))"
+# Exercise actual typed mini-note UI and a typed document via the production Intent.
+for method in typedMiniNotesCrudAccordionAndActivityRestartPersistence typedDocumentUsesProductionGestureIntentAndExternalUidReadGrant; do
+  adb shell am instrument -w -r -e class in.anvaya.privateapp.SmartNestedNotesTest\#"$method" in.anvaya.privateapp.test/androidx.test.runner.AndroidJUnitRunner | tee "android-evidence/smart-$method.log"
+  python -c "from pathlib import Path;s=Path('android-evidence/smart-$method.log').read_text();assert 'OK (1 test)' in s and not any(v in s for v in ('FAILURES','INSTRUMENTATION_FAILED','shortMsg='))"
+done
+adb shell am force-stop in.anvaya.privateapp
+adb shell am instrument -w -r -e class in.anvaya.privateapp.SmartNestedNotesTest\#savedTypedNotesAndAttachmentsSurviveForceStop in.anvaya.privateapp.test/androidx.test.runner.AndroidJUnitRunner | tee android-evidence/smart-typed-force-stop.log
+python -c "from pathlib import Path;s=Path('android-evidence/smart-typed-force-stop.log').read_text();assert 'OK (1 test)' in s and not any(v in s for v in ('FAILURES','INSTRUMENTATION_FAILED','shortMsg='))"
+for name in android-smart-mini-notes-expanded android-smart-mini-notes-after-activity-restart android-smart-typed-attachment-after-activity-restart android-smart-typed-after-force-stop; do
+  adb exec-out run-as in.anvaya.privateapp cat files/evidence/"$name".png > android-evidence/"$name".png
+done
 adb shell getprop ro.build.version.release > android-evidence/android-version.txt
 adb shell getprop ro.product.cpu.abi > android-evidence/abi.txt
 for name in android-library-content-search android-library-saved-reference android-library-reference-after-force-stop android-tutor-conversation android-tutor-composer-keyboard android-tutor-after-force-stop android-today android-note-saved android--learning android--agent android--assessments android--library android--mobile-settings android--mobile-device android-note-after-force-stop android-sqlite-task-saved android-sqlite-task-after-force-stop android-active-lesson android-learning-mistake android-library-reader android-assessment-paused android-paper-step-review android-assessment-after-force-stop android-assessment-resumed android-paper-review-after-force-stop android-notes-landscape android-conversion-capability android-selection-cbt android-selection-handwritten android-handwritten-paused android-handwritten-after-force-stop android-handwritten-resumed; do

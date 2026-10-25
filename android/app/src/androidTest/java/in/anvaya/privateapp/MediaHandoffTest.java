@@ -232,7 +232,11 @@ public class MediaHandoffTest {
             CountDownLatch done=new CountDownLatch(1);String[] value={null};
             instrumentation.runOnMainSync(()->web.evaluateJavascript("location.origin.startsWith('http://127.0.0.1:') && document.readyState==='complete' && !!document.querySelector('main')",result->{value[0]=result;done.countDown();}));
             assertTrue(done.await(10,TimeUnit.SECONDS));
-            if("true".equals(value[0])) return;
+            if("true".equals(value[0])) {
+                boolean[] revealed={false};
+                instrumentation.runOnMainSync(()->revealed[0]=web.getImportantForAccessibility()==android.view.View.IMPORTANT_FOR_ACCESSIBILITY_AUTO && web.hasWindowFocus());
+                if(revealed[0]) return;
+            }
             Thread.sleep(100);
         }
         fail("Authenticated workspace did not finish its initial load");
