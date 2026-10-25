@@ -6,6 +6,12 @@
         android:fullBackupContent="false" android:usesCleartextTraffic="false"
         android:networkSecurityConfig="@xml/network_security_config"
         android:supportsRtl="true">
+        <provider android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.documents" android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/document_paths" />
+        </provider>
+        <activity android:name=".PdfPageActivity" android:exported="false" />
         <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTask"
             android:windowSoftInputMode="adjustResize"
             android:configChanges="orientation|screenSize|keyboardHidden">

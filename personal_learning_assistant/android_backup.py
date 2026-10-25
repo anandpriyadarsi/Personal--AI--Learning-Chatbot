@@ -54,6 +54,14 @@ def _checked(raw):
 
 
 def export_backup(root):
+    # Blob enumeration and metadata snapshot must agree while indexing/uploads
+    # run independently of the phone's academic request lock.
+    from personal_learning_assistant.services.native_document_library import storage_lock
+    with storage_lock(Path(root)/'data/native_library'):
+        return _export_backup(root)
+
+
+def _export_backup(root):
     root = Path(root)
     files = {}
     for path in sorted((root/'data').rglob('*')):
@@ -61,6 +69,7 @@ def export_backup(root):
         if not path.is_file() or path.name.endswith(('-wal','-shm','-journal')): continue
         if path.stat().st_size > MAX_BYTES: raise ValueError('Backup file too large')
         name = path.relative_to(root).as_posix()
+        if name.startswith('data/native_library/tmp/'): continue
         if path.suffix in ('.db','.sqlite3'):
             with tempfile.TemporaryDirectory() as temporary:
                 destination = Path(temporary)/'snapshot.db'
@@ -98,6 +107,13 @@ def _validate_databases(root, files):
                 if name=='data/learning_assistant.db':
                     from personal_learning_assistant.services.assessment_activation import activate_assessment_extension
                     activate_assessment_extension(database_path=path,backup_path=directory/'backups')
+                elif name=='data/native_library/library.sqlite3':
+                    with closing(sqlite3.connect(path.as_uri()+'?mode=ro',uri=True)) as con:
+                        if con.execute('PRAGMA user_version').fetchone()[0]!=1: raise ValueError('Unknown Library version')
+                        for digest,size in con.execute('SELECT sha256,size FROM documents'):
+                            blob=files.get('data/native_library/blobs/'+digest)
+                            if blob is None or len(blob)!=size or hashlib.sha256(blob).hexdigest()!=digest:
+                                raise ValueError('Library original is missing or changed')
                 elif name=='data/learning_studio.sqlite3':
                     from personal_learning_assistant.learning_studio.store import StudioStore
                     with StudioStore(path).connection(): pass

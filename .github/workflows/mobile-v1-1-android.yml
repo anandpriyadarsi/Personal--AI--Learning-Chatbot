@@ -1,9 +1,9 @@
 name: Mobile V1.1 standalone Android
 on:
   pull_request:
-    branches: [feature/mobile-v1-private-pwa-2026-10, feature/mobile-v1-1-private-android-runtime-2026-10, integration/android-unified-apk-2026-10-24, main]
+    branches: [fix/android-navigation-asset-performance-2026-10-24, feature/mobile-v1-private-pwa-2026-10, feature/mobile-v1-1-private-android-runtime-2026-10, integration/android-unified-apk-2026-10-24, main]
   push:
-    branches: [fix/android-assessment-catalogue-vedic-import-2026-10-24]
+    branches: [fix/android-assessment-catalogue-vedic-import-2026-10-24, feat/android-native-document-library]
   workflow_dispatch:
 permissions:
   contents: read
@@ -71,7 +71,7 @@ jobs:
           node-version: '22'
       - run: python -m pip install -r requirements-mobile.txt
       - name: Fast native SQLite ownership and Android workspace regression
-        run: python -m pytest -q tests/learning_studio/test_registered_source_lifecycle.py tests/test_android_acceptance_fixture.py tests/test_android_runtime.py tests/test_android_backup.py tests/test_assessment_two_modes.py tests/test_android_package_scan.py
+        run: python -m pytest -q tests/learning_studio/test_registered_source_lifecycle.py tests/test_android_acceptance_fixture.py tests/test_android_runtime.py tests/test_android_backup.py tests/test_native_document_library.py tests/test_native_library_routes.py tests/test_native_android_contracts.py tests/test_assessment_two_modes.py tests/test_android_package_scan.py
       - run: python -m playwright install --with-deps chromium
       - name: Complete synthetic regression without deselections
         if: github.base_ref != 'main'
@@ -82,7 +82,7 @@ jobs:
         if: github.base_ref == 'main'
         env:
           ANVAYA_TUTOR_UI_ARTIFACTS: tutor-ui-screenshots
-        run: python -m pytest -q tests/test_tutor_ui_v3.py tests/test_tutor_ui_v3_browser.py tests/test_tutor_final_browser.py tests/test_android_runtime.py tests/test_android_backup.py tests/test_mobile_v1.py tests/test_mobile_v1_browser.py tests/test_assessment_two_modes.py tests/test_assessment_two_modes_browser.py tests/test_library_knowledge_consolidation.py tests/test_library_saved_resources_consolidation.py tests/learning_studio/test_reader_visual_refresh.py --junitxml=android-regression.xml
+        run: python -m pytest -q tests/test_tutor_ui_v3.py tests/test_tutor_ui_v3_browser.py tests/test_tutor_final_browser.py tests/test_android_runtime.py tests/test_android_backup.py tests/test_mobile_v1.py tests/test_mobile_v1_browser.py tests/test_assessment_two_modes.py tests/test_assessment_two_modes_browser.py tests/test_native_library_browser.py tests/test_library_knowledge_consolidation.py tests/test_library_saved_resources_consolidation.py tests/learning_studio/test_reader_visual_refresh.py --junitxml=android-regression.xml
       - name: Frontend contracts
         if: always()
         run: node --test tests/js/*.test.cjs
@@ -96,6 +96,10 @@ jobs:
             assessment-evidence/**
 
   emulator:
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [31, 35]
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
@@ -125,7 +129,7 @@ jobs:
       - run: gradle -p android assembleDebug assembleDebugAndroidTest
       - uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 31
+          api-level: ${{ matrix.api }}
           target: google_apis
           arch: x86_64
           disable-animations: true
@@ -133,5 +137,5 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: android-emulator-${{ github.event.pull_request.head.sha || github.sha }}
+          name: android-emulator-api${{ matrix.api }}-${{ github.event.pull_request.head.sha || github.sha }}
           path: android-evidence/**
