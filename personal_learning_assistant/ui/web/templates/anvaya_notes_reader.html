@@ -5,13 +5,15 @@
 
 {% block workspace_assets %}
 {{ super() }}
-{% if note and note.note_kind == 'handwritten' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/notes_media.css') }}">{% endif %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/nested_notes.css') }}">
+{% if note %}<link rel="stylesheet" href="{{ url_for('static', filename='css/notes_media.css') }}">{% endif %}
 {% endblock %}
 
 {% block page_scripts %}
 {{ super() }}
 <script defer src="{{ url_for('static', filename='js/anvaya_notes_reader.js') }}"></script>
-{% if note and note.note_kind == 'handwritten' %}<script defer src="{{ url_for('static', filename='js/notes_media.js') }}"></script>{% endif %}
+<script defer src="{{ url_for('static', filename='js/nested_notes.js') }}"></script>
+{% if note %}<script defer src="{{ url_for('static', filename='js/notes_media.js') }}"></script>{% endif %}
 {% endblock %}
 
 {% block content %}
@@ -40,11 +42,18 @@
   <a class="button secondary-button" href="{{ url_for('web.anvaya_note_edit', note_id=note.id) }}">Edit note</a>
 </header>
 
-{% if note.note_kind == 'typed' %}
-<article class="dashboard-panel anvaya-native-rendered-note" aria-label="Full note">
-  {{ note.rendered_html }}
-</article>
-{% endif %}
+<section id="nested-notes" data-sections-url="{{ url_for('nested_notes.collection', note_id=note.id) }}" data-csrf="{{ notes_media_csrf }}" aria-label="Full note · Mini-notes">
+  <div class="section-controls"><label>Search within main note<input type="search" id="section-search" placeholder="Find a section or topic"></label>
+  <label class="section-mode"><input id="section-multiple" type="checkbox"> Keep several open</label>
+  <button type="button" id="sections-collapse">Collapse all</button><button type="button" id="sections-expand">Expand all</button></div>
+  <p id="section-status" role="status" aria-live="polite"></p><div id="section-list"></div>
+  <button type="button" id="section-add" class="button">+ Add Section</button>
+  <form id="section-editor" hidden><h3>Edit mini-note</h3><label>Section title<input id="section-title" maxlength="200" required></label>
+  <label>Content · Markdown, lists, checklists and links<textarea id="section-body" rows="10" maxlength="500000"></textarea></label>
+  <small>Use **bold**, - bullet points, - [ ] tasks and [title](https://...) links. Attach files after saving.</small>
+  <div><button type="submit">Save section</button><button type="button" id="section-cancel">Cancel</button></div></form>
+  <noscript>Enable JavaScript to read mini-notes, or use Edit note to read and edit Original Content.</noscript>
+</section>
 
 {% if note.assets %}
 <section class="dashboard-panel anvaya-native-assets">
@@ -69,20 +78,7 @@
 </section>
 {% endif %}
 
-{% if note.note_kind == 'handwritten' %}
-<section id="notes-media" class="notes-media" aria-label="Attached Media" data-url="{{ url_for('notes_media.attachments', note_id=note.id) }}" data-csrf="{{ notes_media_csrf }}">
-  <h3>Attached Media</h3>
-  <p>Open audio and video in an installed player. In a browser, download the file and open it with your device app.</p>
-  <form id="notes-media-upload" class="notes-media-upload" enctype="multipart/form-data">
-    <label>Audio or video files<input id="notes-media-files" type="file" name="files" multiple required accept=".mp3,.wav,.m4a,.aac,.mp4,.mkv,.mov,.webm,audio/*,video/*"></label>
-    <button class="button" type="submit">Attach Media</button>
-  </form>
-  <p><small>MP3, WAV, M4A, AAC, MP4, MKV, MOV, WebM · Up to 512 MB per file, 20 files per upload.</small></p>
-  <p id="notes-media-status" class="notes-media-status" role="status" aria-live="polite">Loading attachments…</p>
-  <ul id="notes-media-list" class="notes-media-list"></ul>
-  <noscript>Enable JavaScript to attach and manage audio or video files.</noscript>
-</section>
-{% endif %}
+{% include "_universal_note_attachments.html" %}
 
 <footer class="anvaya-native-reader-footer">
   <span>Created {{ note.created_label }}</span>

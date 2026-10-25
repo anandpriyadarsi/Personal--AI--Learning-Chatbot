@@ -3,12 +3,15 @@ package in.anvaya.privateapp;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
-import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
+import android.view.View;
+import java.lang.ref.WeakReference;
 import android.webkit.*;
 import android.widget.*;
-import android.view.ViewGroup;
 import com.chaquo.python.Python;
 import com.chaquo.python.android.AndroidPlatform;
 import java.io.ByteArrayInputStream;
@@ -28,33 +31,113 @@ public class MainActivity extends Activity {
     private static final int EXTERNAL_MEDIA=43;
     private long downloadLimit=100L*1024*1024;
 
+    private FrameLayout workspaceRoot;
+    private StartupSplashView splash;
+    private final Handler startupHandler = new Handler(Looper.getMainLooper());
+    private int startupAttempt;
+    private boolean workspaceVisible, startupFailed, runtimePending;
+    private final Runnable slowStartup = () -> {
+        if (startupActive()) splash.feedback(runtimePending
+            ? "Preparing your private workspace…\nYour saved data stays on this phone."
+            : "Opening your workspace…", false, false);
+    };
+    private final Runnable delayedStartup = () -> {
+        if (startupActive()) splash.feedback(runtimePending
+            ? "Setup is taking longer than usual. You can keep waiting, or close and reopen ANVAYA. Your saved data is kept."
+            : "The workspace is taking longer than usual to display. Try again, or close and reopen ANVAYA.",
+            !runtimePending, true);
+    };
+
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
-        // Screen captures are intentionally allowed for the owner's study and feedback.
-        // Keep WebView, origin, capability-cookie and app-private storage protections.
-        LinearLayout splash = new LinearLayout(this);
-        splash.setGravity(android.view.Gravity.CENTER);
-        splash.setOrientation(LinearLayout.VERTICAL);
-        splash.setBackgroundColor(Color.rgb(11,15,20));
-        ImageView logo = new ImageView(this); logo.setImageResource(in.anvaya.privateapp.R.drawable.anvaya_icon);
-        splash.addView(logo, new LinearLayout.LayoutParams(160,160));
-        TextView label = new TextView(this);
-        label.setText("ANVAYA\nPersonal Learning Intelligence");
-        label.setTextColor(Color.WHITE); label.setTextSize(19); label.setGravity(17);
-        splash.addView(label); setContentView(splash);
-        new Thread(() -> {
+        // Screen captures remain available for the owner's study and feedback.
+        workspaceRoot = new FrameLayout(this);
+        workspaceRoot.setBackgroundColor(StartupSplashView.BACKGROUND);
+        splash = new StartupSplashView(this, this::startWorkspace, () -> {
+            finishAffinity(); android.os.Process.killProcess(android.os.Process.myPid());
+        });
+        workspaceRoot.addView(splash, new FrameLayout.LayoutParams(-1, -1));
+        setContentView(workspaceRoot);
+        if (Build.VERSION.SDK_INT >= 31) {
+            getSplashScreen().setOnExitAnimationListener(platformSplash -> {
+                platformSplash.remove();
+                if (startupActive()) splash.startBranding();
+            });
+        } else splash.post(() -> { if (startupActive()) splash.startBranding(); });
+        startWorkspace();
+    }
+
+    private boolean startupActive() {
+        return !workspaceVisible && !isFinishing() && !isDestroyed();
+    }
+    private void scheduleStartupFeedback() {
+        startupHandler.removeCallbacksAndMessages(null);
+        startupHandler.postDelayed(slowStartup, 8000);
+        startupHandler.postDelayed(delayedStartup, 30000);
+    }
+    private void startWorkspace() {
+        if (!startupActive() || runtimePending) return;
+        startupFailed = false;
+        runtimePending = true;
+        splash.feedback("", false, false);
+        if (web != null) {
+            workspaceRoot.removeView(web);
+            web.stopLoading(); web.destroy(); web = null;
+        }
+        scheduleStartupFeedback();
+        // Only an application Context and weak Activity reference cross the
+        // worker boundary. A destroyed Activity cannot receive a late launch.
+        new Thread(new StartupTask(this, ++startupAttempt), "anvaya-launch").start();
+    }
+    private static final class StartupTask implements Runnable {
+        private final WeakReference<MainActivity> owner;
+        private final android.content.Context context;
+        private final int attempt;
+        StartupTask(MainActivity activity, int attempt) {
+            owner = new WeakReference<>(activity);
+            context = activity.getApplicationContext();
+            this.attempt = attempt;
+        }
+        @Override public void run() {
+            String address = null, token = null;
             try {
-                if (!Python.isStarted()) Python.start(new AndroidPlatform(getApplicationContext()));
+                synchronized (Python.class) {
+                    if (!Python.isStarted()) Python.start(new AndroidPlatform(context));
+                }
                 List<PyObject> runtime = Python.getInstance().getModule("personal_learning_assistant.android_runtime")
-                    .callAttr("launch", getFilesDir().getCanonicalPath()).asList();
-                String address = runtime.get(0).toString();
-                String token = runtime.get(1).toString();
-                runOnUiThread(() -> openWorkspace(address, token));
+                    .callAttr("launch", context.getFilesDir().getCanonicalPath()).asList();
+                address = runtime.get(0).toString(); token = runtime.get(1).toString();
             } catch (Exception error) {
-                runOnUiThread(() -> { label.setText("ANVAYA could not open. Your saved data has been kept.\nClose and reopen the app."); });
-                // Never log Python exceptions with academic paths/content to logcat.
+                // Never log Python exceptions with academic paths/content.
             }
-        }, "anvaya-launch").start();
+            final String readyAddress = address, readyToken = token;
+            new Handler(Looper.getMainLooper()).post(() -> {
+                MainActivity activity = owner.get();
+                if (activity == null || !activity.startupActive() || activity.startupAttempt != attempt) return;
+                activity.runtimePending = false;
+                if (readyAddress == null) activity.startupFailure("ANVAYA could not prepare your workspace. Your saved data is kept. Try again, or close and reopen the app.");
+                else {
+                    activity.scheduleStartupFeedback();
+                    try { activity.openWorkspace(readyAddress, readyToken); }
+                    catch (Exception error) { activity.startupFailure("ANVAYA could not display your workspace. Your saved data is kept. Try again, or close and reopen the app."); }
+                }
+            });
+        }
+    }
+    private void startupFailure(String message) {
+        if (!startupActive()) return;
+        startupFailed = true;
+        startupHandler.removeCallbacksAndMessages(null);
+        splash.feedback(message, true, true);
+    }
+    private void revealWorkspace(WebView painted) {
+        if (!startupActive() || startupFailed || painted != web) return;
+        workspaceVisible = true;
+        startupHandler.removeCallbacksAndMessages(null);
+        splash.cancelBranding();
+        workspaceRoot.removeView(splash);
+        painted.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_AUTO);
+        painted.requestFocus();
     }
 
     @SuppressWarnings("deprecation")
@@ -62,7 +145,10 @@ public class MainActivity extends Activity {
         if (isFinishing() || isDestroyed()) return;
         origin = address; allowed = new LocalOrigin(origin);
         web = new WebView(this);
-        web.setBackgroundColor(Color.rgb(11,15,20));
+        web.setBackgroundColor(StartupSplashView.BACKGROUND);
+        final WebView workspace = web;
+        web.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS);
+        workspaceRoot.addView(web, 0, new FrameLayout.LayoutParams(-1, -1));
         WebView.setWebContentsDebuggingEnabled(false);
         WebSettings settings = web.getSettings();
         settings.setJavaScriptEnabled(true);
@@ -81,13 +167,33 @@ public class MainActivity extends Activity {
         CookieManager cookies = CookieManager.getInstance();
         cookies.setAcceptCookie(true);
         cookies.setAcceptThirdPartyCookies(web, false);
-        cookies.removeAllCookies(removed -> cookies.setCookie(origin,
-            "anvaya_native="+token+"; Path=/; HttpOnly; SameSite=Strict", ok -> {
-                setContentView(web);
-                web.loadUrl(origin+"/");
-            }));
         web.setWebViewClient(new WebViewClient() {
+            @Override public void onPageCommitVisible(WebView view, String url) {
+                if (!startupActive() || startupFailed || view != web || !allowed.permits(url)) return;
+                // A finished HTTP request is not proof of a painted page. Keep
+                // the opaque native splash through the compositor's first frame.
+                view.postVisualStateCallback(startupAttempt, new WebView.VisualStateCallback() {
+                    @Override public void onComplete(long requestId) {
+                        view.postOnAnimation(() -> revealWorkspace(view));
+                    }
+                });
+            }
+            @Override public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
+                if (view == web && request.isForMainFrame()) startupFailure("Your workspace could not load. Your saved data is kept. Try again.");
+            }
+            @Override public void onReceivedHttpError(WebView view, WebResourceRequest request, WebResourceResponse response) {
+                if (view == web && request.isForMainFrame()) startupFailure("Your workspace could not open. Your saved data is kept. Try again.");
+            }
             @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest req) {
+                if (ObsidianOpenRequest.permits(req.getUrl().toString(), req.isForMainFrame(), req.hasGesture())) {
+                    try { startActivity(new Intent(Intent.ACTION_VIEW, req.getUrl())); }
+                    catch (android.content.ActivityNotFoundException error) {
+                        Toast.makeText(MainActivity.this, "Obsidian is not installed. Install it and open the exported vault to use this link.", Toast.LENGTH_LONG).show();
+                    } catch (SecurityException error) {
+                        Toast.makeText(MainActivity.this, "This phone could not open Obsidian. Open the exported vault in Obsidian manually.", Toast.LENGTH_LONG).show();
+                    }
+                    return true;
+                }
                 MediaRequest media=MediaRequest.parse(allowed,req.getUrl().toString(),req.isForMainFrame(),req.hasGesture());
                 if(media!=null) {openExternalMedia(media);return true;}
                 if (allowed.permits(req.getUrl().toString()) && req.isForMainFrame()
@@ -146,6 +252,14 @@ public class MainActivity extends Activity {
                 return true;
             }
         });
+        cookies.removeAllCookies(removed -> {
+            if (!startupActive() || workspace != web) return;
+            cookies.setCookie(origin, "anvaya_native="+token+"; Path=/; HttpOnly; SameSite=Strict", ok -> {
+                if (!startupActive() || workspace != web) return;
+                if (!ok) { startupFailure("Your workspace could not connect securely. Try again."); return; }
+                workspace.loadUrl(origin+"/");
+            });
+        });
     }
     /** Native-only resolver: JS supplies no paths, URLs, cookies or MIME overrides. */
     void openExternalMedia(MediaRequest request) {
@@ -164,7 +278,7 @@ public class MainActivity extends Activity {
                     if(request.share) shareMedia(uri,mime);
                     else {
                         try {startActivityForResult(MediaIntents.view(uri,mime),EXTERNAL_MEDIA);}
-                        catch(android.content.ActivityNotFoundException error) {noMediaPlayer(request,uri,mime);}
+                        catch(android.content.ActivityNotFoundException error) {noCompatibleApp(request,uri,mime);}
                         catch(SecurityException | IllegalArgumentException error) {mediaError();}
                     }
                 });
@@ -179,9 +293,9 @@ public class MainActivity extends Activity {
             Toast.makeText(this,"No sharing app is available. Use Download in the attachment menu.",Toast.LENGTH_LONG).show();
         }
     }
-    private void noMediaPlayer(MediaRequest request,Uri uri,String mime) {
-        new AlertDialog.Builder(this).setTitle("No compatible player found")
-            .setMessage("Install a player that supports this format, or share or save the file to open it later.")
+    private void noCompatibleApp(MediaRequest request,Uri uri,String mime) {
+        new AlertDialog.Builder(this).setTitle("No compatible app found")
+            .setMessage("Install an app that supports this format, or share or save the file to open it later.")
             .setPositiveButton("Share file",(dialog,which)->shareMedia(uri,mime))
             .setNeutralButton("Save file",(dialog,which)->web.loadUrl(origin+"/notes/media/"+request.noteId+"/"+request.assetId+"/file"))
             .setNegativeButton("Cancel",null).show();
@@ -236,8 +350,12 @@ public class MainActivity extends Activity {
         else super.onBackPressed();
     }
     @Override protected void onDestroy() {
+        ++startupAttempt;
+        startupHandler.removeCallbacksAndMessages(null);
+        if (splash != null) splash.cancelBranding();
+        if (Build.VERSION.SDK_INT >= 31) getSplashScreen().clearOnExitAnimationListener();
         if (fileCallback != null) fileCallback.onReceiveValue(null);
-        if (web != null) { web.stopLoading(); web.destroy(); }
+        if (web != null) { workspaceRoot.removeView(web); web.stopLoading(); web.destroy(); web = null; }
         super.onDestroy();
     }
 }

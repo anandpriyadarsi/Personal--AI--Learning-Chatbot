@@ -91,5 +91,9 @@ def create_app(config: Mapping[str, Any] | None = None) -> Flask:
     register_mobile(app)
     from .notes_media import register_notes_media
     register_notes_media(app)
+    from .nested_notes import register_nested_notes
+    register_nested_notes(app)
+    from .obsidian_connections import register_obsidian_connections
+    register_obsidian_connections(app)
     register_error_handlers(app)
     return app

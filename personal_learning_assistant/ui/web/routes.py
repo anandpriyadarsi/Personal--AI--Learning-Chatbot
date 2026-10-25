@@ -3075,7 +3075,8 @@ def anvaya_notes_upload_create():
 @web_blueprint.get("/notes/view/<note_id>")
 def anvaya_note_reader(note_id):
     try:
-        note = _anvaya_notes_service().reader(note_id)
+        service = _anvaya_notes_service()
+        note = getattr(service, "section_reader", service.reader)(note_id)
         return render_template(
             "anvaya_notes_reader.html",
             active_page="notes",
@@ -4054,6 +4055,8 @@ def obsidian_companion_archive(entry_id):
 @web_blueprint.post("/obsidian/connect")
 def obsidian_connect():
     """Connect or change the configured vault using explicit POST + PRG."""
+    if current_app.config.get('PRIVATE_MOBILE_MODE'):
+        return redirect(url_for('obsidian_connections.settings'), code=303)
     service = _obsidian_workspace_service()
     try:
         service.connect_vault(request.form.get("vault_path", ""))

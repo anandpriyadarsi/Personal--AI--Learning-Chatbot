@@ -509,6 +509,8 @@ class AnvayaNotesService:
             "card_style": _style(row.get("card_style")),
             "card_family": _card_family(row.get("card_style")),
             "key_points": list(row.get("key_points") or [])[:3],
+            "section_count": len(row.get("sections",[])) + bool(row.get("body")),
+            "attachment_count": len(row.get("media",[])),
             "created_at": str(row.get("created_at") or ""),
             "created_label": _label(row.get("created_at"), self.timezone_name),
             "updated_label": _label(row.get("updated_at"), self.timezone_name),
@@ -535,6 +537,8 @@ class AnvayaNotesService:
                 [
                     str(row.get("title") or ""),
                     str(row.get("course") or ""),
+                    str(row.get("body") or ""),
+                    " ".join(s.get("title","")+" "+s.get("body","") for s in row.get("sections",[])),
                     " ".join(str(x) for x in list(row.get("key_points") or [])),
                 ]
             ).casefold()
@@ -606,6 +610,19 @@ class AnvayaNotesService:
             raise AnvayaNotesUnavailableError("The note could not be saved.") from error
         return {"id": stored["id"]}
 
+    def create_typed_notes(self, payloads):
+        """Validate independent Markdown copies, then save the batch atomically."""
+        records = []
+        for payload in payloads:
+            record = self._base_record(payload, note_kind="typed")
+            record["body"] = _resolve_upload_directives(_body(payload.get("body")), ())
+            records.append(record)
+        try:
+            stored = self.repository.create_notes(records)
+        except AnvayaNotesRepositoryError as error:
+            raise AnvayaNotesUnavailableError("The notes could not be saved.") from error
+        return [{"id": note["id"]} for note in stored]
+
     def create_handwritten_note(self, payload, uploads):
         record = self._base_record(payload, note_kind="handwritten")
         clean_uploads = _validated_uploads(uploads)
@@ -617,7 +634,10 @@ class AnvayaNotesService:
             raise AnvayaNotesUnavailableError("The note could not be saved.") from error
         return {"id": stored["id"]}
 
-    def reader(self, note_id):
+    def section_reader(self, note_id):
+        return self.reader(note_id, lazy_sections=True)
+
+    def reader(self, note_id, *, lazy_sections=False):
         try:
             row = self.repository.get_note(note_id)
         except AnvayaNotesNotFoundError:
@@ -643,7 +663,13 @@ class AnvayaNotesService:
                 row.get("body") or "",
                 row.get("assets") or (),
             )
+            for section in row.get("sections", []):
+                used_inline_ids.update(_inline_asset_ids(section.get("body", ""), row.get("assets") or ()))
             try:
+                if lazy_sections:
+                    view["assets"] = [asset for asset in all_assets if asset["id"] not in used_inline_ids]
+                    view["companion"] = self._companion_view(row)
+                    return view
                 view["rendered_html"], rendered_inline_ids = _render_typed_body(
                     self.renderer,
                     row["id"],

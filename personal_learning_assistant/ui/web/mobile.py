@@ -17,7 +17,7 @@ def cloud_ai_allowed():
 def manifest():
     response = jsonify(id='/', name='ANVAYA · Personal Learning Intelligence',
         short_name='ANVAYA', description='Your private learning companion. Academic work requires your Python host.',
-        start_url='/', scope='/', display='standalone', background_color='#0b0f14',
+        start_url='/', scope='/', display='standalone', background_color='#F8FAFB',
         theme_color='#0b0f14', lang='en', prefer_related_applications=False,
         icons=[{'src': f'/static/brand/anvaya-mobile-{size}.png', 'sizes': f'{size}x{size}',
                 'type': 'image/png', 'purpose': 'any maskable'} for size in (192, 512)])

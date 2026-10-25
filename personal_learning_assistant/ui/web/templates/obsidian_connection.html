@@ -1,0 +1,25 @@
+{% extends "workspace_base.html" %}
+{% block title %}Obsidian connection · ANVAYA{% endblock %}
+{% block content %}
+<nav aria-label="Library navigation"><a href="{{ url_for('web.notes') }}">← Library</a></nav>
+<header class="workspace-header"><div><p class="eyebrow">Library · Connected Sources</p><h2>Obsidian (optional)</h2><p class="lede">Read a vault in ANVAYA or copy selected Markdown into independent ANVAYA Notes. Your original vault stays yours.</p></div><span class="tag">{{ connection.state }}</span></header>
+{% if error_message %}<section class="notice-panel" role="alert">{{ error_message }}</section>{% endif %}
+{% if request.args.get('disconnected') %}<section class="notice-panel" role="status">Disconnected. Original vault files, saved snapshots and imported ANVAYA Notes were kept.</section>{% endif %}
+{% if request.args.get('copied') %}<section class="notice-panel" role="status">{{ request.args.get('copied') }} note(s) copied. <a href="{{ url_for('web.notes') }}">Open Library</a>. Copies can be edited independently; repeat imports create new copies.</section>{% endif %}
+{% if connection.configured %}
+<section class="dashboard-panel"><h3>{{ connection.name or 'Obsidian vault' }}</h3>
+<p>{{ connection.state }} · {% if connection.mode == 'snapshot' %}ZIP snapshot{% else %}Local folder{% endif %}</p>
+{% if connection.mode == 'snapshot' %}<p>Imported {{ connection.imported_at }}. This is a Markdown snapshot; it does not sync. To refresh, upload a new export below. Attachments and Obsidian settings are excluded.</p>{% else %}<p>ANVAYA reads current Markdown from this computer's folder. It does not write or sync changes back to Obsidian.</p>{% endif %}
+<div class="form-actions"><a class="button" href="{{ url_for('web.obsidian') }}">Browse and select notes</a><form method="post" action="{{ url_for('obsidian_connections.disconnect') }}"><input type="hidden" name="csrf_token" value="{{ notes_media_csrf }}"><button class="button secondary-button" type="submit">Disconnect</button></form></div>
+<p class="microcopy">Disconnect removes the connection only. Source files and existing ANVAYA copies are kept.</p></section>
+{% endif %}
+<section class="dashboard-panel"><h3>{% if connection.configured %}Refresh or replace with a ZIP snapshot{% else %}Import a ZIP snapshot{% endif %}</h3>
+<p>ZIP your vault including its hidden <code>.obsidian</code> folder. Choose the ZIP from your device. ANVAYA imports UTF-8 Markdown for its existing reader, search, links and backlinks.</p>
+<p>Up to 25 MB compressed, 100 MB expanded, 2,000 entries and 500 KB per Markdown note. Only Markdown is copied. A successful upload replaces the connection; it keeps previous files and independent notes.</p>
+<form method="post" enctype="multipart/form-data" action="{{ url_for('obsidian_connections.snapshot') }}" class="operational-form"><input type="hidden" name="csrf_token" value="{{ notes_media_csrf }}"><label class="form-field"><span>Vault ZIP snapshot</span><input name="snapshot" type="file" accept=".zip,application/zip" required></label><button class="button" type="submit">Import snapshot</button></form>
+{% if config.PRIVATE_MOBILE_MODE %}<p class="microcopy">Android uses a device file selection for the ZIP. Direct shared-folder access and automatic synchronization are not available in this build.</p>{% endif %}
+</section>
+{% if not config.PRIVATE_MOBILE_MODE %}
+<section class="dashboard-panel"><h3>Connect a folder on this computer</h3><p>Choose an existing Obsidian vault folder accessible to the ANVAYA host.</p><form method="post" action="{{ url_for('obsidian_connections.connect') }}" class="operational-form"><input type="hidden" name="csrf_token" value="{{ notes_media_csrf }}"><label class="form-field"><span>Vault folder</span><input name="vault_path" type="text" maxlength="1000" autocomplete="off" required></label><button class="button secondary-button" type="submit">Connect local folder</button></form></section>
+{% endif %}
+{% endblock %}

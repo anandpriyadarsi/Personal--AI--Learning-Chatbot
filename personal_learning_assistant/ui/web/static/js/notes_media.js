@@ -31,6 +31,7 @@
     try {
       await request(url, {method: 'POST', ...options, headers: {'X-Notes-CSRF': root.dataset.csrf, ...options.headers}});
       await load();
+      document.dispatchEvent(new Event('notes-media-changed'));
       message(success);
       return true;
     } catch (error) { message(error.message || 'Media could not be saved. Try again.'); return false; }
@@ -41,7 +42,7 @@
     items.forEach((item) => {
       const row = element('li', '', 'notes-media-row');
       const content = element('div', '', 'notes-media-info');
-      const icon = element('span', item.mimetype.startsWith('audio/') ? '🎧' : '🎬');
+      const icon = element('span', item.mimetype.startsWith('audio/') ? '🎧' : item.mimetype.startsWith('video/') ? '🎬' : '📎');
       icon.setAttribute('aria-hidden', 'true');
       const link = element('a', item.filename, 'notes-media-open');
       // Ordinary same-origin links form the Android navigation bridge. Browsers
@@ -68,7 +69,7 @@
       const remove = element('button', 'Delete attachment'); remove.type = 'button';
       remove.addEventListener('click', () => {
         if (!busy && window.confirm(`Remove “${item.filename}” from this note?`)) {
-          mutate(`${root.dataset.url}/${item.id}/delete`, {}, 'Attachment removed. Your handwritten pages are kept.');
+          mutate(`${root.dataset.url}/${item.id}/delete`, {}, 'Attachment removed. Your note content is kept.');
         }
       });
       actions.append(rename, share, download, remove);

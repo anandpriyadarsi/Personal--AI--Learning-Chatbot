@@ -5,9 +5,9 @@
 {% block content %}
 <section class="workspace-header" aria-labelledby="obsidian-title">
   <div>
-    <p class="eyebrow">Live Markdown workspace</p>
+    <p class="eyebrow">Library · Connected Sources</p>
     <h2 id="obsidian-title">Obsidian</h2>
-    <p class="lede">Find a note. Follow a connection. Make space to understand. Your Markdown stays in your vault.</p>
+    <p class="lede">Browse Markdown, follow links and backlinks, or copy selected notes into your independent ANVAYA Library.</p>
   </div>
   {% if dashboard.configured %}
     <span class="tag">{% if dashboard.enabled and dashboard.valid %}Connected{% elif dashboard.enabled %}Needs attention{% else %}Disabled{% endif %}</span>
@@ -32,78 +32,26 @@
   <p>{{ dashboard.message }}</p>
 </section>
 {% elif not dashboard.configured %}
-<section class="dashboard-panel obsidian-status" aria-labelledby="obsidian-connect-title">
-  <div class="panel-heading">
-    <div>
-      <p class="eyebrow">Connection</p>
-      <h3 id="obsidian-connect-title">No vault connected</h3>
-    </div>
-  </div>
-  <p class="empty-state">Connect your Obsidian vault to browse and search Markdown inside ANVAYA.</p>
-  <form method="post" action="{{ url_for('web.obsidian_connect') }}" class="obsidian-connect-form">
-    <label class="form-field form-field-grow" for="obsidian-vault-path">
-      <span>Vault folder</span>
-      <input id="obsidian-vault-path" name="vault_path" type="text" maxlength="1000" placeholder="C:\\...\\NIT KARNATAKA 2026-30" autocomplete="off" required>
-    </label>
-    <button class="button" type="submit">Connect Vault</button>
-  </form>
-</section>
+<section class="dashboard-panel obsidian-status"><h3>No vault connected</h3><p>Obsidian is optional. Connect a local folder on desktop or import a ZIP snapshot from your device.</p><a class="button" href="{{ url_for('obsidian_connections.settings') }}">Set up Obsidian connection</a></section>
 {% else %}
-<details class="ws-connection"{% if not dashboard.enabled or not dashboard.valid %} open{% endif %}>
-  <summary><span><strong>{{ dashboard.vault_name or 'Your vault' }}</strong> · {{ dashboard.summary.markdown_files }} Markdown notes</span><span>Connection settings <span aria-hidden="true">⌄</span></span></summary>
-<section class="dashboard-panel obsidian-status" aria-labelledby="obsidian-status-title">
+<section class="dashboard-panel obsidian-status">
   <div class="panel-heading">
-    <div>
-      <p class="eyebrow">Vault status</p>
-      <h3 id="obsidian-status-title">{{ dashboard.vault_name or "Configured vault" }}</h3>
-    </div>
-    <span class="tag">{% if dashboard.enabled and dashboard.valid %}Connected{% elif dashboard.enabled %}Unavailable{% else %}Disabled{% endif %}</span>
+    <div><p class="eyebrow">{% if obsidian_connection and obsidian_connection.mode == 'snapshot' %}Snapshot{% else %}Local folder{% endif %}</p>
+      <h3>{{ (obsidian_connection.name if obsidian_connection else '') or dashboard.vault_name or 'Configured vault' }}</h3></div>
+    <a class="button secondary-button" href="{{ url_for('obsidian_connections.settings') }}">Connection settings</a>
   </div>
-
-  <dl class="obsidian-status-grid">
-    <div>
-      <dt>Markdown notes</dt>
-      <dd>{{ dashboard.summary.markdown_files }}</dd>
-    </div>
-  </dl>
-
+  <p>{{ dashboard.summary.markdown_files }} Markdown notes · {% if dashboard.enabled and dashboard.valid %}Connected{% elif dashboard.enabled %}Unavailable{% else %}Disabled{% endif %}</p>
+  {% if obsidian_connection and obsidian_connection.mode == 'snapshot' %}
+  <p>Snapshot imported {{ obsidian_connection.imported_at }}. No live sync. Upload a new ZIP in connection settings to refresh. Attachments are excluded.</p>
+  {% else %}<p>Read-only access to your local Markdown. No write-back or synchronization.</p>{% endif %}
   {% if dashboard.message %}<p class="empty-state">{{ dashboard.message }}</p>{% endif %}
-
-  <div class="form-actions">
-    {% if dashboard.enabled %}
-      <form method="post" action="{{ url_for('web.obsidian_disable') }}">
-        <button class="button secondary-button" type="submit">Disable Vault</button>
-      </form>
-    {% else %}
-      <form method="post" action="{{ url_for('web.obsidian_enable') }}">
-        <button class="button" type="submit">Enable Vault</button>
-      </form>
-    {% endif %}
-  </div>
-
-  <details class="inline-editor obsidian-change-vault">
-    <summary class="details-action">Change vault</summary>
-    <form method="post" action="{{ url_for('web.obsidian_connect') }}" class="operational-form">
-      <div class="form-grid">
-        <label class="form-field form-field-full" for="obsidian-change-path">
-          <span>Vault folder</span>
-          <input id="obsidian-change-path" name="vault_path" type="text" maxlength="1000" value="{{ dashboard.vault_path }}" autocomplete="off" required>
-        </label>
-      </div>
-      <div class="form-actions">
-        <button class="button" type="submit">Connect Vault</button>
-      </div>
-    </form>
-  </details>
 </section>
-
-</details>
 
 {% if dashboard.enabled and dashboard.valid %}
 <section class="dashboard-panel obsidian-search" aria-labelledby="obsidian-search-title">
   <div class="panel-heading">
     <div>
-      <p class="eyebrow">Live vault search</p>
+      <p class="eyebrow">{% if obsidian_connection and obsidian_connection.mode == "snapshot" %}Snapshot search{% else %}Live vault search{% endif %}</p>
       <h3 id="obsidian-search-title">Search your Obsidian vault</h3>
     </div>
     {% if dashboard.searched %}<span class="score-badge">{{ dashboard.summary.result_count }} match{% if dashboard.summary.result_count != 1 %}es{% endif %}</span>{% endif %}
@@ -147,9 +95,14 @@
   {% if not dashboard.notes %}
     <p class="empty-state">{% if dashboard.searched %}No Markdown notes matched this search.{% else %}No readable Markdown notes were found in the configured vault.{% endif %}</p>
   {% else %}
+    <form method="post" action="{{ url_for('obsidian_connections.copy_notes') }}">
+      <input type="hidden" name="csrf_token" value="{{ notes_media_csrf }}">
+      <p>Select up to 20 notes to copy. Copies are independent ANVAYA Notes; Markdown links and attachments are not converted. Repeat imports create new copies.</p>
+      <div class="form-actions"><button class="button" type="submit">Copy selected to ANVAYA Notes</button></div>
     <div class="obsidian-note-list">
       {% for note in dashboard.notes %}
       <article class="obsidian-note-row">
+        <label><input name="paths" type="checkbox" value="{{ note.relative_path }}" aria-label="Select {{ note.title }}"> Copy</label>
         <div class="obsidian-note-main">
           <h4><a href="{{ url_for('web.obsidian_note', path=note.relative_path) }}">{{ note.title }}</a></h4>
           <p class="obsidian-path">{{ note.relative_path }}</p>
@@ -165,6 +118,7 @@
       </article>
       {% endfor %}
     </div>
+    </form>
   {% endif %}
 </section>
 {% endif %}

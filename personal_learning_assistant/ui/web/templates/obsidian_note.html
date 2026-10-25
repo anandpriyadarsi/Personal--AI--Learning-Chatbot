@@ -25,10 +25,12 @@
     <h2 id="obsidian-note-title">{{ note.title }}</h2>
     <p class="obsidian-path">{{ note.relative_path }}</p>
   </div>
-  {% if note.open_in_obsidian_url %}
+  {% if note.open_in_obsidian_url and (not obsidian_connection or obsidian_connection.mode != "snapshot") %}
   <a class="button secondary-button" href="{{ note.open_in_obsidian_url }}">Open in Obsidian ↗</a>
   {% endif %}
 </header>
+{% if note.open_in_obsidian_url and (not obsidian_connection or obsidian_connection.mode != "snapshot") %}<p class="microcopy">Open in Obsidian requires the app and this vault on your device. If it does not open, continue reading here.</p>{% endif %}
+{% if obsidian_connection and obsidian_connection.mode == "snapshot" %}<p class="microcopy">Reading an imported Markdown snapshot. It does not sync with Obsidian.</p>{% endif %}
 
 <section class="dashboard-panel obsidian-note-meta" aria-label="Note metadata">
   <div class="tag-row">

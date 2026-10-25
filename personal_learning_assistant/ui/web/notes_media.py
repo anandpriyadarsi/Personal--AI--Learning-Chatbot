@@ -50,7 +50,9 @@ def attachments(note_id):
     if not _csrf():
         return jsonify(error='Refresh the note before attaching media.'),403
     files = request.files.getlist('files')
-    items = _store().add(note_id,[(item.filename,item.stream) for item in files])
+    uploads=[(item.filename,item.stream) for item in files]
+    scope=request.form.get('section_id','')
+    items = _store().add(note_id,uploads,section_id=scope) if scope else _store().add(note_id,uploads)
     return jsonify(attachments=items),201
 
 

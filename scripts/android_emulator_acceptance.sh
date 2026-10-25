@@ -31,6 +31,13 @@ done
 adb shell am force-stop in.anvaya.privateapp
 adb shell am instrument -w -r -e class in.anvaya.privateapp.MediaHandoffTest\#mediaRemainsAfterForceStop in.anvaya.privateapp.test/androidx.test.runner.AndroidJUnitRunner | tee android-evidence/media-after-force-stop.log
 python -c "from pathlib import Path;s=Path('android-evidence/media-after-force-stop.log').read_text();assert 'OK (1 test)' in s and not any(v in s for v in ('FAILURES','INSTRUMENTATION_FAILED','shortMsg='))"
+# Smart Notes startup and universal provider contracts use the same installed APK.
+for class in StartupSplashTest; do
+  adb shell am instrument -w -r -e class "in.anvaya.privateapp.$class" in.anvaya.privateapp.test/androidx.test.runner.AndroidJUnitRunner | tee "android-evidence/smart-$class.log"
+  python -c "from pathlib import Path;s=Path('android-evidence/smart-$class.log').read_text();assert 'OK (2 tests)' in s and not any(v in s for v in ('FAILURES','INSTRUMENTATION_FAILED','shortMsg='))"
+done
+adb shell am instrument -w -r -e class in.anvaya.privateapp.MediaHandoffTest\#documentAndImageAttachmentsHaveExactMimesAndReadOnlyAccess in.anvaya.privateapp.test/androidx.test.runner.AndroidJUnitRunner | tee android-evidence/universal-attachments.log
+python -c "from pathlib import Path;s=Path('android-evidence/universal-attachments.log').read_text();assert 'OK (1 test)' in s and not any(v in s for v in ('FAILURES','INSTRUMENTATION_FAILED','shortMsg='))"
 adb shell getprop ro.build.version.release > android-evidence/android-version.txt
 adb shell getprop ro.product.cpu.abi > android-evidence/abi.txt
 for name in android-library-content-search android-library-saved-reference android-library-reference-after-force-stop android-tutor-conversation android-tutor-composer-keyboard android-tutor-after-force-stop android-today android-note-saved android--learning android--agent android--assessments android--library android--mobile-settings android--mobile-device android-note-after-force-stop android-sqlite-task-saved android-sqlite-task-after-force-stop android-active-lesson android-learning-mistake android-library-reader android-assessment-paused android-paper-step-review android-assessment-after-force-stop android-assessment-resumed android-paper-review-after-force-stop android-notes-landscape android-conversion-capability android-selection-cbt android-selection-handwritten android-handwritten-paused android-handwritten-after-force-stop android-handwritten-resumed; do
@@ -39,7 +46,7 @@ done
 
 # Deliver precisely the APK which passed the installed-app checks above.
 source_short="$(git rev-parse --short=12 HEAD)"
-verified_apk="android-evidence/ANVAYA-Unified-Android-V1.1.3-Media-Test-${source_short}.apk"
+verified_apk="android-evidence/ANVAYA-Unified-Android-V1.1.4-Notes-Test-${source_short}.apk"
 cp android/app/build/outputs/apk/debug/app-debug.apk "$verified_apk"
 sha256sum "$verified_apk" > android-evidence/TESTED_APK_SHA256.txt
 # Inspect the actual package installed above, not Gradle configuration alone.
@@ -57,7 +64,7 @@ import ssl
 import zipfile
 report=Path('android-evidence/apk-badging.txt').read_text()
 assert "name='in.anvaya.privateapp'" in report
-assert "versionCode='14'" in report and "versionName='1.1.3-media-test'" in report
+assert "versionCode='15'" in report and "versionName='1.1.4-notes-test'" in report
 assert "sdkVersion:'24'" in report and "targetSdkVersion:'35'" in report
 for abi in ('armeabi-v7a','arm64-v8a','x86_64'):
     assert abi in report, abi
