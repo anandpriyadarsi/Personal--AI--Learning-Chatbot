@@ -1,5 +1,7 @@
 # ANVAYA Smart Verification V2 — four-stream coordinator
 
+Current implementation and commands: [Smart Verification V2 operator guide](SMART_VERIFICATION_V2.md). Measured evidence and its limitations: [25 October benchmark](V2_BENCHMARK_2026-10-25.md). The notes below describe the initial V2 staging approach; the operator guide is authoritative for the completed graph/coordinator extensions.
+
 Smart Verification V2 extends V1.0, but **never declares a changed-file smoke test to be merge/release approval**.
 
 ## Four concurrent streams

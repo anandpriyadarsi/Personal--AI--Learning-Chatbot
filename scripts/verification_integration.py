@@ -78,7 +78,7 @@ def preview(root, base, heads):
                 kept.append(name)
         candidate = base
         for name in kept:
-            proc = subprocess.run(['git','-C',str(root),'merge-tree','--write-tree',candidate,heads[name]],
+            proc = subprocess.run(['git','-C',str(root),'merge-tree','--write-tree','--name-only',candidate,heads[name]],
                                   capture_output=True,text=True)
             if proc.returncode:
                 # --write-tree lists conflict file names before its explanatory

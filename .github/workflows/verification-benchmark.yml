@@ -167,6 +167,8 @@ jobs:
           node-version: '22'
       - name: Install identical dependencies for both scheduling strategies
         run: python -m pip install -r requirements-learning-studio.txt
+      - name: Preserve exact tracked source bytes for both scheduling strategies
+        run: python scripts/architecture_checkout_eol.py --repo .
       - name: Equivalent-scope reference and parallel execution
         # Both jobs run identical test files, source, tools and commands. This
         # measures scheduling only, not a full-versus-smoke acceptance speedup.

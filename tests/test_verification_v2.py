@@ -143,6 +143,7 @@ def test_conflicting_integration_never_claims_ready(repo):
     r = i.preview(repo,base,{'one':a,'two':b})
     assert r['status'] == 'CONFLICT'
     assert r['overlaps']
+    assert 'original.txt' in r['conflicting_files']
     assert not r.get('candidate_commit')
 
 
@@ -280,3 +281,26 @@ def test_native_pr_job_invokes_real_android_checks():
     native=[job for job in wf['jobs'].values() if job.get('uses')=='./.github/workflows/verification-android.yml']
     assert native
     assert 'native_needed' in native[0]['if']
+
+
+def test_untracked_runtime_source_disables_evidence_reuse(repo):
+    e=importlib.import_module('verification_evidence')
+    (repo/'unexpected_runtime.py').write_text('unexpected = True\n')
+    plan={'python_tests':[],'javascript_tests':[],'stage':'fast'}
+    assert e.identity(repo,plan)['dirty']
+
+
+def test_diagnostic_output_does_not_change_source_identity(repo):
+    e=importlib.import_module('verification_evidence')
+    (repo/'shared-selector.xml').write_text('<testsuites/>')
+    (repo/'shared-verification.json').write_text('{}')
+    plan={'python_tests':[],'javascript_tests':[],'stage':'fast'}
+    assert not e.identity(repo,plan)['dirty']
+
+
+def test_changed_javascript_source_is_syntax_checked(repo):
+    c=importlib.import_module('verification_coordinator')
+    (repo/'broken.js').write_text('function { invalid syntax')
+    data={'python_tests':[],'javascript_tests':[],'changed':['broken.js'],'blockers':[],'stage':'fast'}
+    assert c.execute(data,repo,repo/'reports') == 1
+    assert any('broken.js' in check['command'] for check in data['checks'])

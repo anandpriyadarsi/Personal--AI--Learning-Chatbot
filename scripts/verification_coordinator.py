@@ -195,6 +195,9 @@ def execute(data: dict, root: Path, output: Path, workers: int = 4) -> int:
     xml = output/'python.xml'
     commands = [('syntax', [sys.executable,'-m','compileall','-q','personal_learning_assistant','scripts']),
                 ('whitespace', ['git','diff','--check'])]
+    for index,path in enumerate(data.get('changed',[])):
+        if path.endswith(('.js','.cjs','.mjs')) and not path.startswith('/') and '..' not in Path(path).parts and (root/path).is_file():
+            commands.append(('javascript-syntax-'+str(index),['node','--check',path]))
     if data['python_tests']:
         commands.append(('python',[sys.executable,'-m','pytest','-q',*data['python_tests'],'--junitxml='+str(xml.resolve())]))
     if data['javascript_tests']:

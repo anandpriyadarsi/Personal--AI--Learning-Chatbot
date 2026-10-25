@@ -55,6 +55,8 @@ jobs:
           node-version: '22'
       - name: Install tracked Python dependencies
         run: python -m pip install -r requirements-learning-studio.txt
+      - name: Preserve exact tracked source bytes before evidence fingerprinting
+        run: python scripts/architecture_checkout_eol.py --repo .
       - name: Prove old and new selector safety
         run: python -m pytest -q tests/test_smart_verify.py tests/test_verification_coordinator.py tests/test_verification_v2.py --junitxml=shared-selector.xml
       - name: Select stream tests and browser dependency

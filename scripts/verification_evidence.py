@@ -43,9 +43,17 @@ def identity(root, plan):
                    'gradle':command(root,['gradle','--version']),
                    'android_sdk':command(root,['sdkmanager','--version']),
                    'dependencies':hashes(dependencies), 'config':config}
+    # Reports generated before selection are not application source. Every
+    # tracked modification and every other untracked file disables reuse.
+    # Never exclude source extensions under the diagnostics directory.
+    untracked = command(root,['git','ls-files','--others','--exclude-standard','-z']).split('\0')
+    diagnostics = {'shared-verification.json','shared-selector.xml','scheduling.json'}
+    unexpected = [p for p in untracked if p and p not in diagnostics and not (
+        p.startswith('verification-results/') and Path(p).suffix in ('.json','.xml','.log','.png'))]
+    dirty = bool(command(root,['git','diff','HEAD','--name-only'])) or bool(unexpected)
     return {'source_sha':command(root,['git','rev-parse','HEAD']),
             'tree_sha':command(root,['git','rev-parse','HEAD^{tree}']),
-            'dirty':bool(command(root,['git','status','--porcelain','--untracked-files=no'])),
+            'dirty':dirty,
             'workflow_fingerprint':digest(hashes(workflows)),
             'inventory_fingerprint':digest(hashes(plan['python_tests']+plan['javascript_tests'])),
             'environment_fingerprint':digest(environment), 'environment':environment, 'stage':plan['stage']}
