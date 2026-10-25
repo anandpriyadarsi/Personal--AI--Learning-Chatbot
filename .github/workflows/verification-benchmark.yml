@@ -3,6 +3,8 @@ on:
   pull_request:
     paths:
       - 'scripts/verification_benchmark.py'
+      - 'scripts/verification_*.py'
+      - '.github/workflows/smart-verification.yml'
       - 'tests/test_verification_benchmark.py'
       - '.github/workflows/verification-benchmark.yml'
       - 'docs/verification/**'
@@ -140,3 +142,40 @@ jobs:
             verification-benchmark.md
           retention-days: 30
           if-no-files-found: warn
+
+  equivalent-fast-scheduling:
+    if: ${{ github.event_name == 'pull_request' }}
+    name: Equivalent fast scope (${{ matrix.workers }} workers)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        workers: [1, 4]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: 'requirements*.txt'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install identical dependencies for both scheduling strategies
+        run: python -m pip install -r requirements-learning-studio.txt
+      - name: Equivalent-scope reference and parallel execution
+        # Both jobs run identical test files, source, tools and commands. This
+        # measures scheduling only, not a full-versus-smoke acceptance speedup.
+        run: python scripts/verification_coordinator.py --changed-file personal_learning_assistant/tutor/policy.py --workers ${{ matrix.workers }} --execute --json scheduling.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: equivalent-fast-${{ matrix.workers }}-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            scheduling.json
+            verification-results/**
+          if-no-files-found: error

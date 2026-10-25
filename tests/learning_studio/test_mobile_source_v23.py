@@ -45,7 +45,7 @@ def test_source_layout_waits_for_its_delayed_stylesheet(browser,live):
     held=[]
     try:
         page.goto(url+'/learning/modules/synthetic/1?view=learn')
-        page.route('**/static/css/learning_studio.css',lambda route:held.append(route))
+        page.route('**/static/css/learning_studio.css*',lambda route:held.append(route))
         page.locator('.ls-source-chips a').first.click()
         page.wait_for_function("document.querySelector('#source-page-1') !== null")
         initial=page.evaluate(LAYOUT)
@@ -53,7 +53,7 @@ def test_source_layout_waits_for_its_delayed_stylesheet(browser,live):
         initial['hashWrap']=page.locator('.ls-hash').evaluate("(e)=>getComputedStyle(e).overflowWrap")
         print('MOBILE_SOURCE_DELAYED_STYLESHEET:'+json.dumps(initial),flush=True)
         assert held,'Expected a controlled pending Learning stylesheet'
-        assert any(x['href'].endswith('/learning_studio.css') and not x['loaded'] for x in initial['stylesheets'])
+        assert any(x['href'].split('?',1)[0].endswith('/learning_studio.css') and not x['loaded'] for x in initial['stylesheets'])
         assert initial['hashWrap']=='normal' and initial['scroll']>initial['width'],initial
         for route in held:route.continue_()
         page.wait_for_load_state('load')

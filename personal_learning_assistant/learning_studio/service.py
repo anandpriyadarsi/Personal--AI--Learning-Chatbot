@@ -45,7 +45,7 @@ class LearningStudioService(ProgressMixin, ReviewStoreMixin, MappingReviewMixin,
         digest = hashlib.sha256(encoded.encode()).hexdigest()
         with self.store.connection(write=True) as con:
             if expected_parent is not None:
-                parent,prior=self._row(con,p['module_id'],expected_parent['revision'])
+                parent,prior=self._row(con,p['module_id'],expected_parent['revision'],include_source=True)
                 require(parent['digest']==expected_parent['digest'] and
                     p['module_revision']==expected_parent['revision']+1 and
                     p['source']==prior['source'] and raw==parent['source_blob'],
@@ -101,10 +101,13 @@ class LearningStudioService(ProgressMixin, ReviewStoreMixin, MappingReviewMixin,
         return {'module_id': p['module_id'], 'revision': p['module_revision'], 'state': 'staged',
                 'semantic_review_pages': sum(page['status'] != 'verified' for page in p['pages'])}
 
-    def _row(self, con, module_id, revision, *, staged=False):
+    def _row(self, con, module_id, revision, *, staged=False, include_source=False):
         identity(module_id); integer(revision, 1, 1000000)
         require(con is not None, 'Module not found.', 404)
-        row = con.execute('SELECT m.* FROM modules m WHERE m.module_id=? AND m.revision=?' +
+        # Source PDFs can be 20 MB. Ordinary reader, progress and asset requests
+        # need only package metadata; do not copy the BLOB into Python each time.
+        columns = 'm.*' if include_source else 'm.module_id,m.revision,m.digest,m.package_json'
+        row = con.execute('SELECT ' + columns + ' FROM modules m WHERE m.module_id=? AND m.revision=?' +
             ('' if staged else ' AND EXISTS(SELECT 1 FROM publications p WHERE p.module_id=m.module_id AND p.revision=m.revision)'),
             (module_id, revision)).fetchone()
         require(row is not None, 'Module not found.', 404)
@@ -115,7 +118,7 @@ class LearningStudioService(ProgressMixin, ReviewStoreMixin, MappingReviewMixin,
     def publish(self, module_id, revision):
         self.module(module_id, revision, staged=True)
         with self.store.connection(write=True) as con:
-            row, p = self._row(con, module_id, revision, staged=True)
+            row, p = self._row(con, module_id, revision, staged=True, include_source=True)
             assets = {a['name']: a['bytes'] for a in con.execute('SELECT name,bytes FROM assets WHERE module_id=? AND revision=?', (module_id, revision))}
             # Re-resolve registry and catalogue after staging; no trusting an obsolete preview.
             try:
@@ -144,7 +147,7 @@ class LearningStudioService(ProgressMixin, ReviewStoreMixin, MappingReviewMixin,
 
     def source(self, module_id, revision, *, staged=False):
         with self.store.connection() as con:
-            row, p = self._row(con, module_id, revision, staged=staged)
+            row, p = self._row(con, module_id, revision, staged=staged, include_source=True)
             raw = row['source_blob']
             require(hashlib.sha256(raw).hexdigest() == p['source']['sha256'], 'Source snapshot integrity failure.', 409)
             return raw

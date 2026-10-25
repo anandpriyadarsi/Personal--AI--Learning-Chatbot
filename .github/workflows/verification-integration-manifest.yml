@@ -1,0 +1,37 @@
+name: Live integration manifest (not certification)
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'scripts/verification_integration.py'
+      - 'verification/streams.json'
+      - '.github/workflows/verification-integration-manifest.yml'
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: integration-manifest-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Resolve current GitHub branch heads and preview without changing refs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/verification_integration.py --preview --output integration-manifest.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: live-integration-manifest-${{ github.event.pull_request.head.sha || github.sha }}
+          path: integration-manifest.json
+          if-no-files-found: error

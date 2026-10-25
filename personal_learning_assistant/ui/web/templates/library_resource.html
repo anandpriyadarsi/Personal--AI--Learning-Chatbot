@@ -1,5 +1,6 @@
 {% extends "workspace_base.html" %}
 {% block title %}{{ resource.title }} · Library · ANVAYA{% endblock %}
+{% block page_scripts %}{{ super() }}<script defer src="{{ url_for('static',filename='js/library_rename.js') }}"></script>{% endblock %}
 {% block workspace_assets %}{{ super() }}<link rel="stylesheet" href="{{ url_for('static', filename='css/library.css') }}">{% endblock %}
 {% block content %}
 <div class="library-hub library-detail materials-workspace">
@@ -21,11 +22,12 @@
     <div class="library-items">
     {% for doc in resource.documents %}
     <article class="dashboard-panel library-card materials-resource-card"><div class="materials-resource-glyph" aria-hidden="true">D</div><div class="library-card-main">
-      <div class="materials-resource-meta"><span class="materials-type">{{ doc.kind }}</span>{% if doc.mime_type %}<span class="materials-separator">·</span><span>{{ doc.mime_type }}</span>{% endif %}</div><h3>{{ doc.title }}</h3><p class="library-extraction">Extraction: {{ doc.extraction_status|replace('_', ' ') }}</p>{% set lesson_target=source_lesson_target(doc.document_id,doc.content_hash) %}{% if lesson_target %}<p><a href="{{ lesson_target }}">Find source-linked lessons</a></p>{% endif %}
+      <div class="materials-resource-meta"><span class="materials-type">{{ doc.kind }}</span>{% if doc.mime_type %}<span class="materials-separator">·</span><span>{{ doc.mime_type }}</span>{% endif %}</div><h3 data-library-title="document:{{ doc.document_id }}">{{ doc.title }}</h3><button type="button" class="library-rename-action" data-library-rename="{{ url_for('library_rename.rename',kind='document',item_id=doc.document_id) }}" data-key="document:{{ doc.document_id }}">Rename</button><p class="library-extraction">Extraction: {{ doc.extraction_status|replace('_', ' ') }}</p>{% set lesson_target=source_lesson_target(doc.document_id,doc.content_hash) %}{% if lesson_target %}<p><a href="{{ lesson_target }}">Find source-linked lessons</a></p>{% endif %}
     </div>{% if source_reader_available %}<a class="button secondary-button library-view" href="{{ doc.open_target }}">View source ↗</a>{% else %}<span class="materials-muted library-view">Source reader unavailable</span>{% endif %}</article>
     {% else %}<div class="dashboard-panel materials-empty"><h3>No linked documents</h3><p>This registered resource does not have a document relationship yet.</p></div>{% endfor %}
     </div>
   </section>
   {% if resource.notes %}<section class="dashboard-panel library-detail-panel" aria-labelledby="related-notes-title"><p class="eyebrow">Recorded relationships</p><h2 id="related-notes-title">Related Obsidian notes</h2><p class="materials-muted">These are recorded note references; no vault scan was performed.</p><div class="library-labels">{% for note in resource.notes %}<span class="library-label">{{ note.label }}</span>{% endfor %}</div></section>{% endif %}
 </div>
+{% include '_library_rename_dialog.html' %}
 {% endblock %}

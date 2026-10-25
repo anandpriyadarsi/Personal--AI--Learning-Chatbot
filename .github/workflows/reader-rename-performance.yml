@@ -1,0 +1,52 @@
+name: Reader, rename and navigation contracts
+on:
+  pull_request:
+    paths:
+      - 'personal_learning_assistant/**'
+      - 'tests/**'
+      - '.github/workflows/reader-rename-performance.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: reader-rename-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+jobs:
+  focused:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    env:
+      ANVAYA_BROWSER_TESTS: '1'
+      ANVAYA_BROWSER_ARTIFACTS: reader-rename-evidence/screenshots
+      PYTHONUTF8: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements-learning-studio.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: python -m pip install -r requirements-learning-studio.txt
+      - run: python -m playwright install --with-deps chromium
+      - name: Reader, safe metadata rename, source identity and rendering
+        run: python -m pytest tests/learning_studio tests/test_library_document_rename.py tests/test_library_rename_browser.py tests/test_navigation_asset_cache.py tests/test_learning_library_read_model.py tests/test_learning_library_routes.py tests/test_learning_library_wal_bridge.py tests/test_library_v2_browser.py -q --junitxml=reader-rename-evidence/results.xml
+      - name: JavaScript syntax and existing contracts
+        run: |
+          node --check personal_learning_assistant/ui/web/static/js/learning_studio.js
+          node --check personal_learning_assistant/ui/web/static/js/learning_media.js
+          node --check personal_learning_assistant/ui/web/static/js/library_rename.js
+          node --test tests/js/*.test.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: reader-rename-${{ matrix.os }}-${{ github.event.pull_request.head.sha || github.sha }}
+          path: reader-rename-evidence/

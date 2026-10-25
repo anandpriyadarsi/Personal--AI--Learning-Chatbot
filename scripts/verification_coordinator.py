@@ -11,9 +11,14 @@ import json
 import subprocess
 import sys
 import time
+import os
+import re
+import concurrent.futures
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import smart_verify
+from verification_evidence import identity, diagnose
 
 ROOT = Path(__file__).resolve().parents[1]
 STREAMS = ("performance_reader", "handwritten_media", "native_documents", "assessment_review")
@@ -134,33 +139,96 @@ def select_tests(paths: list[str], streams: list[str], root: Path) -> tuple[list
     return sorted(python_tests), sorted(js_tests), warnings
 
 
-def plan(paths: list[str], root: Path = ROOT) -> dict:
+def plan(paths: list[str], root: Path = ROOT, stage: str = 'fast') -> dict:
     paths = sorted(set(p.replace("\\", "/") for p in paths))
     streams, warnings = classify(paths)
     pytests, jstests, missing = select_tests(paths, streams, root)
     existing = smart_verify.make_plan(paths, "fast", root)
     reasons = sorted(set(warnings + missing + existing.reasons))
-    # A scoped green is NEVER a merge gate, even for a single known component.
+    graph = smart_verify.make_v2_plan(paths, stage, root)
+    # Keep V2's original stream labels for compatible downstream reports. The
+    # graph's components, rather than those labels, now govern test execution.
     return {
         "schema": "anvaya.shared-verification.v2",
-        "stage": "fast",
+        **graph,
         "streams": streams,
         "changed": paths,
-        "python_tests": pytests,
-        "javascript_tests": jstests,
+        "python_tests": sorted(set(pytests) | set(graph['python_tests'])),
+        "javascript_tests": sorted(set(jstests) | set(graph['javascript_tests'])),
         "requires_full_regression": True,
         "requires_android_installed_acceptance": any(
             p.startswith("android/") or p.startswith("personal_learning_assistant/android_")
             for p in paths),
-        "reasons": reasons,
+        "reasons": sorted(set(reasons + graph['reasons'])),
         "selector_requires_full": existing.requires_full,
-        "outcome": "PENDING",
+        "outcome": graph['outcome'],
     }
 
 
-def run(command: list[str], cwd: Path) -> int:
+def run_check(command: list[str], cwd: Path, name: str, output: Path) -> dict:
     print("RUN:", " ".join(command), flush=True)
-    return subprocess.call(command, cwd=cwd)
+    start = time.monotonic()
+    # Never pass private academic fixture paths/provider secrets into a public
+    # development verifier. Private acceptance uses its existing protected job.
+    env = {k:v for k,v in os.environ.items() if not k.startswith(('ANVAYA_', 'OPENAI_', 'ANTHROPIC_'))}
+    env.update(PYTHONDONTWRITEBYTECODE='1', ANVAYA_BROWSER_TESTS=os.environ.get('ANVAYA_BROWSER_TESTS','0'))
+    log = output / (name + '.log')
+    try:
+        with log.open('w',encoding='utf-8') as stream:
+            result = subprocess.run(command,cwd=cwd,env=env,stdout=stream,stderr=subprocess.STDOUT,timeout=1200)
+        code = result.returncode
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        log.write_text(type(exc).__name__+': command unavailable or timed out',encoding='utf-8')
+        code = 2
+    report = {'name':name,'command':command,'exit_code':code,
+              'duration_seconds':round(time.monotonic()-start,3),'log':str(log)}
+    if code:
+        report['diagnosis'] = diagnose(command,code,log.read_text(encoding='utf-8',errors='replace'))
+    return report
+
+
+def execute(data: dict, root: Path, output: Path, workers: int = 4) -> int:
+    output.mkdir(parents=True,exist_ok=True)
+    if data['blockers']:
+        data['outcome'] = 'BLOCKED'
+        return 2
+    xml = output/'python.xml'
+    commands = [('syntax', [sys.executable,'-m','compileall','-q','personal_learning_assistant','scripts']),
+                ('whitespace', ['git','diff','--check'])]
+    if data['python_tests']:
+        commands.append(('python',[sys.executable,'-m','pytest','-q',*data['python_tests'],'--junitxml='+str(xml.resolve())]))
+    if data['javascript_tests']:
+        commands.append(('javascript',['node','--test','--test-reporter=tap',*data['javascript_tests']]))
+    data['started_tests'] = bool(data['python_tests'] or data['javascript_tests'])
+    with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
+        futures = [pool.submit(run_check,argv,root,name,output) for name,argv in commands]
+        data['checks'] = [future.result() for future in futures]
+    code = max((r['exit_code'] != 0 for r in data['checks']),default=False)
+    if data['javascript_tests']:
+        log = (output/'javascript.log').read_text(encoding='utf-8',errors='replace')
+        counts = {name:int(value) for name,value in re.findall(
+            r'^# (tests|pass|fail|cancelled|skipped|todo) (\d+)\s*$',log,re.MULTILINE)}
+        data['javascript_results'] = counts or {'inventory':'MISSING'}
+        file_names = {p for path in data['javascript_tests'] for p in (path, Path(path).name, str((root/path).resolve()))}
+        empty_files = set(re.findall(r'^# Subtest: (.+)$',log,re.MULTILINE)) & file_names
+        if (not counts.get('tests') or counts.get('pass') != counts.get('tests')
+                or empty_files or any(counts.get(k,1) != 0 for k in ('fail','cancelled','skipped','todo'))):
+            data['blockers'].append('JavaScript contracts missing, failed, skipped, cancelled or TODO')
+    if data['python_tests']:
+        if not xml.is_file():
+            data['blockers'].append('Missing Python JUnit evidence')
+        else:
+            cases = ET.parse(xml).findall('.//testcase')
+            skipped = [c.get('classname','')+'::'+c.get('name','') for c in cases if c.find('skipped') is not None]
+            data['test_results'] = {'cases':len(cases),'skips':skipped,
+                                    'failures':sum(c.find('failure') is not None or c.find('error') is not None for c in cases)}
+            # The canonical validator alone owns its four named private skips.
+            # Scoped execution accepts no skipped test as successful coverage.
+            if skipped or not cases:
+                data['blockers'].append('Selected tests were skipped or no cases executed; use canonical acceptance for private fixture omissions')
+    data['outcome'] = 'FAIL' if code else 'BLOCKED' if data['blockers'] else (
+        'FAST FEEDBACK PASS — NOT RELEASE CERTIFICATION' if data['stage'] == 'fast' else 'FEATURE PASS — NOT RELEASE CERTIFICATION')
+    return 1 if code else 2 if data['blockers'] else 0
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -170,31 +238,40 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--changed-file", action="append", default=[])
     parser.add_argument("--json", default="shared-verification.json")
     parser.add_argument("--execute", action="store_true")
+    parser.add_argument('--stage', choices=('fast','feature'), default='fast')
+    parser.add_argument('--output', default='verification-results')
+    parser.add_argument('--workers', type=int, choices=(1,4), default=4,
+                        help='1 is the sequential reference for equivalent-scope benchmarks')
     args = parser.parse_args(argv)
     try:
-        paths = args.changed_file or smart_verify.changed_paths(args.base, args.head)
+        diff_error = None
+        try:
+            paths = args.changed_file or smart_verify.changed_paths(args.base, args.head)
+        except (ValueError, subprocess.CalledProcessError, OSError) as exc:
+            paths = ['__unreliable_git_diff__']
+            diff_error = type(exc).__name__ + ': cannot establish diff; broad validation required'
         head_sha = subprocess.check_output(["git", "rev-parse", args.head], cwd=ROOT, text=True).strip()
-        data = plan(paths)
+        actual_sha = subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()
+        data = plan(paths, stage=args.stage)
         data.update(source_sha=head_sha, base_sha=args.base, started_tests=False)
+        if head_sha != actual_sha:
+            data['blockers'].append('Requested head differs from checked-out source')
+        if diff_error:
+            data['reasons'].append(diff_error)
+            data['blockers'].append('Diff unreliable: canonical full acceptance required')
+        data['identity'] = identity(ROOT, data)
+        data['run_id'] = os.environ.get('GITHUB_RUN_ID')
+        data['run_attempt'] = os.environ.get('GITHUB_RUN_ATTEMPT')
+        data['workflow_ref'] = os.environ.get('GITHUB_WORKFLOW_REF')
+        data['limitations'] = ['Not release certification', 'Android installed/device and private fixtures NOT VERIFIED',
+                              'Remote evidence reuse disabled pending authenticated immutable artifact verification']
         exit_code = 0
         start = time.monotonic()
         if not paths:
             exit_code = 2
             data["outcome"] = "FAIL_EMPTY_DIFF"
         elif args.execute:
-            data["started_tests"] = True
-            commands = [
-                [sys.executable, "-m", "pytest", "-q", *data["python_tests"], "--junitxml=shared-fast.xml"]
-                if data["python_tests"] else ["git", "diff", "--check"],
-            ]
-            if data["javascript_tests"]:
-                commands.append(["node", "--test", *data["javascript_tests"]])
-            for command in commands:
-                code = run(command, ROOT)
-                if code:
-                    exit_code = code
-                    break
-            data["outcome"] = "FAST_PASS_ONLY" if exit_code == 0 else "FAST_FAIL"
+            exit_code = execute(data, ROOT, Path(args.output), args.workers)
         else:
             data["outcome"] = "PLAN_ONLY"
         data.update(exit_code=exit_code, elapsed_seconds=round(time.monotonic() - start, 2))

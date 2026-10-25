@@ -1,0 +1,11 @@
+<dialog id="library-rename-dialog" class="library-rename-dialog" data-csrf="{{ library_rename_csrf }}" aria-labelledby="library-rename-heading">
+  <form method="dialog" id="library-rename-form">
+    <h2 id="library-rename-heading">Rename document</h2>
+    <p>The display name changes. Your file, links and study progress stay connected.</p>
+    <label for="library-rename-title">Document name</label>
+    <input id="library-rename-title" name="title" required maxlength="160" autocomplete="off" aria-describedby="library-rename-error">
+    <p id="library-rename-error" role="alert"></p>
+    <div class="form-actions"><button type="button" id="library-rename-cancel" class="button secondary-button">Cancel</button><button type="submit" id="library-rename-save" class="button">Save</button></div>
+  </form>
+</dialog>
+<p id="library-rename-status" class="library-rename-status" role="status" aria-live="polite"></p>
