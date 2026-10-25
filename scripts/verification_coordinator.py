@@ -153,8 +153,8 @@ def plan(paths: list[str], root: Path = ROOT, stage: str = 'fast') -> dict:
         **graph,
         "streams": streams,
         "changed": paths,
-        "python_tests": sorted(set(pytests) | set(graph['python_tests'])),
-        "javascript_tests": sorted(set(jstests) | set(graph['javascript_tests'])),
+        "python_tests": graph['python_tests'],
+        "javascript_tests": graph['javascript_tests'],
         "requires_full_regression": True,
         "requires_android_installed_acceptance": any(
             p.startswith("android/") or p.startswith("personal_learning_assistant/android_")

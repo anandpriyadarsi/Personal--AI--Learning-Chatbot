@@ -39,6 +39,15 @@ def test_single_and_multi_component_changes():
         'personal_learning_assistant/services/planning_service.py'])['components'])
 
 
+def test_coordinator_single_component_does_not_inherit_unrelated_legacy_smokes():
+    c=importlib.import_module('verification_coordinator')
+    result=c.plan(['personal_learning_assistant/tutor/policy.py'])
+    assert 'tests/test_tutor_grounding_v24.py' in result['python_tests']
+    assert 'tests/test_architecture_characterization.py' in result['python_tests']
+    assert not any('assessment' in p or 'library' in p for p in result['python_tests'])
+    assert result['javascript_tests'] == []
+
+
 def test_test_changes_and_docs_are_distinct():
     p = policy()
     assert 'assessment' in p.affected(['tests/test_assessment_pause_paper.py'])['components']
