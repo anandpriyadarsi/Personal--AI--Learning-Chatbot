@@ -78,6 +78,33 @@ AUTHORING_WORKSPACE_KINDS = {
 MASTER_PROMPT_FILENAME = "ANVAYA_ASSESSMENT_PACKAGE_AUTHORING_PROMPT.md"
 MASTER_PROMPT_MAX_CHARS = 60000
 
+# Applied even when the user saved a custom master prompt. It concerns only
+# visible generated questions; source page/slide provenance remains intact.
+_STANDALONE_QUESTION_POLICY = (
+    "MANDATORY SELF-CONTAINED QUESTION RULE: For generated_practice and "
+    "weak_topic_retest every visible question and each option must be "
+    "answerable using general subject knowledge and data within that question. "
+    "Do not ask what page 12 says, what slide 14/image/visual structure shows, "
+    "or refer to an absent chart, figure, source file or previous question. "
+    "Rewrite into a standalone conceptual/application question; include any "
+    "essential data in the stem. Retain page numbers only as source provenance. "
+    "Reject/regenerate any non-standalone generated item before exporting. "
+    "A reproduced_paper must retain faithful original question wording."
+)
+_PAGE_DEPENDENT_QUESTION_RE = re.compile(
+    r"\b(?:page|slide)\s*(?:number\s*|no\.?\s*)?\d+\b"
+    r"|\b(?:on|in)\s+(?:the\s+|this\s+)?(?:page|slide|pdf|ppt)\b"
+    r"|\b(?:image|figure|diagram|chart|visual)\s+(?:above|below|on\s+page)\b"
+    r"|\b(?:shown|depicted)\s+(?:in|on)\s+(?:the\s+)?(?:figure|image|slide|page)\b",
+    flags=re.IGNORECASE,
+)
+
+
+def _requires_missing_source_context(value: str) -> bool:
+    """Conservative structural check for document-dependent generated stems."""
+    return bool(_PAGE_DEPENDENT_QUESTION_RE.search(str(value or "")))
+
+
 
 class AssessmentPackageError(RuntimeError):
     pass
@@ -442,6 +469,12 @@ def _validate_package(package):
                 "{}.type is unsupported.".format(context)
             )
         text = _nonempty(question["text"], context + ".text", maximum=50000)
+        if purpose in {"generated_practice", "weak_topic_retest"} and _requires_missing_source_context(text):
+            raise AssessmentPackageValidationError(
+                "{}.text depends on a page, slide or unseen diagram. "
+                "Write a self-contained conceptual question; keep page numbers "
+                "only in source provenance.".format(context)
+            )
         marks_milli = _milli(question["marks"], context + ".marks", allow_zero=False)
         negative_milli = _milli(
             question["negative_marks"], context + ".negative_marks"
@@ -502,6 +535,14 @@ def _validate_package(package):
             raise AssessmentPackageValidationError(
                 "{}.options is only supported for MCQ/MSQ questions.".format(context)
             )
+
+        if purpose in {"generated_practice", "weak_topic_retest"}:
+            for option in options:
+                if _requires_missing_source_context(option["text"]):
+                    raise AssessmentPackageValidationError(
+                        "{}.options contains a reference to an unseen source. "
+                        "Make every answer option self-contained.".format(context)
+                    )
 
         answer = question["answer"]
         _strict_keys(
@@ -831,7 +872,7 @@ def _render_authoring_prompt(
     rendered = str(prompt or "")
     for token, value in values.items():
         rendered = rendered.replace(token, value)
-    return rendered
+    return rendered + "\n\n" + _STANDALONE_QUESTION_POLICY
 
 
 class AssessmentPackageService:
