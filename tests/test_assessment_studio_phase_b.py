@@ -603,6 +603,7 @@ def test_open_contract_schema_example_and_authoring_prompt_are_present():
     "How many kinds of substance are listed on page 15?",
     "Which reading respects the visual structure on page 14?",
     "What does the image above signify?",
+    "What does this image signify?",
     "According to slide 3, which factor is lower triangular?",
 ])
 def test_generated_practice_rejects_source_dependent_questions(stem):
