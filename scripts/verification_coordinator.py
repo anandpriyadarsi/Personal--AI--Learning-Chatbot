@@ -70,9 +70,18 @@ def classify(paths: list[str]) -> tuple[list[str], list[str]]:
         if not path or path.startswith("/") or ".." in Path(path).parts:
             warnings.append("Untrusted changed path: " + path)
             continue
-        if path.startswith("docs/") or path.endswith((".md", ".rst", ".png", ".jpg", ".svg")):
-            continue
         lower = path.lower()
+        if path.startswith("docs/"):
+            continue
+        # The Assessment authoring instructions are tracked Markdown but are
+        # executable educational policy, not ordinary documentation.
+        if lower.endswith((".md", ".rst")):
+            if "assessment" in lower and ("prompt" in lower or "question" in lower):
+                streams.add("assessment_review")
+                warnings.append("Academic question-authoring policy changed: " + path)
+            continue
+        if lower.endswith((".png", ".jpg", ".svg")):
+            continue
         if any(fnmatch.fnmatchcase(path, pat) for pat in SHARED):
             streams.update(STREAMS)
             warnings.append("Shared integration or verification boundary: " + path)
