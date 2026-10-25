@@ -28,13 +28,14 @@ public class NativePdfPageTest {
         android.content.Context context=instrumentation.getTargetContext();
         File directory=new File(context.getCacheDir(),"shared-originals/synthetic-render-test");directory.mkdirs();
         File original=new File(directory,"synthetic-three-pages.pdf");
-        try(PdfDocument pdf=new PdfDocument()){
+        PdfDocument pdf=new PdfDocument();
+        try {
             for(int number=1;number<=3;number++){
                 PdfDocument.Page page=pdf.startPage(new PdfDocument.PageInfo.Builder(300,450,number).create());
                 Paint paint=new Paint();paint.setTextSize(18);page.getCanvas().drawText("Synthetic page "+number,30,60,paint);pdf.finishPage(page);
             }
             try(FileOutputStream output=new FileOutputStream(original)){pdf.writeTo(output);}
-        }
+        } finally { pdf.close(); }
         android.net.Uri uri=androidx.core.content.FileProvider.getUriForFile(context,context.getPackageName()+".documents",original);
         assertEquals("content",uri.getScheme());
         Intent intent=new Intent(context,PdfPageActivity.class);intent.setData(uri);intent.putExtra("page",2);intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
