@@ -23,7 +23,7 @@
 {% if coding_tools.coding_helper_available or coding_tools.colab_available %}<details class="practice-tools"><summary>Study tools</summary>{% if coding_tools.coding_helper_available %}<button id="coding-helper-open" type="button" aria-haspopup="dialog" aria-controls="coding-helper-dialog">Coding Helper</button>{% endif %}{% if coding_tools.colab_available %}<a class="workspace-home" href="{{ coding_tools.colab_url }}" target="_blank" rel="noopener noreferrer">Open Google Colab</a>{% endif %}</details>{% endif %}
 {% if practice_results %}
 <section id="cbt-results" class="question cbt-practice-result" aria-labelledby="cbt-result-title">
-  <p class="eyebrow">Assessment Studio · Submitted attempt</p>
+  <p class="eyebrow">Assessment Studio · CBT Practice Result · Submitted attempt</p>
   <h2 id="cbt-result-title">Test Results &amp; Analysis</h2>
   <p class="cbt-total"><strong>{{ practice_results.awarded_marks_milli/1000 }} / {{ practice_results.max_marks_milli/1000 }} marks</strong>{% if practice_results.pending %} <span class="cbt-pending-note">Provisional: {{ practice_results.pending }} response(s) still need manual grading.</span>{% endif %}</p>
   <div class="cbt-result-metrics" aria-label="Private practice analysis">
