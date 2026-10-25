@@ -166,13 +166,24 @@ def test_search_pagination_has_no_missing_content_hits(lib):
     assert len(first+second)==66  # 65 page matches plus the document name.
 
 
-def test_local_optional_ocr_preserves_original(lib):
-    from personal_learning_assistant.services.native_document_extraction import ocr_available
-    if not ocr_available(): pytest.skip('Optional local OCR tools are unavailable')
+@pytest.mark.parametrize('force_unavailable',[False,True])
+def test_local_optional_ocr_preserves_original(lib,monkeypatch,force_unavailable):
+    from personal_learning_assistant.services import native_document_extraction as extraction
+    if force_unavailable:monkeypatch.setattr(extraction,'ocr_available',lambda:False)
+    if not extraction.ocr_available():
+        writer=PdfWriter();writer.add_blank_page(width=300,height=300)
+        out=BytesIO();writer.write(out);raw=out.getvalue()
+        doc=upload(lib,raw=raw);lib.run_pending()
+        lib.rebuild(doc['id'],ocr=True);lib.run_pending()
+        state=lib.get(doc['id'])
+        assert state['status']=='ocr_required' and 'no OCR was run' in state['status_detail']
+        assert not lib.search('Eigenvalues')
+        assert lib.original(doc['id']).read_bytes()==raw
+        return
     import fitz
     from PIL import Image,ImageDraw,ImageFont
     image=Image.new('RGB',(1300,350),'white');draw=ImageDraw.Draw(image)
-    font=ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',72)
+    font=ImageFont.load_default(size=72)
     draw.text((60,100),'Eigenvalues of a matrix',font=font,fill='black')
     png=BytesIO();image.save(png,format='PNG')
     pdf=fitz.open();page=pdf.new_page(width=650,height=175);page.insert_image(page.rect,stream=png.getvalue())
