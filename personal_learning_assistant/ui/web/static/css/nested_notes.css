@@ -1,3 +1,24 @@
 #nested-notes{max-width:900px;margin:1rem auto}#nested-notes button,#nested-notes input,#nested-notes select{min-height:44px}#nested-notes input[type=checkbox]{min-height:auto}#nested-notes label{display:grid;gap:.35rem;min-width:0}.section-controls{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}.section-controls>label:first-child{flex:1 1 220px}.section-mode{display:flex!important;align-items:center}.mini-note{border-bottom:1px solid var(--border-color,#31404c);margin:.3rem 0}.mini-note>summary{padding:.9rem .4rem;font-weight:650;cursor:pointer;overflow-wrap:anywhere;min-height:48px}.mini-note-content{padding:.3rem .4rem 1rem;overflow-wrap:anywhere;min-width:0}.mini-note-actions{display:flex;gap:.4rem;flex-wrap:wrap}.mini-note-actions button,.section-controls button{padding:.4rem .65rem;font-size:.85rem}.mini-note-actions form{display:flex;gap:.4rem;flex-wrap:wrap;width:100%}.mini-note-files{display:grid;gap:.5rem;margin:.7rem 0}#section-editor{padding:1rem 0}#section-editor[hidden]{display:none}#section-editor textarea,#section-editor input{width:100%;box-sizing:border-box}#section-status{font-size:.85rem;color:var(--muted-color,#9eacb7)}#section-add{margin-top:.75rem}.anvaya-native-reader-header{padding:0!important;gap:.5rem!important}.anvaya-native-reader-header h1{font-size:clamp(1.35rem,5vw,2rem)!important;margin:.4rem 0!important}.anvaya-native-reader-header .eyebrow{display:none}.anvaya-native-reader-header .reader-summary{margin:.4rem 0!important;padding:.6rem!important}.anvaya-native-reader-header>a{padding:.5rem .7rem!important;min-height:44px}.notes-reader-back{margin:.6rem 0!important;gap:.5rem!important}.anvaya-note-card-body{padding:1rem!important}.anvaya-note-card-body ul{max-height:3.4em;overflow:hidden;font-size:.85rem}.anvaya-note-card-body h3{margin:.5rem 0!important}.anvaya-note-card{min-height:0!important}.anvaya-note-card-body time{margin-top:.6rem!important}.ws-topbar-search,.workspace-search{min-width:0;max-width:100%}.notes-media input,.notes-media select{max-width:100%;box-sizing:border-box}.notes-media-upload label{min-width:0}#section-list article{padding:0!important;margin:0!important;border:0;background:transparent}#section-list pre,#section-list table{max-width:100%;overflow:auto}@media(max-width:600px){.anvaya-native-reader-meta{font-size:.75rem}.anvaya-native-reader-header{display:block!important}.section-controls{gap:.4rem}.notes-focus-page .anvaya-native-assets iframe{max-height:55vh}.anvaya-note-card-body ul{display:none}}
 
 #nested-notes button{background:var(--panel,#13212b);color:var(--text,#e7edf1);border:1px solid var(--border,#334452);border-radius:9px;cursor:pointer}#nested-notes button:hover{border-color:#71d8ca}#nested-notes #section-add{background:#71d8ca;color:#092329;border:0}#nested-notes .mini-note-more{font-size:.85rem}#nested-notes .mini-note-more>summary{padding:.7rem;min-height:44px;cursor:pointer}#nested-notes .mini-note-more[open]{display:flex;flex-wrap:wrap;gap:.4rem;width:100%}#nested-notes .mini-note-more button{margin:.2rem}#nested-notes .section-controls>button{font-size:.8rem}.notes-focus-page .global-search{min-width:0}.notes-focus-page .global-search input{width:100%;min-width:0}.notes-focus-page .anvaya-native-reader-meta>span:last-child{display:none}
+
+
+/* Focus Reading is a genuinely read-only reader, not the edit/upload screen.
+   The normal reader retains every authoring and attachment-management control. */
+.notes-focus-page.workspace-focus .anvaya-native-reader-header > a,
+.notes-focus-page.workspace-focus #nested-notes .section-controls,
+.notes-focus-page.workspace-focus #nested-notes #section-add,
+.notes-focus-page.workspace-focus #nested-notes #section-editor,
+.notes-focus-page.workspace-focus #nested-notes #section-status,
+.notes-focus-page.workspace-focus #nested-notes .mini-note-actions,
+.notes-focus-page.workspace-focus #nested-notes .mini-note-files,
+.notes-focus-page.workspace-focus #notes-media .notes-media-upload,
+.notes-focus-page.workspace-focus #notes-media .notes-media-menu,
+.notes-focus-page.workspace-focus #notes-media > p,
+.notes-focus-page.workspace-focus #notes-media #notes-media-status,
+.notes-focus-page.workspace-focus .notes-reader-back > a,
+.notes-focus-page.workspace-focus .notes-study-tools-launcher,
+.notes-focus-page.workspace-focus .notes-study-tools-drawer,
+.notes-focus-page.workspace-focus .anvaya-native-reader-footer { display: none !important; }
+.notes-focus-page.workspace-focus #nested-notes { margin-top: .75rem; }
+.notes-focus-page.workspace-focus #notes-media { max-width: 900px; margin: 2rem auto 0; }

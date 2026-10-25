@@ -6,6 +6,40 @@
   const search=root.querySelector('#section-search'), multiple=root.querySelector('#section-multiple');
   const editor=root.querySelector('#section-editor'), title=root.querySelector('#section-title'), body=root.querySelector('#section-body');
   const base=root.dataset.sectionsUrl; let version='', rows=[], editing=null, editVersion='', busy=false, generation=0, timer;
+  // Focus Reading must expose the entire note without editing/upload controls.
+  // Save the reader's pre-focus state so exiting focus restores normal editing.
+  const keyPoints=document.querySelector('.anvaya-native-reader-header .reader-summary');
+  let focusSnapshot=null;
+  function syncFocusReading(){
+    if(document.body.classList.contains('workspace-focus')){
+      if(!focusSnapshot){
+        focusSnapshot={
+          multiple:multiple.checked,
+          open:new Set(Array.from(list.querySelectorAll('.mini-note[open]'),item=>item.id)),
+          search:search.value,
+          keyPointsOpen:keyPoints?keyPoints.open:false
+        };
+        if(search.value){
+          search.value='';clearTimeout(timer);
+          load().catch(e=>tell(e.message));
+          return;
+        }
+      }
+      multiple.checked=true;
+      if(keyPoints)keyPoints.open=true;
+      list.querySelectorAll('.mini-note').forEach(item=>{item.open=true;});
+    }else if(focusSnapshot){
+      const previous=focusSnapshot;focusSnapshot=null;
+      multiple.checked=previous.multiple;
+      if(keyPoints)keyPoints.open=previous.keyPointsOpen;
+      list.querySelectorAll('.mini-note').forEach(item=>{item.open=previous.open.has(item.id);});
+      if(search.value!==previous.search){
+        search.value=previous.search;clearTimeout(timer);
+        load().catch(e=>tell(e.message));
+      }
+    }
+  }
+  new MutationObserver(syncFocusReading).observe(document.body,{attributes:true,attributeFilter:['class']});
   const node=(tag,text)=>{const n=document.createElement(tag);if(text)n.textContent=text;return n;};
   const tell=(text)=>{status.textContent=text;};
   async function request(url,options={}) {const r=await fetch(url,{credentials:'same-origin',cache:'no-store',...options});const value=await r.json();if(!r.ok)throw new Error(value.error||'Request failed. Keep your draft and retry.');return value;}
@@ -53,6 +87,7 @@
     // Attachment scope is populated independently of search so an active filter
     // cannot silently reset a section-specific upload to the main note.
     const all=search.value?await request(base):value;const select=document.getElementById('media-section');if(select){const selected=select.value;select.replaceChildren(new Option('Main note',''));all.sections.forEach(s=>select.add(new Option(s.title,s.id)));select.value=selected;}
+    syncFocusReading();
   }
   root.querySelector('#section-add').addEventListener('click',()=>edit({},version));
   root.querySelector('#section-cancel').addEventListener('click',()=>{editor.hidden=true;});
