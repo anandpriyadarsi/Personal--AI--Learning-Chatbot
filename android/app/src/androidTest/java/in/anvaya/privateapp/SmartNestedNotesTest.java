@@ -163,7 +163,7 @@ public class SmartNestedNotesTest {
     }
     private void tap(String selector) throws Exception {
         waitFor("!!document.querySelector("+JSONObject.quote(selector)+")");
-        JSONObject point = new JSONObject(js("(()=>{const a=document.querySelector("+JSONObject.quote(selector)+");a.scrollIntoView({block:'center'});const r=a.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2,width:innerWidth}})()"));
+        JSONObject point = new JSONObject(js("(()=>{const a=document.querySelector("+JSONObject.quote(selector)+");a.scrollIntoView({block:'center',behavior:'instant'});const r=a.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2,width:innerWidth}})()"));
         frame();
         int[] location = new int[2]; float[] scale = new float[1];
         instrumentation.runOnMainSync(() -> {web.getLocationOnScreen(location);scale[0]=web.getWidth()/(float)point.optDouble("width");});
@@ -197,7 +197,7 @@ public class SmartNestedNotesTest {
             js("document.querySelector('#sections-expand').click()");
             waitFor("document.querySelectorAll('#section-list > .mini-note[open] .mini-note-content[data-loaded]').length===3");
             assertEquals("Markdown checklist renders as a read-only checkbox","true",js(rowById(first)+".querySelector('input[type=checkbox]').disabled"));
-            js("document.querySelector('#nested-notes').scrollIntoView({block:'start'})");
+            js("document.querySelector('#nested-notes').scrollIntoView({block:'start',behavior:'instant'})");
             screenshot("android-smart-mini-notes-expanded");
             sectionAction(first,"Edit");
             waitFor("!document.querySelector('#section-editor').hidden");
@@ -216,7 +216,7 @@ public class SmartNestedNotesTest {
             close(); open(); go(note); expand(first);
             waitFor(rowById(first)+".textContent.includes('Revised retrieval cue')");
             assertEquals("Deleted section stays deleted after Activity restart","null",js(rowById(second)));
-            js(rowById(first)+".scrollIntoView({block:'start'})");
+            js(rowById(first)+".scrollIntoView({block:'start',behavior:'instant'})");
             screenshot("android-smart-mini-notes-after-activity-restart");
         } finally {close();}
     }
@@ -288,7 +288,7 @@ public class SmartNestedNotesTest {
             waitFor("document.querySelector('#notes-media-list .notes-media-open')?.textContent==='Synthetic reference.txt'");
             close(); open(); go(note); expand(section);
             waitFor(rowById(section)+".querySelector('.mini-note-files').textContent.includes('Synthetic reference.txt')");
-            js(rowById(section)+".scrollIntoView({block:'start'})");
+            js(rowById(section)+".scrollIntoView({block:'start',behavior:'instant'})");
             screenshot("android-smart-typed-attachment-after-activity-restart");
         } finally {close();}
     }
@@ -305,7 +305,7 @@ public class SmartNestedNotesTest {
             go(mediaNote);expand(mediaSection);
             waitFor(rowById(mediaSection)+".querySelector('.mini-note-files').textContent.includes('Synthetic reference.txt')");
             assertTrue("Original stored file survives process death",py("__import__('personal_learning_assistant.services.notes_media_service',fromlist=['NotesMediaStore']).NotesMediaStore(__import__('personal_learning_assistant.repositories.json.anvaya_notes_repository',fromlist=['AnvayaNotesRepository']).AnvayaNotesRepository()).resolve('"+mediaNote+"','"+asset+"')['path'].is_file()").toBoolean());
-            js(rowById(mediaSection)+".scrollIntoView({block:'start'})");
+            js(rowById(mediaSection)+".scrollIntoView({block:'start',behavior:'instant'})");
             screenshot("android-smart-typed-after-force-stop");
         } finally {close();}
     }

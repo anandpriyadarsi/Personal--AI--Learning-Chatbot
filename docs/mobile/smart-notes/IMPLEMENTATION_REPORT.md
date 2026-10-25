@@ -65,8 +65,8 @@ On PowerShell, set `$env:ANVAYA_BROWSER_TESTS='1'` before the browser/full comma
 For native builds, use JDK 17, Android SDK 35 and Gradle 8.11.1:
 
 ```bash
-gradle -p android assembleDebug testDebugUnitTest assembleDebugAndroidTest
 python scripts/android_acceptance_fixture.py android/app/src/androidTest/assets/acceptance
+gradle -p android assembleDebug testDebugUnitTest assembleDebugAndroidTest
 bash scripts/android_emulator_acceptance.sh
 ```
 
