@@ -50,3 +50,11 @@ def test_mobile_legacy_pdf_pages_do_not_launch_automatic_download_picker(client)
     assert '<iframe' not in page.text
     assert 'Open PDF' in page.text
     assert f'/notes/file/{hand}/' in page.text
+
+def test_obsidian_selects_library_and_keeps_collapsed_no_script_navigation(client):
+    c,app,repo,s,note=client
+    import re
+    page=c.get('/obsidian')
+    assert page.status_code==200
+    assert re.findall(r'<a class="nav-item[^\"]*" href="([^\"]+)" aria-current="page"',page.text)==['/library']
+    assert 'Obsidian · Connected source' in page.text
