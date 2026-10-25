@@ -104,12 +104,26 @@ public class MediaHandoffTest {
             }
         };
         instrumentation.addMonitor(monitor);
+        java.util.concurrent.atomic.AtomicReference<String> navigation=new java.util.concurrent.atomic.AtomicReference<>("no navigation");
+        instrumentation.runOnMainSync(()->{
+            android.webkit.WebViewClient original=web[0].getWebViewClient();
+            web[0].setWebViewClient(new android.webkit.WebViewClient() {
+                @Override public boolean shouldOverrideUrlLoading(android.webkit.WebView view,android.webkit.WebResourceRequest request) {
+                    navigation.set(request.getUrl()+" gesture="+request.hasGesture()+" main="+request.isForMainFrame());
+                    return original.shouldOverrideUrlLoading(view,request);
+                }
+                @Override public android.webkit.WebResourceResponse shouldInterceptRequest(android.webkit.WebView view,android.webkit.WebResourceRequest request) {
+                    return original.shouldInterceptRequest(view,request);
+                }
+            });
+            web[0].evaluateJavascript("document.addEventListener('click',e=>{window.__mediaTap=JSON.stringify({trusted:e.isTrusted,href:e.target.closest('a')?.href})},true)",null);
+        });
         try {
             MediaRequest request=MediaRequest.parse(new LocalOrigin(url[0]),url[0]+"/notes/media/"+note+"/"+asset+"/open",true,true);
             tapMediaLink(instrumentation,web[0]);
             deadline=System.currentTimeMillis()+20000;
             while(dispatches.get()==0 && System.currentTimeMillis()<deadline) Thread.sleep(100);
-            assertEquals(1,dispatches.get());
+            assertEquals("Native dispatch; observed "+navigation.get()+"; DOM "+domState(instrumentation,web[0]),1,dispatches.get());
             instrumentation.waitForIdleSync();
             android.view.accessibility.AccessibilityNodeInfo root=instrumentation.getUiAutomation().getRootInActiveWindow();
             assertNotNull(root);
@@ -150,11 +164,18 @@ public class MediaHandoffTest {
         float scale=web.getWidth()/(float)point.getDouble("width");
         float x=location[0]+(float)point.getDouble("x")*scale;
         float y=location[1]+(float)point.getDouble("y")*scale;
+        CountDownLatch frame=new CountDownLatch(1);
+        instrumentation.runOnMainSync(()->web.postVisualStateCallback(System.nanoTime(),new android.webkit.WebView.VisualStateCallback() {
+            @Override public void onComplete(long id) {web.postOnAnimation(frame::countDown);}
+        }));
+        assertTrue("Scrolled link compositor frame",frame.await(10,TimeUnit.SECONDS));
         long now=android.os.SystemClock.uptimeMillis();
         android.view.MotionEvent down=android.view.MotionEvent.obtain(now,now,android.view.MotionEvent.ACTION_DOWN,x,y,0);
         android.view.MotionEvent up=android.view.MotionEvent.obtain(now,now+80,android.view.MotionEvent.ACTION_UP,x,y,0);
-        instrumentation.getUiAutomation().injectInputEvent(down,true);
-        instrumentation.getUiAutomation().injectInputEvent(up,true);down.recycle();up.recycle();
+        down.setSource(android.view.InputDevice.SOURCE_TOUCHSCREEN);
+        up.setSource(android.view.InputDevice.SOURCE_TOUCHSCREEN);
+        assertTrue("Touch DOWN injected",instrumentation.getUiAutomation().injectInputEvent(down,true));
+        assertTrue("Touch UP injected",instrumentation.getUiAutomation().injectInputEvent(up,true));down.recycle();up.recycle();
     }
     @Test public void mediaRemainsAfterForceStop() throws Exception {
         android.app.Instrumentation instrumentation=InstrumentationRegistry.getInstrumentation();
@@ -168,6 +189,11 @@ public class MediaHandoffTest {
         }
         String check="(lambda s: all(s.resolve(n['id'],a['id'])['path'].is_file() for n in s.repository.list_notes() if n.get('title')=='Synthetic media return note' for a in n.get('media',[])) and any(n.get('title')=='Synthetic media return note' and n.get('media') for n in s.repository.list_notes()))(__import__('personal_learning_assistant.services.notes_media_service',fromlist=['NotesMediaStore']).NotesMediaStore(__import__('personal_learning_assistant.repositories.json.anvaya_notes_repository',fromlist=['AnvayaNotesRepository']).AnvayaNotesRepository()))";
         assertTrue(com.chaquo.python.Python.getInstance().getModule("builtins").callAttr("eval",check,com.chaquo.python.Python.getInstance().getModule("builtins").callAttr("dict")).toBoolean());
+    }
+    private String domState(android.app.Instrumentation instrumentation,android.webkit.WebView web) throws Exception {
+        CountDownLatch done=new CountDownLatch(1);String[] state={null};
+        instrumentation.runOnMainSync(()->web.evaluateJavascript("JSON.stringify({url:location.href,tap:window.__mediaTap,link:document.querySelector('.notes-media-open')?.href,text:document.body?.innerText.slice(-600)})",result->{state[0]=result;done.countDown();}));
+        assertTrue(done.await(10,TimeUnit.SECONDS));return state[0];
     }
     private android.webkit.WebView findWeb(android.view.View view) {
         if(view instanceof android.webkit.WebView) return (android.webkit.WebView)view;
