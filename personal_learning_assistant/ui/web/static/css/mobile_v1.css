@@ -98,6 +98,10 @@ body.mobile-assessment {padding-bottom:env(safe-area-inset-bottom)}
  body.learning-reader .content {padding-top:8px}
  body.learning-reader .ls-module-header {margin:.25rem 0}
  body.learning-reader .ls-reading-controls {margin-bottom:.5rem}
+ /* The generic reader h1 rule otherwise wins and blockifies this flex item,
+    defeating the existing expandable-title line clamp on long module names. */
+ body.learning-reader .ls-study-header summary h1 {display:-webkit-box;min-width:0}
+ body.learning-reader .ls-tabs {padding-bottom:0}
 }
 :root[data-theme="light"] .assessment-runner.is-time-low .exam-timer-panel strong {color:#9e2431}
 @media(max-width:430px) {
