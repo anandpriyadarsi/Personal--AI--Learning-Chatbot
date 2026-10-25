@@ -130,8 +130,12 @@ def module_view(module_id, revision, *, staged=False):
     course = next((c for c in cat.get('courses', []) if mapping and c['id'] == mapping['course_id']), None)
     if mapping and course is None:
         course = {'id': 'unavailable', 'code': 'Course unavailable / needs review'}
+    section_targets = {section['id']: url_for('learning.preview' if staged else 'learning.module',
+        module_id=module_id,revision=revision,view='learn',section=section['id']) for section in p['sections']}
+    def reader_markdown(text, anchor_prefix=None):
+        return markdown(text,anchor_prefix,section_targets=section_targets)
     return render_template('learning_module.html', active_page='learning', module=p, view=view, staged=staged,
-        course=course, mapping_current=mapping_current, markdown=markdown, inline_markdown=inline_markdown, trusted_graph=trusted_graph, trusted_activity=trusted_activity, **reader,
+        course=course, mapping_current=mapping_current, markdown=reader_markdown, inline_markdown=inline_markdown, trusted_graph=trusted_graph, trusted_activity=trusted_activity, **reader,
         practice_state={} if staged else s.practice_state(module_id,revision), source_element=source_element,quality_questions=quality_questions,
         attempt_feedback=attempt_feedback, attempt_event_ids={q['id']: str(uuid.uuid4()) for q in reader['practice_questions']},
         pending_question=request.args.get('question') or (reader['practice_questions'][0]['id'] if view=='practice' and reader['practice_questions'] else None),

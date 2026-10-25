@@ -284,7 +284,7 @@ def test_focus_restoration_after_deferred_reader_initialization(browser, live):
     page.click('#ls-focus')
     script = Path('personal_learning_assistant/ui/web/static/js/learning_studio.js').read_text()
     # Separate navigation commit/static DOM from the deferred reader initializer.
-    page.route('**/static/js/learning_studio.js', lambda route: route.fulfill(
+    page.route('**/static/js/learning_studio.js*', lambda route: route.fulfill(
         content_type='application/javascript', body='window.resumeReader = () => {' + script + '};'))
     page.click('#ls-contents')
     page.locator('.ls-dialog-views').get_by_role('link', name='Visualise', exact=True).click()

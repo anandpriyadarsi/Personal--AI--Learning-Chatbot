@@ -46,11 +46,11 @@ _COLUMNS = {
 }
 _ACTIVE = 'r.archived_at IS NULL AND r.deleted_at IS NULL'
 _ITEMS = """
-SELECT 'resource' AS kind, r.id, r.title, r.resource_type AS item_type,
+SELECT 'resource' AS kind, r.id, library_display_title('resource',r.id,r.title) AS title, r.resource_type AS item_type,
        r.provider, r.status AS learning_status, r.updated_at, '' AS extraction_status
 FROM resources r WHERE """ + _ACTIVE + """
 UNION ALL
-SELECT 'document', d.id, library_document_title(d.path_key), d.kind,
+SELECT 'document', d.id, library_display_title('document',d.id,library_document_title(d.path_key)), d.kind,
        '', NULL, d.updated_at, d.extraction_status
 FROM knowledge_documents d
 WHERE NOT EXISTS (SELECT 1 FROM resource_documents rd WHERE rd.document_id=d.id)
@@ -142,6 +142,10 @@ class LearningLibraryRepository:
                 con.deserialize(payload)
             con.row_factory = sqlite3.Row
             con.create_function('library_document_title', 1, document_title, deterministic=True)
+            from .library_display_repository import LibraryDisplayRepository
+            titles = LibraryDisplayRepository(self.database_path).titles()
+            con.create_function('library_display_title', 3,
+                lambda kind, ident, fallback: titles.get((kind,ident),fallback), deterministic=True)
             con.create_function('library_casefold', 1, lambda value: str(value or '').casefold(), deterministic=True)
             con.execute('PRAGMA query_only=ON')
             if not con.in_transaction:
@@ -200,8 +204,11 @@ class LearningLibraryRepository:
             if query.search.strip():
                 where.append('(instr(library_casefold(i.title), ?) > 0 OR '
                              'instr(library_casefold(i.provider), ?) > 0 OR '
-                             'instr(library_casefold(i.item_type), ?) > 0)')
-                params.extend([query.search.strip().casefold()] * 3)
+                             'instr(library_casefold(i.item_type), ?) > 0 OR '
+                             "(i.kind='resource' AND EXISTS (SELECT 1 FROM resource_documents rd "
+                             'JOIN knowledge_documents d ON d.id=rd.document_id WHERE rd.resource_id=i.id AND '
+                             "instr(library_casefold(library_display_title('document',d.id,'')),?)>0)))")
+                params.extend([query.search.strip().casefold()] * 4)
             filtered = 'SELECT * FROM (' + _ITEMS + ') i' + (' WHERE ' + ' AND '.join(where) if where else '')
             total_all = con.execute('SELECT COUNT(*) FROM (' + _ITEMS + ')').fetchone()[0]
             total = con.execute('SELECT COUNT(*) FROM (' + filtered + ')', params).fetchone()[0]
@@ -217,9 +224,36 @@ class LearningLibraryRepository:
 
     def resource_detail(self, resource_id):
         with self._read() as con:
-            row = con.execute('SELECT r.id,r.title,r.resource_type,r.provider,r.status,r.updated_at,'
+            row = con.execute("SELECT r.id,library_display_title('resource',r.id,r.title) AS title,r.resource_type,r.provider,r.status,r.updated_at,"
                               'r.canonical_uri FROM resources r WHERE r.id=? AND ' + _ACTIVE,
                               (resource_id,)).fetchone()
             if row is None:
                 raise LibraryNotFoundError('Resource was not found')
-            return dict(row), self._relations(con, [resource_id])[resource_id]
+            relations = self._relations(con, [resource_id])[resource_id]
+            for document in relations['documents']:
+                document['display_title'] = con.execute(
+                    "SELECT library_display_title('document',?,?)",
+                    (document['id'],document_title(document['path_key']))).fetchone()[0]
+            return dict(row), relations
+
+    def original_title(self, kind, item_id):
+        with self._read() as con:
+            if kind == 'document':
+                row = con.execute('SELECT path_key FROM knowledge_documents WHERE id=?',(item_id,)).fetchone()
+                if row is not None:
+                    return document_title(row[0])
+            elif kind == 'resource':
+                row = con.execute('SELECT r.title FROM resources r WHERE r.id=? AND '+_ACTIVE,(item_id,)).fetchone()
+                if row is not None:
+                    return row[0]
+            raise LibraryNotFoundError('Material was not found')
+
+    def title_exists(self, title, *, kind, item_id):
+        with self._read() as con:
+            return con.execute(
+                "SELECT 1 FROM knowledge_documents d WHERE d.id<>? AND library_casefold("
+                "library_display_title('document',d.id,library_document_title(d.path_key)))=? "
+                "UNION ALL SELECT 1 FROM resources r WHERE r.id<>? AND "+_ACTIVE+
+                " AND library_casefold(library_display_title('resource',r.id,r.title))=? LIMIT 1",
+                (item_id if kind=='document' else '',title.casefold(),
+                 item_id if kind=='resource' else '',title.casefold())).fetchone() is not None

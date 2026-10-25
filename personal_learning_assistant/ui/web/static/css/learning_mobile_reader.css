@@ -1,0 +1,75 @@
+/* Mobile-first, source-safe Learning Studio reader. UI only: academic records unchanged. */
+.learning-reader .ls-map-callout{display:flex;align-items:center;justify-content:space-between;gap:.65rem;flex-wrap:wrap;padding:.6rem .8rem;margin:.55rem 0;background:#172d34;border:1px solid #3b6667;border-radius:.7rem;font-size:.85rem;line-height:1.4}
+.learning-reader .ls-map-callout a{display:inline-block;border:1px solid #4a9b8e;border-radius:.5rem;padding:.4rem .6rem;color:#c0fff0;text-decoration:none;font-weight:700}
+.learning-reader .ls-primary-lesson-visual{margin:.65rem 0 1rem}
+.learning-reader .ls-primary-lesson-visual .ls-block-image{padding:.65rem;border:1px solid #3a6164;background:#11292e}
+.learning-reader .ls-primary-lesson-visual figure{margin:0}
+.learning-reader .ls-primary-lesson-visual img{display:block;width:100%;max-width:100%;height:auto;object-fit:contain;background:#f5f8fa;border-radius:.45rem}
+.learning-reader .ls-primary-lesson-visual figcaption{margin-top:.5rem;font-size:.8rem;line-height:1.5;color:#bcd7d4}
+.learning-reader .ls-source-peek{padding:.5rem .7rem;background:#132833;border:1px solid #3a5360;border-radius:.65rem;margin:.5rem 0 1rem}
+.learning-reader .ls-source-peek summary,.learning-reader .ls-graph-advanced summary{cursor:pointer;min-height:36px;padding:.25rem 0;color:#bcece0;font-weight:700;font-size:.88rem}
+.learning-reader .ls-source-peek img{width:100%;max-width:100%;height:auto;display:block;margin:.65rem auto;background:#f8fbfc;border-radius:.3rem}
+.learning-reader .ls-graph-advanced{margin:.5rem 0;border:1px solid #36545d;border-radius:.65rem;padding:.55rem .75rem}
+.learning-reader .ls-graph-advanced .ls-relationship-graph{min-width:0;max-width:100%;overflow:hidden}
+.learning-reader .ls-graph-advanced .ls-table-scroll{max-width:100%;overflow-x:auto;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch}
+.learning-reader .ls-graph-advanced .ls-table-scroll svg{max-width:none}
+.learning-reader .ls-graph-advanced figcaption{white-space:normal;overflow-wrap:anywhere}
+.learning-reader .ls-graph-advanced .ls-text-alt{font-size:.78rem}
+.learning-reader .ls-primary-lesson-visual .ls-source-chips{padding-top:.45rem!important;margin-top:.4rem!important}
+@media (max-width:767px) {
+  body.learning-reader{overflow-x:hidden}
+  body.learning-reader .app-main,body.learning-reader #main-content,body.learning-reader #ls-reading-column,body.learning-reader .ls-lesson,body.learning-reader .ls-block{min-width:0;max-width:100%;box-sizing:border-box}
+  body.learning-reader #main-content{padding:8px 12px 90px}
+  body.learning-reader .ls-reading-controls{position:sticky;top:0;z-index:20;box-sizing:border-box;width:100%;max-width:100%;display:flex;flex-wrap:nowrap;align-items:center;gap:5px;padding:6px;border-radius:11px;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:thin;margin:0 0 8px}
+  body.learning-reader .ls-reading-controls>a:first-child{display:none}
+  body.learning-reader .ls-reading-controls button{white-space:nowrap;flex:none;min-height:40px;font-size:.78rem;padding:6px 9px;border-radius:8px}
+  body.learning-reader .ls-reading-controls label[for="ls-text-size"]{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+  body.learning-reader .ls-reading-controls select{flex:none;min-width:74px;min-height:40px;padding:6px;font-size:.79rem}
+  body.learning-reader #ls-control-status:not(:empty){position:fixed;bottom:calc(68px + env(safe-area-inset-bottom,0px));left:12px;right:12px;padding:8px 12px;border:1px solid #467565;border-radius:9px;background:#152c31;box-shadow:0 8px 28px #0009;z-index:45}
+  body.learning-reader .ls-breadcrumb{font-size:.71rem;line-height:1.35;margin:5px 0;overflow-wrap:anywhere}
+  body.learning-reader .ls-tabs{margin:.3rem 0 .5rem;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px}
+  body.learning-reader .ls-tabs a{min-width:0;text-align:center;white-space:normal;line-height:1.25;padding:9px 3px;font-size:.74rem}
+  body.learning-reader .ls-more-views{grid-column:1/-1;padding:2px 4px;font-size:.78rem}
+  body.learning-reader .ls-module-header:not(.ls-study-header){margin:.45rem 0}
+  body.learning-reader .ls-module-header h1{font-size:1.55rem;line-height:1.25}
+  body.learning-reader .ls-study-header{margin:.3rem 0}
+  body.learning-reader .ls-lesson>h2{font-size:1.35rem!important;line-height:1.28;margin:.55rem 0!important}
+  body.learning-reader .ls-lesson{margin:0;padding:4px 0 12px}
+  body.learning-reader .ls-lesson-navigation{flex-wrap:wrap;gap:5px}
+  body.learning-reader .ls-lesson-navigation a{font-size:.76rem;min-height:35px;display:grid;place-items:center;padding:4px 7px}
+  body.learning-reader .ls-v24-outline{margin:7px 0;padding:8px 10px}
+  body.learning-reader.learning-view-learn .ls-block{border-radius:10px;margin:10px 0;padding:12px!important}
+  body.learning-reader .ls-block p,body.learning-reader .ls-block li{line-height:1.65!important;overflow-wrap:break-word}
+  body.learning-reader .ls-block p{margin:9px 0!important}
+  body.learning-reader .ls-block .ls-content-label{font-size:.69rem;letter-spacing:.045em}
+  body.learning-reader .ls-block .ls-source-chips{padding-top:8px!important;margin-top:8px!important;gap:5px}
+  body.learning-reader .ls-block .ls-source-chips a{font-size:.72rem;padding:3px 8px}
+  body.learning-reader .ls-selected-original pre,body.learning-reader .ls-source-page pre{white-space:pre-wrap;overflow-wrap:anywhere;max-width:100%;font-size:.82rem}
+  body.learning-reader .ls-block table{display:table;min-width:0}
+  body.learning-reader .ls-lesson-banner{padding:5px 8px}
+  body.learning-reader .ls-primary-lesson-visual .ls-block-image{margin:0;padding:8px!important}
+  body.learning-reader .ls-primary-lesson-visual figcaption{font-size:.75rem}
+  body.learning-reader .ls-original-image-note{font-size:.76rem;color:#b3d6d1}
+  body.learning-reader .ls-relationship-graph .ls-table-scroll{overflow-x:auto}
+  body.ls-focus.learning-reader .app-footer,body.ls-focus.learning-reader .topbar,body.ls-focus.learning-reader .app-sidebar,body.ls-focus.learning-reader .mobile-bottom-nav,body.ls-focus.learning-reader .bottom-nav{display:none!important}
+  body.ls-focus.learning-reader #main-content{padding:8px 10px 30px!important}
+  body.ls-focus.learning-reader .ls-reading-controls{top:0}
+}
+@media print{.learning-reader .ls-graph-advanced{display:none}.learning-reader .ls-source-peek{display:none}.learning-reader .ls-map-callout{display:none}}
+.learning-reader .ls-media-dialog{width:calc(100vw - 16px);height:calc(100dvh - 16px);max-width:none;max-height:none;box-sizing:border-box;margin:auto;padding:12px;background:#10212b;color:#edf5f4;border:1px solid #45656e;border-radius:.75rem}
+.ls-media-dialog::backdrop{background:#000c}.ls-media-controls{display:flex;gap:10px;position:sticky;top:0;z-index:1;background:#10212b;padding-bottom:8px}
+.ls-media-controls button{min-height:44px;padding:8px 12px}.ls-media-frame{max-width:100%;max-height:calc(100dvh - 150px);overflow:auto;overscroll-behavior:contain}
+.ls-media-frame img{display:block;max-width:100%;max-height:calc(100dvh - 160px);width:auto;height:auto;object-fit:contain;margin:auto}
+.ls-media-dialog.is-zoomed .ls-media-frame img{max-width:none;max-height:none}.ls-media-dialog p{overflow-wrap:anywhere;font-size:.9rem}
+.learning-reader img[role=button]{cursor:zoom-in}.learning-reader img[role=button]:focus-visible{outline:3px solid #8ee2cf;outline-offset:3px}
+@media(max-width:767px){
+  body.learning-reader .ls-map-callout{margin:4px 0;padding:0 6px;min-height:44px}
+  body.learning-reader .ls-map-callout>span{display:none}
+  body.learning-reader .ls-map-callout a{border:0;min-height:44px;display:flex;align-items:center;padding:0 4px;font-size:.8rem}
+  body.learning-reader .ls-study-header h1{font-size:1rem!important;line-height:1.35!important;margin:0!important}
+  body.learning-reader .ls-study-header summary{padding:6px 0}
+  body.learning-reader .ls-lesson-banner{display:flex}
+  body.learning-reader .ls-lesson-banner-copy{display:none}
+  body.learning-reader .ls-primary-lesson-visual img{max-height:180px;object-fit:contain}
+  body.learning-reader .ls-primary-lesson-visual figcaption{line-height:1.35}
+}

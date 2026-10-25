@@ -3,7 +3,7 @@ on:
   pull_request:
     branches: [feature/mobile-v1-private-pwa-2026-10, feature/mobile-v1-1-private-android-runtime-2026-10, integration/android-unified-apk-2026-10-24, main]
   push:
-    branches: [fix/android-assessment-catalogue-vedic-import-2026-10-24]
+    branches: [fix/android-assessment-catalogue-vedic-import-2026-10-24, fix/android-performance-reader-library-rename-2026-10-24]
   workflow_dispatch:
 permissions:
   contents: read

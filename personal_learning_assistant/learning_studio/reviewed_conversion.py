@@ -21,7 +21,7 @@ def digest(value):
 
 def _snapshot(studio, module_id, revision, *, require_active=True):
     with studio.store.connection() as con:
-        row, package = studio._row(con, module_id, revision)
+        row, package = studio._row(con, module_id, revision, include_source=True)
         active = con.execute('SELECT revision FROM active_modules WHERE module_id=?', (module_id,)).fetchone()
         require(not require_active or (active is not None and active['revision'] == revision), 'Conversion requires the active published revision. Reload the current lesson.', 409)
         assets = {r['name']: r['bytes'] for r in con.execute('SELECT name,bytes FROM assets WHERE module_id=? AND revision=?', (module_id, revision))}

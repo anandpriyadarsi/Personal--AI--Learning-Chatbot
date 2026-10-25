@@ -247,6 +247,12 @@ public class OfflineSmokeTest {
         waitFor("!!document.querySelector('.ls-block-definition') && document.querySelector('#ls-reading-status').innerText.includes('saved')");
         js("document.querySelector('.ls-block-definition').scrollIntoView()");
         screenshot("android-active-lesson");
+        js("document.documentElement.requestFullscreen=()=>Promise.reject(new Error('WebView fallback acceptance'));document.querySelector('#ls-fullscreen').click()");
+        waitFor("document.querySelector('#ls-fullscreen').textContent==='Exit full view' && document.body.classList.contains('ls-focus')");
+        screenshot("android-reader-full-view");
+        getInstrumentation().runOnMainSync(()->activity.onBackPressed());
+        waitFor("document.querySelector('#ls-fullscreen').textContent==='Fullscreen' && !document.body.classList.contains('ls-focus')");
+        assertEquals("Back retains the current lesson","true",js("location.pathname==='/learning/modules/uc100n-demo/1'"));
         go("/learning/modules/uc100n-demo/1?view=practice&question=mean-score");
         js("document.querySelector('.ls-question input[value=\"0\"]').checked=true;document.querySelector('.ls-question button[type=submit]').click()");
         waitFor("document.querySelector('.ls-feedback').innerText.includes('Incorrect')");
@@ -258,6 +264,13 @@ public class OfflineSmokeTest {
         go("/knowledge/item/"+sessions().getString("source_id"));
         waitFor("document.body.innerText.includes('Mean score')");
         screenshot("android-library-reader");
+        go("/library");
+        waitFor("!!document.querySelector('[data-library-rename][data-key^=\"document:\"]')");
+        js("document.querySelector('[data-library-rename][data-key^=\"document:\"]').click()");
+        waitFor("document.querySelector('#library-rename-dialog').open");
+        js("document.querySelector('#library-rename-title').value='Synthetic friendly source';document.querySelector('#library-rename-form').requestSubmit()");
+        waitFor("document.querySelector('#library-rename-status').textContent.includes('saved') && !document.querySelector('#library-rename-dialog').open");
+        screenshot("android-library-renamed");
         checkDownload("/learning/modules/uc100n-demo/1/source.pdf","application/pdf","synthetic-uc100n.pdf");
         checkDownload("/learning/modules/uc100n-demo/1/review-brief","text/plain","learning-review-brief.txt");
         checkDownload("/mobile/device/export","application/zip","ANVAYA-private-backup.zip");
@@ -299,6 +312,9 @@ public class OfflineSmokeTest {
     }
     @Test public void testNoteAfterForceStop() throws Exception {
         open();
+        go("/library?q=Synthetic%20friendly%20source");
+        waitFor("document.body.innerText.includes('Synthetic friendly source')");
+        screenshot("android-library-renamed-after-force-stop");
         String tutorPath=activity.getSharedPreferences("synthetic-evidence",0).getString("tutorPath",null);
         assertNotNull("Tutor path survived restart",tutorPath);
         go(tutorPath);
