@@ -17,6 +17,7 @@ adb install -r android/app/build/outputs/apk/debug/app-debug.apk
 adb install -r android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 adb shell svc wifi disable
 adb shell svc data disable
+python scripts/android_opening_capture.py | tee android-evidence/opening-capture.log
 adb shell am instrument -w -r -e class in.anvaya.privateapp.UploadPickerTest in.anvaya.privateapp.test/androidx.test.runner.AndroidJUnitRunner | tee android-evidence/upload-picker.log
 python -c "from pathlib import Path;s=Path('android-evidence/upload-picker.log').read_text();assert 'OK (1 test)' in s and not any(v in s for v in ('FAILURES','INSTRUMENTATION_FAILED','shortMsg='))"
 adb shell am force-stop in.anvaya.privateapp
@@ -54,15 +55,15 @@ python -c "from pathlib import Path;s=Path('android-evidence/smart-typed-force-s
 # cannot prove that its private content URI opens at the requested PDF page.
 adb shell am instrument -w -r -e class in.anvaya.privateapp.NativePdfPageTest in.anvaya.privateapp.test/androidx.test.runner.AndroidJUnitRunner | tee android-evidence/native-pdf-page.log
 python -c "from pathlib import Path;s=Path('android-evidence/native-pdf-page.log').read_text();assert 'OK (1 test)' in s and not any(v in s for v in ('FAILURES','INSTRUMENTATION_FAILED','shortMsg='))"
-for name in android-smart-mini-notes-expanded android-smart-mini-notes-after-activity-restart android-smart-typed-attachment-after-activity-restart android-smart-typed-after-force-stop; do
+for name in android-smart-focus-reading android-smart-mini-notes-expanded android-smart-mini-notes-after-activity-restart android-smart-typed-attachment-after-activity-restart android-smart-typed-after-force-stop; do
   adb exec-out run-as in.anvaya.privateapp cat files/evidence/"$name".png > android-evidence/"$name".png
 done
-for name in android-opening-portrait android-opening-landscape android-opening-launch; do
+for name in android-opening-portrait android-opening-landscape; do
   adb exec-out run-as in.anvaya.privateapp cat files/evidence/"$name".png > android-evidence/"$name".png
 done
 adb shell getprop ro.build.version.release > android-evidence/android-version.txt
 adb shell getprop ro.product.cpu.abi > android-evidence/abi.txt
-for name in android-reader-full-view android-reader-full-view-landscape android-reader-expanded-figure android-library-renamed android-library-renamed-after-force-stop android-library-content-search android-library-saved-reference android-library-reference-after-force-stop android-tutor-conversation android-tutor-composer-keyboard android-tutor-after-force-stop android-today android-note-saved android--learning android--agent android--assessments android--library android--mobile-settings android--mobile-device android-note-after-force-stop android-sqlite-task-saved android-sqlite-task-after-force-stop android-active-lesson android-learning-mistake android-library-reader android-assessment-paused android-paper-step-review android-assessment-after-force-stop android-assessment-resumed android-paper-review-after-force-stop android-notes-landscape android-conversion-capability android-selection-cbt android-selection-handwritten android-handwritten-paused android-handwritten-after-force-stop android-handwritten-resumed; do
+for name in android--obsidian android--planning android--library-connected-sources-obsidian android-reader-full-view android-reader-full-view-landscape android-reader-expanded-figure android-library-renamed android-library-renamed-after-force-stop android-library-content-search android-library-saved-reference android-library-reference-after-force-stop android-tutor-conversation android-tutor-composer-keyboard android-tutor-after-force-stop android-today android-note-saved android--learning android--agent android--assessments android--library android--mobile-settings android--mobile-device android-note-after-force-stop android-sqlite-task-saved android-sqlite-task-after-force-stop android-active-lesson android-learning-mistake android-library-reader android-assessment-paused android-paper-step-review android-assessment-after-force-stop android-assessment-resumed android-paper-review-after-force-stop android-notes-landscape android-conversion-capability android-selection-cbt android-selection-handwritten android-handwritten-paused android-handwritten-after-force-stop android-handwritten-resumed; do
   adb exec-out run-as in.anvaya.privateapp cat files/evidence/"$name".png > android-evidence/"$name".png
 done
 

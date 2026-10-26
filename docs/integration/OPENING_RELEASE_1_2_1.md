@@ -25,3 +25,9 @@ No database/schema changes, source-branch deletion, uninstall, data reset or pro
 Base main `9a5c276ae5b57a1e048ff5e1af1d819376e7774e` already has PR58 and its successfully published 1.2.0 release (run40291899499). All fourteen currently open PR heads match the integration matrix exactly: twelve are ancestors of main; PR27/29 are explicitly superseded. None needs remerging. `2026-10-26-live-pr-heads.json` records the observed heads.
 
 The supplied file is JPEG despite its upload filename. It is copied unchanged as drawable-nodpi/anvaya_opening.jpg; SHA256 `319e31420b50e2e420de571d0906835ee4f9894dedbd26b88435d0ca57415fb6`. The new missing-artwork contract failed before copying; current artwork/JVM/package scanner selection passes 20 cases. Android rendering and full exact-source platform gates remain pending.
+
+## Independent review correction
+
+Review found that a pre-draw View raster must not be presented as an actual displayed launch screenshot. Retain the portrait/landscape Android raster checks and replace launch evidence with actual `adb exec-out screencap -p` bytes captured during a fresh cold launch. A tile-based complete-artwork comparison rejects blank system splash, cropping, stretching, overlaid bars and substituted artwork. An independent regression failed before the matcher was implemented. Native tests now require actual WindowInsets reporting hidden system bars during opening and visible bars after workspace reveal. No production delay or test-only production hook is added.
+
+Installed acceptance is also extended to explicitly reach Obsidian, its Android snapshot settings and Planning offline; exercise read-only Focus Reading and return to authoring; and upload an actual synthetic PPTX through the native picker and find its slide token through the production document search. These assertions supplement the existing PDF upload, Library/learning/assessment and persistence cases.

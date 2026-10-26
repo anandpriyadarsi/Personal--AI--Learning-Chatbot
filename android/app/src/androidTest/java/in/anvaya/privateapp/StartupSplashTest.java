@@ -146,20 +146,20 @@ public class StartupSplashTest {
         instrumentation.runOnMainSync(first::finish);
         instrumentation.waitForIdleSync();
         assertTrue(first.isFinishing());
-        java.util.concurrent.CountDownLatch captured = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.CountDownLatch openingBarsHidden = new java.util.concurrent.CountDownLatch(1);
         androidx.test.runner.lifecycle.ActivityLifecycleCallback capture = (activity, stage) -> {
             if (!(activity instanceof MainActivity) || stage != androidx.test.runner.lifecycle.Stage.RESUMED) return;
             StartupSplashView cover = find(activity.getWindow().getDecorView(), StartupSplashView.class);
             assertNotNull("First app-controlled surface", cover);
             cover.getViewTreeObserver().addOnPreDrawListener(new android.view.ViewTreeObserver.OnPreDrawListener() {
                 @Override public boolean onPreDraw() {
-                    cover.getViewTreeObserver().removeOnPreDrawListener(this);
-                    assertTrue("Opening hides status and navigation bars", (activity.getWindow().getDecorView().getSystemUiVisibility()
-                        & (View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION))
-                        == (View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION));
-                    Bitmap frame = Bitmap.createBitmap(cover.getWidth(),cover.getHeight(),Bitmap.Config.ARGB_8888);
-                    cover.draw(new Canvas(frame)); save(frame,"android-opening-launch"); frame.recycle();
-                    captured.countDown(); return true;
+                    android.view.WindowInsets insets=cover.getRootWindowInsets();
+                    if (insets!=null && !insets.isVisible(android.view.WindowInsets.Type.statusBars())
+                        && !insets.isVisible(android.view.WindowInsets.Type.navigationBars())) {
+                        cover.getViewTreeObserver().removeOnPreDrawListener(this);
+                        openingBarsHidden.countDown();
+                    }
+                    return true;
                 }
             });
         };
@@ -177,7 +177,9 @@ public class StartupSplashTest {
                     if (cover == null) {
                         assertTrue("Revealed document uses the authenticated local origin", web.getUrl().startsWith("http://127.0.0.1:"));
                         assertEquals(View.IMPORTANT_FOR_ACCESSIBILITY_AUTO, web.getImportantForAccessibility());
-                        ready[0] = true;
+                        android.view.WindowInsets insets=decor.getRootWindowInsets();
+                        ready[0] = insets!=null && insets.isVisible(android.view.WindowInsets.Type.statusBars())
+                            && insets.isVisible(android.view.WindowInsets.Type.navigationBars());
                     } else {
                         assertEquals("Hidden workspace cannot be navigated by accessibility before paint",
                             View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS, web.getImportantForAccessibility());
@@ -185,7 +187,7 @@ public class StartupSplashTest {
                     }
                 });
                 if (ready[0]) {
-                    assertTrue("Opening launch frame captured",captured.await(5,java.util.concurrent.TimeUnit.SECONDS));
+                    assertTrue("Actual opening system bars hidden before workspace restores them",openingBarsHidden.await(5,java.util.concurrent.TimeUnit.SECONDS));
                     return;
                 }
                 Thread.sleep(100);

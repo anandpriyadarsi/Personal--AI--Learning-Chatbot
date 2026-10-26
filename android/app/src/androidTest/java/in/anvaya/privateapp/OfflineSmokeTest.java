@@ -175,12 +175,15 @@ public class OfflineSmokeTest {
         js("document.querySelector('form[action=\"/planning/tasks\"] [name=title]').value='Synthetic Android SQLite task';document.querySelector('form[action=\"/planning/tasks\"] [name=estimated_minutes]').value='30';document.querySelector('form[action=\"/planning/tasks\"]').requestSubmit()");
         waitFor("!!document.querySelector('.planner-task-list') && document.querySelector('.planner-task-list').innerText.includes('Synthetic Android SQLite task')");
         screenshot("android-sqlite-task-saved");
-        for(String path:new String[]{"/learning","/agent","/assessments","/library","/mobile/settings","/mobile/device"}) {
+        for(String path:new String[]{"/learning","/agent","/assessments","/library","/obsidian","/planning","/library/connected-sources/obsidian","/mobile/settings","/mobile/device"}) {
             go(path);
             if ("/library".equals(path)) {
                 assertEquals("PDF picker is available in the Library", "true",
                     js("!!document.querySelector('#library-pdf-upload input[type=file][accept=\"application/pdf\"]')"));
             }
+            assertEquals("No server error at "+path,"false",js("document.body.innerText.includes('Internal Server Error')"));
+            if ("/obsidian".equals(path)) assertEquals("Obsidian route is reachable offline","true",js("document.body.innerText.includes('Obsidian')"));
+            if ("/library/connected-sources/obsidian".equals(path)) assertEquals("Android offers explicit snapshot import","true",js("document.body.innerText.includes('Import snapshot')"));
             screenshot("android-"+path.replace('/','-'));
             assertEquals("No document overflow at "+path,"true",js("document.documentElement.scrollWidth<=innerWidth+1"));
         }
