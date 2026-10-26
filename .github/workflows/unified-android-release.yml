@@ -63,6 +63,8 @@ jobs:
         with:
           name: shared-android-build-${{ needs.source.outputs.sha }}-${{ github.run_id }}
       - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools build-tools;35.0.0
       - name: Verify tested APK identity and prepare transparent debug release
         run: |
           test "$(git rev-parse HEAD)" = "$SOURCE"

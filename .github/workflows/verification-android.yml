@@ -100,6 +100,8 @@ jobs:
         with:
           python-version: '3.11'
       - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
       - uses: actions/download-artifact@v4
         with:
           name: shared-android-build-${{ inputs.source_sha }}-${{ github.run_id }}
