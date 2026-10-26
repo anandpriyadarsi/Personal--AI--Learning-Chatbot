@@ -153,6 +153,8 @@ public class SmartNestedNotesTest {
     }
     private void screenshot(String name) throws Exception {
         frame();
+        // DOM/layout readiness can precede the display compositor on a busy emulator.
+        instrumentation.getUiAutomation().waitForIdle(300,5000);
         Bitmap screenshot = instrumentation.getUiAutomation().takeScreenshot();
         assertNotNull("Actual installed UI screenshot", screenshot);
         File folder = new File(instrumentation.getTargetContext().getFilesDir(), "evidence");
