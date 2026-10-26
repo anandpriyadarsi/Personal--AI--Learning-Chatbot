@@ -89,7 +89,9 @@ public class UploadPickerTest {
             assertNotNull(found[0]);WebView web=found[0];
             waitFor(web,"document.readyState==='complete' && !!document.querySelector('main')");
             js(web,"location.href='/library/files'");
-            waitFor(web,"!!document.querySelector('input[type=file]')");
+            // The form can exist while its deferred script is still loading.
+            // Its click/submit handlers must run before exercising the picker.
+            waitFor(web,"location.pathname==='/library/files' && document.readyState==='complete' && !!document.querySelector('input[type=file]')");
             int previousCount=Integer.parseInt(js(web,"document.querySelectorAll('.file-row').length"));
             js(web,"document.querySelector('[data-action=upload-dialog]').click()");
             waitFor(web,"document.querySelector('#upload-dialog').open");
