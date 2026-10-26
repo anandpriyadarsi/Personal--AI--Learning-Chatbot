@@ -5,56 +5,12 @@ on:
 permissions:
   contents: read
   actions: read
+concurrency:
+  group: diagnostic-installed-runtime
+  cancel-in-progress: true
 jobs:
-  installed:
-    name: Diagnostic installed Android (${{ matrix.api }})
-    runs-on: ubuntu-latest
-    timeout-minutes: 40
-    strategy:
-      fail-fast: false
-      matrix:
-        api: [31, 35]
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: 3a324b1c5ffad83079fa9fc660a225e74adcf1b0
-          persist-credentials: false
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-      - uses: android-actions/setup-android@v3
-        with:
-          packages: platform-tools
-      - uses: actions/download-artifact@v4
-        with:
-          name: shared-android-build-3a324b1c5ffad83079fa9fc660a225e74adcf1b0-40261295277
-          run-id: 40261295277
-          github-token: ${{ github.token }}
-      - name: Authenticate diagnostic source and exact prior-build bytes
-        run: |
-          test "$(git rev-parse HEAD)" = 3a324b1c5ffad83079fa9fc660a225e74adcf1b0
-          test "$(head -1 android-evidence/source.txt)" = 3a324b1c5ffad83079fa9fc660a225e74adcf1b0
-          sha256sum -c android-evidence/SHA256SUMS.txt
-          printf '%s\n' 'DIAGNOSTIC ONLY: preceding source; no main merge or release certification' > android-evidence/DIAGNOSTIC.txt
-      - name: Enable KVM
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-      - uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: ${{ matrix.api }}
-          target: google_apis
-          arch: x86_64
-          disable-animations: true
-          script: bash scripts/android_emulator_acceptance.sh
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: diagnostic-installed-${{ matrix.api }}-${{ github.run_id }}
-          path: android-evidence/**
-          if-no-files-found: error
+  diagnostic:
+    uses: ./.github/workflows/verification-android.yml
+    with:
+      source_sha: ${{ github.sha }}
+      level: integration
