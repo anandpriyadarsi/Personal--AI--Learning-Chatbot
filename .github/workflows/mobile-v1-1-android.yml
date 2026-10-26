@@ -13,7 +13,9 @@ concurrency:
 jobs:
   android:
     # Ready PRs use the coordinator's build-once API31/API35 integration job.
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft
+    # Ready PRs use shared installed acceptance; the explicitly titled main
+    # release uses the canonical-success publisher's one shared APK build.
+    if: ${{ (github.event_name != 'pull_request' || github.event.pull_request.draft) && !(github.ref == 'refs/heads/main' && startsWith(github.event.head_commit.message, 'Release ANVAYA unified Android')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -98,7 +100,7 @@ jobs:
             assessment-evidence/**
 
   emulator:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft
+    if: ${{ (github.event_name != 'pull_request' || github.event.pull_request.draft) && !(github.ref == 'refs/heads/main' && startsWith(github.event.head_commit.message, 'Release ANVAYA unified Android')) }}
     strategy:
       fail-fast: false
       matrix:
