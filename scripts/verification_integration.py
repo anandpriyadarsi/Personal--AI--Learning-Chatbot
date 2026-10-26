@@ -102,6 +102,26 @@ def preview(root, base, heads):
     return result
 
 
+def inspect_candidate(root, base, heads, candidate):
+    """Inventory an existing manual composition; ancestry is never test evidence."""
+    result={'status':'BLOCKED','base_sha':base,'source_shas':heads,'included_by':{},
+            'blockers':[],'verified':False,'integration_method':'existing_candidate'}
+    try:
+        for sha in [base,candidate,*heads.values()]:
+            if not re.fullmatch('[0-9a-f]{40}',sha): raise ValueError('Exact commit SHAs required')
+            git(root,'cat-file','-e',sha+'^{commit}')
+        if not heads or not ancestor(root,base,candidate):
+            raise ValueError('Candidate must retain current main and every source head')
+        for name,sha in heads.items():
+            if not ancestor(root,sha,candidate): raise ValueError('Candidate is missing source stream '+name)
+            result['included_by'][name]='candidate'
+        result.update(status='PREPARED_NOT_VERIFIED',candidate_commit=candidate,
+                      candidate_tree=git(root,'rev-parse',candidate+'^{tree}'))
+    except (ValueError,OSError,subprocess.CalledProcessError) as error:
+        result['blockers'].append(str(error))
+    return result
+
+
 def resolve(config, api=github):
     manifest = {'schema':'anvaya.integration-manifest.v2', 'resolved_at':datetime.now(timezone.utc).isoformat(),
                 'repository':config['repository'], 'streams':[], 'blockers':[], 'certified':False}
@@ -143,6 +163,7 @@ def main(argv=None):
     parser.add_argument('--config',default='verification/streams.json')
     parser.add_argument('--output',default='integration-manifest.json')
     parser.add_argument('--preview',action='store_true',help='Require fetched complete history; write objects, never refs')
+    parser.add_argument('--candidate',help='Exact existing integrated SHA; inventory only, never certification')
     args = parser.parse_args(argv)
     config = json.loads(Path(args.config).read_text())
     try:
@@ -152,7 +173,12 @@ def main(argv=None):
             if len(heads) != len(config['streams']):
                 manifest['blockers'].append('Cannot preview without every exact source head')
             else:
-                manifest['preview'] = preview(Path.cwd(),manifest['base_sha'],heads)
+                automatic=preview(Path.cwd(),manifest['base_sha'],heads)
+                if args.candidate:
+                    manifest['automatic_preview']=automatic
+                    manifest['preview']=inspect_candidate(Path.cwd(),manifest['base_sha'],heads,args.candidate)
+                else:
+                    manifest['preview']=automatic
     except Exception as exc:
         manifest = {'schema':'anvaya.integration-manifest.v2','blockers':[type(exc).__name__+': resolution failed'], 'certified':False}
     Path(args.output).write_text(json.dumps(manifest,indent=2)+'\n',encoding='utf-8')

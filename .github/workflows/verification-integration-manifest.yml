@@ -28,7 +28,13 @@ jobs:
       - name: Resolve current GitHub branch heads and preview without changing refs
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python scripts/verification_integration.py --preview --output integration-manifest.json
+          SOURCE_CANDIDATE: ${{ startsWith(github.head_ref, 'integration/unified-anvaya-android-release-') && github.event.pull_request.head.sha || '' }}
+        shell: python
+        run: |
+          import os,subprocess,sys
+          command=[sys.executable,'scripts/verification_integration.py','--preview','--output','integration-manifest.json']
+          if os.environ['SOURCE_CANDIDATE']: command += ['--candidate',os.environ['SOURCE_CANDIDATE']]
+          sys.exit(subprocess.call(command))
       - uses: actions/upload-artifact@v4
         if: always()
         with:

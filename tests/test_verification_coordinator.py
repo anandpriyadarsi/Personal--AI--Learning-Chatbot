@@ -118,4 +118,3 @@ def test_assessment_authoring_prompt_is_not_docs_only(tmp_path):
     assert "assessment_review" in p["streams"]
     assert p["python_tests"]
     assert any("question-authoring policy" in reason for reason in p["reasons"])
-

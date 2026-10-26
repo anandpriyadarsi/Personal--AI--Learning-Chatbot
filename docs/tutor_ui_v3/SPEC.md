@@ -1,8 +1,8 @@
 # ANVAYA Tutor UI V3 — Mobile-First Redesign, Android Integration & Optional Online AI
 
-**Date:** 23 October 2026  
-**Repository:** https://github.com/anandpriyadarsi/Personal--AI--Learning-Chatbot  
-**Execution:** ChatGPT Work, with connected GitHub and a disposable/synthetic test environment  
+**Date:** 23 October 2026
+**Repository:** https://github.com/anandpriyadarsi/Personal--AI--Learning-Chatbot
+**Execution:** ChatGPT Work, with connected GitHub and a disposable/synthetic test environment
 **Approval rule:** Do not merge to `main` without my explicit approval.
 
 ## 1. Mission: implement, don't stop at an audit

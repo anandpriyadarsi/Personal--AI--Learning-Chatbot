@@ -147,6 +147,25 @@ def test_stacked_integration_preview_preserves_refs(repo):
     assert git(repo,'ls-tree','--name-only',r['candidate_commit']).splitlines() == ['one.txt','original.txt','two.txt']
 
 
+def test_resolved_candidate_records_all_source_heads_without_certifying_release(repo):
+    i = importlib.import_module('verification_integration')
+    base=git(repo,'rev-parse','HEAD')
+    git(repo,'checkout','-b','left');left=commit(repo,'original.txt','left')
+    git(repo,'checkout','-b','right',base);right=commit(repo,'original.txt','right')
+    assert i.preview(repo,base,{'left':left,'right':right})['status']=='CONFLICT'
+    tree=git(repo,'rev-parse',left+'^{tree}')
+    candidate=git(repo,'commit-tree',tree,'-p',base,'-p',left,'-p',right,'-m','Reviewed manual composition')
+    before=git(repo,'show-ref')
+    result=i.inspect_candidate(repo,base,{'left':left,'right':right},candidate)
+    assert result['status']=='PREPARED_NOT_VERIFIED'
+    assert result['verified'] is False
+    assert result['candidate_commit']==candidate and result['candidate_tree']==tree
+    assert result['included_by']=={'left':'candidate','right':'candidate'}
+    assert git(repo,'show-ref')==before
+    rejected=i.inspect_candidate(repo,base,{'left':left,'right':right},left)
+    assert rejected['status']=='BLOCKED' and rejected['blockers']
+
+
 def test_conflicting_integration_never_claims_ready(repo):
     i = importlib.import_module('verification_integration')
     base = git(repo,'rev-parse','HEAD')

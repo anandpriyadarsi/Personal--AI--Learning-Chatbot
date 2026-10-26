@@ -66,7 +66,7 @@ Counts overlap and must not be added. These checks do not replace canonical froz
 | Current backup/media/native regression selection | 38 passed |
 | Current build identity/package scan/upload/splash selection | 21 passed |
 | Review | Independent review; material findings reproduced and repaired |
-| Full local Python/browser suite | Running diagnostically; source was still evolving, not release evidence |
+| Full local diagnostic Python/browser suite | 3,756 passed, 2 failed, 8 skipped (17m09s). The failures were the old light-splash/first-Activity and animator assertions loaded before the source evolved. Current splash/JVM tests passed separately. Four skips were unavailable private originals and four were the initially missing javac executable; current JVM checks run via the installed compiler module. This run is not frozen-source release evidence. |
 | Canonical Linux/Windows and installed Android | Pending integration PR |
 
 ## Release process and limitations
@@ -75,4 +75,4 @@ The normal integration PR must pass exact-source canonical and installed checks 
 
 The APK is self-contained for its supported offline academic operations: Python and its server run on the phone. Cloud AI and Python internet access are disabled. Tutor is deterministic/source-based, not an on-device generative model. Physical phone behavior, specific third-party players and private academic-source certification remain unverified. Legacy PPT requires conversion for indexing; OCR may be unavailable. Full backups remain limited to 100 MiB; records-only export explicitly excludes note attachments. A debug-signature mismatch can prevent updating an older test APK: preserve/export data before any uninstall or storage reset.
 
-No user data was migrated, reset, read from an installed phone or discarded. Source branches remain intact. No final APK URL is claimed in this candidate report.
+No user data was migrated, reset, read from an installed phone or discarded. Source branches remain intact. The resolved-candidate manifest retains the original automatic-merge conflict diagnostic and independently requires ancestry from current main and every live source head; it remains explicitly unverified. Its tests passed 64 cases. No final APK URL is claimed in this candidate report.
