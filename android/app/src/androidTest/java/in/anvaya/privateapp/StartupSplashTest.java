@@ -196,36 +196,16 @@ public class StartupSplashTest {
             instrumentation.runOnMainSync(() -> {
                 View decor=second.getWindow().getDecorView();
                 android.view.WindowInsets insets=decor.getRootWindowInsets();
-                int saved=-1;
-                try {java.lang.reflect.Field field=MainActivity.class.getDeclaredField("workspaceSystemUi");field.setAccessible(true);saved=field.getInt(second);} catch(Exception ignored) {}
+                int behavior=second.getWindow().getInsetsController().getSystemBarsBehavior();
                 observed[0]="cover="+(find(decor,StartupSplashView.class)!=null)+",web="+(find(decor,android.webkit.WebView.class)!=null)
-                    +",flags="+decor.getSystemUiVisibility()+",saved="+saved+",windowFlags="+second.getWindow().getAttributes().flags
+                    +",flags="+decor.getSystemUiVisibility()+",behavior="+behavior+",windowFlags="+second.getWindow().getAttributes().flags
                     +",status="+(insets==null?"null":insets.isVisible(android.view.WindowInsets.Type.statusBars()))
                     +",navigation="+(insets==null?"null":insets.isVisible(android.view.WindowInsets.Type.navigationBars()))
                     +",hiddenObserved="+(openingBarsHidden.getCount()==0);
             });
             Bitmap failure=instrumentation.getUiAutomation().takeScreenshot();
             if(failure!=null){save(failure,"startup-failure");failure.recycle();}
-            try (java.io.InputStream dump = new android.os.ParcelFileDescriptor.AutoCloseInputStream(
-                    instrumentation.getUiAutomation().executeShellCommand("dumpsys window windows"));
-                 FileOutputStream output = new FileOutputStream(new File(instrumentation.getTargetContext().getFilesDir(),"evidence/startup-window.txt"))) {
-                byte[] bytes=new byte[8192];int n;while((n=dump.read(bytes))!=-1)output.write(bytes,0,n);
-            }
-            instrumentation.runOnMainSync(() -> {
-                android.view.WindowInsetsController controller=second.getWindow().getInsetsController();
-                System.out.println("LATE_SHOW_BEFORE focus="+second.getWindow().getDecorView().hasWindowFocus()+",behavior="+controller.getSystemBarsBehavior());
-                controller.show(android.view.WindowInsets.Type.systemBars());
-            });
-            String[] late={""};
-            for(int check=0;check<20;check++) {
-                instrumentation.runOnMainSync(() -> {
-                    android.view.WindowInsets insets=second.getWindow().getDecorView().getRootWindowInsets();
-                    late[0]="status="+insets.isVisible(android.view.WindowInsets.Type.statusBars())+",navigation="+insets.isVisible(android.view.WindowInsets.Type.navigationBars())+",navInsets="+insets.getInsetsIgnoringVisibility(android.view.WindowInsets.Type.navigationBars());
-                });
-                if(late[0].contains("navigation=true"))break;
-                Thread.sleep(100);
-            }
-            fail("Workspace did not replace the native splash after its first frame: "+observed[0]+";lateShow="+late[0]);
+            fail("Workspace did not replace the native splash after its first frame: "+observed[0]);
         } finally { instrumentation.runOnMainSync(() -> {
             androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry.getInstance().removeLifecycleCallback(capture);
             second.finish();

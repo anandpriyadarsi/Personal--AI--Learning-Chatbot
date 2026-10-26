@@ -9,7 +9,6 @@ capture_exit_evidence() {
   if [ "$result" -ne 0 ]; then
     adb exec-out screencap -p > android-evidence/failed-installed-viewport.png || true
     adb exec-out run-as in.anvaya.privateapp cat files/evidence/startup-failure.png > android-evidence/startup-failure.png 2>/dev/null || true
-    adb exec-out run-as in.anvaya.privateapp cat files/evidence/startup-window.txt > android-evidence/startup-window.txt 2>/dev/null || true
     adb exec-out run-as in.anvaya.privateapp cat files/evidence/upload-picker-failure.png > android-evidence/upload-picker-failure.png 2>/dev/null || true
   fi
   exit "$result"
@@ -17,6 +16,10 @@ capture_exit_evidence() {
 trap capture_exit_evidence EXIT
 adb install -r android/app/build/outputs/apk/debug/app-debug.apk
 adb install -r android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+# The phone profile must expose software navigation. AVD's default hardware
+# keys suppress its navigation source and cannot validate restoration of it.
+adb shell getprop qemu.hw.mainkeys | tr -d '\r' > android-evidence/emulator-hardware-mainkeys.txt
+test "$(tr -d '\n' < android-evidence/emulator-hardware-mainkeys.txt)" = "0"
 adb shell svc wifi disable
 adb shell svc data disable
 python scripts/android_opening_capture.py | tee android-evidence/opening-capture.log
