@@ -9,6 +9,7 @@ capture_exit_evidence() {
   if [ "$result" -ne 0 ]; then
     adb exec-out screencap -p > android-evidence/failed-installed-viewport.png || true
     adb exec-out run-as in.anvaya.privateapp cat files/evidence/startup-failure.png > android-evidence/startup-failure.png 2>/dev/null || true
+    adb exec-out run-as in.anvaya.privateapp cat files/evidence/startup-window.txt > android-evidence/startup-window.txt 2>/dev/null || true
     adb exec-out run-as in.anvaya.privateapp cat files/evidence/upload-picker-failure.png > android-evidence/upload-picker-failure.png 2>/dev/null || true
   fi
   exit "$result"
