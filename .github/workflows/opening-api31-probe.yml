@@ -40,6 +40,9 @@ jobs:
           arch: x86_64
           disable-animations: true
           script: bash scripts/android_emulator_acceptance.sh
+      - name: Collect pre-teardown WindowManager diagnostic
+        if: always()
+        run: adb exec-out run-as in.anvaya.privateapp cat files/evidence/startup-window.txt > android-evidence/startup-window.txt || true
       - uses: actions/upload-artifact@v4
         if: always()
         with:
