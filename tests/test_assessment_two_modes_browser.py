@@ -67,7 +67,7 @@ def test_imported_modes_pause_restart_and_closed_book_review(mode_browser,mode_l
         expect(page.locator('#workspace')).to_have_attribute('data-status','active')
         sid = page.url.rsplit('/',1)[1]
         assert page.locator('html').get_attribute('data-native-runtime')=='true'
-        assert page.locator('html').get_attribute('data-theme')==theme
+        expect(page.locator('html')).to_have_attribute('data-theme',theme)
         if mode=='cbt':
             page.locator('input[value="B"]').check()
             page.get_by_role('button',name='Save & Next',exact=True).click()

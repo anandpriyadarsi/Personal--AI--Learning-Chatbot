@@ -67,6 +67,38 @@ def test_repeat_parallel_taps_deduplicate(setup):
     assert len(store(repo).list(note)) == 1
     assert len(list((repo.assets_root/note/'media').glob('*.mp4'))) == 1
 
+
+@pytest.mark.parametrize('code',[5,32,33])
+def test_transient_windows_replace_lock_keeps_atomic_media_commit(setup,monkeypatch,code):
+    import os
+    repo,_,note=setup;replace=os.replace;attempts=[]
+    def locked(source,destination):
+        if Path(destination)==repo.notes_path:
+            attempts.append(1)
+            if len(attempts)<3:
+                error=PermissionError('Windows sharing/access lock');error.winerror=code;raise error
+        return replace(source,destination)
+    monkeypatch.setattr(os,'replace',locked)
+    item=store(repo).add(note,[('lecture.mp3',io.BytesIO(SAMPLES['mp3']))])[0]
+    assert len(attempts)==3
+    assert store(repo).resolve(note,item['id'])['path'].read_bytes()==SAMPLES['mp3']
+    assert len(repo.get_note(note)['media'])==1
+
+
+def test_persistent_windows_replace_lock_fails_without_changing_notes(setup,monkeypatch):
+    import os
+    from personal_learning_assistant.services.anvaya_notes_service import AnvayaNotesUnavailableError
+    repo,_,note=setup;before=repo.notes_path.read_bytes();replace=os.replace;attempts=[]
+    def locked(source,destination):
+        if Path(destination)==repo.notes_path:
+            attempts.append(1);error=PermissionError('Windows lock remains');error.winerror=32;raise error
+        return replace(source,destination)
+    monkeypatch.setattr(os,'replace',locked)
+    with pytest.raises(AnvayaNotesUnavailableError):store(repo).add(note,[('lecture.mp3',io.BytesIO(SAMPLES['mp3']))])
+    assert 1<len(attempts)<=6
+    assert repo.notes_path.read_bytes()==before and store(repo).list(note)==[]
+    assert not list((repo.assets_root/note/'media').glob('*.mp3'))
+
 def test_stream_is_bounded_and_failed_batch_is_atomic(setup, monkeypatch):
     from personal_learning_assistant.services import notes_media_service as module
     repo, _, note = setup

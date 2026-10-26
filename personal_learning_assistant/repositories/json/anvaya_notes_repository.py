@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import time
 import shutil
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
@@ -118,7 +119,17 @@ class AnvayaNotesRepository:
                 json.dumps(payload, indent=2, ensure_ascii=False),
                 encoding="utf-8",
             )
-            os.replace(temporary, self.notes_path)
+            for attempt in range(6):
+                try:
+                    os.replace(temporary, self.notes_path)
+                    break
+                except PermissionError as error:
+                    # Windows can briefly deny rename for filesystem/filter
+                    # handles outside our own reader lock. Retry the same
+                    # complete snapshot; never retry or duplicate the mutation.
+                    if getattr(error, 'winerror', None) not in (5, 32, 33) or attempt == 5:
+                        raise
+                    time.sleep(0.02 * (2 ** attempt))
         except OSError as error:
             raise AnvayaNotesRepositoryError("Notes store could not be saved.") from error
         finally:

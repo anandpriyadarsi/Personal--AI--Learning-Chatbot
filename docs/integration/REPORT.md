@@ -1,6 +1,6 @@
-# Unified ANVAYA integration candidate — 26 October 2026
+# Unified ANVAYA integration history — 26 October 2026
 
-This is an implementation candidate, not a completed main merge or a published APK. The final source SHA and APK metadata must come from the successful GitHub release job, never from an earlier feature APK.
+This ledger was recorded before the main merge. Candidate/pending states below describe that point in the integration; the versioned GitHub release and its BUILD.json are authoritative for the delivered main SHA, installed checks and APK metadata. Earlier feature APKs are not final-release evidence.
 
 ## Provenance and disposition
 
@@ -77,3 +77,15 @@ The normal integration PR must pass exact-source canonical and installed checks 
 The APK is self-contained for its supported offline academic operations: Python and its server run on the phone. Cloud AI and Python internet access are disabled. Tutor is deterministic/source-based, not an on-device generative model. Physical phone behavior, specific third-party players and private academic-source certification remain unverified. Legacy PPT requires conversion for indexing; OCR may be unavailable. Full backups remain limited to 100 MiB; records-only export explicitly excludes note attachments. A debug-signature mismatch can prevent updating an older test APK: preserve/export data before any uninstall or storage reset.
 
 No user data was migrated, reset, read from an installed phone or discarded. Source branches remain intact. The resolved-candidate manifest retains the original automatic-merge conflict diagnostic and independently requires ancestry from current main and every live source head; it remains explicitly unverified. Its tests passed 64 cases. No final APK URL is claimed in this candidate report.
+
+## Final integration corrections before the last frozen candidate
+
+- The Android build/JVM stage passed. The first installed jobs stopped before launch because setup-android v3 requested the removed `tools` SDK package. Explicit supported package inputs preserve both API31/API35 gates.
+- A new picker-test IntentFilter intercepted null-action app launches. Launcher screenshots and logcat proved MainActivity was never started. Its exact-action monitor and real touch input fixed the test without weakening the upload assertions.
+- Diagnostic source `be917bb07117ca7e2a6f193520a29461b45b8ffe` passed 13 installed cases on each of API31 and API35, including original PDF upload, offline academics, restart/update, external read grants, nested notes and startup. This is diagnostic evidence, not final-main certification.
+- The existing `NativePdfPageTest` was compiled but omitted from the common installed script. It is now mandatory as an additional case, verifying page 2 of an original three-page PDF through the private URI.
+- Windows still reported transient access/sharing errors after owned readers were synchronized. Only WinError5/32/33 now receive bounded retries (six atomic-replacement attempts, at most 620ms delay) of the identical completed snapshot. Permanent failure preserves old records and removes staged media. Four RED-to-GREEN contracts cover transient and permanent failures. A separate Windows probe passed the notes/backup/nested group and twenty independent runs of the original concurrent-tap case; none may fail.
+- No test was disabled, no failing assertion was softened, and no production or private-data authority was granted. Diagnostic branches remain separate from the integration source. Final canonical and installed gates must run on the consolidated source and again on merged main before publication.
+
+- The new native PDF diagnostic passed on both API31/API35 using the existing authenticated signed APK pair (`40264692706`). The consolidated installed script now runs all six test classes / fourteen cases on each API, rather than merely compiling the renderer.
+- Canonical Linux identified an obsolete concurrency-test rendezvous behind the new shared read lock and an immediate theme attribute read before deferred JavaScript completed. The rendezvous now occurs at the request boundary while preserving the no-overwrite/stale-version checks; the theme uses the same exact expected value with Playwright’s normal retry. The changed companion module plus the formerly failing browser case passed 17 tests locally.

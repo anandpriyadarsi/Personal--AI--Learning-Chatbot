@@ -95,7 +95,7 @@ def test_simultaneous_companion_posts_cannot_overwrite_one_another(tmp_path):
     first_saving, second_started, second_saving, release = Event(), Event(), Event(), Event()
     first_save = repo._save
     second_save = other_repo._save
-    second_update = other_repo.update_note
+    second_add = other.add_companion_entry
 
     def pause_first(rows):
         first_saving.set()
@@ -108,11 +108,14 @@ def test_simultaneous_companion_posts_cannot_overwrite_one_another(tmp_path):
 
     def start_second(*args, **kwargs):
         second_started.set()
-        return second_update(*args, **kwargs)
+        return second_add(*args, **kwargs)
 
     repo._save = pause_first
     other_repo._save = observe_second
-    other_repo.update_note = start_second
+    # Coordinate at the request boundary: a valid shared reader lock can block
+    # the second request before it reaches update_note. The stale-write and
+    # no-overwrite assertions below remain the contract.
+    other.add_companion_entry = start_second
     with ThreadPoolExecutor(max_workers=2) as pool:
         first = pool.submit(service.add_companion_entry, note_id,
                             kind="saved_note", text="first", expected_updated_at=expected)

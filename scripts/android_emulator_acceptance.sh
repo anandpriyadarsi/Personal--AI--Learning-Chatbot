@@ -49,6 +49,10 @@ done
 adb shell am force-stop in.anvaya.privateapp
 adb shell am instrument -w -r -e class in.anvaya.privateapp.SmartNestedNotesTest\#savedTypedNotesAndAttachmentsSurviveForceStop in.anvaya.privateapp.test/androidx.test.runner.AndroidJUnitRunner | tee android-evidence/smart-typed-force-stop.log
 python -c "from pathlib import Path;s=Path('android-evidence/smart-typed-force-stop.log').read_text();assert 'OK (1 test)' in s and not any(v in s for v in ('FAILURES','INSTRUMENTATION_FAILED','shortMsg='))"
+# Original-document Library has a separate native renderer. Compilation alone
+# cannot prove that its private content URI opens at the requested PDF page.
+adb shell am instrument -w -r -e class in.anvaya.privateapp.NativePdfPageTest in.anvaya.privateapp.test/androidx.test.runner.AndroidJUnitRunner | tee android-evidence/native-pdf-page.log
+python -c "from pathlib import Path;s=Path('android-evidence/native-pdf-page.log').read_text();assert 'OK (1 test)' in s and not any(v in s for v in ('FAILURES','INSTRUMENTATION_FAILED','shortMsg='))"
 for name in android-smart-mini-notes-expanded android-smart-mini-notes-after-activity-restart android-smart-typed-attachment-after-activity-restart android-smart-typed-after-force-stop; do
   adb exec-out run-as in.anvaya.privateapp cat files/evidence/"$name".png > android-evidence/"$name".png
 done
