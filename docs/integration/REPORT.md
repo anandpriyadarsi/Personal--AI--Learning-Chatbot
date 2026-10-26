@@ -49,6 +49,7 @@ Initial main: `40ef6a76caf1ccaf023a705f4f7d584dd8c02915`. All 20 initially open 
 - PDF viewer and external media result codes no longer alias.
 - Newer owner-selected static black splash replaces the earlier animation; tagline is `Personal Learning Intelligence...`. Startup still waits only for the first rendered workspace frame.
 - Version `1.2.0-unified-debug`, code `16`; app Settings shows the compiled Git SHA. Gradle obtains that SHA from the checkout itself.
+- Windows CI exposed a read-handle/atomic-replace race during parallel attachment saves (149 passed, 1 failed). Added a deterministic sharing-violation regression, watched it fail, and serialized note reads with the same repository lock as writes. The 62-case notes/media/nested/runtime selection then passed locally; Windows exact-source rerun remains required.
 - Fixed the legacy manifest test to select MainActivity explicitly now that the app also contains PdfPageActivity.
 - Removed redundant ready-PR APK/emulator builds from the legacy mobile caller while retaining shared exact-source installed checks and focused browser regressions.
 - Windows B3 identity check now uses the actual checked-out PR/source SHA rather than GitHub's temporary merge SHA.

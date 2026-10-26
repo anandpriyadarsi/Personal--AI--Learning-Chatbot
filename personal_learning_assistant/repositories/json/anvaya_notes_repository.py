@@ -82,6 +82,7 @@ class AnvayaNotesRepository:
         self.notes_path = Path(notes_path)
         self.assets_root = Path(assets_root)
 
+    @_serialized_write
     def list_notes(self):
         if not self.notes_path.exists():
             return []

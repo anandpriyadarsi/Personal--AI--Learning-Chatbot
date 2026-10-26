@@ -119,3 +119,38 @@ def test_backup_keeps_attachment_metadata_and_bytes_in_one_snapshot(tmp_path, mo
     assert not worker.is_alive()
     assert json.loads(files['data/anvaya_notes.json'])[0]['media'][0]['id']==item['id']
     assert files[relative]==SAMPLES['mp3']
+
+
+def test_note_read_handle_cannot_overlap_atomic_replacement(tmp_path, monkeypatch):
+    """Windows denies replacement while another reader holds the JSON handle."""
+    from pathlib import Path
+    from threading import Event, Thread, current_thread
+    import os
+    from personal_learning_assistant.repositories.json.anvaya_notes_repository import AnvayaNotesRepository
+    from personal_learning_assistant.services.anvaya_notes_service import AnvayaNotesService
+    repo=AnvayaNotesRepository(notes_path=tmp_path/'notes.json',assets_root=tmp_path/'assets')
+    service=AnvayaNotesService(repo)
+    note=service.create_typed_note({'title':'Original','body':'Stored'})
+    reading=Event();release=Event();finished=Event();errors=[]
+    original_read=Path.read_text;original_replace=os.replace
+    def read(path,*args,**kwargs):
+        if path==repo.notes_path and current_thread().name=='held-note-reader':
+            with path.open('r',encoding='utf-8') as stream:
+                reading.set();assert release.wait(5);return stream.read()
+        return original_read(path,*args,**kwargs)
+    def replace(source,destination):
+        if Path(destination)==repo.notes_path and reading.is_set() and not release.is_set():
+            raise PermissionError('Simulated Windows sharing violation: live reader')
+        return original_replace(source,destination)
+    monkeypatch.setattr(Path,'read_text',read);monkeypatch.setattr(os,'replace',replace)
+    reader=Thread(target=repo.list_notes,name='held-note-reader');reader.start()
+    assert reading.wait(5)
+    def write():
+        try: service.create_typed_note({'title':'Second note','body':'Keep both'})
+        except Exception as error:errors.append(error)
+        finally:finished.set()
+    writer=Thread(target=write);writer.start();finished.wait(0.2);release.set()
+    reader.join(5);writer.join(5)
+    assert not reader.is_alive() and not writer.is_alive()
+    assert not errors,errors
+    assert {n['title'] for n in repo.list_notes()}=={'Original','Second note'}
