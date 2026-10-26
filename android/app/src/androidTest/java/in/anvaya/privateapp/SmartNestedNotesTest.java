@@ -153,6 +153,8 @@ public class SmartNestedNotesTest {
     }
     private void screenshot(String name) throws Exception {
         frame();
+        // DOM/layout readiness can precede the display compositor on a busy emulator.
+        instrumentation.getUiAutomation().waitForIdle(300,5000);
         Bitmap screenshot = instrumentation.getUiAutomation().takeScreenshot();
         assertNotNull("Actual installed UI screenshot", screenshot);
         File folder = new File(instrumentation.getTargetContext().getFilesDir(), "evidence");
@@ -199,6 +201,12 @@ public class SmartNestedNotesTest {
             assertEquals("Markdown checklist renders as a read-only checkbox","true",js(rowById(first)+".querySelector('input[type=checkbox]').disabled"));
             js("document.querySelector('#nested-notes').scrollIntoView({block:'start',behavior:'instant'})");
             screenshot("android-smart-mini-notes-expanded");
+            js("document.querySelector('[data-workspace-focus]').click()");
+            waitFor("document.querySelector('.notes-focus-page').classList.contains('workspace-focus') && document.querySelectorAll('#section-list > .mini-note[open] .mini-note-content[data-loaded]').length===3");
+            assertEquals("Focus Reading hides all authoring and upload controls","true",js("['#section-add','.section-controls','.mini-note-actions','#notes-media-upload','.notes-media-menu','.anvaya-native-reader-header > a'].every(s=>Array.from(document.querySelectorAll(s)).every(e=>e.getClientRects().length===0))"));
+            screenshot("android-smart-focus-reading");
+            js("document.querySelector('[data-workspace-focus]').click()");
+            waitFor("!document.querySelector('.notes-focus-page').classList.contains('workspace-focus') && document.querySelector('#section-add').getClientRects().length>0");
             sectionAction(first,"Edit");
             waitFor("!document.querySelector('#section-editor').hidden");
             js("document.querySelector('#section-title').value='Recall cues revised';document.querySelector('#section-body').value="+JSONObject.quote("**Revised retrieval cue**\n\n- [x] Explain the example without looking.")+";document.querySelector('#section-editor').requestSubmit()");

@@ -175,12 +175,15 @@ public class OfflineSmokeTest {
         js("document.querySelector('form[action=\"/planning/tasks\"] [name=title]').value='Synthetic Android SQLite task';document.querySelector('form[action=\"/planning/tasks\"] [name=estimated_minutes]').value='30';document.querySelector('form[action=\"/planning/tasks\"]').requestSubmit()");
         waitFor("!!document.querySelector('.planner-task-list') && document.querySelector('.planner-task-list').innerText.includes('Synthetic Android SQLite task')");
         screenshot("android-sqlite-task-saved");
-        for(String path:new String[]{"/learning","/agent","/assessments","/library","/mobile/settings","/mobile/device"}) {
+        for(String path:new String[]{"/learning","/agent","/assessments","/library","/obsidian","/planning","/library/connected-sources/obsidian","/mobile/settings","/mobile/device"}) {
             go(path);
             if ("/library".equals(path)) {
                 assertEquals("PDF picker is available in the Library", "true",
                     js("!!document.querySelector('#library-pdf-upload input[type=file][accept=\"application/pdf\"]')"));
             }
+            assertEquals("No server error at "+path,"false",js("document.body.innerText.includes('Internal Server Error')"));
+            if ("/obsidian".equals(path)) assertEquals("Obsidian route is reachable offline","true",js("document.body.innerText.includes('Obsidian')"));
+            if ("/library/connected-sources/obsidian".equals(path)) assertEquals("Android offers explicit snapshot import","true",js("document.body.innerText.includes('Import snapshot')"));
             screenshot("android-"+path.replace('/','-'));
             assertEquals("No document overflow at "+path,"true",js("document.documentElement.scrollWidth<=innerWidth+1"));
         }
@@ -220,6 +223,23 @@ public class OfflineSmokeTest {
         }
         assertTrue("The real native IME must be visible before keyboard evidence",imeVisible[0]);
         waitFor("document.querySelector('#tutor-composer button[type=submit]').getBoundingClientRect().bottom<=innerHeight+1");
+        boolean[] composerClear={false};String[] composerBounds={""};
+        long composerDeadline=System.currentTimeMillis()+10000;
+        while(System.currentTimeMillis()<composerDeadline) {
+            JSONObject area=new JSONObject(js("(()=>{const a=document.querySelector('#agent-question').getBoundingClientRect(),b=document.querySelector('#tutor-composer button[type=submit]').getBoundingClientRect();return {top:Math.min(a.top,b.top),bottom:Math.max(a.bottom,b.bottom),width:innerWidth}})()"));
+            getInstrumentation().runOnMainSync(() -> {
+                android.view.WindowInsets insets=web.getRootWindowInsets();
+                int keyboardTop=activity.getWindowManager().getCurrentWindowMetrics().getBounds().bottom-insets.getInsets(android.view.WindowInsets.Type.ime()).bottom;
+                int[] position=new int[2];web.getLocationOnScreen(position);
+                float scale=web.getWidth()/(float)area.optDouble("width");
+                double bottom=position[1]+area.optDouble("bottom")*scale;
+                composerClear[0]=area.optDouble("top")>=-1 && bottom<=Math.min(position[1]+web.getHeight(),keyboardTop)+2;
+                composerBounds[0]="bottom="+bottom+",keyboardTop="+keyboardTop+",webBottom="+(position[1]+web.getHeight());
+            });
+            if(composerClear[0])break;
+            Thread.sleep(100);
+        }
+        assertTrue("Focused Tutor input and send button stay above the actual keyboard: "+composerBounds[0],composerClear[0]);
         screenshot("android-tutor-composer-keyboard");
         getInstrumentation().runOnMainSync(()->((android.view.inputmethod.InputMethodManager)activity.getSystemService(Activity.INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(web.getWindowToken(),0));
         go("/mobile/device");

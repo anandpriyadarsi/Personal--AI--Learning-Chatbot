@@ -40,6 +40,8 @@ public class MainActivity extends Activity {
 
     private FrameLayout workspaceRoot;
     private StartupSplashView splash;
+    private androidx.core.view.WindowInsetsControllerCompat startupBars;
+    private int workspaceBarBehavior;
     private final Handler startupHandler = new Handler(Looper.getMainLooper());
     private int startupAttempt;
     private boolean workspaceVisible, startupFailed, runtimePending;
@@ -62,8 +64,18 @@ public class MainActivity extends Activity {
         // No old WebView survives a new Activity/process. Never touch academic data.
         clearUploadSelections();
         // Screen captures remain available for the owner's study and feedback.
+        startupBars = androidx.core.view.WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
+        workspaceBarBehavior = startupBars.getSystemBarsBehavior();
+        startupBars.setSystemBarsBehavior(androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+        startupBars.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars());
         workspaceRoot = new FrameLayout(this);
         workspaceRoot.setBackgroundColor(StartupSplashView.BACKGROUND);
+        if (Build.VERSION.SDK_INT >= 35) {
+            workspaceRoot.setOnApplyWindowInsetsListener((view, insets) -> {
+                applyWorkspaceInsets(insets);
+                return insets;
+            });
+        }
         splash = new StartupSplashView(this, this::startWorkspace, () -> {
             finishAffinity(); android.os.Process.killProcess(android.os.Process.myPid());
         });
@@ -147,9 +159,29 @@ public class MainActivity extends Activity {
         workspaceVisible = true;
         startupHandler.removeCallbacksAndMessages(null);
         splash.cancelBranding();
+        if (Build.VERSION.SDK_INT >= 35) {
+            applyWorkspaceInsets(workspaceRoot.getRootWindowInsets());
+            workspaceRoot.requestApplyInsets();
+        }
         workspaceRoot.removeView(splash);
+        // Use the same visibility controller for both transitions. Mixing
+        // legacy hide flags with modern show requests retained a hidden API31
+        // navigation source after an immediately replaced Activity.
+        startupBars.show(androidx.core.view.WindowInsetsCompat.Type.systemBars());
+        startupBars.setSystemBarsBehavior(workspaceBarBehavior);
         painted.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_AUTO);
         painted.requestFocus();
+    }
+
+    private void applyWorkspaceInsets(android.view.WindowInsets insets) {
+        if (Build.VERSION.SDK_INT < 35 || insets == null) return;
+        if (!workspaceVisible) { workspaceRoot.setPadding(0, 0, 0, 0); return; }
+        // Target35 is edge-to-edge: reserve bars/cutouts for workspace controls,
+        // and resize the WebView above the real keyboard. The opening stays full-screen.
+        android.graphics.Insets bars = insets.getInsetsIgnoringVisibility(
+            android.view.WindowInsets.Type.systemBars() | android.view.WindowInsets.Type.displayCutout());
+        android.graphics.Insets keyboard = insets.getInsets(android.view.WindowInsets.Type.ime());
+        workspaceRoot.setPadding(bars.left, bars.top, bars.right, Math.max(bars.bottom, keyboard.bottom));
     }
 
     @SuppressWarnings("deprecation")

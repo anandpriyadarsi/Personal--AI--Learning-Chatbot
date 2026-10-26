@@ -14,8 +14,8 @@ android {
         applicationId 'in.anvaya.privateapp'
         minSdk 24
         targetSdk 35
-        versionCode 16
-        versionName '1.2.0-unified-debug'
+        versionCode 17
+        versionName '1.2.1-unified-debug'
         buildConfigField 'String', 'SOURCE_SHA', '"' + sourceSha + '"'
         ndk { abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86_64' }
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'

@@ -69,6 +69,14 @@ def test_launch_uses_selected_static_dark_surface_and_original_mark():
     assert (ANDROID / "res/drawable/anvaya_mark.png").read_bytes() == (ROOT / "personal_learning_assistant/ui/web/static/brand/anvaya-mark.png").read_bytes()
 
 
+def test_opening_artwork_is_the_owners_exact_original_bytes():
+    # A re-encoded, cropped or substituted resource would lose the approved design.
+    import hashlib
+    artwork = ANDROID / "res/drawable-nodpi/anvaya_opening.jpg"
+    assert artwork.is_file(), "The approved full opening image must be packaged"
+    assert hashlib.sha256(artwork.read_bytes()).hexdigest() == "319e31420b50e2e420de571d0906835ee4f9894dedbd26b88435d0ca57415fb6"
+
+
 def test_startup_reveal_requires_first_paint_and_never_animation_completion():
     activity = (JAVA / "MainActivity.java").read_text()
     splash = (JAVA / "StartupSplashView.java").read_text()

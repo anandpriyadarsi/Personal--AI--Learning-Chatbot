@@ -8,6 +8,7 @@ capture_exit_evidence() {
   adb logcat -d -v threadtime > android-evidence/logcat.txt 2>&1 || true
   if [ "$result" -ne 0 ]; then
     adb exec-out screencap -p > android-evidence/failed-installed-viewport.png || true
+    adb exec-out run-as in.anvaya.privateapp cat files/evidence/startup-failure.png > android-evidence/startup-failure.png 2>/dev/null || true
     adb exec-out run-as in.anvaya.privateapp cat files/evidence/upload-picker-failure.png > android-evidence/upload-picker-failure.png 2>/dev/null || true
   fi
   exit "$result"
@@ -15,8 +16,16 @@ capture_exit_evidence() {
 trap capture_exit_evidence EXIT
 adb install -r android/app/build/outputs/apk/debug/app-debug.apk
 adb install -r android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+# The phone profile must expose software navigation. AVD's default hardware
+# keys suppress its navigation source and cannot validate restoration of it.
+adb shell getprop qemu.hw.mainkeys | tr -d '\r' > android-evidence/emulator-hardware-mainkeys.txt
+# Android leaves this property empty for the profile's default software keys.
+# Only "1" forces hardware keys; installed WindowInsets checks still require
+# an actually visible software navigation bar after workspace reveal.
+test "$(tr -d '\n' < android-evidence/emulator-hardware-mainkeys.txt)" != "1"
 adb shell svc wifi disable
 adb shell svc data disable
+python scripts/android_opening_capture.py | tee android-evidence/opening-capture.log
 adb shell am instrument -w -r -e class in.anvaya.privateapp.UploadPickerTest in.anvaya.privateapp.test/androidx.test.runner.AndroidJUnitRunner | tee android-evidence/upload-picker.log
 python -c "from pathlib import Path;s=Path('android-evidence/upload-picker.log').read_text();assert 'OK (1 test)' in s and not any(v in s for v in ('FAILURES','INSTRUMENTATION_FAILED','shortMsg='))"
 adb shell am force-stop in.anvaya.privateapp
@@ -38,7 +47,7 @@ python -c "from pathlib import Path;s=Path('android-evidence/media-after-force-s
 # Smart Notes startup and universal provider contracts use the same installed APK.
 for class in StartupSplashTest; do
   adb shell am instrument -w -r -e class "in.anvaya.privateapp.$class" in.anvaya.privateapp.test/androidx.test.runner.AndroidJUnitRunner | tee "android-evidence/smart-$class.log"
-  python -c "from pathlib import Path;s=Path('android-evidence/smart-$class.log').read_text();assert 'OK (2 tests)' in s and not any(v in s for v in ('FAILURES','INSTRUMENTATION_FAILED','shortMsg='))"
+  python -c "from pathlib import Path;s=Path('android-evidence/smart-$class.log').read_text();assert 'OK (3 tests)' in s and not any(v in s for v in ('FAILURES','INSTRUMENTATION_FAILED','shortMsg='))"
 done
 adb shell am instrument -w -r -e class in.anvaya.privateapp.MediaHandoffTest\#documentAndImageAttachmentsHaveExactMimesAndReadOnlyAccess in.anvaya.privateapp.test/androidx.test.runner.AndroidJUnitRunner | tee android-evidence/universal-attachments.log
 python -c "from pathlib import Path;s=Path('android-evidence/universal-attachments.log').read_text();assert 'OK (1 test)' in s and not any(v in s for v in ('FAILURES','INSTRUMENTATION_FAILED','shortMsg='))"
@@ -54,18 +63,21 @@ python -c "from pathlib import Path;s=Path('android-evidence/smart-typed-force-s
 # cannot prove that its private content URI opens at the requested PDF page.
 adb shell am instrument -w -r -e class in.anvaya.privateapp.NativePdfPageTest in.anvaya.privateapp.test/androidx.test.runner.AndroidJUnitRunner | tee android-evidence/native-pdf-page.log
 python -c "from pathlib import Path;s=Path('android-evidence/native-pdf-page.log').read_text();assert 'OK (1 test)' in s and not any(v in s for v in ('FAILURES','INSTRUMENTATION_FAILED','shortMsg='))"
-for name in android-smart-mini-notes-expanded android-smart-mini-notes-after-activity-restart android-smart-typed-attachment-after-activity-restart android-smart-typed-after-force-stop; do
+for name in android-smart-focus-reading android-smart-mini-notes-expanded android-smart-mini-notes-after-activity-restart android-smart-typed-attachment-after-activity-restart android-smart-typed-after-force-stop; do
+  adb exec-out run-as in.anvaya.privateapp cat files/evidence/"$name".png > android-evidence/"$name".png
+done
+for name in android-opening-portrait android-opening-landscape; do
   adb exec-out run-as in.anvaya.privateapp cat files/evidence/"$name".png > android-evidence/"$name".png
 done
 adb shell getprop ro.build.version.release > android-evidence/android-version.txt
 adb shell getprop ro.product.cpu.abi > android-evidence/abi.txt
-for name in android-reader-full-view android-reader-full-view-landscape android-reader-expanded-figure android-library-renamed android-library-renamed-after-force-stop android-library-content-search android-library-saved-reference android-library-reference-after-force-stop android-tutor-conversation android-tutor-composer-keyboard android-tutor-after-force-stop android-today android-note-saved android--learning android--agent android--assessments android--library android--mobile-settings android--mobile-device android-note-after-force-stop android-sqlite-task-saved android-sqlite-task-after-force-stop android-active-lesson android-learning-mistake android-library-reader android-assessment-paused android-paper-step-review android-assessment-after-force-stop android-assessment-resumed android-paper-review-after-force-stop android-notes-landscape android-conversion-capability android-selection-cbt android-selection-handwritten android-handwritten-paused android-handwritten-after-force-stop android-handwritten-resumed; do
+for name in android--obsidian android--planning android--library-connected-sources-obsidian android-reader-full-view android-reader-full-view-landscape android-reader-expanded-figure android-library-renamed android-library-renamed-after-force-stop android-library-content-search android-library-saved-reference android-library-reference-after-force-stop android-tutor-conversation android-tutor-composer-keyboard android-tutor-after-force-stop android-today android-note-saved android--learning android--agent android--assessments android--library android--mobile-settings android--mobile-device android-note-after-force-stop android-sqlite-task-saved android-sqlite-task-after-force-stop android-active-lesson android-learning-mistake android-library-reader android-assessment-paused android-paper-step-review android-assessment-after-force-stop android-assessment-resumed android-paper-review-after-force-stop android-notes-landscape android-conversion-capability android-selection-cbt android-selection-handwritten android-handwritten-paused android-handwritten-after-force-stop android-handwritten-resumed; do
   adb exec-out run-as in.anvaya.privateapp cat files/evidence/"$name".png > android-evidence/"$name".png
 done
 
 # Deliver precisely the APK which passed the installed-app checks above.
 source_short="$(git rev-parse --short=12 HEAD)"
-verified_apk="android-evidence/ANVAYA-Unified-Android-V1.2.0-Debug-${source_short}.apk"
+verified_apk="android-evidence/ANVAYA-Unified-Android-V1.2.1-Debug-${source_short}.apk"
 cp android/app/build/outputs/apk/debug/app-debug.apk "$verified_apk"
 sha256sum "$verified_apk" > android-evidence/TESTED_APK_SHA256.txt
 # Inspect the actual package installed above, not Gradle configuration alone.
@@ -83,7 +95,7 @@ import ssl
 import zipfile
 report=Path('android-evidence/apk-badging.txt').read_text()
 assert "name='in.anvaya.privateapp'" in report
-assert "versionCode='16'" in report and "versionName='1.2.0-unified-debug'" in report
+assert "versionCode='17'" in report and "versionName='1.2.1-unified-debug'" in report
 assert "sdkVersion:'24'" in report and "targetSdkVersion:'35'" in report
 for abi in ('armeabi-v7a','arm64-v8a','x86_64'):
     assert abi in report, abi

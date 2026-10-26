@@ -92,19 +92,34 @@ public class UploadPickerTest {
             // The form can exist while its deferred script is still loading.
             // Its click/submit handlers must run before exercising the picker.
             waitFor(web,"location.pathname==='/library/files' && document.readyState==='complete' && !!document.querySelector('input[type=file]')");
-            int previousCount=Integer.parseInt(js(web,"document.querySelectorAll('.file-row').length"));
-            js(web,"document.querySelector('[data-action=upload-dialog]').click()");
-            waitFor(web,"document.querySelector('#upload-dialog').open");
-            tap(web,"#upload-form input[type=file]");
-            long pickerDeadline=System.currentTimeMillis()+10000;
-            while(pickerCalls.get()==0&&System.currentTimeMillis()<pickerDeadline)Thread.sleep(100);
-            assertEquals("Real gesture opens exactly one system document picker",1,pickerCalls.get());
-            waitFor(web,"document.querySelector('input[type=file]').files.length===1");
-            assertTrue("System picker intent used",pickerCalls.get()>0);
-            assertEquals("\"Changing lecture.pdf\"",js(web,"document.querySelector('input[type=file]').files[0].name"));
-            js(web,"document.querySelector('input[type=file]').closest('form').requestSubmit()");
-            waitFor(web,"document.querySelectorAll('.file-row').length==="+(previousCount+1)+" && Array.from(document.querySelectorAll('.file-row h2')).some(row=>row.innerText==='Changing lecture.pdf')");
-            assertEquals("false",js(web,"document.body.innerText.includes('Web page not available')"));
+            for (String extension : new String[]{"pdf","pptx"}) {
+                waitFor(web,"document.readyState==='complete' && !!document.querySelector('#upload-form input[type=file]')");
+                Uri selected=Uri.parse("content://in.anvaya.privateapp.test.changing_upload/document."+extension);
+                instrumentation.getContext().grantUriPermission(target.getPackageName(),selected,Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                chosen.setData(selected);
+                int beforePicker=pickerCalls.get();
+                int previousCount=Integer.parseInt(js(web,"document.querySelectorAll('.file-row').length"));
+                js(web,"document.querySelector('[data-action=upload-dialog]').click()");
+                waitFor(web,"document.querySelector('#upload-dialog').open");
+                tap(web,"#upload-form input[type=file]");
+                long pickerDeadline=System.currentTimeMillis()+10000;
+                while(pickerCalls.get()==beforePicker&&System.currentTimeMillis()<pickerDeadline)Thread.sleep(100);
+                assertEquals("Real gesture opens exactly one system document picker",beforePicker+1,pickerCalls.get());
+                waitFor(web,"document.querySelector('input[type=file]').files.length===1");
+                assertTrue("System picker intent used",pickerCalls.get()>0);
+                assertEquals("\"Changing lecture."+extension+"\"",js(web,"document.querySelector('input[type=file]').files[0].name"));
+                js(web,"document.querySelector('input[type=file]').closest('form').requestSubmit()");
+                waitFor(web,"document.querySelectorAll('.file-row').length==="+(previousCount+1)+" && Array.from(document.querySelectorAll('.file-row h2')).some(row=>row.innerText==='Changing lecture."+extension+"')");
+                assertEquals("false",js(web,"document.body.innerText.includes('Web page not available')"));
+            }
+            long searchDeadline=System.currentTimeMillis()+30000; boolean indexed=false;
+            while(System.currentTimeMillis()<searchDeadline) {
+                js(web,"window.__pptxSearch='pending';fetch('/library/files?q=AnvayaPptxVerificationToken').then(r=>r.text()).then(t=>window.__pptxSearch=t.includes('Changing lecture.pptx')&&t.includes('AnvayaPptxVerificationToken')).catch(()=>window.__pptxSearch=false)");
+                waitFor(web,"window.__pptxSearch!=='pending'");
+                if("true".equals(js(web,"window.__pptxSearch"))) {indexed=true;break;}
+                Thread.sleep(200);
+            }
+            assertTrue("Uploaded original PPTX is indexed and searchable on the installed offline app",indexed);
         } catch(Throwable failure) {
             System.err.println("PICKER_CALLS="+pickerCalls.get());
             if(activity!=null) {
