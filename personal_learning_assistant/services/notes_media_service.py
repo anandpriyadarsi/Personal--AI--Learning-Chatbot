@@ -1,0 +1,276 @@
+"""Streamed local media owned by existing handwritten notes; no decoding/player."""
+from __future__ import annotations
+
+import hashlib
+import os
+from pathlib import Path
+from uuid import uuid4
+
+from personal_learning_assistant.repositories.json.anvaya_notes_repository import (
+    AnvayaNotesRepository, AnvayaNotesRepositoryError, AnvayaNotesNotFoundError,
+    _safe_id, _serialized_write, _newer_version,
+)
+from personal_learning_assistant.services.anvaya_notes_service import (
+    AnvayaNotesValidationError, AnvayaNotesUnavailableError, _utc_now,
+)
+
+MAX_MEDIA_BYTES = 512 * 1024 * 1024
+MAX_MEDIA_BATCH = 20
+MAX_MEDIA_REQUEST_BYTES = 1024 * 1024 * 1024
+CHUNK = 65536
+MIMES = {'.mp3':'audio/mpeg', '.wav':'audio/wav', '.m4a':'audio/mp4',
+         '.aac':'audio/aac', '.mp4':'video/mp4', '.mkv':'video/x-matroska',
+         '.mov':'video/quicktime', '.webm':'video/webm',
+         '.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.pdf':'application/pdf',
+         '.txt':'text/plain','.md':'text/markdown','.csv':'text/csv',
+         '.docx':'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+         '.pptx':'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+         '.xlsx':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}
+
+
+def media_mime(filename, header):
+    """Recognize the container only; the external player determines codec support."""
+    suffix = Path(filename).suffix.lower()
+    valid = {
+        '.png':header.startswith(b'\x89PNG\r\n\x1a\n'),
+        '.jpg':header.startswith(b'\xff\xd8\xff'),'.jpeg':header.startswith(b'\xff\xd8\xff'),
+        '.pdf':header.startswith(b'%PDF-'),
+        '.txt':bool(header) and b'\x00' not in header,
+        '.md':bool(header) and b'\x00' not in header,
+        '.csv':bool(header) and b'\x00' not in header,
+        '.docx':header.startswith(b'PK\x03\x04'),'.pptx':header.startswith(b'PK\x03\x04'),'.xlsx':header.startswith(b'PK\x03\x04'),
+        '.mp3': header.startswith(b'ID3') or (len(header)>1 and header[0]==255 and header[1]&224==224),
+        '.wav': header[:4]==b'RIFF' and header[8:12]==b'WAVE',
+        '.aac': len(header)>1 and header[0]==255 and header[1]&246==240,
+        '.m4a': header[4:8]==b'ftyp',
+        '.mp4': header[4:8]==b'ftyp',
+        '.mov': header[4:8] in (b'ftyp',b'moov',b'mdat',b'wide'),
+        '.mkv': header.startswith(b'\x1aE\xdf\xa3') and b'matroska' in header,
+        '.webm': header.startswith(b'\x1aE\xdf\xa3') and b'webm' in header,
+    }.get(suffix, False)
+    if not valid:
+        raise AnvayaNotesValidationError('Choose a valid supported audio, video, image, PDF, text or Office document.')
+    return MIMES[suffix]
+
+
+def _name(value, suffix=None):
+    name = str(value or '').strip()
+    if not name or len(name)>200 or name.startswith('.') or any(c in name for c in '/\\') or any(ord(c)<32 or ord(c)==127 for c in name):
+        raise AnvayaNotesValidationError('Enter a file name without folders or special control characters (up to 200 characters).')
+    extension = Path(name).suffix.lower()
+    if suffix:
+        if extension and extension != suffix:
+            raise AnvayaNotesValidationError('Keep the original file extension when renaming.')
+        if not extension:
+            name += suffix
+    elif extension not in MIMES:
+        raise AnvayaNotesValidationError('This media format is not supported.')
+    return name
+
+
+def _public(note_id, item):
+    base = f'/notes/media/{note_id}/{item["id"]}'
+    return {key:item[key] for key in ('id','filename','mimetype','size')} | {
+        'section_id':item.get('section_id',''), 'url':base+'/file', 'open_url':base+'/open', 'share_url':base+'/share'}
+
+
+class NotesMediaStore:
+    def __init__(self, repository):
+        self.repository = repository
+        # The existing repository decorator keys its shared lock by this path.
+        self.notes_path = repository.notes_path
+
+    def _note(self, note_id):
+        try:
+            note = self.repository.get_note(note_id)
+        except AnvayaNotesNotFoundError:
+            raise
+        except AnvayaNotesRepositoryError as error:
+            raise AnvayaNotesUnavailableError('The note could not be read.') from error
+        if note.get('note_kind') not in ('typed','handwritten'):
+            raise AnvayaNotesValidationError('Choose a typed or handwritten note.')
+        return note
+
+    def _section(self,note,section_id):
+        if section_id and section_id not in [s['id'] for s in note.get('sections',[])]+(['original-content'] if note.get('body') else []):
+            raise AnvayaNotesValidationError('Section no longer exists. Refresh before attaching.')
+
+    def _directory(self, note_id, *, create=False):
+        path = self.repository.assets_root.absolute() / _safe_id(note_id) / 'media'
+        if any(part.is_symlink() for part in (path, *path.parents)):
+            raise AnvayaNotesNotFoundError('Attachment storage is unavailable.')
+        if create:
+            path.mkdir(parents=True, exist_ok=True)
+        return path
+
+    def list(self, note_id):
+        return [_public(note_id, item) for item in self._note(note_id).get('media', [])]
+
+    def _save(self, note, items):
+        rows = self.repository.list_notes()
+        note['media'] = items
+        note['updated_at'] = _newer_version(_utc_now(), note.get('updated_at'))
+        rows = [note if row.get('id')==note['id'] else row for row in rows]
+        self.repository._save(rows)
+
+    def add(self, note_id, uploads, *, section_id=''):
+        self._section(self._note(note_id),section_id)
+        uploads = list(uploads)
+        if not uploads or len(uploads)>MAX_MEDIA_BATCH:
+            raise AnvayaNotesValidationError('Choose between 1 and 20 media files.')
+        staged = []
+        paths = []
+        request_bytes = 0
+        try:
+            directory = self._directory(note_id, create=True)
+            # Disk I/O is deliberately outside the notes lock. Only the final
+            # metadata compare/commit is serialized with note edits.
+            for filename, stream in uploads:
+                filename = _name(filename)
+                suffix = Path(filename).suffix.lower()
+                asset_id = uuid4().hex
+                path = directory / (asset_id+suffix)
+                paths.append(path)
+                digest = hashlib.sha256()
+                size = 0
+                header = b''
+                with path.open('xb') as output:
+                    while True:
+                        chunk = stream.read(CHUNK)
+                        if not chunk: break
+                        size += len(chunk)
+                        request_bytes += len(chunk)
+                        if size>MAX_MEDIA_BYTES or request_bytes>MAX_MEDIA_REQUEST_BYTES:
+                            raise AnvayaNotesValidationError('Each file must be 512 MB or smaller; one upload must be under 1 GB.')
+                        if len(header)<4096: header = (header+chunk)[:4096]
+                        digest.update(chunk)
+                        output.write(chunk)
+                    output.flush()
+                    os.fsync(output.fileno())
+                mime = media_mime(filename, header)
+                staged.append({'id':asset_id,'filename':filename,'stored_name':path.name,
+                               'mimetype':mime,'size':size,'sha256':digest.hexdigest(),'section_id':section_id})
+            return self._commit_add(note_id, staged)
+        except (OSError, AnvayaNotesRepositoryError) as error:
+            if isinstance(error, AnvayaNotesNotFoundError): raise
+            raise AnvayaNotesUnavailableError('Media could not be saved. Check available storage and try again.') from error
+        finally:
+            try:
+                committed = {item['stored_name'] for item in self.repository.get_note(note_id).get('media', [])}
+            except AnvayaNotesRepositoryError:
+                committed = {p.name for p in paths}  # uncertain disk state: preserve data
+            for path in paths:
+                if path.name not in committed:
+                    try: path.unlink(missing_ok=True)
+                    except OSError: pass
+
+    @_serialized_write
+    def _commit_add(self, note_id, staged):
+        note = self._note(note_id)  # latest fields, including edits during upload
+        items = list(note.get('media', []))
+        result = []
+        repairs = []
+        success = False
+        try:
+            for item in staged:
+                self._section(note,item.get('section_id',''))
+                path = self._path(note_id,item)
+                duplicate = next((old for old in items if old.get('sha256')==item['sha256']
+                                  and old.get('section_id','')==item.get('section_id','')
+                                  and old.get('mimetype')==item['mimetype'] and old.get('size')==item['size']),None)
+                if duplicate:
+                    if duplicate in note.get('media', []):
+                        try: self.resolve(note_id,duplicate['id'])
+                        except (AnvayaNotesNotFoundError,AnvayaNotesUnavailableError):
+                            original = self._path(note_id,duplicate)
+                            backup = original.with_name(original.name+'.replace-'+uuid4().hex)
+                            had_original = original.exists()
+                            if had_original: original.rename(backup)
+                            repairs.append((original,backup,had_original))
+                            path.rename(original)
+                    result.append(_public(note_id,duplicate))
+                else:
+                    items.append(item)
+                    result.append(_public(note_id,item))
+            self._save(note,items)
+            success = True
+            return result
+        finally:
+            for original,backup,had_original in reversed(repairs):
+                if success:
+                    try: backup.unlink(missing_ok=True)
+                    except OSError: pass
+                else:
+                    original.unlink(missing_ok=True)
+                    if had_original: backup.rename(original)
+
+    def _find(self, note_id, asset_id):
+        note = self._note(note_id)
+        asset_id = _safe_id(asset_id)
+        item = next((x for x in note.get('media', []) if x.get('id')==asset_id), None)
+        if item is None:
+            raise AnvayaNotesNotFoundError('Attachment not found. Refresh the note.')
+        return note, item
+
+    def _path(self, note_id, item):
+        suffix = Path(item.get('stored_name','')).suffix.lower()
+        expected = _safe_id(item['id']) + suffix
+        if suffix not in MIMES or item.get('stored_name') != expected or item.get('mimetype') != MIMES[suffix]:
+            raise AnvayaNotesNotFoundError('Attachment not found.')
+        path = self._directory(note_id) / expected
+        if path.is_symlink():
+            raise AnvayaNotesNotFoundError('Attachment not found.')
+        return path
+
+    def resolve(self, note_id, asset_id):
+        _, item = self._find(note_id, asset_id)
+        path = self._path(note_id, item)
+        try:
+            if not path.is_file():
+                raise AnvayaNotesNotFoundError('Attachment is missing. Attach the original file again.')
+            digest = hashlib.sha256()
+            with path.open('rb') as source:
+                for chunk in iter(lambda:source.read(CHUNK),b''):
+                    digest.update(chunk)
+            if path.stat().st_size!=item['size'] or digest.hexdigest()!=item['sha256']:
+                raise AnvayaNotesUnavailableError('This attachment is damaged. Attach the original file again.')
+        except OSError as error:
+            raise AnvayaNotesUnavailableError('The attachment could not be read. Check storage access.') from error
+        return dict(item, path=path)
+
+    @_serialized_write
+    def rename(self, note_id, asset_id, filename):
+        note, item = self._find(note_id,asset_id)
+        item['filename'] = _name(filename,Path(item['stored_name']).suffix.lower())
+        try:
+            self._save(note,note['media'])
+        except (OSError, AnvayaNotesRepositoryError) as error:
+            raise AnvayaNotesUnavailableError('The attachment could not be renamed.') from error
+        return _public(note_id,item)
+
+    @_serialized_write
+    def delete(self, note_id, asset_id):
+        note, item = self._find(note_id,asset_id)
+        path = self._path(note_id,item)
+        staged = path.with_name(path.name+'.delete-'+uuid4().hex)
+        moved = False
+        try:
+            if path.exists():
+                path.rename(staged)
+                moved = True
+            self._save(note,[x for x in note['media'] if x['id']!=asset_id])
+        except (OSError, AnvayaNotesRepositoryError) as error:
+            if moved:
+                staged.rename(path)
+            raise AnvayaNotesUnavailableError('The attachment could not be removed.') from error
+        try: staged.unlink(missing_ok=True)
+        except OSError: pass  # unreferenced tombstone; never restore after commit
+
+
+def resolve_android_media(root_path, note_id, asset_id):
+    """Native-only: never include the private path in browser JSON or an intent."""
+    root = Path(root_path).absolute()
+    repo = AnvayaNotesRepository(notes_path=root/'data/anvaya_notes.json',
+                                assets_root=root/'data/anvaya_notes_assets')
+    item = NotesMediaStore(repo).resolve(note_id,asset_id)
+    return [str(item['path']), item['mimetype'], item['filename']]

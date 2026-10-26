@@ -2,6 +2,7 @@ name: Tutor V2.0–2.3 integration acceptance
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'personal_learning_assistant/tutor/**'
       - 'personal_learning_assistant/services/grounded_tutor_service.py'
@@ -24,8 +25,14 @@ on:
 permissions:
   contents: read
 
+# Superseded pull-request heads should not waste two-platform CI time.
+concurrency:
+  group: tutor-reconciliation-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   focused:
+    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
     name: Tutor reconciliation (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 40

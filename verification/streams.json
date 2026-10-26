@@ -1,0 +1,22 @@
+{
+  "schema": "anvaya.integration-streams.v2",
+  "repository": "anandpriyadarsi/Personal--AI--Learning-Chatbot",
+  "base": "main",
+  "streams": [
+    {"name": "performance_reader", "source_branch": "fix/android-performance-reader-library-rename-2026-10-24", "related_pull_requests": [48, 49, 44, 43, 42], "dependencies": []},
+    {"name": "handwritten_media", "source_branch": "feature/handwritten-media-external-player-2026-10-24", "related_pull_requests": [47, 42], "dependencies": []},
+    {"name": "native_documents", "source_branch": "feat/android-native-document-library", "related_pull_requests": [50, 51, 44, 43, 42], "dependencies": []},
+    {"name": "assessment_review", "source_branch": "feature/android-cbt-review-analysis-standalone-questions-2026-10-25", "related_pull_requests": [52, 42], "dependencies": []}
+  ],
+  "required_scenarios": [
+    "original_library_bytes_and_inside_document_search",
+    "handwritten_audio_video_attachments",
+    "external_player_fileprovider_read_grants",
+    "rename_restart_and_update_persistence",
+    "phone_sized_learning_reader",
+    "assessment_answers_only_after_submission",
+    "tutor_source_identity_and_student_progress",
+    "navigation_performance",
+    "no_unauthorized_conversion_migration_or_deletion"
+  ]
+}

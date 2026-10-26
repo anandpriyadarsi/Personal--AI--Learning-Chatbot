@@ -4,13 +4,20 @@ on:
   push:
     branches: ['feature/assessment-pause-paper-**']
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
 
 permissions:
   contents: read
 
+# Replaced PR heads should not burn CI minutes after a new commit.
+concurrency:
+  group: assessment-studio-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   assessment:
+    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
     name: Assessment regressions (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 40
@@ -92,7 +99,7 @@ jobs:
 
   acceptance:
     name: Assessment isolated cross-platform gate
-    if: always()
+    if: ${{ always() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
     needs: assessment
     runs-on: ubuntu-latest
     steps:

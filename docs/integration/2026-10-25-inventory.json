@@ -1,0 +1,182 @@
+[
+  {
+    "number": 55,
+    "head": "feature/smart-nested-notes-obsidian-splash-2026-10-25",
+    "head_sha": "315fd7943da34fa46a1f36a30dd0d29c08d95ae4",
+    "base": "feature/handwritten-media-external-player-2026-10-24",
+    "title": "Smart Notes: nested sections, universal attachments, optional Obsidian and light Android startup",
+    "ancestor": false,
+    "unique_commits": 106
+  },
+  {
+    "number": 53,
+    "head": "feature/smart-verification-v2-shared-coordinator-2026-10-25",
+    "head_sha": "3d849ca0d317d2e09c1ab2a09f67644281b2b186",
+    "base": "main",
+    "title": "Smart Verification V2: dependency graph, shared CI and safe integration coordination",
+    "ancestor": false,
+    "unique_commits": 21
+  },
+  {
+    "number": 52,
+    "head": "feature/android-cbt-review-analysis-standalone-questions-2026-10-25",
+    "head_sha": "1e8ce5c24ed0de6f8f4a4a551bb3f5b07102862b",
+    "base": "integration/android-unified-apk-2026-10-24",
+    "title": "Android CBT: post-test review, answer feedback and standalone question quality gate",
+    "ancestor": false,
+    "unique_commits": 92
+  },
+  {
+    "number": 51,
+    "head": "feat/android-native-document-library",
+    "head_sha": "7dde02b0a7bd1afaa3e4519bfc4abb0b03ea5b2e",
+    "base": "fix/android-navigation-asset-performance-2026-10-24",
+    "title": "Android candidate: original-document Library, safe sharing and PDF match-page reader",
+    "ancestor": false,
+    "unique_commits": 99
+  },
+  {
+    "number": 50,
+    "head": "feat/native-document-library",
+    "head_sha": "989bf6260784f279dd2d3ac994e07c82f0182610",
+    "base": "main",
+    "title": "Library: preserve original documents and search matching PDF pages / PPTX slides",
+    "ancestor": false,
+    "unique_commits": 3
+  },
+  {
+    "number": 49,
+    "head": "fix/android-performance-reader-library-rename-2026-10-24",
+    "head_sha": "5d0de892c4060900693d8d3b5ca7ceb4cabdd962",
+    "base": "fix/android-navigation-asset-performance-2026-10-24",
+    "title": "Android V1.1.3 test: fast reader navigation, mobile fullscreen and Library rename",
+    "ancestor": false,
+    "unique_commits": 102
+  },
+  {
+    "number": 47,
+    "head": "feature/handwritten-media-external-player-2026-10-24",
+    "head_sha": "ab73e63c796d59bbf1f57d8956f2c04226f97ca9",
+    "base": "main",
+    "title": "Handwritten Notes: persistent audio/video attachments and Android external-player opening",
+    "ancestor": false,
+    "unique_commits": 100
+  },
+  {
+    "number": 45,
+    "head": "fix/learning-mobile-reader-mapping-2026-10-24",
+    "head_sha": "463e67792005c8e79913b5afc28cbc5a805b16e2",
+    "base": "main",
+    "title": "Learning Studio: mobile visual reader, usable fullscreen fallback, subject mapping",
+    "ancestor": false,
+    "unique_commits": 1
+  },
+  {
+    "number": 44,
+    "head": "fix/android-navigation-asset-performance-2026-10-24",
+    "head_sha": "fddda9184227660407e3af19eedec2763447a232",
+    "base": "fix/android-assessment-catalogue-vedic-import-2026-10-24",
+    "title": "Android: speed up offline page navigation with private asset caching and parallel static loads",
+    "ancestor": false,
+    "unique_commits": 96
+  },
+  {
+    "number": 43,
+    "head": "fix/android-assessment-catalogue-vedic-import-2026-10-24",
+    "head_sha": "5e59b189ed3b97a3b97fefc74b13e9845b95d44e",
+    "base": "integration/android-unified-apk-2026-10-24",
+    "title": "Android: restore Assessment subject options and import source-bound UC103N Vedic Work ZIP",
+    "ancestor": false,
+    "unique_commits": 90
+  },
+  {
+    "number": 42,
+    "head": "integration/android-unified-apk-2026-10-24",
+    "head_sha": "a24ed346ce99975d65949844873f2e9231c279d1",
+    "base": "main",
+    "title": "Unified standalone Android V1.1.2: current academics, Tutor, Assessment and Library",
+    "ancestor": false,
+    "unique_commits": 77
+  },
+  {
+    "number": 41,
+    "head": "feature/mobile-v1-1-unified-library-ui-2026-10-23",
+    "head_sha": "7cbed22cbd90ff14dc3e606c45e637c03234e40a",
+    "base": "feature/mobile-v1-1-private-android-runtime-2026-10",
+    "title": "Android V1.1: same unified Library / Knowledge interface (no data migration)",
+    "ancestor": false,
+    "unique_commits": 54
+  },
+  {
+    "number": 39,
+    "head": "feature/mobile-assessment-two-modes-2026-10",
+    "head_sha": "0dce9ada2c0826788e6d372234988ec2de74fa9c",
+    "base": "feature/mobile-v1-1-private-android-runtime-2026-10",
+    "title": "Mobile Assessment: clear CBT and handwritten modes, safe pause and rubric review",
+    "ancestor": false,
+    "unique_commits": 25
+  },
+  {
+    "number": 38,
+    "head": "integration/tutor-ui-v3-android-2026-10-23",
+    "head_sha": "ce0933fcc376236ee21dcd92f7ac09cab801bf72",
+    "base": "main",
+    "title": "Tutor UI V3: chat-first mobile redesign integrated with standalone Android",
+    "ancestor": false,
+    "unique_commits": 23
+  },
+  {
+    "number": 35,
+    "head": "feature/mobile-v1-1-private-android-runtime-2026-10",
+    "head_sha": "d11df19307cc8098f0fefbb8eec9f3cd2cd88286",
+    "base": "feature/mobile-v1-private-pwa-2026-10",
+    "title": "Mobile V1.1: standalone private Android test APK and offline academic persistence",
+    "ancestor": false,
+    "unique_commits": 24
+  },
+  {
+    "number": 34,
+    "head": "feature/mobile-v1-private-pwa-2026-10",
+    "head_sha": "99fbaeeaf9a400ff6eb0f98fa6132e0baa6ef47c",
+    "base": "main",
+    "title": "ANVAYA Mobile V1.0 \u2014 Private Android-First Learning Companion",
+    "ancestor": false,
+    "unique_commits": 3
+  },
+  {
+    "number": 29,
+    "head": "integration/architecture-v2-2-library-v2-2026-10",
+    "head_sha": "dbea698951a1069adab92d0eedc52c7404b0c483",
+    "base": "main",
+    "title": "Integration preview: Architecture V2.2 + Library and Resources V2",
+    "ancestor": false,
+    "unique_commits": 31
+  },
+  {
+    "number": 27,
+    "head": "feature/architecture-v2-2-iks-fixture-authority-2026-10",
+    "head_sha": "400729982f3d6e56ff735a746c263bb7a6d982ee",
+    "base": "main",
+    "title": "Architecture V2.2: private pilot validation and academic safety corrections",
+    "ancestor": false,
+    "unique_commits": 3
+  },
+  {
+    "number": 13,
+    "head": "fix/b3-namespaced-evaluation-bridge-2026-10-16",
+    "head_sha": "36be698c999feaecfb14c93b44e9d63aebcf3a75",
+    "base": "anvaya/topic-intelligence-b3-attribution-authority",
+    "title": "B3 read-only identity inspector: accept exact namespaced assessment evaluation refs",
+    "ancestor": false,
+    "unique_commits": 8
+  },
+  {
+    "number": 9,
+    "head": "anvaya/gate-c0-synthetic-recovery",
+    "head_sha": "5048dd3c852cfd0f2007afeb4dd2a8a59f46acd3",
+    "base": "anvaya/topic-intelligence-b3-attribution-authority",
+    "title": "Gate C0: conservative read-only recovery-policy simulation with adversarial tests",
+    "ancestor": false,
+    "unique_commits": 8
+  }
+]

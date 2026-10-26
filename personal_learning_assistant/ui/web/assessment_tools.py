@@ -10,13 +10,17 @@ assessment_tools_blueprint = Blueprint("assessment_tools", __name__)
 
 @assessment_tools_blueprint.post("/assessments/sessions/<session_id>/questions/<session_question_id>/coding-helper")
 def coding_helper(session_id, session_question_id):
-    from .routes import _assessment_runner_service, _assessment_runner_error_status
+    from .routes import _assessment_runner_service, _assessment_runner_error_status, _assessment_extended_service, _is_extended_session
+
+    def context_for_question():
+        service = _assessment_extended_service() if _is_extended_session(session_id) else _assessment_runner_service()
+        return service.coding_context(session_id, session_question_id)
 
     request.max_content_length = 100000
     if request.content_length and request.content_length > 100000:
         return jsonify(error="Help request is too long."), 413
     try:
-        context = _assessment_runner_service().coding_context(session_id, session_question_id)
+        context = context_for_question()
     except Exception as error:
         return jsonify(error="This question is unavailable for coding help."), _assessment_runner_error_status(error)
     try:
@@ -40,7 +44,7 @@ def coding_helper(session_id, session_question_id):
             raise ValueError("Empty provider reply")
         reply = reply.strip()[:16000]
         # Revalidate after a slow provider: expired/navigated/reassigned tasks fail closed.
-        latest = _assessment_runner_service().coding_context(session_id, session_question_id)
+        latest = context_for_question()
         if latest != context:
             return jsonify(error="Assessment context changed. Reset the helper and retry.", reset_context=True), 409
         return jsonify(reply=reply, context_token=next_context(provider_request, continuation, reply, signer))

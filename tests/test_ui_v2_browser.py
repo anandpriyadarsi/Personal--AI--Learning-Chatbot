@@ -266,6 +266,10 @@ def test_study_tools_launcher_does_not_cover_reading_column(context, ui, surface
     page = context.new_page(); page.set_viewport_size({'width':390,'height':844})
     page.goto(ui['base'] + ui['routes'][surface])
     launcher = page.locator('#notes-study-tools-launcher').bounding_box()
+    if surface == 'notes-reader':
+        # Mini-notes deliberately do not render bodies until opened. Measure
+        # the actual reading column after the user expands Original Content.
+        page.locator('#section-list > .mini-note > summary').first.click()
     article = page.locator('main article').first.bounding_box()
     assert launcher['y'] + launcher['height'] <= article['y']
 

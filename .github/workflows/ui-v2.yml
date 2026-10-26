@@ -1,6 +1,7 @@
 name: UI V2 cross-platform acceptance
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'personal_learning_assistant/ui/web/**'
       - 'tests/*ui_v2*'
@@ -16,6 +17,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   validation:
+    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
     name: UI V2 (${{ matrix.os }})
     strategy:
       fail-fast: false

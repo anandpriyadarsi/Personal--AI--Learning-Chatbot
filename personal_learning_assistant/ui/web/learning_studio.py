@@ -209,7 +209,24 @@ def import_module():
     from personal_learning_assistant.learning_studio.archive import decode_bundle
     upload = request.files.get('package')
     require(upload is not None, 'Choose an authored learning package.')
-    package, assets, coverage = decode_bundle(upload.read(25_000_001), upload.filename)
+    raw = upload.read(25_000_001)
+    if current_app.config.get('ANDROID_LOCAL_RUNTIME') and str(upload.filename).lower().endswith('.zip'):
+        from personal_learning_assistant.learning_studio.archive import read_zip
+        from personal_learning_assistant.learning_studio.portable_vedic_import import (
+            bind_vedic_work_zip, is_vedic_authoring_archive,
+        )
+        members = read_zip(raw, pilot=True)
+        if is_vedic_authoring_archive(members):
+            package, assets, coverage = bind_vedic_work_zip(
+                raw,
+                database=current_app.config['LEARNING_STUDIO_SOURCE_DATABASE'],
+                roots=current_app.config['LEARNING_STUDIO_SOURCE_ROOTS'],
+                requested_source_id=request.form.get('source_id', ''),
+            )
+        else:
+            package, assets, coverage = decode_bundle(raw, upload.filename)
+    else:
+        package, assets, coverage = decode_bundle(raw, upload.filename)
     try:
         result = service().stage(package, assets, coverage)
     except PackageError: raise

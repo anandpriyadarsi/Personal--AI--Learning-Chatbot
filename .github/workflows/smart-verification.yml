@@ -1,19 +1,40 @@
-name: Smart Verification V1.0 fast feedback
+name: ANVAYA Smart Verification V2 shared coordinator
+
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
   push:
-    branches: ['feature/smart-verification-v1-2026-10']
+    branches:
+      - 'integration/**'
   workflow_dispatch:
+    inputs:
+      stage:
+        description: 'Fast feedback, or authoritative synthetic integration tests'
+        type: choice
+        required: true
+        default: fast
+        options: [fast, integration]
+      expected_sha:
+        description: 'Required exact commit SHA for manual integration verification'
+        required: false
+        type: string
+
 permissions:
   contents: read
+
+# A newer commit supersedes stale feedback for the same branch or PR.
 concurrency:
-  group: smart-verification-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: shared-verification-${{ github.event.pull_request.number || github.ref }}-${{ inputs.stage || github.event_name }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.stage == 'fast') }}
+
 jobs:
   fast-feedback:
-    name: Change-aware Python and JavaScript smoke
+    if: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && !startsWith(github.ref, 'refs/heads/integration/')) || (github.event_name == 'workflow_dispatch' && inputs.stage == 'fast') }}
+    name: Four-stream fast feedback (not acceptance)
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    outputs:
+      native_needed: ${{ steps.selection.outputs.native_needed }}
     env:
       PYTHONDONTWRITEBYTECODE: '1'
       PYTHONUTF8: '1'
@@ -28,54 +49,140 @@ jobs:
         with:
           python-version: '3.12'
           cache: pip
-          cache-dependency-path: requirements-learning-studio.txt
+          cache-dependency-path: 'requirements*.txt'
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Install tracked test dependencies
+      - name: Install tracked Python dependencies
         run: python -m pip install -r requirements-learning-studio.txt
-      - name: Verify selector invariants first
-        run: python -m pytest -q tests/test_smart_verify.py --junitxml=smart-selector.xml
-      - name: Change-aware fast feedback (not merge acceptance)
+      - name: Preserve exact tracked source bytes before evidence fingerprinting
+        run: python scripts/architecture_checkout_eol.py --repo .
+      - name: Prove old and new selector safety
+        run: python -m pytest -q tests/test_smart_verify.py tests/test_verification_coordinator.py tests/test_verification_v2.py --junitxml=shared-selector.xml
+      - name: Select stream tests and browser dependency
+        id: selection
         shell: bash
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
           if [[ -z "$BASE_SHA" || "$BASE_SHA" =~ ^0+$ ]]; then
-            BASE_SHA="$(git rev-parse HEAD^)"
+            BASE_SHA="$(git merge-base origin/main HEAD)" || BASE_SHA="UNAVAILABLE"
           fi
-          python scripts/smart_verify.py --mode fast --base "$BASE_SHA" --head HEAD --execute --json smart-verification.json
-      - name: JavaScript contract tests
+          echo "SHARED_BASE_SHA=$BASE_SHA" >> "$GITHUB_ENV"
+          python scripts/verification_coordinator.py --base "$BASE_SHA" --head HEAD \
+            --json shared-verification.json
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          data = json.loads(Path('shared-verification.json').read_text())
+          browser = data['browser_needed']
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as stream:
+            stream.write('browser_needed=' + str(browser).lower() + '\n')
+            stream.write('native_needed=' + str(data['requires_android_installed_acceptance']).lower() + '\n')
+          print('Browser installation required:', browser)
+          PY
+      - uses: actions/cache/restore@v4
+        if: ${{ steps.selection.outputs.browser_needed == 'true' }}
+        with:
+          path: ~/.cache/ms-playwright
+          key: chromium-v2-${{ runner.os }}-py312-${{ hashFiles('requirements*.txt') }}
+      - name: Install Chromium only when changed browser tests are selected
+        if: ${{ steps.selection.outputs.browser_needed == 'true' }}
+        run: python -m playwright install --with-deps chromium
+      - name: Run change-aware Python and targeted JS contracts
         shell: bash
-        run: node --test tests/js/*.test.cjs
-      - name: Record exact source and limitation
+        env:
+          ANVAYA_BROWSER_TESTS: ${{ steps.selection.outputs.browser_needed == 'true' && '1' || '0' }}
+        run: |
+          python scripts/verification_coordinator.py --base "$SHARED_BASE_SHA" --head HEAD \
+            --execute --json shared-verification.json
+      - name: Explain exact-head evidence and remaining gates
         if: always()
         shell: python
         run: |
-          import json, os, pathlib, subprocess
-          report = pathlib.Path("smart-verification.json")
-          data = json.loads(report.read_text()) if report.is_file() else {"status": "NO_REPORT", "requires_full": True}
-          sha = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
-          lines = [
-              "## ANVAYA Smart Verification V1.0",
-              "Exact source: " + sha,
-              "Selection: " + data["status"],
-              "Area(s): " + (", ".join(data.get("areas", [])) or "none"),
-              "Executed module(s): " + str(len(data.get("selected", []))),
-              "Full regression required: " + str(data.get("requires_full", True)),
-              "",
-              "This is fast feedback only. Merge acceptance still requires the independent",
-              "cross-platform architecture validation, protected browser checks and",
-              "any feature-specific or real-provider certification.",
-          ]
-          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as stream:
-              stream.write("\n".join(lines) + "\n")
+          import json, os, subprocess
+          from pathlib import Path
+          p = Path('shared-verification.json')
+          data = json.loads(p.read_text()) if p.is_file() else {'outcome': 'NO_REPORT'}
+          sha = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+          assert data.get('source_sha', sha) == sha
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as f:
+            f.write('## Four-stream fast feedback (NOT merge acceptance)\n')
+            f.write('Exact SHA: `' + sha + '`\n\n')
+            f.write('Outcome: ' + data['outcome'] + '\n\n')
+            f.write('Streams: ' + ', '.join(data.get('streams', [])) + '\n\n')
+            f.write('Python files: ' + str(len(data.get('python_tests', []))) + '; JS contracts: ' + str(len(data.get('javascript_tests', []))) + '\n\n')
+            f.write('Cross-platform architecture, Android installed lifecycle, private fixtures, production data integrity and physical phone tests are NOT certified here.\n')
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: smart-verification-${{ github.event.pull_request.head.sha || github.sha }}
-          path: |
-            smart-verification.json
-            smart-verification.xml
-            smart-selector.xml
+          name: shared-fast-${{ github.event.pull_request.head.sha || github.sha }}
           if-no-files-found: warn
+          path: |
+            shared-verification.json
+            verification-results/**
+            shared-selector.xml
+
+  affected-native:
+    needs: fast-feedback
+    if: ${{ needs.fast-feedback.outputs.native_needed == 'true' }}
+    uses: ./.github/workflows/verification-android.yml
+    with:
+      source_sha: ${{ github.event.pull_request.head.sha || github.sha }}
+      level: ${{ github.event_name == 'pull_request' && !github.event.pull_request.draft && 'integration' || 'source' }}
+
+  integrated-synthetic:
+    if: ${{ (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/integration/') && !startsWith(github.ref, 'refs/heads/integration/unified-anvaya-android-release-')) || (github.event_name == 'workflow_dispatch' && inputs.stage == 'integration') }}
+    needs: candidate-identity
+    uses: ./.github/workflows/architecture-validation.yml
+    with:
+      source_sha: ${{ github.sha }}
+
+  candidate-identity:
+    if: ${{ (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/integration/') && !startsWith(github.ref, 'refs/heads/integration/unified-anvaya-android-release-')) || (github.event_name == 'workflow_dispatch' && inputs.stage == 'integration') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pin manual integration to the frozen SHA
+        env:
+          EVENT: ${{ github.event_name }}
+          EXPECTED: ${{ inputs.expected_sha }}
+          ACTUAL: ${{ github.sha }}
+        shell: python
+        run: |
+          import os, re
+          if os.environ['EVENT'] == 'workflow_dispatch':
+              assert re.fullmatch('[0-9a-f]{40}', os.environ['EXPECTED'])
+              assert os.environ['EXPECTED'] == os.environ['ACTUAL'], 'Integration SHA mismatch'
+
+  integrated-result:
+    if: ${{ always() && ((github.event_name == 'push' && startsWith(github.ref, 'refs/heads/integration/') && !startsWith(github.ref, 'refs/heads/integration/unified-anvaya-android-release-')) || (github.event_name == 'workflow_dispatch' && inputs.stage == 'integration')) }}
+    needs: integrated-synthetic
+    name: Integration synthetic gate (Android pending)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Preserve exact SHA and fail on missing platform
+        shell: python
+        env:
+          RESULT: ${{ needs.integrated-synthetic.result }}
+          SHA: ${{ github.sha }}
+        run: |
+          import json, os
+          from pathlib import Path
+          ok = os.environ['RESULT'] == 'success'
+          report = {
+            'source_sha': os.environ['SHA'],
+            'stage': 'integration',
+            'linux_windows_synthetic': 'PASS' if ok else 'FAIL',
+            'android_build_emulator_and_device': 'PENDING: independent installed checks required',
+            'private_fixture_authority': 'PENDING: owner-approved protected run required',
+            'release_approved': False,
+          }
+          Path('shared-integration-gate.json').write_text(json.dumps(report, indent=2) + '\n')
+          print(json.dumps(report, indent=2))
+          if not ok:
+            raise SystemExit(1)
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: shared-integration-gate-${{ github.sha }}
+          path: shared-integration-gate.json

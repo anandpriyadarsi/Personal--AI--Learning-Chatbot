@@ -532,7 +532,7 @@ def test_agent_page_renders_provider_mentor_and_session_controls_without_executi
     response = fake_web_app(fake).test_client().get("/agent")
     text = response.get_data(as_text=True)
     assert response.status_code == 200
-    for expected in ("Academic Agent", "Configured", "Choose a course for advice", "Start a tutor session", "Recent tutor sessions", "Source Only"):
+    for expected in ("ANVAYA Tutor", "Provider configured", "Choose a course for advice", "What shall we learn?", "Recent tutor sessions", "Source Only"):
         assert expected in text
     assert 'method="post"' in text.lower()
     assert 'action="/agent/sessions"' in text

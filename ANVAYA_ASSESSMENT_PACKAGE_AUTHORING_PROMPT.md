@@ -181,6 +181,50 @@ For every question include:
 
 ---
 
+## SELF-CONTAINED QUESTION QUALITY GATE
+
+**Non-negotiable for every newly generated quiz, test or practice question:** The
+student must be able to understand and answer the question from general mastery
+of the subject, using only the question stem and any data explicitly included in
+that stem. A learner who has not opened the source PDF, PPT, handwritten notes
+or page images must still be able to answer it.
+
+- Treat uploaded documents as *authoring evidence*, not as part of the question
+  visible to the test taker. **Never** ask "On page 12...", "According to
+  slide 14...", "In the classification on page 3...", "What does the image
+  on page 14 signify?", "Which reading respects the visual structure on page
+  14?" or any other page/slide/image-recall question.
+- Never rely on an absent diagram, table, passage, picture, slide, chart or
+  previous question. If a diagram or data set is essential, include all
+  necessary information in the question itself in an ANVAYA-supported readable
+  format. Otherwise choose a different question.
+- Ask about *concepts, definitions, relationships, applications, comparisons,
+  reasoning and calculations*, not document navigation, figure location or
+  memorised layout. Options must also be self-contained.
+- Keep source page numbers only in question.source provenance fields, not in
+  question.text or option display text.
+- Preserve a genuine source paper's original wording only for
+  reproduced_paper / faithful historical reproduction, even when imperfect;
+  flag uncertainty for author review. For generated practice and retests,
+  rewrite the question into a self-contained equivalent or replace it entirely.
+- Example rewrite: "**In the classification on page 3, what principally makes
+  a school Vedic?**" → "**What is the primary criterion for classifying an
+  Indian philosophical school as āstika (Vedic-affirming)?**"
+- Example rewrite: "**How many kinds of substance are listed on page 15?**"
+  → "**How many categories of dravya (substance) does the Vaiśeṣika school
+  recognize?**"
+- Example rewrite: "**Which reading respects the visual structure on page
+  14?**" → "**In Nyāya philosophy, how are attachment, aversion and delusion
+  understood in relation to the causes of suffering?**"
+
+**Mandatory final self-check:** Read every generated stem and every option
+as though the PDF and slides were unavailable. If any response requires seeing
+a specific page, picture or prior context, rewrite the question with its full
+necessary information or reject and regenerate that question. Do not set
+review_required: false merely to silence this check.
+
+---
+
 ## OBJECTIVE QUESTION RULES
 
 ### MCQ
@@ -407,6 +451,8 @@ Before returning the package, verify all of the following:
 26. Summations, products, indexed variables and elementary matrices use renderer-safe subscript/superscript notation rather than compressed prose notation.
 27. Systems and multi-step mathematical solutions preserve meaningful line breaks.
 28. MCQ/MSQ option-wise explanations are written on separate lines.
+29. Every generated question and its options can be answered without opening or seeing the source document; page/slide numbers stay only in provenance metadata.
+30. No generated stem asks about an unseen image, document layout, or specific page content.
 
 ---
 

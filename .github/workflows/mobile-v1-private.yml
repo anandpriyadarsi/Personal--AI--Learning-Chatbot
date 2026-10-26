@@ -1,0 +1,65 @@
+name: Mobile V1 private PWA acceptance
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: mobile-v1-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  mobile:
+    name: Mobile V1 (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    env:
+      ANVAYA_BROWSER_TESTS: '1'
+      PYTHONUTF8: '1'
+      PYTHONIOENCODING: utf-8
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: python -m pip install -r requirements-mobile.txt
+      - run: python -m playwright install --with-deps chromium
+      - run: python scripts/architecture_checkout_eol.py --repo .
+      - name: Synthetic mobile and protected academic acceptance
+        shell: python
+        run: |
+          import os,pathlib,subprocess,sys,xml.etree.ElementTree as ET
+          out=pathlib.Path(os.environ['RUNNER_TEMP'])/'anvaya-mobile-v1'
+          out.mkdir()
+          os.environ['ANVAYA_MOBILE_ARTIFACTS']=str(out/'screenshots')
+          with open(os.environ['GITHUB_ENV'],'a',encoding='utf-8') as f:
+              f.write('MOBILE_RESULTS='+str(out)+'\n')
+          (out/'source.txt').write_text(subprocess.check_output(['git','rev-parse','HEAD','HEAD^{tree}'],text=True),encoding='utf-8')
+          tests=['tests/test_mobile_v1.py','tests/test_mobile_v1_browser.py','tests/test_ui_v2_protected_browser.py','tests/test_assessment_pause_paper_browser.py','tests/test_assessment_live_browser.py','tests/test_learning_intelligence_v24_browser.py','tests/test_library_v2_browser.py','tests/learning_studio/test_mobile_source_v23.py','tests/learning_studio/test_v13_browser.py','tests/learning_studio/test_v14_browser.py','tests/test_phase7_5_15_11_inline_note_media.py','tests/test_phase7_5_15_13_card_polish_media_delete.py']
+          code=subprocess.call([sys.executable,'-m','pytest','-q',*tests,'--junitxml='+str(out/'mobile.xml')])
+          cases=ET.parse(out/'mobile.xml').findall('.//testcase') if (out/'mobile.xml').exists() else []
+          assert code==0 and cases and all(c.find('skipped') is None for c in cases),'Mobile gate failed or skipped acceptance'
+      - name: Frontend and source checks
+        shell: python
+        run: |
+          import pathlib,subprocess,sys
+          subprocess.run(['node','--test',*[str(p) for p in sorted(pathlib.Path('tests/js').glob('*.test.cjs'))]],check=True)
+          subprocess.run([sys.executable,'-m','compileall','-q','personal_learning_assistant','mobile_web.py'],check=True)
+          subprocess.run(['git','diff','--check'],check=True)
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mobile-v1-${{ matrix.os }}-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ env.MOBILE_RESULTS }}/**
+          if-no-files-found: error

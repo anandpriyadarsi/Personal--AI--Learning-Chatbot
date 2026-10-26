@@ -66,7 +66,7 @@ def test_normal_assessment_preflight_opt_in_resume_and_reject_legacy_mutation(tm
     client = app.test_client()
     original = client.get("/assessments/tests/" + aid)
     assert original.status_code == 200
-    assert "Start with Pause/Resume" in original.get_data(as_text=True)
+    assert "Start CBT Test" in original.get_data(as_text=True)
     started = client.post("/assessments/tests/" + aid + "/start",
                           data={"confirmed": "1", "extended_kind": "online_timed"})
     assert started.status_code == 303
@@ -98,7 +98,7 @@ def test_normal_assessment_preflight_opt_in_resume_and_reject_legacy_mutation(tm
     assert extended().state(sid)["remaining_ms"] == frozen
     resumed = client.get("/assessments/tests/" + aid)
     assert resumed.status_code == 200
-    assert "Resume active test" in resumed.get_data(as_text=True)
+    assert "Resume Test" in resumed.get_data(as_text=True)
     command("resume")
     assert extended().state(sid)["questions"][0]["response"]["selected_option_ids"] == ["B"]
     # Legacy runner must reject accidental auto-submit/expiry for this session.
@@ -109,9 +109,9 @@ def test_normal_assessment_preflight_opt_in_resume_and_reject_legacy_mutation(tm
 def test_paper_uses_approved_import_only_and_never_creates_official_grade(tmp_path):
     app, path, aid, extended, _ = _production(tmp_path, paper=True)
     client = app.test_client()
-    before = client.get("/assessments/tests/" + aid)
+    before = client.get("/assessments/tests/" + aid + "?assessment_mode=handwritten")
     assert before.status_code == 200
-    assert "Start handwritten paper practice" in before.get_data(as_text=True)
+    assert "Start Handwritten Test" in before.get_data(as_text=True)
     bad = client.post("/assessments/tests/" + aid + "/start",
                       data={"confirmed": "1", "extended_kind": "paper_subjective"})
     assert bad.status_code in (400, 422)
@@ -210,9 +210,9 @@ def test_live_overview_shows_real_practice_not_localhost_demo(tmp_path):
     page = app.test_client().get("/assessments")
     assert page.status_code == 200
     html = page.get_data(as_text=True)
-    assert "Assessment Studio · now available" in html
-    assert "Open assessments" in html
-    assert "Import practice paper" in html
+    assert "Choose how you want to take your test." in html
+    assert "Open CBT Tests" in html
+    assert "Open Handwritten Tests" in html
     assert "http://127.0.0.1:8766/" not in html
     assert "Self-entered" not in html or "self-evaluation" in html.lower()
 
@@ -280,9 +280,9 @@ def test_paused_online_resumes_directly_from_assessment_overview_at_last_questio
     overview = client.get("/assessments")
     assert overview.status_code == 200
     text = overview.get_data(as_text=True)
-    assert "Continue your assessment" in text
+    assert "Continue Paused Tests" in text
     assert "Paused at question 2" in text
-    assert "Resume test" in text
+    assert "Resume Test" in text
     assert sid in text
     assert list(sqlite3.connect(path).execute(
         "SELECT metadata_json FROM assessment_extended_execution WHERE session_id=?", (sid,)
@@ -319,6 +319,6 @@ def test_paused_resume_overview_disappears_if_feature_off(tmp_path):
     state = extended().state(sid)
     extended().command(sid, "pause", {"request_id": "pause_no_answer_123",
                                      "expected_revision": state["revision"]})
-    assert "Continue your assessment" in client.get("/assessments").get_data(as_text=True)
+    assert "Continue Paused Tests" in client.get("/assessments").get_data(as_text=True)
     app.config["ASSESSMENT_EXTENDED_ENABLED"] = False
-    assert "Continue your assessment" not in client.get("/assessments").get_data(as_text=True)
+    assert "Continue Paused Tests" not in client.get("/assessments").get_data(as_text=True)

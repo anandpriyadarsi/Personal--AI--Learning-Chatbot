@@ -25,14 +25,18 @@ _LOCKS_GUARD = Lock()
 _STORE_LOCKS = {}
 
 
+def notes_storage_lock(notes_path):
+    """Coordinate metadata/assets snapshots with every serialized note write."""
+    path = str(Path(notes_path).resolve(strict=False))
+    with _LOCKS_GUARD:
+        return _STORE_LOCKS.setdefault(path, RLock())
+
+
 def _serialized_write(method):
     """Keep a JSON store's compare-and-replace atomic across app threads."""
     @wraps(method)
     def write(self, *args, **kwargs):
-        path = str(self.notes_path.resolve(strict=False))
-        with _LOCKS_GUARD:
-            lock = _STORE_LOCKS.setdefault(path, RLock())
-        with lock:
+        with notes_storage_lock(self.notes_path):
             return method(self, *args, **kwargs)
     return write
 
@@ -191,6 +195,26 @@ class AnvayaNotesRepository:
                 except OSError:
                     pass
             raise
+
+    @_serialized_write
+    def create_notes(self, records):
+        """Create a validated text-only batch in one atomic index replacement."""
+        rows = self.list_notes()
+        ids = {str(row.get("id") or "") for row in rows}
+        created = []
+        for record in records:
+            note = deepcopy(dict(record))
+            note_id = _safe_id(note.get("id"))
+            if note_id in ids:
+                raise AnvayaNotesConflictError("Note id already exists.")
+            if note.get("assets"):
+                raise AnvayaNotesRepositoryError("Text-only batch cannot contain assets.")
+            ids.add(note_id)
+            note["assets"] = []
+            created.append(note)
+        if created:
+            self._save(rows + created)
+        return deepcopy(created)
 
     @_serialized_write
     def update_note(

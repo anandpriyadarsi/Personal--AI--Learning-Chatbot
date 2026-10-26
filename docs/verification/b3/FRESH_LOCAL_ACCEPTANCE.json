@@ -1,0 +1,145 @@
+{
+  "base_sha": "e15c347e5a7bf58c7ec29708eee49b1fed13f712",
+  "reviewed_code_sha256": "4023c8e0593b50b2649e1ad74ea7c1cc35c685c6edcd2f462c06b744d9987d3c",
+  "reviewed_test_sha256": "c2eda2a52807d0591d10039a60ae0c899edeb18be1d72d1eb3d44fa1c171b11a",
+  "local_source_fingerprint": "7b4e107b51151b5775a1bd29912213509ca715b315b77983dee7c9506dac7a1b",
+  "local_source_dirty": true,
+  "source_model": "Pre-publication indexed/working source snapshot; all non-Markdown bytes verified before pushing63c5a636. Clean exact-source hosted acceptance required independently.",
+  "categories": {
+    "full_pytest": {
+      "status": "PASS",
+      "tests": 1968,
+      "exit_code": 0,
+      "seconds": 183.868,
+      "failures": [],
+      "errors": [],
+      "skips": []
+    },
+    "focused": {
+      "status": "PASS",
+      "tests": 54,
+      "exit_code": 0,
+      "seconds": 4.081,
+      "failures": [],
+      "errors": [],
+      "skips": []
+    },
+    "fixture_order_agent_first": {
+      "status": "PASS",
+      "tests": 41,
+      "exit_code": 0,
+      "seconds": 3.226,
+      "failures": [],
+      "errors": [],
+      "skips": []
+    },
+    "fixture_order_phase2_first": {
+      "status": "PASS",
+      "tests": 41,
+      "exit_code": 0,
+      "seconds": 3.375,
+      "failures": [],
+      "errors": [],
+      "skips": []
+    },
+    "characterization": {
+      "status": "PASS",
+      "tests": 17,
+      "exit_code": 0,
+      "seconds": 10.705,
+      "failures": [],
+      "errors": [],
+      "skips": []
+    },
+    "headless_browser": {
+      "status": "PASS",
+      "tests": 43,
+      "exit_code": 0,
+      "seconds": 63.344,
+      "failures": [],
+      "errors": [],
+      "skips": []
+    },
+    "node": {
+      "status": "PASS",
+      "tests": null,
+      "exit_code": 0,
+      "seconds": 0.215,
+      "failures": null,
+      "errors": null,
+      "skips": null
+    },
+    "pip_check": {
+      "status": "PASS",
+      "tests": null,
+      "exit_code": 0,
+      "seconds": 0.365,
+      "failures": null,
+      "errors": null,
+      "skips": null
+    },
+    "pip_freeze": {
+      "status": "PASS",
+      "tests": null,
+      "exit_code": 0,
+      "seconds": 0.265,
+      "failures": null,
+      "errors": null,
+      "skips": null
+    },
+    "compile": {
+      "status": "PASS",
+      "tests": null,
+      "exit_code": 0,
+      "seconds": 0.966,
+      "failures": null,
+      "errors": null,
+      "skips": null
+    },
+    "migration_fixture": {
+      "status": "PASS",
+      "tests": null,
+      "exit_code": 0,
+      "seconds": 0.315,
+      "failures": null,
+      "errors": null,
+      "skips": null
+    },
+    "source_diff_check": {
+      "status": "PASS",
+      "tests": null,
+      "exit_code": 0,
+      "seconds": 0.004,
+      "failures": null,
+      "errors": null,
+      "skips": null
+    },
+    "source_cached_diff_check": {
+      "status": "PASS",
+      "tests": null,
+      "exit_code": 0,
+      "seconds": 0.004,
+      "failures": null,
+      "errors": null,
+      "skips": null
+    },
+    "feature_diff_check": {
+      "status": "PASS",
+      "tests": null,
+      "exit_code": 0,
+      "seconds": 0.004,
+      "failures": null,
+      "errors": null,
+      "skips": null
+    },
+    "feature_cached_diff_check": {
+      "status": "PASS",
+      "tests": null,
+      "exit_code": 0,
+      "seconds": 0.004,
+      "failures": null,
+      "errors": null,
+      "skips": null
+    }
+  }
+}

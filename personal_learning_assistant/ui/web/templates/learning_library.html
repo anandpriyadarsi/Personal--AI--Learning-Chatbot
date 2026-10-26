@@ -44,7 +44,7 @@
   </div>
   {% endfor %}
 </section>
-{% else %}<p class="empty-state">No registered courses are available. Learning Studio does not invent course records.</p>{% endfor %}
+{% else %}<p class="empty-state">No registered courses are available. Learning Studio does not invent course records.{% if config.get('ANDROID_LOCAL_RUNTIME') %} <a href="/mobile/device">Restore your original Semester 1 subject templates</a>.{% endif %}</p>{% endfor %}
 <section class="ls-secondary-courses">
   <a class="ls-card" href="{{ url_for('learning.course',course_id='unmapped') }}"><h3>Unmapped material</h3><p>{{ library.unmapped_count }} authored modules need course mapping review.</p></a>
   {% if library.unavailable_count %}<a class="ls-card" href="{{ url_for('learning.course',course_id='unavailable') }}"><h3>Course unavailable / needs review</h3><p>{{ library.unavailable_count }} modules retain their existing source records.</p></a>{% endif %}

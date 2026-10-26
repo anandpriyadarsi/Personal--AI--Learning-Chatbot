@@ -1,0 +1,34 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- INTERNET is required for the authenticated in-process loopback socket. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <application android:label="ANVAYA" android:icon="@drawable/anvaya_icon"
+        android:theme="@style/AppTheme" android:allowBackup="false"
+        android:fullBackupContent="false" android:usesCleartextTraffic="false"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:supportsRtl="true">
+        <provider android:name=".UploadFileProvider"
+            android:authorities="${applicationId}.uploads"
+            android:exported="false" android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/upload_paths" />
+        </provider>
+        <provider android:name=".MediaFileProvider"
+            android:authorities="${applicationId}.note_media"
+            android:exported="false" android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/media_paths" />
+        </provider>
+        <provider android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.documents" android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/document_paths" />
+        </provider>
+        <activity android:name=".PdfPageActivity" android:exported="false" />
+        <activity android:theme="@style/LaunchTheme" android:name=".MainActivity" android:exported="true" android:launchMode="singleTask"
+            android:windowSoftInputMode="adjustResize"
+            android:configChanges="orientation|screenSize|keyboardHidden">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>
