@@ -487,7 +487,7 @@ def test_web_runner_has_clickable_mcq_msq_palette_autosave_and_no_answer_leak(tm
 
     preflight = client.get("/assessments/tests/assessment-1")
     assert preflight.status_code == 200
-    assert "Start test" in preflight.get_data(as_text=True)
+    assert "Start CBT Test" in preflight.get_data(as_text=True)
 
     started = client.post(
         "/assessments/tests/assessment-1/start",

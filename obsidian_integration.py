@@ -1,5 +1,7 @@
 import json
 import os
+import re
+import tempfile
 
 from knowledge_paths import BASE_DIR
 
@@ -24,14 +26,17 @@ def default_config():
 
 def save_config(config):
     os.makedirs(DATA_DIR, exist_ok=True)
-
-    with open(CONFIG_FILE, "w", encoding="utf-8") as file:
-        json.dump(
-            config,
-            file,
-            indent=2,
-            ensure_ascii=False
-        )
+    # Keep the previous connection intact if serialization or storage fails.
+    descriptor, temporary = tempfile.mkstemp(prefix="obsidian-", suffix=".json", dir=DATA_DIR)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as file:
+            json.dump(config, file, indent=2, ensure_ascii=False)
+            file.flush()
+            os.fsync(file.fileno())
+        os.replace(temporary, CONFIG_FILE)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
 
 
 def load_config():
@@ -46,6 +51,12 @@ def load_config():
 
         if isinstance(config, dict):
             base.update(config)
+
+        # A snapshot is app-managed data, so its identity survives restoring
+        # a backup under a different runtime root. Never resolve arbitrary IDs.
+        snapshot_id = str(base.get("snapshot_id") or "")
+        if base.get("connection_mode") == "snapshot" and re.fullmatch(r"vault-[A-Za-z0-9_-]+", snapshot_id):
+            base["vault_path"] = os.path.join(DATA_DIR, "obsidian_snapshots", snapshot_id)
 
         return base
 
@@ -87,6 +98,9 @@ def set_vault_path(path):
     config = load_config()
     config["vault_path"] = normalized
     config["enabled"] = True
+    config["connection_mode"] = "folder"
+    for key in ("snapshot_id", "snapshot_name", "snapshot_imported_at"):
+        config.pop(key, None)
     save_config(config)
 
     return True, normalized

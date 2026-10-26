@@ -41,6 +41,11 @@ def full_jobs(minutes=12):
 
 
 class BenchmarkTests(unittest.TestCase):
+    def test_runner_consumption_sums_parallel_jobs_not_wall_time(self):
+        result = MODULE.inspect(full_jobs(), 'architecture')
+        self.assertEqual(result['runner_seconds'], 720 + 720 + 780)
+        self.assertEqual(result['runner_minutes'], 37.0)
+
     def test_full_cross_platform_time_and_steps(self):
         result = MODULE.inspect(full_jobs(), "architecture")
         self.assertEqual(result["wall_seconds"], 780)

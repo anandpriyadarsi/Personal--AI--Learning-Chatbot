@@ -13,3 +13,5 @@ playwright==1.51.0
 numpy==2.4.6
 # Merged-main characterization and full-regression environment.
 -r requirements-dev.txt
+# Original Library PDF previews and synthetic page/slide integrity fixtures.
+PyMuPDF==1.28.2

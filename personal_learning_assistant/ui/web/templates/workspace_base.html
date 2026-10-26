@@ -6,17 +6,18 @@
 {% endblock %}
 {% block body_class %}workspace-v2{% endblock %}
 {% block sidebar_contents %}
+{% set selected_page = 'library' if active_page == 'obsidian' else active_page %}
 <nav class="primary-nav" aria-label="Primary navigation">
 {% for label, links in [
   ('Workspace', [('home','web.home','Home'),('learning','learning.library','Learning Studio'),('assessments','web.assessments','Assessments'),('agent','web.academic_agent','Tutor')]),
-  ('Library', [('library','web.learning_library','Library'),('notes','web.notes','My Notes'),('obsidian','web.obsidian','Obsidian')]),
+  ('Library', [('library','web.learning_library','Library'),('notes','web.notes','My Notes')]),
   ('Academics', [('planning','web.planning','Planning'),('analysis','web.analysis','Analysis'),('evidence','academic_evidence.index','Study evidence'),('courses','web.courses','Courses'),('calendar','web.calendar','Calendar')])
 ] %}
 <div class="nav-section">
 <p class="nav-section-label">{{ label }}</p>
 {% for key, endpoint, title in links %}
 {% if (key != 'library' or config.get('LEARNING_LIBRARY_ENABLED', True)) and (key != 'evidence' or config.get('ACADEMIC_EVIDENCE_ENABLED', True)) %}
-<a class="nav-item{% if active_page == key %} is-active{% endif %}" href="{{ url_for(endpoint) }}"{% if active_page == key %} aria-current="page"{% endif %}><span>{{ title }}</span>{% if active_page == key %}<span aria-hidden="true">•</span>{% endif %}</a>
+<a class="nav-item{% if selected_page == key %} is-active{% endif %}" href="{{ url_for(endpoint) }}"{% if selected_page == key %} aria-current="page"{% endif %}><span>{{ title }}</span>{% if selected_page == key %}<span aria-hidden="true">•</span>{% endif %}</a>
 {% endif %}
 {% endfor %}
 </div>
@@ -31,7 +32,7 @@
 <noscript><details class="ws-fallback-nav"><summary>Navigate your workspace</summary><nav aria-label="Workspace navigation without JavaScript">
 {% if config.get('LEARNING_LIBRARY_ENABLED', True) %}<a href="{{ url_for('web.learning_library') }}">Library</a>{% endif %}
 {% if config.get('ACADEMIC_EVIDENCE_ENABLED', True) %}<a href="{{ url_for('academic_evidence.index') }}">Study evidence</a>{% endif %}
-{% for endpoint, title in [('web.home','Home'),('learning.library','Learning Studio'),('web.assessments','Assessments'),('web.notes','My Notes'),('web.obsidian','Obsidian'),('web.planning','Planning'),('web.analysis','Analysis'),('web.academic_agent','Tutor'),('web.courses','Courses'),('web.calendar','Calendar')] %}<a href="{{ url_for(endpoint) }}">{{ title }}</a>{% endfor %}
+{% for endpoint, title in [('web.home','Home'),('learning.library','Learning Studio'),('web.assessments','Assessments'),('web.notes','My Notes'),('web.obsidian','Obsidian · Connected source'),('web.planning','Planning'),('web.analysis','Analysis'),('web.academic_agent','Tutor'),('web.courses','Courses'),('web.calendar','Calendar')] %}<a href="{{ url_for(endpoint) }}">{{ title }}</a>{% endfor %}
 </nav></details></noscript>
 {% endblock %}
 
@@ -44,7 +45,7 @@
               name="q"
               type="search"
               maxlength="500"
-              placeholder="Search learning material"
+              placeholder="Search…"
               data-search-url="{{ url_for('web.learning_library', view='search') }}"
               aria-label="Search learning material"
             >

@@ -1,6 +1,7 @@
 name: Architecture V2.4 learning intelligence acceptance
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]
   workflow_dispatch:
 permissions:
@@ -12,6 +13,7 @@ env:
   V24_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 jobs:
   acceptance:
+    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
     name: V2.4 intelligence (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90

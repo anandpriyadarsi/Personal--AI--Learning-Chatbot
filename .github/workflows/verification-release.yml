@@ -1,0 +1,92 @@
+name: Frozen release verification (no publication)
+on:
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: Exact reviewed frozen integrated commit SHA
+        type: string
+        required: true
+      private_run:
+        description: Exact-SHA protected original-fixture run ID (absence blocks certification)
+        type: string
+        required: false
+      phone_run:
+        description: Exact-SHA protected physical phone run ID (absence blocks certification)
+        type: string
+        required: false
+permissions:
+  contents: read
+  actions: read
+# Frozen candidates are never cancelled by ordinary development commits.
+concurrency:
+  group: release-certification-${{ inputs.expected_sha }}
+  cancel-in-progress: false
+jobs:
+  frozen:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require frozen source identity
+        shell: python
+        env:
+          EXPECTED: ${{ inputs.expected_sha }}
+          ACTUAL: ${{ github.sha }}
+        run: |
+          import os,re
+          assert re.fullmatch('[0-9a-f]{40}',os.environ['EXPECTED'])
+          assert os.environ['EXPECTED']==os.environ['ACTUAL'], 'Select the frozen candidate branch before dispatch'
+  architecture:
+    needs: frozen
+    uses: ./.github/workflows/architecture-validation.yml
+    with:
+      source_sha: ${{ inputs.expected_sha }}
+  android:
+    needs: frozen
+    uses: ./.github/workflows/verification-android.yml
+    with:
+      source_sha: ${{ inputs.expected_sha }}
+      level: release
+  certification:
+    needs: [architecture, android]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.expected_sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Report automated results and unavailable private/phone authority
+        env:
+          SOURCE: ${{ inputs.expected_sha }}
+          ARCHITECTURE: ${{ needs.architecture.result }}
+          ANDROID: ${{ needs.android.result }}
+          PRIVATE_RUN: ${{ inputs.private_run }}
+          PHONE_RUN: ${{ inputs.phone_run }}
+          GH_TOKEN: ${{ github.token }}
+        shell: python
+        run: |
+          import json,os,sys
+          from pathlib import Path
+          sys.path.insert(0,'scripts')
+          from verification_release import inspect_run,GATES
+          from verification_integration import github
+          report={'source_sha':os.environ['SOURCE'],'architecture':os.environ['ARCHITECTURE'],
+                  'android':os.environ['ANDROID'],'release_authorized':False,'state':'BLOCKED'}
+          for name in ('private','phone'):
+              run_id=os.environ[name.upper()+'_RUN']
+              path,jobs=GATES[name]
+              report[name]=(inspect_run(int(run_id),os.environ['SOURCE'],path,jobs,os.environ['GITHUB_REPOSITORY'],github)
+                            if run_id.isdigit() else {'state':'NOT_VERIFIED','blockers':['Required evidence unavailable']})
+          if all(report[k]=='success' for k in ('architecture','android')) and all(report[k]['state']=='PASS' for k in ('private','phone')):
+              report['state']='AUTOMATED_GATES_PASS_OWNER_REVIEW_REQUIRED'
+          Path('release-certification.json').write_text(json.dumps(report,indent=2)+'\n')
+          print(json.dumps(report,indent=2))
+          if report['state']=='BLOCKED': raise SystemExit(2)
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: release-certification-${{ inputs.expected_sha }}-${{ github.run_id }}
+          path: release-certification.json
+          if-no-files-found: error

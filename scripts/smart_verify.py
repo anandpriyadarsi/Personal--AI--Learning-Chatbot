@@ -18,6 +18,13 @@ from typing import Iterable
 
 ROOT = Path(__file__).resolve().parents[1]
 
+
+def make_v2_plan(files: Iterable[str], mode: str = 'fast', root: Path = ROOT) -> dict:
+    """V2 graph selection; V1 make_plan/CLI remain compatible for older callers."""
+    from verification_policy import selection
+    stages = {'focused': 'feature', 'full': 'integration'}
+    return selection(list(files), root, stages.get(mode, mode))
+
 # These files affect unrelated areas or the test environment. Never certify a
 # scoped selection as sufficient when they change.
 CRITICAL = (

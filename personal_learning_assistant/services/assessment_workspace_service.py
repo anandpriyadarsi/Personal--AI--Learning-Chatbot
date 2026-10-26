@@ -67,7 +67,19 @@ class AssessmentWorkspaceService:
             action = 'View package' if state == 'rejected' else 'Review safely'
             url = '/assessments/import/' + quote(str(row['id']), safe='') + '/review'
         elif sid:
-            if row['session_status'] == 'active':
+            # The Android-local private attempt has its own closed-book
+            # results and self-check. Never offer legacy official evaluation
+            # actions for that distinct, deliberately unconfirmed authority.
+            if row.get('extended_kind') in {'online_timed', 'paper_subjective'}:
+                is_cbt = row['extended_kind'] == 'online_timed'
+                if row['session_status'] == 'active':
+                    state, label, action = 'active', 'In progress', 'Resume test'
+                else:
+                    state = 'completed'
+                    label = 'Practice results' if is_cbt else 'Self-check'
+                    action = 'Review answers & analysis' if is_cbt else 'Review self-check'
+                url = '/assessments/extended/sessions/' + sid
+            elif row['session_status'] == 'active':
                 expires = datetime.fromisoformat(row['expires_at'].replace('Z', '+00:00'))
                 state = 'active' if expires > self.now_fn() else 'time_ended'
                 label = 'In progress' if state == 'active' else 'Time ended'

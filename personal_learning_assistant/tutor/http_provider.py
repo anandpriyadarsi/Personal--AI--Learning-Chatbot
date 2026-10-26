@@ -42,6 +42,12 @@ class OpenAICompatibleTutorProvider:
 
     @property
     def configured(self):
+        # Import lazily: CLI/provider contracts remain independent of Flask startup.
+        from flask import has_app_context
+        if has_app_context():
+            from personal_learning_assistant.ui.web.mobile import cloud_ai_allowed
+            if not cloud_ai_allowed():
+                return False
         return bool(self.api_url and self.api_key and self.model)
 
     def complete(self, request):

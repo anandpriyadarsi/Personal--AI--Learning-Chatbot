@@ -93,6 +93,7 @@ class Journey:
         self.page.locator("#session-topic").select_option(topic)
         self.page.locator("#session-policy").select_option(policy)
         self.page.locator("#session-mode").select_option(mode)
+        self.page.locator(".tutor-session-options > summary").click()
         self.page.locator("#session-title").fill("Disposable A–K acceptance · scripted provider")
         self.page.get_by_role("button", name="Create tutor session").click()
         self.session_id = self.page.url.rsplit("/", 1)[-1]

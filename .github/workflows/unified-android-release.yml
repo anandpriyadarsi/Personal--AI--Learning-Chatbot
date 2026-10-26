@@ -1,0 +1,114 @@
+name: Publish verified unified Android debug release
+on:
+  workflow_run:
+    workflows: [ANVAYA synthetic architecture validation]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: unified-release-${{ github.event.workflow_run.head_sha }}
+  cancel-in-progress: false
+
+jobs:
+  source:
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_repository.full_name == github.repository && startsWith(github.event.workflow_run.head_commit.message, 'Release ANVAYA unified Android') }}
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.source.outputs.sha }}
+    steps:
+      - name: Require current main and the canonical successful architecture run
+        id: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE: ${{ github.event.workflow_run.head_sha }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        shell: python
+        run: |
+          import json, os, re, subprocess
+          def api(path):
+              return json.loads(subprocess.check_output(['gh','api','repos/'+os.environ['GITHUB_REPOSITORY']+'/'+path],text=True))
+          sha=os.environ['SOURCE']
+          assert re.fullmatch('[0-9a-f]{40}',sha)
+          assert api('git/ref/heads/main')['object']['sha']==sha, 'Main moved; do not release stale source'
+          run=api('actions/runs/'+os.environ['RUN_ID'])
+          assert run['head_sha']==sha and run['conclusion']=='success'
+          assert run['path']=='.github/workflows/architecture-validation.yml'
+          assert run['event']=='push' and run['head_branch']=='main'
+          assert run['head_repository']['full_name']==os.environ['GITHUB_REPOSITORY']
+          with open(os.environ['GITHUB_OUTPUT'],'a') as output: output.write('sha='+sha+'\n')
+  android:
+    needs: source
+    uses: ./.github/workflows/verification-android.yml
+    with:
+      source_sha: ${{ needs.source.outputs.sha }}
+      level: release
+  publish:
+    needs: [source, android]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE: ${{ needs.source.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.source.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: shared-android-build-${{ needs.source.outputs.sha }}-${{ github.run_id }}
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools build-tools;35.0.0
+      - name: Verify tested APK identity and prepare transparent debug release
+        run: |
+          test "$(git rev-parse HEAD)" = "$SOURCE"
+          test "$(head -1 android-evidence/source.txt)" = "$SOURCE"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SOURCE"
+          sha256sum -c android-evidence/SHA256SUMS.txt
+          mkdir release-assets
+          cp android/app/build/outputs/apk/debug/app-debug.apk release-assets/ANVAYA-Unified-Latest.apk
+          build_tools="$(find "$ANDROID_HOME/build-tools" -name aapt -type f | sort -V | tail -1)"
+          "$build_tools" dump badging release-assets/ANVAYA-Unified-Latest.apk > release-assets/APK-METADATA.txt
+          "$(dirname "$build_tools")/apksigner" verify --print-certs release-assets/ANVAYA-Unified-Latest.apk > release-assets/SIGNATURE.txt
+          (cd release-assets && sha256sum ANVAYA-Unified-Latest.apk > SHA256SUMS.txt)
+          python - <<'PY'
+          import hashlib,json,os,re,subprocess
+          from pathlib import Path
+          root=Path('release-assets');apk=root/'ANVAYA-Unified-Latest.apk'
+          metadata=(root/'APK-METADATA.txt').read_text()
+          assert "name='in.anvaya.privateapp'" in metadata
+          assert "versionCode='16'" in metadata and "versionName='1.2.0-unified-debug'" in metadata
+          assert "sdkVersion:'24'" in metadata
+          record={'source_sha':os.environ['SOURCE'],'tree_sha':subprocess.check_output(['git','rev-parse','HEAD^{tree}'],text=True).strip(),
+            'version_name':'1.2.0-unified-debug','version_code':16,'size_bytes':apk.stat().st_size,
+            'sha256':hashlib.sha256(apk.read_bytes()).hexdigest(),'minimum_android':'7.0 (API24)',
+            'abis':['armeabi-v7a','arm64-v8a','x86_64'],'signing':'debug; may differ from earlier test APKs',
+            'verification_run':'https://github.com/'+os.environ['GITHUB_REPOSITORY']+'/actions/runs/'+os.environ['GITHUB_RUN_ID'],
+            'installed_emulator_apis':[31,35],'physical_phone':'not verified','private_original_fixtures':'not certified'}
+          (root/'BUILD.json').write_text(json.dumps(record,indent=2)+'\n')
+          Path('release-notes.md').write_text('Unified ANVAYA 1.2.0 — installable debug prerelease\n\n'
+            'Built from merged main '+os.environ['SOURCE']+'. Canonical Linux/Windows synthetic checks and installed API31/API35 emulator checks passed for this source. The attached APK is the same binary used by those emulator checks.\n\n'
+            'Includes the integrated Learning reader/rename, nested notes, Focus Reading, attachments/external app opening, optional Obsidian ZIP snapshots, original-document Library/search, Assessment review and shared verification changes. See docs/integration/REPORT.md at the source commit.\n\n'
+            'Runs its Python backend on the phone; no separate computer/server is required. Cloud AI and Python internet access are disabled. Obsidian is a Markdown ZIP snapshot, not live sync. Legacy PPT needs conversion to PPTX for indexing. Scanned PDFs need OCR that may be unavailable. Physical phone, specific external player apps and private academic-source certification remain unverified.\n\n'
+            'Installation: download ANVAYA-Unified-Latest.apk, allow installation from your browser when Android asks, and install. Back up your study records first. This uses debug signing: if Android reports a signature conflict, do not uninstall or clear storage to bypass it; preserve/export your existing data first.\n\n'
+            'Version 1.2.0-unified-debug / code 16; Android 7.0+; ARM32, ARM64, x86_64. BUILD.json records checksum, exact byte size and source provenance.\n')
+          PY
+      - name: Publish a versioned GitHub prerelease without overwriting existing releases
+        run: |
+          tag="anvaya-unified-v1.2.0-debug-${SOURCE:0:12}"
+          gh release create "$tag" release-assets/* --repo "$GITHUB_REPOSITORY" --target "$SOURCE" --prerelease --title "ANVAYA Unified 1.2.0 — Debug" --notes-file release-notes.md
+          mkdir downloaded-release
+          curl --fail --location --retry 3 --output downloaded-release/ANVAYA-Unified-Latest.apk "https://github.com/$GITHUB_REPOSITORY/releases/download/$tag/ANVAYA-Unified-Latest.apk"
+          cmp release-assets/ANVAYA-Unified-Latest.apk downloaded-release/ANVAYA-Unified-Latest.apk
+          printf '%s\n' "https://github.com/$GITHUB_REPOSITORY/releases/tag/$tag" "https://github.com/$GITHUB_REPOSITORY/releases/download/$tag/ANVAYA-Unified-Latest.apk" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: unified-release-provenance-${{ needs.source.outputs.sha }}
+          path: release-assets/*

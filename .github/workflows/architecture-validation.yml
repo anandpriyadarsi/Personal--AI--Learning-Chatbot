@@ -2,47 +2,51 @@ name: ANVAYA synthetic architecture validation
 
 on:
   push:
-    branches: ['main', 'anvaya/**', 'phase7.5.**']
+    branches: ['main']
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      source_sha:
+        required: true
+        type: string
 
 permissions:
   contents: read
 
 # A newer PR head supersedes expensive old-head jobs.
 concurrency:
-  group: architecture-validation-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: architecture-validation-${{ github.event.pull_request.number || inputs.source_sha || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   development:
+    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
     name: Synthetic development (${{ matrix.os }})
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 45
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ inputs.source_sha || github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
           cache: pip
-          cache-dependency-path: |
-            requirements.txt
-            requirements-dev.txt
-            requirements-assessment-browser.txt
+          cache-dependency-path: 'requirements*.txt'
       - name: Check historical EOL differences and require pristine source
         run: python scripts/architecture_checkout_eol.py --repo .
       - name: Require the exact requested source commit
         shell: python
         env:
-          EXPECTED_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          EXPECTED_SOURCE_SHA: ${{ inputs.source_sha || github.event.pull_request.head.sha || github.sha }}
         run: |
           import os, subprocess, sys
           actual = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
@@ -61,22 +65,52 @@ jobs:
           node-version: '22'
       - name: Install tracked test dependencies
         run: python -m pip install -r requirements.txt -r requirements-dev.txt -r requirements-assessment-browser.txt
+      # PRs restore only; only the protected default branch may publish caches.
+      - uses: actions/cache/restore@v4
+        id: browser-cache
+        with:
+          path: ${{ env.PLAYWRIGHT_BROWSERS_PATH }}
+          key: chromium-v2-${{ runner.os }}-py312-${{ hashFiles('requirements*.txt') }}
       - name: Fresh Linux browser installation
         if: runner.os == 'Linux'
         run: python -m playwright install --with-deps chromium
       - name: Fresh Windows browser installation
         if: runner.os == 'Windows'
         run: python -m playwright install chromium
+      - uses: actions/cache/save@v4
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.browser-cache.outputs.cache-hit != 'true' }}
+        with:
+          path: ${{ env.PLAYWRIGHT_BROWSERS_PATH }}
+          key: chromium-v2-${{ runner.os }}-py312-${{ hashFiles('requirements*.txt') }}
       - name: Full validator (no deselections)
         shell: python
         run: |
           import os, subprocess, sys
           sys.exit(subprocess.call([sys.executable, 'scripts/architecture_validation.py', '--require-clean', '--output', os.environ['ANVAYA_VALIDATION_OUTPUT']]))
+      - name: Exercise Windows identity collection under client-default Restricted policy
+        if: runner.os == 'Windows'
+        shell: python
+        env:
+          B3_SOURCE_SHA: ${{ inputs.source_sha || github.event.pull_request.head.sha || github.sha }}
+        run: |
+          import json, os, subprocess
+          from pathlib import Path
+          policy = ['powershell', '-NoProfile', '-Command', 'Get-ExecutionPolicy -List | ConvertTo-Json -Compress']
+          before = json.loads(subprocess.check_output(policy, text=True))
+          command = r"""$ErrorActionPreference='Stop'; if ((Get-ExecutionPolicy) -ne 'Restricted') { throw 'Restricted test precondition failed' }; $body=Get-Content -LiteralPath '.\scripts\b3_collect_authority.ps1' -Raw; & ([ScriptBlock]::Create($body)) -Python (Get-Command python -ErrorAction Stop).Source -ToolsRef $env:B3_SOURCE_SHA -Output (Join-Path $env:RUNNER_TEMP 'B3_DEFAULT_IDENTITY.json')"""
+          subprocess.run(['powershell', '-NoProfile', '-ExecutionPolicy', 'Restricted', '-Command', command], check=True)
+          after = json.loads(subprocess.check_output(policy, text=True))
+          assert before == after, 'Persistent execution policy changed'
+          identity = json.loads((Path(os.environ['RUNNER_TEMP']) / 'B3_DEFAULT_IDENTITY.json').read_text(encoding='utf-8'))
+          assert identity['source_head'] == os.environ['B3_SOURCE_SHA']
+          assert identity['closed_schema_copy']['reason_code'] == 'writers_not_attested'
+          assert identity['GATE_A_LOCAL_PRODUCTION_AUTHORITY'] == 'BLOCKED'
+          (Path(os.environ['RUNNER_TEMP']) / 'B3_POLICY_ACCEPTANCE.json').write_text(json.dumps({'source_sha':os.environ['B3_SOURCE_SHA'], 'process_policy':'Restricted', 'persistent_policies_unchanged':True, 'default_no_db_access':True, 'status':'PASS'}, indent=2), encoding='utf-8')
       - name: Preserve results, XML, logs, manifests and screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: architecture-${{ matrix.os }}-${{ github.event.pull_request.head.sha || github.sha }}
+          name: architecture-${{ matrix.os }}-${{ inputs.source_sha || github.event.pull_request.head.sha || github.sha }}
           if-no-files-found: error
           path: |
             ${{ env.ANVAYA_VALIDATION_OUTPUT }}/run-*/VALIDATION_SUMMARY.*
@@ -85,18 +119,20 @@ jobs:
             ${{ env.ANVAYA_VALIDATION_OUTPUT }}/run-*/source-manifest.json
             ${{ env.ANVAYA_VALIDATION_OUTPUT }}/run-*/fixtures/manifest.json
             ${{ env.ANVAYA_VALIDATION_OUTPUT }}/run-*/screenshots/*
+            ${{ runner.temp }}/B3_DEFAULT_IDENTITY.json
+            ${{ runner.temp }}/B3_POLICY_ACCEPTANCE.json
 
   acceptance:
     name: Cross-platform development acceptance
     needs: development
-    if: always()
+    if: ${{ always() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
     runs-on: ubuntu-latest
     steps:
       - name: Record aggregate gate for this exact source SHA
         shell: python
         env:
           MATRIX_RESULT: ${{ needs.development.result }}
-          VALIDATED_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          VALIDATED_SOURCE_SHA: ${{ inputs.source_sha || github.event.pull_request.head.sha || github.sha }}
         run: |
           import json, os
           from pathlib import Path
@@ -106,7 +142,7 @@ jobs:
           Path('CROSS_PLATFORM_ACCEPTANCE.md').write_text(f"Source: {report['source_sha']}\n\nUbuntu + Windows synthetic regression: {result}\n\nOriginal external IKS: BLOCKED (separate private certification, not passed)\n\nLocal production authority: BLOCKED\n", encoding='utf-8')
       - uses: actions/upload-artifact@v4
         with:
-          name: cross-platform-acceptance-${{ github.event.pull_request.head.sha || github.sha }}
+          name: cross-platform-acceptance-${{ inputs.source_sha || github.event.pull_request.head.sha || github.sha }}
           path: CROSS_PLATFORM_ACCEPTANCE.*
       - name: Require both platform jobs
         if: needs.development.result != 'success'

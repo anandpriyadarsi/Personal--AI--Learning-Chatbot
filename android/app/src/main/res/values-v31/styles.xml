@@ -1,0 +1,9 @@
+<resources>
+    <!-- Android 12+ owns the initial launch window; the native content continues
+         on the same dark surface while Python and the WebView become ready. -->
+    <style name="LaunchTheme" parent="AppTheme">
+        <item name="android:windowSplashScreenBackground">#000000</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/anvaya_splash_icon</item>
+        <item name="android:windowSplashScreenIconBackgroundColor">#000000</item>
+    </style>
+</resources>

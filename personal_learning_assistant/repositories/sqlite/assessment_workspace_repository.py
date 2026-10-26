@@ -18,6 +18,41 @@ class SQLiteAssessmentWorkspaceRepository:
             "SELECT id, code, name FROM courses WHERE deleted_at IS NULL ORDER BY code COLLATE NOCASE, id"
         ))
 
+    def _with_extended_kind(self, rows):
+        """Attach only a terminal/navigation hint, never question or key content.
+
+        Existing web databases may not have Android's distinct extension table.
+        Query the optional table only when present and preserve old behavior
+        when absent. The SQLite read connection is query-only.
+        """
+        result = [dict(row) for row in rows]
+        ids = sorted({
+            str(row["session_id"]) for row in result if row.get("session_id")
+        })
+        if not ids:
+            return tuple(result)
+        present = self.connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' "
+            "AND name='assessment_extended_execution'"
+        ).fetchone()
+        if not present:
+            return tuple(result)
+        kinds = {}
+        for offset in range(0, len(ids), 200):
+            chunk = ids[offset:offset + 200]
+            placeholders = ",".join("?" for _ in chunk)
+            for row in self.connection.execute(
+                "SELECT session_id, json_extract(metadata_json, '$.kind') "
+                "AS kind FROM assessment_extended_execution "
+                "WHERE session_id IN (" + placeholders + ")",
+                chunk,
+            ):
+                if row["kind"] in {"online_timed", "paper_subjective"}:
+                    kinds[str(row["session_id"])] = row["kind"]
+        for row in result:
+            row["extended_kind"] = kinds.get(str(row.get("session_id") or ""))
+        return tuple(result)
+
     def rows(self):
         # One canonical assessment, with an active attempt preferred to a terminal
         # attempt. Stable IDs break timestamp ties (imports may share a second).
@@ -65,11 +100,11 @@ class SQLiteAssessmentWorkspaceRepository:
                   WHERE newer.package_id=b.package_id
                     AND newer.package_revision>b.package_revision)
         """).fetchall()
-        return tuple(dict(row) for row in (*canonical, *batches))
+        return self._with_extended_kind((*canonical, *batches))
 
     def history(self, assessment_id: str):
         # Header-only history remains safe even for an active attempt.
-        return tuple(dict(row) for row in self.connection.execute("""
+        return self._with_extended_kind(self.connection.execute("""
             SELECT s.id, s.id AS session_id, s.assessment_id, a.course_id,
                    s.title_snapshot AS title, s.course_code_snapshot AS course_code,
                    s.course_name_snapshot AS course_name, a.assessment_type,

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from flask import (
+    abort,
     Blueprint,
     current_app,
     jsonify,
@@ -245,7 +246,17 @@ def _assessment_workspace_service():
 
 def _safe_assessment_workspace(**filters):
     try:
-        return _assessment_workspace_service().library(**filters)
+        workspace = _assessment_workspace_service().library(**filters)
+        if current_app.config.get("ASSESSMENT_EXTENDED_ENABLED") is True:
+            for row in workspace["rows"]:
+                sid = row.get("session_id")
+                if sid and _is_extended_session(sid):
+                    state = _assessment_extended_service().state(sid)
+                    row["action_url"] = url_for("assessment_extended.workspace", sid=sid)
+                    row["state_label"] = {"paused": "Test Paused", "active": "In progress"}.get(state["status"],
+                        "My Self-Assessment" if state["kind"] == "paper_subjective" else "CBT Practice Result")
+                    row["action_label"] = "Continue Test" if state["status"] in {"active", "paused"} else "View review"
+        return workspace
     except Exception as error:
         current_app.logger.warning("Assessment lifecycle unavailable (%s).", type(error).__name__)
         return {"available": False, "rows": (), "continuation": None,
@@ -932,12 +943,19 @@ def _render_session_error(service, session_id, message, status):
             session = service.session_view(session_id)
         except Exception:
             session = None
+    # Only a CSRF-validated ask may echo its draft. Preserve the same nonce on
+    # recoverable failure: the server's existing deduplication remains authority.
+    draft = {}
+    if request.endpoint == "web.academic_agent_ask" and status != 403 and _tutor_action_token_matches():
+        draft = {"failed_question": request.form.get("question", "")[:4000],
+                 "retry_request_id": request.form.get("request_id", "")[:160]}
     return (
         render_template(
             "agent_session.html",
             active_page="agent",
             session=session,
             error_message=message,
+            **draft,
         ),
         status,
     )
@@ -1753,13 +1771,52 @@ def assessment_import_reject(batch_id):
 @web_blueprint.get("/assessments/tests")
 def assessment_tests():
     """Browse safe metadata across preparation, attempts and results."""
+    selected_mode = _assessment_selected_mode(request.args)
     workspace = _safe_assessment_workspace(
         query=request.args.get("q", ""), course_id=request.args.get("course_id", ""),
         kind=request.args.get("kind", ""), state=request.args.get("state", ""),
         page=request.args.get("page", 1),
     )
+    if selected_mode and workspace["available"]:
+        for row in workspace["rows"]:
+            if not row.get("assessment_id"):
+                row["mode_reason"] = "Review and approve this imported package first."
+                continue
+            test = _assessment_mode_preflight(row["assessment_id"], selected_mode)
+            row["mode_reason"] = test["mode_reason"]
+            row["mode_action_url"] = url_for("web.assessment_test_preflight",
+                assessment_id=row["assessment_id"], assessment_mode=selected_mode)
     return render_template("assessment_test_library.html", active_page="assessments",
-                           workspace=workspace, error_message=""), (200 if workspace["available"] else 503)
+                           workspace=workspace, selected_mode=selected_mode,
+                           error_message=""), (200 if workspace["available"] else 503)
+
+
+def _assessment_selected_mode(values):
+    """Navigation context is a bounded choice, never an execution policy."""
+    mode = values.get("assessment_mode", "")
+    if mode not in {"", "cbt", "handwritten"}:
+        abort(400, description="Choose CBT Based Test or Handwritten Test.")
+    return mode
+
+
+def _assessment_mode_preflight(assessment_id, selected_mode=""):
+    test = _assessment_runner_service().preflight(assessment_id)
+    test["selected_mode"] = selected_mode or "cbt"
+    test["extended_enabled"] = current_app.config.get("ASSESSMENT_EXTENDED_ENABLED") is True
+    test["paper_possible"] = False
+    test["mode_reason"] = ""
+    if selected_mode == "handwritten":
+        if test["mode"] != "practice":
+            test["mode_reason"] = "Handwritten self-check is for personal practice. Fixed-time exams keep their original scoring."
+        elif not test["extended_enabled"]:
+            test["mode_reason"] = "Handwritten practice is unavailable. Enable local practice support before starting."
+        else:
+            from personal_learning_assistant.services.assessment_entry_service import inspect_existing_paper
+            admission = inspect_existing_paper(_assessment_extended_service().repository.path, assessment_id)
+            test["paper_possible"] = admission["structural_status"] == "PASS"
+            if not test["paper_possible"]:
+                test["mode_reason"] = "This package needs an approved import with authored subjective solutions and marking rubrics. Import or review a suitable paper."
+    return test
 
 
 @web_blueprint.get("/assessments/tests/<assessment_id>/history")
@@ -1776,15 +1833,9 @@ def assessment_test_history(assessment_id):
 
 @web_blueprint.get("/assessments/tests/<assessment_id>")
 def assessment_test_preflight(assessment_id):
+    selected_mode = _assessment_selected_mode(request.args)
     try:
-        test = _assessment_runner_service().preflight(assessment_id)
-        test["extended_enabled"] = current_app.config.get("ASSESSMENT_EXTENDED_ENABLED") is True
-        test["paper_possible"] = (
-            test["mode"] == "practice"
-            and bool(test["marking_groups"])
-            and all(g["question_type"] in {"short_subjective", "long_subjective"}
-                    for g in test["marking_groups"])
-        )
+        test = _assessment_mode_preflight(assessment_id, selected_mode)
         return render_template(
             "assessment_test_preflight.html",
             active_page="assessments",
@@ -1797,13 +1848,22 @@ def assessment_test_preflight(assessment_id):
 
 @web_blueprint.post("/assessments/tests/<assessment_id>/start")
 def assessment_test_start(assessment_id):
+    selected_mode = _assessment_selected_mode(request.form)
     try:
         kind = request.form.get("extended_kind", "")
+        preflight = _assessment_mode_preflight(assessment_id, selected_mode)
+        if selected_mode and kind and kind != {"cbt": "online_timed", "handwritten": "paper_subjective"}[selected_mode]:
+            raise AssessmentRunnerValidationError("The selected test mode does not match the start request.")
+        if preflight["mode_reason"]:
+            raise AssessmentRunnerValidationError(preflight["mode_reason"])
+        # New personal practice uses the existing pausable engine by default.
+        # Historical attempts and genuine fixed-time exams are never converted.
+        if not kind and preflight["extended_enabled"] and preflight["mode"] == "practice":
+            kind = "paper_subjective" if selected_mode == "handwritten" else "online_timed"
         if kind:
             if (current_app.config.get("ASSESSMENT_EXTENDED_ENABLED") is not True
                     or kind not in {"online_timed", "paper_subjective"}):
                 raise AssessmentRunnerValidationError("Extended practice is not enabled.")
-            preflight = _assessment_runner_service().preflight(assessment_id)
             if preflight["mode"] != "practice":
                 raise AssessmentRunnerValidationError("Extended attempts are practice only.")
             if request.form.get("confirmed") != "1":
@@ -1843,7 +1903,7 @@ def assessment_test_start(assessment_id):
         )
     except Exception as error:
         try:
-            test = _assessment_runner_service().preflight(assessment_id)
+            test = _assessment_mode_preflight(assessment_id, selected_mode)
             return (
                 render_template(
                     "assessment_test_preflight.html",
@@ -3015,7 +3075,8 @@ def anvaya_notes_upload_create():
 @web_blueprint.get("/notes/view/<note_id>")
 def anvaya_note_reader(note_id):
     try:
-        note = _anvaya_notes_service().reader(note_id)
+        service = _anvaya_notes_service()
+        note = getattr(service, "section_reader", service.reader)(note_id)
         return render_template(
             "anvaya_notes_reader.html",
             active_page="notes",
@@ -3994,6 +4055,8 @@ def obsidian_companion_archive(entry_id):
 @web_blueprint.post("/obsidian/connect")
 def obsidian_connect():
     """Connect or change the configured vault using explicit POST + PRG."""
+    if current_app.config.get('PRIVATE_MOBILE_MODE'):
+        return redirect(url_for('obsidian_connections.settings'), code=303)
     service = _obsidian_workspace_service()
     try:
         service.connect_vault(request.form.get("vault_path", ""))
@@ -4411,7 +4474,7 @@ def academic_agent_ask(session_id):
         else:
             service.ask(session_id, request.form.get("question", ""))
         return redirect(
-            url_for("web.academic_agent_session", session_id=session_id),
+            url_for("web.academic_agent_session", session_id=session_id, _anchor="tutor-latest-turn"),
             code=303,
         )
     except AcademicAgentWebValidationError:

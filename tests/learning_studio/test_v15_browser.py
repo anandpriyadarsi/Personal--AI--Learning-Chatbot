@@ -23,10 +23,10 @@ def test_mistake_recheck_fresh_question_source_and_print(browser,quality_live,wi
     form.locator('.ls-source-chips a').click();assert 'page=11' in page.url and 'question=q11' in page.url
     page.locator('#ls-return-question').click();expect(form).to_have_attribute('data-question-id','q11')
     page.get_by_role('link',name='What still needs revision? · question denominators and rechecks',exact=True).click()
-    # The old practice counter also contains "1 of 31" (question 11 of 31).
-    # Require the actual evidence destination before starting another navigation.
-    page.wait_for_url('**/quality?format=html')
+    # Require the actual evidence destination: the practice page also says "1 of 31".
+    page.wait_for_url(base+'/quality?format=html')
     page.wait_for_load_state('load')
+    expect(page.get_by_role('heading',name='What still needs revision?',exact=True)).to_be_visible()
     expect(page.locator('main')).to_contain_text('1 of 31')
     no_overflow(page);screenshot(page,f'v15-evidence-{width}.png')
     page.goto(base+'?view=revision&budget=full');page.emulate_media(media='print')

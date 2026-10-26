@@ -3,6 +3,7 @@ on:
   push:
     branches: ['feature/library-hub-resources-v2-2026-10-19']
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'personal_learning_assistant/domain/learning_library_models.py'
       - 'personal_learning_assistant/repositories/sqlite/learning_library_repository.py'
@@ -18,6 +19,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   library:
+    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
     name: Library and resource controls (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60

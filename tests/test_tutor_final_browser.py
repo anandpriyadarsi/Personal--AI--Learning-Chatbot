@@ -128,7 +128,9 @@ def test_persisted_adaptive_journey_in_real_browser(browser, real_tutor, width):
         state = inspect_session(path, session_id)
         assert state['session_goal']['status'] != 'likely_met'
         assert state['all_state_checks_pass']
+        page.locator('.tutor-answer-details').last.evaluate('(node) => node.open = true')
         page.get_by_role('button', name='Helpful', exact=True).last.click()
+        page.locator('.tutor-answer-details').last.evaluate('(node) => node.open = true')
         page.get_by_role('button', name='Helpful', exact=True).last.click()
         connection = open_database(path)
         assert connection.execute('SELECT COUNT(*) FROM tutor_feedback').fetchone()[0] == before['tutor_feedback'] + 1
@@ -136,6 +138,7 @@ def test_persisted_adaptive_journey_in_real_browser(browser, real_tutor, width):
         for table, count in before.items():
             if table not in {'tutor_sessions', 'tutor_turns', 'tutor_evidence_links', 'tutor_feedback'}:
                 assert after[table] == count, table
+        page.locator('.tutor-answer-details').last.evaluate('(node) => node.open = true')
         form = page.locator('.tutor-turn-feedback').last
         form.locator('[name=csrf_token]').evaluate('(node) => node.value="invalid"')
         form.get_by_role('button', name='Helpful', exact=True).click()
@@ -170,6 +173,7 @@ def test_exact_source_link_and_strict_reader_handoff(browser, tmp_path):
     page = browser.new_page(viewport={'width': 1366, 'height': 950})
     try:
         page.goto(f'http://127.0.0.1:{server.server_port}/agent/sessions/{session_id}')
+        page.locator('.tutor-answer-details > summary').last.click()
         link = page.locator('.agent-turn a').filter(has_text='Cited · S1')
         expect(link).to_have_attribute('href', f'/knowledge/item/{hit.document_id}')
         link.click()

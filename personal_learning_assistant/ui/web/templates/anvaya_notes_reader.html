@@ -3,9 +3,17 @@
 {% block title %}{{ note.title if note else 'Note' }} · ANVAYA{% endblock %}
 {% block body_class %}{{ super() }} notes-focus-page{% endblock %}
 
+{% block workspace_assets %}
+{{ super() }}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/nested_notes.css') }}">
+{% if note %}<link rel="stylesheet" href="{{ url_for('static', filename='css/notes_media.css') }}">{% endif %}
+{% endblock %}
+
 {% block page_scripts %}
 {{ super() }}
 <script defer src="{{ url_for('static', filename='js/anvaya_notes_reader.js') }}"></script>
+<script defer src="{{ url_for('static', filename='js/nested_notes.js') }}"></script>
+{% if note %}<script defer src="{{ url_for('static', filename='js/notes_media.js') }}"></script>{% endif %}
 {% endblock %}
 
 {% block content %}
@@ -34,11 +42,18 @@
   <a class="button secondary-button" href="{{ url_for('web.anvaya_note_edit', note_id=note.id) }}">Edit note</a>
 </header>
 
-{% if note.note_kind == 'typed' %}
-<article class="dashboard-panel anvaya-native-rendered-note" aria-label="Full note">
-  {{ note.rendered_html }}
-</article>
-{% endif %}
+<section id="nested-notes" data-sections-url="{{ url_for('nested_notes.collection', note_id=note.id) }}" data-csrf="{{ notes_media_csrf }}" aria-label="Full note · Mini-notes">
+  <div class="section-controls"><label>Search within main note<input type="search" id="section-search" placeholder="Find a section or topic"></label>
+  <label class="section-mode"><input id="section-multiple" type="checkbox"> Keep several open</label>
+  <button type="button" id="sections-collapse">Collapse all</button><button type="button" id="sections-expand">Expand all</button></div>
+  <p id="section-status" role="status" aria-live="polite"></p><div id="section-list"></div>
+  <button type="button" id="section-add" class="button">+ Add Section</button>
+  <form id="section-editor" hidden><h3>Edit mini-note</h3><label>Section title<input id="section-title" maxlength="200" required></label>
+  <label>Content · Markdown, lists, checklists and links<textarea id="section-body" rows="10" maxlength="500000"></textarea></label>
+  <small>Use **bold**, - bullet points, - [ ] tasks and [title](https://...) links. Attach files after saving.</small>
+  <div><button type="submit">Save section</button><button type="button" id="section-cancel">Cancel</button></div></form>
+  <noscript>Enable JavaScript to read mini-notes, or use Edit note to read and edit Original Content.</noscript>
+</section>
 
 {% if note.assets %}
 <section class="dashboard-panel anvaya-native-assets">
@@ -50,7 +65,7 @@
       {% if asset.mimetype == 'application/pdf' %}
       <div class="anvaya-native-pdf">
         <div class="anvaya-native-file-heading"><strong>{{ asset.filename }}</strong><a href="{{ asset.url }}" target="_blank" rel="noopener noreferrer">Open PDF ↗</a></div>
-        <iframe src="{{ asset.url }}" title="{{ asset.filename }}"></iframe>
+        {% if not config.get('PRIVATE_MOBILE_MODE') %}<iframe src="{{ asset.url }}" title="{{ asset.filename }}" loading="lazy"></iframe>{% endif %}
       </div>
       {% else %}
       <figure class="anvaya-native-image-page">
@@ -62,6 +77,8 @@
   </div>
 </section>
 {% endif %}
+
+{% include "_universal_note_attachments.html" %}
 
 <footer class="anvaya-native-reader-footer">
   <span>Created {{ note.created_label }}</span>

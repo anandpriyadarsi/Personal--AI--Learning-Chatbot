@@ -597,3 +597,35 @@ def test_open_contract_schema_example_and_authoring_prompt_are_present():
     assert "*.anvaya-assessment.json" in prompt
     assert "MCQ" in prompt and "MSQ" in prompt
     assert "review_required" in prompt
+
+
+@pytest.mark.parametrize("stem", [
+    "How many kinds of substance are listed on page 15?",
+    "Which reading respects the visual structure on page 14?",
+    "What does the image above signify?",
+    "What does this image signify?",
+    "According to slide 3, which factor is lower triangular?",
+])
+def test_generated_practice_rejects_source_dependent_questions(stem):
+    from personal_learning_assistant.services.assessment_package_service import (
+        _validate_package, AssessmentPackageValidationError,
+    )
+    package = _package()
+    package["questions"][0]["text"] = stem
+    with pytest.raises(AssessmentPackageValidationError, match="self-contained"):
+        _validate_package(package)
+
+
+def test_reproduced_paper_retains_original_wording_and_generated_options_need_context():
+    from personal_learning_assistant.services.assessment_package_service import (
+        _validate_package, AssessmentPackageValidationError,
+    )
+    package = _package()
+    package["questions"][0]["text"] = "According to page 12, which factor is lower triangular?"
+    package["authoring"]["purpose"] = "reproduced_paper"
+    assert _validate_package(package)
+
+    generated = _package()
+    generated["questions"][0]["options"][0]["text"] = "The image above"
+    with pytest.raises(AssessmentPackageValidationError, match="self-contained"):
+        _validate_package(generated)

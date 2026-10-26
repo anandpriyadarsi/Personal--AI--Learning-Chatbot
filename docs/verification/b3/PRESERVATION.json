@@ -1,0 +1,84 @@
+{
+  "base_sha": "e15c347e5a7bf58c7ec29708eee49b1fed13f712",
+  "feature_parent": "8b4d62913e8e92728efc2fb33bafc6e9be5421fa",
+  "status": "PASS",
+  "same_existing_blobs": 849,
+  "intentional_existing_changes": [
+    ".github/workflows/architecture-validation.yml",
+    "scripts/architecture_local_collector.py"
+  ],
+  "migration_count": 14,
+  "immutable_ledger": [
+    {
+      "path": "personal_learning_assistant/repositories/sqlite/migrations/0001_foundation.sql",
+      "sha256": "a94e84b552cdf9e97eef47bb9c25accc55ad2126335ed201bcc47215ab71d14d",
+      "git_blob": "4461ad1e6d6b0d18bace24b50f4cbac9a7c23c67"
+    },
+    {
+      "path": "personal_learning_assistant/repositories/sqlite/migrations/0002_academic_schema.sql",
+      "sha256": "5e16fd5d11c904583fe420f6ce6f6e894be948bccc61941a59807dae200e508f",
+      "git_blob": "0181931c327b62d249dfcd67bf1364a54a6caddd"
+    },
+    {
+      "path": "personal_learning_assistant/repositories/sqlite/migrations/0003_tutor_intelligence.sql",
+      "sha256": "df68963637dc467fbc9cb19d8fc1ab7dc609c6d94e88045eec82006914690846",
+      "git_blob": "859888f5f32051d2a6ba92a9ac8cce4392e89e19"
+    },
+    {
+      "path": "personal_learning_assistant/repositories/sqlite/migrations/0004_practice_recall.sql",
+      "sha256": "bfda67e0e225a99043e4a9825626db8c95d258624374ea68186f0c556fba32de",
+      "git_blob": "0066db869d1c5a111269c88abb25d8accd6fbd33"
+    },
+    {
+      "path": "personal_learning_assistant/repositories/sqlite/migrations/0005_obsidian_study_companion.sql",
+      "sha256": "8b596fdb58f9f5782c6d423267748bac606802b821d41b844fc06e1ee69bb5fb",
+      "git_blob": "0ef22b66ce529996a6d279b3b260a3bb41bd1fa9"
+    },
+    {
+      "path": "personal_learning_assistant/repositories/sqlite/migrations/0006_operational_planner.sql",
+      "sha256": "da39a7cee8d1a80a1ac4254f5f23b9106da16030680139a78dde69f9efbd6f9c",
+      "git_blob": "81d437afbcff9df8aad100b851581d5b3001afd6"
+    },
+    {
+      "path": "personal_learning_assistant/repositories/sqlite/migrations/0007_unified_study_interactions.sql",
+      "sha256": "8b4f4f77878c0ec9c01861db94f4bd14225d5007837b6f6d108dc09895de3658",
+      "git_blob": "ab448689fff42044459e12dae3994fabe791be9c"
+    },
+    {
+      "path": "personal_learning_assistant/repositories/sqlite/migrations/0008_moodle_sync.sql",
+      "sha256": "915903ca7d7845c1d85c0b9ccb149ecff111d2f20fbf7dd7faa4a6b87e7a8e96",
+      "git_blob": "37952ec7145b1cc7e15f7e34fa49e41ae6a7c99d"
+    },
+    {
+      "path": "personal_learning_assistant/repositories/sqlite/migrations/0009_assessment_studio_foundation.sql",
+      "sha256": "7d7309f8c07a3bf6b93e28dbdd1b09d9812cea7140e984848b3afb4d76cab038",
+      "git_blob": "22fd92f72cdf23154af845f434078c0ab602bbea"
+    },
+    {
+      "path": "personal_learning_assistant/repositories/sqlite/migrations/0010_assessment_package_import_review.sql",
+      "sha256": "d1128345911586b057b9ba2cdf5053863c72a27107c3d49b6f5177af1bc20014",
+      "git_blob": "9e95338b716a0fc77c1fde3b670f944307c11d7f"
+    },
+    {
+      "path": "personal_learning_assistant/repositories/sqlite/migrations/0011_assessment_timed_test_runner.sql",
+      "sha256": "9aec6a1d59d7f4cfb0d7822d0c132d05db7aa2be919ca21b6c9a27d16dc5aa11",
+      "git_blob": "7b03a2b8499a92fb17701827ca17182183b0aa22"
+    },
+    {
+      "path": "personal_learning_assistant/repositories/sqlite/migrations/0012_assessment_evaluation_engine.sql",
+      "sha256": "0b4cf46cc23672a1534d5b522f993133eb9d4f2ec6c0f37052b2c61d4ff6d3eb",
+      "git_blob": "14e6e952ab91c09ac5ed6fc17a3adb4e878401ac"
+    },
+    {
+      "path": "personal_learning_assistant/repositories/sqlite/migrations/0013_assessment_adaptive_academic_loop.sql",
+      "sha256": "9fe4e33158a48c48b8dff84a95b69ebdd40c15a4fcdca23ec35776531310a475",
+      "git_blob": "cba2e55d7d77eefdcb444581f51a985d8ef97944"
+    },
+    {
+      "path": "personal_learning_assistant/repositories/sqlite/migrations/0014_assessment_authoring_workspace.sql",
+      "sha256": "c895a8c5246dd514058da938fdbf6cea4f2bed13088976a57896b885c316d095",
+      "git_blob": "b1174d2cae02ffdd94fd7359b8460147bfb7aa3e"
+    }
+  ],
+  "data_scope": "Git source only; no installed academic data, controls or vault accessed"
+}

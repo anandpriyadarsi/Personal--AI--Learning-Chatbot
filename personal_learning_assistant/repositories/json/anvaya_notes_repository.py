@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import time
 import shutil
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
@@ -25,14 +26,18 @@ _LOCKS_GUARD = Lock()
 _STORE_LOCKS = {}
 
 
+def notes_storage_lock(notes_path):
+    """Coordinate metadata/assets snapshots with every serialized note write."""
+    path = str(Path(notes_path).resolve(strict=False))
+    with _LOCKS_GUARD:
+        return _STORE_LOCKS.setdefault(path, RLock())
+
+
 def _serialized_write(method):
     """Keep a JSON store's compare-and-replace atomic across app threads."""
     @wraps(method)
     def write(self, *args, **kwargs):
-        path = str(self.notes_path.resolve(strict=False))
-        with _LOCKS_GUARD:
-            lock = _STORE_LOCKS.setdefault(path, RLock())
-        with lock:
+        with notes_storage_lock(self.notes_path):
             return method(self, *args, **kwargs)
     return write
 
@@ -78,6 +83,7 @@ class AnvayaNotesRepository:
         self.notes_path = Path(notes_path)
         self.assets_root = Path(assets_root)
 
+    @_serialized_write
     def list_notes(self):
         if not self.notes_path.exists():
             return []
@@ -113,7 +119,17 @@ class AnvayaNotesRepository:
                 json.dumps(payload, indent=2, ensure_ascii=False),
                 encoding="utf-8",
             )
-            os.replace(temporary, self.notes_path)
+            for attempt in range(6):
+                try:
+                    os.replace(temporary, self.notes_path)
+                    break
+                except PermissionError as error:
+                    # Windows can briefly deny rename for filesystem/filter
+                    # handles outside our own reader lock. Retry the same
+                    # complete snapshot; never retry or duplicate the mutation.
+                    if getattr(error, 'winerror', None) not in (5, 32, 33) or attempt == 5:
+                        raise
+                    time.sleep(0.02 * (2 ** attempt))
         except OSError as error:
             raise AnvayaNotesRepositoryError("Notes store could not be saved.") from error
         finally:
@@ -191,6 +207,26 @@ class AnvayaNotesRepository:
                 except OSError:
                     pass
             raise
+
+    @_serialized_write
+    def create_notes(self, records):
+        """Create a validated text-only batch in one atomic index replacement."""
+        rows = self.list_notes()
+        ids = {str(row.get("id") or "") for row in rows}
+        created = []
+        for record in records:
+            note = deepcopy(dict(record))
+            note_id = _safe_id(note.get("id"))
+            if note_id in ids:
+                raise AnvayaNotesConflictError("Note id already exists.")
+            if note.get("assets"):
+                raise AnvayaNotesRepositoryError("Text-only batch cannot contain assets.")
+            ids.add(note_id)
+            note["assets"] = []
+            created.append(note)
+        if created:
+            self._save(rows + created)
+        return deepcopy(created)
 
     @_serialized_write
     def update_note(

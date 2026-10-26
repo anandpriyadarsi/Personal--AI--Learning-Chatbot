@@ -1,0 +1,310 @@
+{
+  "source_sha": "63c5a636f4e737c204a791360e2bc715c9ac945f",
+  "status": "PASS",
+  "aggregate": {
+    "source_sha": "63c5a636f4e737c204a791360e2bc715c9ac945f",
+    "required_platforms": [
+      "ubuntu-latest",
+      "windows-latest"
+    ],
+    "matrix_result": "success",
+    "GATE_A_DEV_AUTOMATED": "PASS",
+    "GATE_A_LOCAL_PRODUCTION_AUTHORITY": "BLOCKED"
+  },
+  "restricted_policy": {
+    "source_sha": "63c5a636f4e737c204a791360e2bc715c9ac945f",
+    "process_policy": "Restricted",
+    "persistent_policies_unchanged": true,
+    "default_no_db_access": true,
+    "status": "PASS"
+  },
+  "case_manifest_sha256": "534b29557bb1047d9d367206c3e4316839fc34de9104dfff6846cbe0d9f7c9c9",
+  "case_inventory_sha256": "a9c63d0f682748a63d5c0de9a458be57b3de835fed152461fd8c937ad3ffe93b",
+  "run_id": 38525732263,
+  "run_url": "https://github.com/anandpriyadarsi/Personal--AI--Learning-Chatbot/actions/runs/38525732263",
+  "artifacts": [
+    {
+      "id": 11876712061,
+      "name": "architecture-windows-latest-63c5a636f4e737c204a791360e2bc715c9ac945f",
+      "size_in_bytes": 896216,
+      "url": "https://api.github.com/repos/anandpriyadarsi/Personal--AI--Learning-Chatbot/actions/artifacts/11876712061",
+      "archive_download_url": "https://api.github.com/repos/anandpriyadarsi/Personal--AI--Learning-Chatbot/actions/artifacts/11876712061/zip",
+      "expired": false,
+      "created_at": "2026-10-14T07:25:41Z",
+      "expires_at": "2027-01-12T07:01:44Z",
+      "updated_at": "2026-10-14T07:25:41Z",
+      "digest": "sha256:f9df2cd440b30f5a944abf84f2b196798ce26e5fa96cc1c92a1bc4c1a9af9f39",
+      "workflow_run": {
+        "id": 38525732263,
+        "repository_id": 1309567180,
+        "head_repository_id": 1309567180,
+        "head_branch": "anvaya/topic-intelligence-b3-attribution-authority",
+        "head_sha": "63c5a636f4e737c204a791360e2bc715c9ac945f"
+      }
+    },
+    {
+      "id": 11876403369,
+      "name": "cross-platform-acceptance-63c5a636f4e737c204a791360e2bc715c9ac945f",
+      "size_in_bytes": 639,
+      "url": "https://api.github.com/repos/anandpriyadarsi/Personal--AI--Learning-Chatbot/actions/artifacts/11876403369",
+      "archive_download_url": "https://api.github.com/repos/anandpriyadarsi/Personal--AI--Learning-Chatbot/actions/artifacts/11876403369/zip",
+      "expired": false,
+      "created_at": "2026-10-14T07:25:49Z",
+      "expires_at": "2027-01-12T07:01:44Z",
+      "updated_at": "2026-10-14T07:25:49Z",
+      "digest": "sha256:08e5dbb67210c8c327e51da80176728c6a12721799f59e6040d260736d2327f1",
+      "workflow_run": {
+        "id": 38525732263,
+        "repository_id": 1309567180,
+        "head_repository_id": 1309567180,
+        "head_branch": "anvaya/topic-intelligence-b3-attribution-authority",
+        "head_sha": "63c5a636f4e737c204a791360e2bc715c9ac945f"
+      }
+    },
+    {
+      "id": 11875852891,
+      "name": "architecture-ubuntu-latest-63c5a636f4e737c204a791360e2bc715c9ac945f",
+      "size_in_bytes": 1036110,
+      "url": "https://api.github.com/repos/anandpriyadarsi/Personal--AI--Learning-Chatbot/actions/artifacts/11875852891",
+      "archive_download_url": "https://api.github.com/repos/anandpriyadarsi/Personal--AI--Learning-Chatbot/actions/artifacts/11875852891/zip",
+      "expired": false,
+      "created_at": "2026-10-14T07:12:00Z",
+      "expires_at": "2027-01-12T07:01:44Z",
+      "updated_at": "2026-10-14T07:12:00Z",
+      "digest": "sha256:f531403c7cc05bd9b1fef0198adb517e53543fb692c8ced7ee84418369b808ae",
+      "workflow_run": {
+        "id": 38525732263,
+        "repository_id": 1309567180,
+        "head_repository_id": 1309567180,
+        "head_branch": "anvaya/topic-intelligence-b3-attribution-authority",
+        "head_sha": "63c5a636f4e737c204a791360e2bc715c9ac945f"
+      }
+    }
+  ],
+  "platforms": {
+    "ubuntu": {
+      "source_sha": "63c5a636f4e737c204a791360e2bc715c9ac945f",
+      "source_fingerprint": "0986561edf3ffeec37da8912ac7c68924a47c68aaf725cec8c46458ec212701e",
+      "source_clean": true,
+      "categories": {
+        "full_pytest": {
+          "status": "PASS",
+          "tests": 1968,
+          "exit_code": 0,
+          "seconds": 411.09
+        },
+        "focused": {
+          "status": "PASS",
+          "tests": 54,
+          "exit_code": 0,
+          "seconds": 9.341
+        },
+        "fixture_order_agent_first": {
+          "status": "PASS",
+          "tests": 41,
+          "exit_code": 0,
+          "seconds": 6.783
+        },
+        "fixture_order_phase2_first": {
+          "status": "PASS",
+          "tests": 41,
+          "exit_code": 0,
+          "seconds": 7.634
+        },
+        "characterization": {
+          "status": "PASS",
+          "tests": 17,
+          "exit_code": 0,
+          "seconds": 12.096
+        },
+        "headless_browser": {
+          "status": "PASS",
+          "tests": 43,
+          "exit_code": 0,
+          "seconds": 73.569
+        },
+        "node": {
+          "status": "PASS",
+          "tests": null,
+          "exit_code": 0,
+          "seconds": 0.315
+        },
+        "pip_check": {
+          "status": "PASS",
+          "tests": null,
+          "exit_code": 0,
+          "seconds": 0.315
+        },
+        "pip_freeze": {
+          "status": "PASS",
+          "tests": null,
+          "exit_code": 0,
+          "seconds": 0.265
+        },
+        "compile": {
+          "status": "PASS",
+          "tests": null,
+          "exit_code": 0,
+          "seconds": 0.866
+        },
+        "migration_fixture": {
+          "status": "PASS",
+          "tests": null,
+          "exit_code": 0,
+          "seconds": 0.365
+        },
+        "source_diff_check": {
+          "status": "PASS",
+          "tests": null,
+          "exit_code": 0,
+          "seconds": 0.004
+        },
+        "source_cached_diff_check": {
+          "status": "PASS",
+          "tests": null,
+          "exit_code": 0,
+          "seconds": 0.004
+        },
+        "feature_diff_check": {
+          "status": "PASS",
+          "tests": null,
+          "exit_code": 0,
+          "seconds": 0.003
+        },
+        "feature_cached_diff_check": {
+          "status": "PASS",
+          "tests": null,
+          "exit_code": 0,
+          "seconds": 0.004
+        }
+      },
+      "environment": {
+        "python": "3.12.15 (main, Oct  1 2026, 02:35:59) [GCC 13.3.0]",
+        "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+        "sqlite": "3.45.1",
+        "node": "v22.23.3",
+        "packages": {
+          "Flask": "3.1.2",
+          "pytest": "9.1.1",
+          "numpy": "2.4.6",
+          "pandas": "2.3.3",
+          "matplotlib": "3.10.9",
+          "playwright": "1.51.0",
+          "tzdata": "2026.2"
+        }
+      }
+    },
+    "windows": {
+      "source_sha": "63c5a636f4e737c204a791360e2bc715c9ac945f",
+      "source_fingerprint": "100cafa45f20d67d28e3af89f42bc8f6897819a45d90a5e2890711a4284e2bac",
+      "source_clean": true,
+      "categories": {
+        "full_pytest": {
+          "status": "PASS",
+          "tests": 1968,
+          "exit_code": 0,
+          "seconds": 983.25
+        },
+        "focused": {
+          "status": "PASS",
+          "tests": 54,
+          "exit_code": 0,
+          "seconds": 14.312
+        },
+        "fixture_order_agent_first": {
+          "status": "PASS",
+          "tests": 41,
+          "exit_code": 0,
+          "seconds": 11.047
+        },
+        "fixture_order_phase2_first": {
+          "status": "PASS",
+          "tests": 41,
+          "exit_code": 0,
+          "seconds": 27.203
+        },
+        "characterization": {
+          "status": "PASS",
+          "tests": 17,
+          "exit_code": 0,
+          "seconds": 114.828
+        },
+        "headless_browser": {
+          "status": "PASS",
+          "tests": 43,
+          "exit_code": 0,
+          "seconds": 139.141
+        },
+        "node": {
+          "status": "PASS",
+          "tests": null,
+          "exit_code": 0,
+          "seconds": 1.187
+        },
+        "pip_check": {
+          "status": "PASS",
+          "tests": null,
+          "exit_code": 0,
+          "seconds": 0.469
+        },
+        "pip_freeze": {
+          "status": "PASS",
+          "tests": null,
+          "exit_code": 0,
+          "seconds": 0.375
+        },
+        "compile": {
+          "status": "PASS",
+          "tests": null,
+          "exit_code": 0,
+          "seconds": 1.25
+        },
+        "migration_fixture": {
+          "status": "PASS",
+          "tests": null,
+          "exit_code": 0,
+          "seconds": 0.406
+        },
+        "source_diff_check": {
+          "status": "PASS",
+          "tests": null,
+          "exit_code": 0,
+          "seconds": 0.032
+        },
+        "source_cached_diff_check": {
+          "status": "PASS",
+          "tests": null,
+          "exit_code": 0,
+          "seconds": 0.031
+        },
+        "feature_diff_check": {
+          "status": "PASS",
+          "tests": null,
+          "exit_code": 0,
+          "seconds": 0.031
+        },
+        "feature_cached_diff_check": {
+          "status": "PASS",
+          "tests": null,
+          "exit_code": 0,
+          "seconds": 0.031
+        }
+      },
+      "environment": {
+        "python": "3.12.10 (tags/v3.12.10:0cc8128, Apr  8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)]",
+        "platform": "Windows-2025Server-10.0.26100-SP0",
+        "sqlite": "3.49.1",
+        "node": "v22.23.3",
+        "packages": {
+          "Flask": "3.1.2",
+          "pytest": "9.1.1",
+          "numpy": "2.4.6",
+          "pandas": "2.3.3",
+          "matplotlib": "3.10.9",
+          "playwright": "1.51.0",
+          "tzdata": "2026.2"
+        }
+      }
+    }
+  }
+}

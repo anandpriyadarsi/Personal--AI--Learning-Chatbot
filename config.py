@@ -4,13 +4,16 @@ Phase 1.5 keeps path discovery side-effect free:
 importing this module never creates directories or files.
 """
 
+import os
 from pathlib import Path
 from typing import Iterable, Union
 
 
 PathLike = Union[str, Path]
 
-BASE_PATH = Path(__file__).resolve().parent
+BASE_PATH = (Path(os.environ["ANVAYA_ANDROID_DATA_ROOT"]).absolute()
+             if os.environ.get("ANVAYA_ANDROID_DATA_ROOT")
+             else Path(__file__).resolve().parent)
 DATA_PATH = BASE_PATH / "data"
 BACKUP_PATH = BASE_PATH / "backup"
 EXPORT_PATH = BASE_PATH / "exports"

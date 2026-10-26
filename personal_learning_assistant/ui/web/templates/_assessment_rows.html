@@ -3,12 +3,13 @@
   <li class="assessment-row">
     <div class="assessment-row-main">
       <div class="assessment-row-meta"><span class="assessment-course-label">{{ item.course_code }}</span><span>{{ item.kind|title }}</span>{% if item.package_revision %}<span>rev {{ item.package_revision }}</span>{% endif %}</div>
-      <h3><a href="{{ item.action_url }}">{{ item.title }}</a></h3>
+      <h3><a href="{{ item.mode_action_url or item.action_url }}">{{ item.title }}</a></h3>
       <p>{{ item.question_count }} questions · {{ item.max_marks }} marks · {{ item.duration_minutes|int }} min · {{ item.mode|title }}{% if item.entry_type == 'attempt' %} · {{ item.updated_at|replace('T',' ')|replace('Z',' UTC') }}{% endif %}</p>
     </div>
+    {% if item.mode_reason %}<p class="assessment-eligibility" role="status">{{ item.mode_reason }}</p>{% endif %}
     <span class="assessment-state assessment-state-{{ item.category }}">{{ item.state_label }}</span>
     <div class="assessment-row-actions">
-      <a class="button button-secondary compact-button" href="{{ item.action_url }}">{{ item.action_label }}</a>
+      <a class="button button-secondary compact-button" href="{{ item.mode_action_url or item.action_url }}">{{ 'View eligibility' if item.mode_reason else 'Open instructions' if selected_mode else item.action_label }}</a>
       {% if item.assessment_id and item.entry_type != 'attempt' and item.attempt_count %}<a class="assessment-secondary-link" href="{{ url_for('web.assessment_test_history', assessment_id=item.assessment_id) }}">{{ item.attempt_count }} attempt{% if item.attempt_count != 1 %}s{% endif %}</a>{% endif %}
     </div>
   </li>
