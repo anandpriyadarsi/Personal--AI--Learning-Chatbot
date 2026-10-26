@@ -40,7 +40,8 @@ public class MainActivity extends Activity {
 
     private FrameLayout workspaceRoot;
     private StartupSplashView splash;
-    private int workspaceSystemUi;
+    private androidx.core.view.WindowInsetsControllerCompat startupBars;
+    private int workspaceBarBehavior;
     private final Handler startupHandler = new Handler(Looper.getMainLooper());
     private int startupAttempt;
     private boolean workspaceVisible, startupFailed, runtimePending;
@@ -63,10 +64,10 @@ public class MainActivity extends Activity {
         // No old WebView survives a new Activity/process. Never touch academic data.
         clearUploadSelections();
         // Screen captures remain available for the owner's study and feedback.
-        workspaceSystemUi = getWindow().getDecorView().getSystemUiVisibility();
-        getWindow().getDecorView().setSystemUiVisibility(workspaceSystemUi
-            | View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-            | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
+        startupBars = androidx.core.view.WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
+        workspaceBarBehavior = startupBars.getSystemBarsBehavior();
+        startupBars.setSystemBarsBehavior(androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+        startupBars.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars());
         workspaceRoot = new FrameLayout(this);
         workspaceRoot.setBackgroundColor(StartupSplashView.BACKGROUND);
         splash = new StartupSplashView(this, this::startWorkspace, () -> {
@@ -153,13 +154,11 @@ public class MainActivity extends Activity {
         startupHandler.removeCallbacksAndMessages(null);
         splash.cancelBranding();
         workspaceRoot.removeView(splash);
-        getWindow().getDecorView().setSystemUiVisibility(workspaceSystemUi);
-        // API31 can retain a hidden navigation-bar request across a rapid
-        // Activity replacement even after legacy visibility flags return to 0.
-        if (Build.VERSION.SDK_INT >= 30) {
-            android.view.WindowInsetsController controller = getWindow().getInsetsController();
-            if (controller != null) controller.show(android.view.WindowInsets.Type.systemBars());
-        }
+        // Use the same visibility controller for both transitions. Mixing
+        // legacy hide flags with modern show requests retained a hidden API31
+        // navigation source after an immediately replaced Activity.
+        startupBars.show(androidx.core.view.WindowInsetsCompat.Type.systemBars());
+        startupBars.setSystemBarsBehavior(workspaceBarBehavior);
         painted.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_AUTO);
         painted.requestFocus();
     }

@@ -196,10 +196,9 @@ public class StartupSplashTest {
             instrumentation.runOnMainSync(() -> {
                 View decor=second.getWindow().getDecorView();
                 android.view.WindowInsets insets=decor.getRootWindowInsets();
-                int saved=-1;
-                try {java.lang.reflect.Field field=MainActivity.class.getDeclaredField("workspaceSystemUi");field.setAccessible(true);saved=field.getInt(second);} catch(Exception ignored) {}
+                int behavior=second.getWindow().getInsetsController().getSystemBarsBehavior();
                 observed[0]="cover="+(find(decor,StartupSplashView.class)!=null)+",web="+(find(decor,android.webkit.WebView.class)!=null)
-                    +",flags="+decor.getSystemUiVisibility()+",saved="+saved+",windowFlags="+second.getWindow().getAttributes().flags
+                    +",flags="+decor.getSystemUiVisibility()+",behavior="+behavior+",windowFlags="+second.getWindow().getAttributes().flags
                     +",status="+(insets==null?"null":insets.isVisible(android.view.WindowInsets.Type.statusBars()))
                     +",navigation="+(insets==null?"null":insets.isVisible(android.view.WindowInsets.Type.navigationBars()))
                     +",hiddenObserved="+(openingBarsHidden.getCount()==0);

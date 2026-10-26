@@ -98,6 +98,8 @@ jobs:
               assert hashlib.sha256(archive.read(resources[0])).hexdigest()==opening_sha
           for api in (31,35):
               folder=Path('opening-evidence')/('shared-android-installed-'+str(api)+'-'+os.environ['SOURCE']+'-'+os.environ['GITHUB_RUN_ID'])
+              controls=list(folder.rglob('emulator-hardware-mainkeys.txt'))
+              assert len(controls)==1 and controls[0].read_text().strip() in ('','0')
               for view in ('portrait','landscape','launch'):
                   frames=list(folder.rglob('android-opening-'+view+'.png'))
                   assert len(frames)==1 and frames[0].stat().st_size>1000
@@ -107,7 +109,7 @@ jobs:
             'sha256':hashlib.sha256(apk.read_bytes()).hexdigest(),'minimum_android':'7.0 (API24)',
             'abis':['armeabi-v7a','arm64-v8a','x86_64'],'signing':'debug; may differ from earlier test APKs',
             'verification_run':'https://github.com/'+os.environ['GITHUB_REPOSITORY']+'/actions/runs/'+os.environ['GITHUB_RUN_ID'],
-            'opening_image_sha256':opening_sha,'opening':'static original artwork; FIT_CENTER on black','installed_emulator_apis':[31,35],'physical_phone':'not verified','private_original_fixtures':'not certified'}
+            'opening_image_sha256':opening_sha,'opening':'static original artwork; FIT_CENTER on black','emulator_profile':'pixel_2','software_navigation':True,'installed_emulator_apis':[31,35],'physical_phone':'not verified','private_original_fixtures':'not certified'}
           (root/'BUILD.json').write_text(json.dumps(record,indent=2)+'\n')
           Path('release-notes.md').write_text('Unified ANVAYA 1.2.1 — installable debug prerelease\n\n'
             'Built from merged main '+os.environ['SOURCE']+'. Canonical Linux/Windows synthetic checks and installed API31/API35 emulator checks passed for this source. The attached APK is the same binary used by those emulator checks.\n\n'
