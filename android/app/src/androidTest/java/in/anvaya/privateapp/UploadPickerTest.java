@@ -35,17 +35,27 @@ public class UploadPickerTest {
         fail("Upload workflow did not finish: "+js(web,"document.body.innerText.slice(0,300)"));
     }
     private void tap(WebView web,String selector) throws Exception {
+        instrumentation.getUiAutomation().waitForIdle(500,10000);
+        long focusDeadline=System.currentTimeMillis()+10000;
+        boolean[] focused={false};
+        while(System.currentTimeMillis()<focusDeadline) {
+            instrumentation.runOnMainSync(()->focused[0]=web.hasWindowFocus());
+            if(focused[0])break;
+            Thread.sleep(100);
+        }
+        assertTrue("Application window owns the picker gesture",focused[0]);
+        js(web,"document.querySelector("+org.json.JSONObject.quote(selector)+").scrollIntoView({block:'center'})");
+        CountDownLatch frame=new CountDownLatch(1);
+        instrumentation.runOnMainSync(()->web.postVisualStateCallback(System.nanoTime(),new WebView.VisualStateCallback() {
+            @Override public void onComplete(long id) {web.postOnAnimation(frame::countDown);}
+        }));
+        assertTrue("Picker compositor frame",frame.await(10,TimeUnit.SECONDS));
         String bounds=js(web,"(()=>{const a=document.querySelector("+org.json.JSONObject.quote(selector)+");a.scrollIntoView({block:'center'});const r=a.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2,width:innerWidth}})()");
         org.json.JSONObject point=new org.json.JSONObject(bounds);
         int[] location=new int[2];instrumentation.runOnMainSync(()->web.getLocationOnScreen(location));
         float scale=web.getWidth()/(float)point.getDouble("width");
         float x=location[0]+(float)point.getDouble("x")*scale;
         float y=location[1]+(float)point.getDouble("y")*scale;
-        CountDownLatch frame=new CountDownLatch(1);
-        instrumentation.runOnMainSync(()->web.postVisualStateCallback(System.nanoTime(),new WebView.VisualStateCallback() {
-            @Override public void onComplete(long id) {web.postOnAnimation(frame::countDown);}
-        }));
-        assertTrue("Picker compositor frame",frame.await(10,TimeUnit.SECONDS));
         long now=android.os.SystemClock.uptimeMillis();
         MotionEvent down=MotionEvent.obtain(now,now,MotionEvent.ACTION_DOWN,x,y,0);
         MotionEvent up=MotionEvent.obtain(now,now+80,MotionEvent.ACTION_UP,x,y,0);
@@ -80,14 +90,30 @@ public class UploadPickerTest {
             waitFor(web,"document.readyState==='complete' && !!document.querySelector('main')");
             js(web,"location.href='/library/files'");
             waitFor(web,"!!document.querySelector('input[type=file]')");
+            int previousCount=Integer.parseInt(js(web,"document.querySelectorAll('.file-row').length"));
             js(web,"document.querySelector('[data-action=upload-dialog]').click()");
+            waitFor(web,"document.querySelector('#upload-dialog').open");
             tap(web,"#upload-form input[type=file]");
+            long pickerDeadline=System.currentTimeMillis()+10000;
+            while(pickerCalls.get()==0&&System.currentTimeMillis()<pickerDeadline)Thread.sleep(100);
+            assertEquals("Real gesture opens exactly one system document picker",1,pickerCalls.get());
             waitFor(web,"document.querySelector('input[type=file]').files.length===1");
             assertTrue("System picker intent used",pickerCalls.get()>0);
             assertEquals("\"Changing lecture.pdf\"",js(web,"document.querySelector('input[type=file]').files[0].name"));
             js(web,"document.querySelector('input[type=file]').closest('form').requestSubmit()");
-            waitFor(web,"Array.from(document.querySelectorAll('.file-row h2')).some(row=>row.innerText==='Changing lecture.pdf')");
+            waitFor(web,"document.querySelectorAll('.file-row').length==="+(previousCount+1)+" && Array.from(document.querySelectorAll('.file-row h2')).some(row=>row.innerText==='Changing lecture.pdf')");
             assertEquals("false",js(web,"document.body.innerText.includes('Web page not available')"));
+        } catch(Throwable failure) {
+            System.err.println("PICKER_CALLS="+pickerCalls.get());
+            if(activity!=null) {
+                final Activity current=activity;WebView[] failed={null};
+                instrumentation.runOnMainSync(()->failed[0]=find(current.getWindow().getDecorView()));
+                if(failed[0]!=null) System.err.println("UPLOAD_STATE="+js(failed[0],"JSON.stringify({path:location.pathname,focus:document.hasFocus(),dialog:document.querySelector('#upload-dialog')?.open,message:document.querySelector('#files-message')?.innerText,input:document.querySelector('input[type=file]')?.getBoundingClientRect().toJSON()})"));
+                java.io.File evidence=new java.io.File(target.getFilesDir(),"evidence");evidence.mkdirs();
+                android.graphics.Bitmap screen=instrumentation.getUiAutomation().takeScreenshot();
+                if(screen!=null)try(java.io.FileOutputStream out=new java.io.FileOutputStream(new java.io.File(evidence,"upload-picker-failure.png"))){screen.compress(android.graphics.Bitmap.CompressFormat.PNG,100,out);}
+            }
+            throw failure;
         } finally {
             instrumentation.removeMonitor(monitor);
             if(activity!=null) { final Activity close=activity;instrumentation.runOnMainSync(close::finish); }

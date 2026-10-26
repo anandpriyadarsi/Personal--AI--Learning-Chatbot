@@ -1,0 +1,13 @@
+name: Diagnostic picker focus and installed acceptance
+on:
+  push:
+    branches: [ci/unified-picker-focus-probe-2026-10-26]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  android:
+    uses: ./.github/workflows/verification-android.yml
+    with:
+      source_sha: ${{ github.sha }}
+      level: integration
