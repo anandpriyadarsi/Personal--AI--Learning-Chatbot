@@ -154,6 +154,12 @@ public class MainActivity extends Activity {
         splash.cancelBranding();
         workspaceRoot.removeView(splash);
         getWindow().getDecorView().setSystemUiVisibility(workspaceSystemUi);
+        // API31 can retain a hidden navigation-bar request across a rapid
+        // Activity replacement even after legacy visibility flags return to 0.
+        if (Build.VERSION.SDK_INT >= 30) {
+            android.view.WindowInsetsController controller = getWindow().getInsetsController();
+            if (controller != null) controller.show(android.view.WindowInsets.Type.systemBars());
+        }
         painted.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_AUTO);
         painted.requestFocus();
     }
