@@ -178,6 +178,13 @@ public class StartupSplashTest {
                         assertTrue("Revealed document uses the authenticated local origin", web.getUrl().startsWith("http://127.0.0.1:"));
                         assertEquals(View.IMPORTANT_FOR_ACCESSIBILITY_AUTO, web.getImportantForAccessibility());
                         android.view.WindowInsets insets=decor.getRootWindowInsets();
+                        if(insets!=null) {
+                            android.graphics.Insets safe=insets.getInsetsIgnoringVisibility(android.view.WindowInsets.Type.systemBars()|android.view.WindowInsets.Type.displayCutout());
+                            int[] position=new int[2];web.getLocationOnScreen(position);
+                            assertTrue("Workspace begins below status/cutout inset: y="+position[1]+", inset="+safe.top,position[1]>=safe.top);
+                            assertTrue("Workspace ends above navigation inset",position[1]+web.getHeight()<=decor.getHeight()-safe.bottom);
+                            assertTrue("Workspace clears left and right cutout insets",position[0]>=safe.left&&position[0]+web.getWidth()<=decor.getWidth()-safe.right);
+                        }
                         ready[0] = insets!=null && insets.isVisible(android.view.WindowInsets.Type.statusBars())
                             && insets.isVisible(android.view.WindowInsets.Type.navigationBars());
                     } else {

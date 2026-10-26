@@ -1,4 +1,4 @@
-name: Diagnostic opening API31 (not release certification)
+name: Diagnostic opening/insets phone (not release certification)
 on:
   push:
     branches: [ci/opening-api31-probe-2026-10-26]
@@ -35,7 +35,7 @@ jobs:
           sudo udevadm trigger --name-match=kvm
       - uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 31
+          api-level: 35
           target: google_apis
           arch: x86_64
           profile: pixel_2
