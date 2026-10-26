@@ -19,7 +19,10 @@ adb install -r android/app/build/outputs/apk/androidTest/debug/app-debug-android
 # The phone profile must expose software navigation. AVD's default hardware
 # keys suppress its navigation source and cannot validate restoration of it.
 adb shell getprop qemu.hw.mainkeys | tr -d '\r' > android-evidence/emulator-hardware-mainkeys.txt
-test "$(tr -d '\n' < android-evidence/emulator-hardware-mainkeys.txt)" = "0"
+# Android leaves this property empty for the profile's default software keys.
+# Only "1" forces hardware keys; installed WindowInsets checks still require
+# an actually visible software navigation bar after workspace reveal.
+test "$(tr -d '\n' < android-evidence/emulator-hardware-mainkeys.txt)" != "1"
 adb shell svc wifi disable
 adb shell svc data disable
 python scripts/android_opening_capture.py | tee android-evidence/opening-capture.log
