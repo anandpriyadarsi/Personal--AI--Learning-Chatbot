@@ -223,6 +223,23 @@ public class OfflineSmokeTest {
         }
         assertTrue("The real native IME must be visible before keyboard evidence",imeVisible[0]);
         waitFor("document.querySelector('#tutor-composer button[type=submit]').getBoundingClientRect().bottom<=innerHeight+1");
+        boolean[] composerClear={false};String[] composerBounds={""};
+        long composerDeadline=System.currentTimeMillis()+10000;
+        while(System.currentTimeMillis()<composerDeadline) {
+            JSONObject area=new JSONObject(js("(()=>{const a=document.querySelector('#agent-question').getBoundingClientRect(),b=document.querySelector('#tutor-composer button[type=submit]').getBoundingClientRect();return {top:Math.min(a.top,b.top),bottom:Math.max(a.bottom,b.bottom),width:innerWidth}})()"));
+            getInstrumentation().runOnMainSync(() -> {
+                android.view.WindowInsets insets=web.getRootWindowInsets();
+                int keyboardTop=activity.getWindowManager().getCurrentWindowMetrics().getBounds().bottom-insets.getInsets(android.view.WindowInsets.Type.ime()).bottom;
+                int[] position=new int[2];web.getLocationOnScreen(position);
+                float scale=web.getWidth()/(float)area.optDouble("width");
+                double bottom=position[1]+area.optDouble("bottom")*scale;
+                composerClear[0]=area.optDouble("top")>=-1 && bottom<=Math.min(position[1]+web.getHeight(),keyboardTop)+2;
+                composerBounds[0]="bottom="+bottom+",keyboardTop="+keyboardTop+",webBottom="+(position[1]+web.getHeight());
+            });
+            if(composerClear[0])break;
+            Thread.sleep(100);
+        }
+        assertTrue("Focused Tutor input and send button stay above the actual keyboard: "+composerBounds[0],composerClear[0]);
         screenshot("android-tutor-composer-keyboard");
         getInstrumentation().runOnMainSync(()->((android.view.inputmethod.InputMethodManager)activity.getSystemService(Activity.INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(web.getWindowToken(),0));
         go("/mobile/device");

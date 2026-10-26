@@ -70,6 +70,12 @@ public class MainActivity extends Activity {
         startupBars.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars());
         workspaceRoot = new FrameLayout(this);
         workspaceRoot.setBackgroundColor(StartupSplashView.BACKGROUND);
+        if (Build.VERSION.SDK_INT >= 35) {
+            workspaceRoot.setOnApplyWindowInsetsListener((view, insets) -> {
+                applyWorkspaceInsets(insets);
+                return insets;
+            });
+        }
         splash = new StartupSplashView(this, this::startWorkspace, () -> {
             finishAffinity(); android.os.Process.killProcess(android.os.Process.myPid());
         });
@@ -153,6 +159,10 @@ public class MainActivity extends Activity {
         workspaceVisible = true;
         startupHandler.removeCallbacksAndMessages(null);
         splash.cancelBranding();
+        if (Build.VERSION.SDK_INT >= 35) {
+            applyWorkspaceInsets(workspaceRoot.getRootWindowInsets());
+            workspaceRoot.requestApplyInsets();
+        }
         workspaceRoot.removeView(splash);
         // Use the same visibility controller for both transitions. Mixing
         // legacy hide flags with modern show requests retained a hidden API31
@@ -161,6 +171,17 @@ public class MainActivity extends Activity {
         startupBars.setSystemBarsBehavior(workspaceBarBehavior);
         painted.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_AUTO);
         painted.requestFocus();
+    }
+
+    private void applyWorkspaceInsets(android.view.WindowInsets insets) {
+        if (Build.VERSION.SDK_INT < 35 || insets == null) return;
+        if (!workspaceVisible) { workspaceRoot.setPadding(0, 0, 0, 0); return; }
+        // Target35 is edge-to-edge: reserve bars/cutouts for workspace controls,
+        // and resize the WebView above the real keyboard. The opening stays full-screen.
+        android.graphics.Insets bars = insets.getInsetsIgnoringVisibility(
+            android.view.WindowInsets.Type.systemBars() | android.view.WindowInsets.Type.displayCutout());
+        android.graphics.Insets keyboard = insets.getInsets(android.view.WindowInsets.Type.ime());
+        workspaceRoot.setPadding(bars.left, bars.top, bars.right, Math.max(bars.bottom, keyboard.bottom));
     }
 
     @SuppressWarnings("deprecation")
