@@ -1,0 +1,47 @@
+name: Diagnostic opening API31 (not release certification)
+on:
+  push:
+    branches: [ci/opening-api31-probe-2026-10-26]
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - run: python -m pip install -r requirements-mobile.txt
+      - run: python scripts/android_acceptance_fixture.py android/app/src/androidTest/assets/acceptance
+      - run: gradle -p android assembleDebug assembleDebugAndroidTest testDebugUnitTest --stacktrace
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - name: Enable KVM on disposable runner
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 31
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          script: bash scripts/android_emulator_acceptance.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: opening-api31-diagnostic
+          path: android-evidence/**

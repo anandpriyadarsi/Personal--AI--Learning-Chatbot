@@ -192,7 +192,21 @@ public class StartupSplashTest {
                 }
                 Thread.sleep(100);
             }
-            fail("Workspace did not replace the native splash after its first frame");
+            String[] observed={""};
+            instrumentation.runOnMainSync(() -> {
+                View decor=second.getWindow().getDecorView();
+                android.view.WindowInsets insets=decor.getRootWindowInsets();
+                int saved=-1;
+                try {java.lang.reflect.Field field=MainActivity.class.getDeclaredField("workspaceSystemUi");field.setAccessible(true);saved=field.getInt(second);} catch(Exception ignored) {}
+                observed[0]="cover="+(find(decor,StartupSplashView.class)!=null)+",web="+(find(decor,android.webkit.WebView.class)!=null)
+                    +",flags="+decor.getSystemUiVisibility()+",saved="+saved+",windowFlags="+second.getWindow().getAttributes().flags
+                    +",status="+(insets==null?"null":insets.isVisible(android.view.WindowInsets.Type.statusBars()))
+                    +",navigation="+(insets==null?"null":insets.isVisible(android.view.WindowInsets.Type.navigationBars()))
+                    +",hiddenObserved="+(openingBarsHidden.getCount()==0);
+            });
+            Bitmap failure=instrumentation.getUiAutomation().takeScreenshot();
+            if(failure!=null){save(failure,"startup-failure");failure.recycle();}
+            fail("Workspace did not replace the native splash after its first frame: "+observed[0]);
         } finally { instrumentation.runOnMainSync(() -> {
             androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry.getInstance().removeLifecycleCallback(capture);
             second.finish();
