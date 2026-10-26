@@ -8,6 +8,7 @@ capture_exit_evidence() {
   adb logcat -d -v threadtime > android-evidence/logcat.txt 2>&1 || true
   if [ "$result" -ne 0 ]; then
     adb exec-out screencap -p > android-evidence/failed-installed-viewport.png || true
+    adb exec-out run-as in.anvaya.privateapp cat files/evidence/upload-picker-failure.png > android-evidence/upload-picker-failure.png 2>/dev/null || true
   fi
   exit "$result"
 }

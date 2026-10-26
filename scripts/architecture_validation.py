@@ -313,7 +313,10 @@ def main(argv=None) -> int:
         # Windows full-suite evidence on 22 Oct reached 94% before the 1800s
         # subprocess deadline. Allow bounded completion without weakening
         # selection, assertions, skip policy or exit handling.
-        pytest('full_pytest', timeout=2100)
+        # The consolidated suite contains over 3,700 cases. Windows reached
+        # 89% without assertion failures at the old 35-minute process deadline.
+        # Keep every case and fail-closed timeout handling; allow its full run.
+        pytest('full_pytest', timeout=4200)
         report['categories']['external_pilots'] = external_pilot_acceptance(run / 'full_pytest.xml')
         report['EXTERNAL_IKS_CERTIFICATION'] = report['categories']['external_pilots']['status']
         pytest('focused', ['tests/test_phase7_5_progress_planning.py', 'tests/test_phase7_5_operational_planner_routes.py',
