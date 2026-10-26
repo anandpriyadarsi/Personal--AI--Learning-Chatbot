@@ -62,6 +62,10 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: shared-android-build-${{ needs.source.outputs.sha }}-${{ github.run_id }}
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: shared-android-installed-*-${{ needs.source.outputs.sha }}-${{ github.run_id }}
+          path: opening-evidence
       - uses: android-actions/setup-android@v3
         with:
           packages: platform-tools build-tools;35.0.0
@@ -78,31 +82,45 @@ jobs:
           "$(dirname "$build_tools")/apksigner" verify --print-certs release-assets/ANVAYA-Unified-Latest.apk > release-assets/SIGNATURE.txt
           (cd release-assets && sha256sum ANVAYA-Unified-Latest.apk > SHA256SUMS.txt)
           python - <<'PY'
-          import hashlib,json,os,re,subprocess
+          import hashlib,json,os,re,subprocess,shutil,zipfile
           from pathlib import Path
           root=Path('release-assets');apk=root/'ANVAYA-Unified-Latest.apk'
           metadata=(root/'APK-METADATA.txt').read_text()
           assert "name='in.anvaya.privateapp'" in metadata
-          assert "versionCode='16'" in metadata and "versionName='1.2.0-unified-debug'" in metadata
+          assert "versionCode='17'" in metadata and "versionName='1.2.1-unified-debug'" in metadata
           assert "sdkVersion:'24'" in metadata
-          record={'source_sha':os.environ['SOURCE'],'tree_sha':subprocess.check_output(['git','rev-parse','HEAD^{tree}'],text=True).strip(),
-            'version_name':'1.2.0-unified-debug','version_code':16,'size_bytes':apk.stat().st_size,
+          opening=Path('android/app/src/main/res/drawable-nodpi/anvaya_opening.jpg')
+          opening_sha='319e31420b50e2e420de571d0906835ee4f9894dedbd26b88435d0ca57415fb6'
+          assert hashlib.sha256(opening.read_bytes()).hexdigest()==opening_sha
+          with zipfile.ZipFile(apk) as archive:
+              resources=[name for name in archive.namelist() if name.endswith('/anvaya_opening.jpg')]
+              assert len(resources)==1
+              assert hashlib.sha256(archive.read(resources[0])).hexdigest()==opening_sha
+          for api in (31,35):
+              folder=Path('opening-evidence')/('shared-android-installed-'+str(api)+'-'+os.environ['SOURCE']+'-'+os.environ['GITHUB_RUN_ID'])
+              for view in ('portrait','landscape','launch'):
+                  frames=list(folder.rglob('android-opening-'+view+'.png'))
+                  assert len(frames)==1 and frames[0].stat().st_size>1000
+                  shutil.copyfile(frames[0],root/('Opening-API'+str(api)+'-'+view+'.png'))
+          record={'source_sha' :os.environ['SOURCE'],'tree_sha':subprocess.check_output(['git','rev-parse','HEAD^{tree}'],text=True).strip(),
+            'version_name':'1.2.1-unified-debug','version_code':17,'size_bytes':apk.stat().st_size,
             'sha256':hashlib.sha256(apk.read_bytes()).hexdigest(),'minimum_android':'7.0 (API24)',
             'abis':['armeabi-v7a','arm64-v8a','x86_64'],'signing':'debug; may differ from earlier test APKs',
             'verification_run':'https://github.com/'+os.environ['GITHUB_REPOSITORY']+'/actions/runs/'+os.environ['GITHUB_RUN_ID'],
-            'installed_emulator_apis':[31,35],'physical_phone':'not verified','private_original_fixtures':'not certified'}
+            'opening_image_sha256':opening_sha,'opening':'static original artwork; FIT_CENTER on black','installed_emulator_apis':[31,35],'physical_phone':'not verified','private_original_fixtures':'not certified'}
           (root/'BUILD.json').write_text(json.dumps(record,indent=2)+'\n')
-          Path('release-notes.md').write_text('Unified ANVAYA 1.2.0 — installable debug prerelease\n\n'
+          Path('release-notes.md').write_text('Unified ANVAYA 1.2.1 — installable debug prerelease\n\n'
             'Built from merged main '+os.environ['SOURCE']+'. Canonical Linux/Windows synthetic checks and installed API31/API35 emulator checks passed for this source. The attached APK is the same binary used by those emulator checks.\n\n'
+            'Opening: the owner-supplied static blue-logo artwork is preserved byte for byte, centred on black without cropping or animation. Opening-API31-launch.png and Opening-API35-launch.png show the first app-controlled frame rendered on the installed emulators; portrait/landscape assets also verify letterboxing.\n\n'
             'Includes the integrated Learning reader/rename, nested notes, Focus Reading, attachments/external app opening, optional Obsidian ZIP snapshots, original-document Library/search, Assessment review and shared verification changes. See docs/integration/REPORT.md at the source commit.\n\n'
             'Runs its Python backend on the phone; no separate computer/server is required. Cloud AI and Python internet access are disabled. Obsidian is a Markdown ZIP snapshot, not live sync. Legacy PPT needs conversion to PPTX for indexing. Scanned PDFs need OCR that may be unavailable. Physical phone, specific external player apps and private academic-source certification remain unverified.\n\n'
             'Installation: download ANVAYA-Unified-Latest.apk, allow installation from your browser when Android asks, and install. Back up your study records first. This uses debug signing: if Android reports a signature conflict, do not uninstall or clear storage to bypass it; preserve/export your existing data first.\n\n'
-            'Version 1.2.0-unified-debug / code 16; Android 7.0+; ARM32, ARM64, x86_64. BUILD.json records checksum, exact byte size and source provenance.\n')
+            'Version 1.2.1-unified-debug / code 17; Android 7.0+; ARM32, ARM64, x86_64. BUILD.json records checksum, exact byte size and source provenance.\n')
           PY
       - name: Publish a versioned GitHub prerelease without overwriting existing releases
         run: |
-          tag="anvaya-unified-v1.2.0-debug-${SOURCE:0:12}"
-          gh release create "$tag" release-assets/* --repo "$GITHUB_REPOSITORY" --target "$SOURCE" --prerelease --title "ANVAYA Unified 1.2.0 — Debug" --notes-file release-notes.md
+          tag="anvaya-unified-v1.2.1-debug-${SOURCE:0:12}"
+          gh release create "$tag" release-assets/* --repo "$GITHUB_REPOSITORY" --target "$SOURCE" --prerelease --title "ANVAYA Unified 1.2.1 — Debug" --notes-file release-notes.md
           mkdir downloaded-release
           curl --fail --location --retry 3 --output downloaded-release/ANVAYA-Unified-Latest.apk "https://github.com/$GITHUB_REPOSITORY/releases/download/$tag/ANVAYA-Unified-Latest.apk"
           cmp release-assets/ANVAYA-Unified-Latest.apk downloaded-release/ANVAYA-Unified-Latest.apk

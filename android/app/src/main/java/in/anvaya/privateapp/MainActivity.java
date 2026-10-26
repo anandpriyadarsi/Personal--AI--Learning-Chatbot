@@ -40,6 +40,7 @@ public class MainActivity extends Activity {
 
     private FrameLayout workspaceRoot;
     private StartupSplashView splash;
+    private int workspaceSystemUi;
     private final Handler startupHandler = new Handler(Looper.getMainLooper());
     private int startupAttempt;
     private boolean workspaceVisible, startupFailed, runtimePending;
@@ -62,6 +63,10 @@ public class MainActivity extends Activity {
         // No old WebView survives a new Activity/process. Never touch academic data.
         clearUploadSelections();
         // Screen captures remain available for the owner's study and feedback.
+        workspaceSystemUi = getWindow().getDecorView().getSystemUiVisibility();
+        getWindow().getDecorView().setSystemUiVisibility(workspaceSystemUi
+            | View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+            | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
         workspaceRoot = new FrameLayout(this);
         workspaceRoot.setBackgroundColor(StartupSplashView.BACKGROUND);
         splash = new StartupSplashView(this, this::startWorkspace, () -> {
@@ -148,6 +153,7 @@ public class MainActivity extends Activity {
         startupHandler.removeCallbacksAndMessages(null);
         splash.cancelBranding();
         workspaceRoot.removeView(splash);
+        getWindow().getDecorView().setSystemUiVisibility(workspaceSystemUi);
         painted.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_AUTO);
         painted.requestFocus();
     }
