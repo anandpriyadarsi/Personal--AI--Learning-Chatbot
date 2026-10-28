@@ -1,4 +1,6 @@
 from io import BytesIO
+from pathlib import Path
+import hashlib
 from zipfile import ZipFile
 import sqlite3
 import threading
@@ -257,3 +259,58 @@ def test_pdf_cumulative_decode_budget_keeps_original(lib,monkeypatch):
     d=upload(lib,'Resource-limited.pdf',raw);lib.run_pending()
     assert lib.get(d['id'])['status']=='failed'
     assert lib.original(d['id']).read_bytes()==raw
+
+
+def test_android_resolver_uses_managed_original_and_renamed_filename_without_indexing(tmp_path):
+    from personal_learning_assistant.services.native_document_library import resolve_android_document
+    root = tmp_path/'phone'
+    library = NativeDocumentLibrary(root/'data/native_library', autostart=False)
+    raw = pdf_bytes()
+    doc = library.upload(BytesIO(raw), 'Original.pdf', indexing=False)
+    library.update(doc['id'], display_name='Renamed lecture', subject_id='ma103', tags=['exam'])
+    before = library.get(doc['id'])
+    path, mime, name = resolve_android_document(root, doc['id'])
+    assert Path(path) == library.original(doc['id'])
+    assert mime == 'application/pdf' and name == 'Renamed lecture.pdf'
+    assert hashlib.sha256(Path(path).read_bytes()).hexdigest() == doc['sha256']
+    assert library.get(doc['id']) == before
+    assert not list(library.root.glob('**/*.pdf'))  # one immutable blob; no view copy
+    reopened = NativeDocumentLibrary(library.root, autostart=False)
+    assert reopened.get(doc['id'])['id'] == doc['id']
+    assert reopened.get(doc['id'])['subject_id'] == 'ma103'
+    assert reopened.get(doc['id'])['tags'] == ['exam']
+    assert resolve_android_document(root, doc['id'])[2] == 'Renamed lecture.pdf'
+
+
+def test_android_resolver_rejects_missing_corrupt_and_untrusted_ids(tmp_path):
+    from personal_learning_assistant.services.native_document_library import resolve_android_document
+    root = tmp_path/'phone'
+    library = NativeDocumentLibrary(root/'data/native_library', autostart=False)
+    doc = library.upload(BytesIO(pdf_bytes()), 'Original.pdf', indexing=False)
+    blob = library.original(doc['id'])
+    for identity in ['../library.sqlite3', 'f'*32, doc['id']+'/original']:
+        with pytest.raises(LibraryError): resolve_android_document(root, identity)
+    original = blob.read_bytes()
+    blob.write_bytes(b'x'*len(original))
+    with pytest.raises(LibraryError): resolve_android_document(root, doc['id'])
+    blob.unlink()
+    with pytest.raises(LibraryError): resolve_android_document(root, doc['id'])
+
+
+def test_rename_cannot_smuggle_paths_or_change_export_format(lib):
+    from personal_learning_assistant.services.native_document_library import document_filename
+    doc = upload(lib)
+    for name in ['../evil.pdf', 'folder/file.pdf', 'folder\\file.pdf']:
+        with pytest.raises(LibraryError): lib.update(doc['id'], display_name=name)
+    for label, expected in [('Lecture', 'Lecture.pdf'), ('Lecture.PDF', 'Lecture.PDF'), ('Lecture.pptx', 'Lecture.pdf')]:
+        renamed = lib.update(doc['id'], display_name=label)
+        assert document_filename(renamed) == expected
+
+
+def test_reimport_identical_original_repairs_corrupt_blob_without_new_record(lib):
+    raw=pdf_bytes();doc=upload(lib,raw=raw,indexing=False)
+    blob=lib.original(doc['id']);blob.write_bytes(b'x'*len(raw))
+    repaired=upload(lib,raw=raw,indexing=False)
+    assert repaired['id']==doc['id']
+    assert lib.original(doc['id']).read_bytes()==raw
+    assert len(lib.list_documents()['items'])==1

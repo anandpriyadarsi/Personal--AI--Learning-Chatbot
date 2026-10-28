@@ -53,6 +53,55 @@ def _safe(path):
     return path
 
 
+def document_filename(doc):
+    """Current user name, with the immutable original's actual format suffix."""
+    name = re.sub(r'[/\\\x00-\x1f]', '_', doc['display_name']).strip().strip('.') or 'Document'
+    extension = '.' + doc['kind']
+    if name.lower().endswith(extension): return name
+    if name.rsplit('.', 1)[-1].lower() in MIMES: name = name.rsplit('.', 1)[0]
+    return name[:255-len(extension)] + extension
+
+
+def _verified_original(root, doc):
+    digest = doc['sha256']
+    if not re.fullmatch('[0-9a-f]{64}', digest): raise LibraryError('Invalid storage identity.', 409)
+    path = _safe(root/'blobs'/digest)
+    try:
+        if not path.is_file() or path.stat().st_size != doc['size']:
+            raise LibraryError('Original file is missing or changed. Restore a backup.', 409)
+        actual = hashlib.sha256()
+        with path.open('rb') as stream:
+            for chunk in iter(lambda: stream.read(1024*1024), b''): actual.update(chunk)
+        if actual.hexdigest() != digest:
+            raise LibraryError('Original integrity check failed. Restore a backup.', 409)
+    except OSError as error:
+        raise LibraryError('Original file is unavailable.', 409) from error
+    return path
+
+
+def resolve_android_document(root_path, document_id):
+    """Native-only read: resolve one stable ID without indexing or copying bytes.
+
+    The caller runs this off the UI thread. Private paths never cross into the
+    WebView or the viewer intent. A read-only connection avoids starting workers,
+    initializing schema, or resetting an in-progress index during a view action.
+    """
+    if not isinstance(document_id, str) or not re.fullmatch('[0-9a-f]{32}', document_id):
+        raise LibraryError('Invalid document identity.', 404)
+    root = _safe(Path(root_path).absolute()/'data/native_library')
+    database = _safe(root/'library.sqlite3')
+    with storage_lock(root):
+        try:
+            con = sqlite3.connect(database.as_uri()+'?mode=ro', uri=True)
+            con.row_factory = sqlite3.Row
+            try:
+                doc = NativeDocumentLibrary._doc(con.execute('SELECT * FROM documents WHERE id=?', (document_id,)).fetchone())
+                return [str(_verified_original(root, doc)), doc['mime'], document_filename(doc)]
+            finally: con.close()
+        except (sqlite3.Error, OSError) as error:
+            raise LibraryError('Original file is unavailable.', 409) from error
+
+
 class NativeDocumentLibrary:
     def __init__(self, root, *, autostart=True):
         self.root = _safe(Path(root).absolute())
@@ -154,19 +203,7 @@ class NativeDocumentLibrary:
         return _safe(self.root/'blobs'/digest)
 
     def original(self, document_id):
-        doc = self.get(document_id)
-        path = self._blob(doc['sha256'])
-        try:
-            if not path.is_file() or path.stat().st_size != doc['size']:
-                raise LibraryError('Original file is missing or changed. Restore a backup.', 409)
-            digest = hashlib.sha256()
-            with path.open('rb') as stream:
-                for chunk in iter(lambda: stream.read(1024*1024), b''): digest.update(chunk)
-            if digest.hexdigest() != doc['sha256']:
-                raise LibraryError('Original integrity check failed. Restore a backup.', 409)
-        except OSError as error:
-            raise LibraryError('Original file is unavailable.', 409) from error
-        return path
+        return _verified_original(self.root, self.get(document_id))
 
     def upload(self, stream, filename, *, folder_id=None, subject_id=None, indexing=True):
         filename = label(filename)
@@ -193,14 +230,17 @@ class NativeDocumentLibrary:
             with self.connection(write=True) as con:
                 self._folder(con, folder_id)
                 duplicate = con.execute('SELECT * FROM documents WHERE sha256=? AND original_name=?', (sha, filename)).fetchone()
-                if duplicate: return self._doc(duplicate)
                 blob = self._blob(sha)
-                if not blob.exists():
+                try: _verified_original(self.root, {'sha256':sha, 'size':size})
+                except LibraryError:
+                    # The incoming stream is fully hashed and synced. Re-import
+                    # can repair a missing/damaged shared blob without losing IDs.
                     os.replace(temporary, blob)
                     if os.name != 'nt':
                         directory_fd = os.open(blob.parent, os.O_RDONLY)
                         try: os.fsync(directory_fd)
                         finally: os.close(directory_fd)
+                if duplicate: return self._doc(duplicate)
                 con.execute('''INSERT INTO documents(id,original_name,display_name,kind,sha256,size,folder_id,subject_id,indexing_enabled,status,created_at,updated_at)
                     VALUES(?,?,?,?,?,?,?,?,?,?,?,?)''', (document_id, filename, filename, kind, sha, size, folder_id, subject_id,
                     int(indexing), 'stored' if indexing else 'disabled', now(), now()))
@@ -242,7 +282,10 @@ class NativeDocumentLibrary:
     def update(self, document_id, **fields):
         allowed = {'display_name','folder_id','subject_id','topic','tags'}
         if not fields or set(fields) - allowed: raise LibraryError('Invalid document fields.')
-        if 'display_name' in fields: fields['display_name'] = label(fields['display_name'])
+        if 'display_name' in fields:
+            fields['display_name'] = label(fields['display_name'])
+            if '/' in fields['display_name'] or '\\' in fields['display_name'] or fields['display_name'] in ('.', '..'):
+                raise LibraryError('Choose a filename without directory separators.')
         if 'topic' in fields: fields['topic'] = label(fields['topic'], empty=True)
         if 'subject_id' in fields and fields['subject_id'] is not None: fields['subject_id'] = label(fields['subject_id'], maximum=150)
         if 'tags' in fields:

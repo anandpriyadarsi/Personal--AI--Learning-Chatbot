@@ -109,7 +109,7 @@ public class SmartNestedNotesTest {
         waitFor(rowById(id)+".open && "+rowById(id)+".querySelector('.mini-note-content').dataset.loaded==='1'");
     }
     private String addSection(String title, String body) throws Exception {
-        js("document.querySelector('#section-add').click()");
+        js("document.querySelector('#notes-reader-menu').open=true;document.querySelector('[data-note-action=section]').click()");
         waitFor("!document.querySelector('#section-editor').hidden");
         js("document.querySelector('#section-title').value="+JSONObject.quote(title)+";document.querySelector('#section-body').value="+JSONObject.quote(body)+";document.querySelector('#section-editor').requestSubmit()");
         waitFor("document.querySelector('#section-editor').hidden && document.querySelector('#nested-notes').getAttribute('aria-busy')==='false' && !!("+row(title)+")");
@@ -185,14 +185,31 @@ public class SmartNestedNotesTest {
         open();
         try {
             String note = createTyped("Synthetic nested notes · examination revision");
+            instrumentation.runOnMainSync(() -> web.loadUrl(origin+"/notes"));
+            waitFor("location.pathname==='/notes' && !!document.querySelector('#notes-create-menu')");
+            screenshot("android-notes-main");
+            tap("#notes-create-menu > summary");
+            waitFor("document.querySelector('#notes-create-menu').open");
+            screenshot("android-notes-create-menu");
+            tap("#notes-create-menu > summary");
             go(note);
-            assertEquals("Original content starts collapsed and unloaded","true",js("!document.querySelector('#mini-original-content').open && !document.querySelector('#mini-original-content .mini-note-content').dataset.loaded"));
+            waitFor("document.querySelector('#mini-original-content').open && document.querySelector('#mini-original-content .mini-note-content').dataset.loaded==='1'");
+            assertTrue("Main content is visible immediately",string("document.querySelector('#mini-original-content').textContent").contains("Synthetic original content"));
+            screenshot("android-notes-opened");
+            tap("#notes-reader-menu > summary");
+            screenshot("android-notes-overflow");
+            tap("#notes-reader-menu > summary");
             String first = addSection("Recall cues", "**Key relationship**\n\n- [ ] Explain the example without looking.");
             String second = addSection("Exam checklist", "- Define the terms\n- Compare the two examples");
             expand(first); expand(second);
-            assertEquals("Single-open mode closes its sibling","false",js(rowById(first)+".open"));
+            assertEquals("Independent section expansion keeps its sibling","true",js(rowById(first)+".open"));
+            js("document.querySelector('#notes-reader-menu').open=true;document.querySelector('[data-note-action=sections]').click()");
+            waitFor("document.querySelector('#section-management').open");
             js("document.querySelector('#section-multiple').click()");
-            expand(first);
+            js(rowById(first)+".open=false");expand(first);
+            assertEquals("Optional single-open mode closes its sibling","false",js(rowById(second)+".open"));
+            js("document.querySelector('#section-multiple').click()");
+            expand(second);
             assertEquals("Multiple-open mode keeps both sections visible","true",js(rowById(first)+".open && "+rowById(second)+".open"));
             js("document.querySelector('#sections-collapse').click()");
             assertEquals("Collapse all closes every section","0",js("document.querySelectorAll('#section-list > .mini-note[open]').length"));
@@ -201,12 +218,13 @@ public class SmartNestedNotesTest {
             assertEquals("Markdown checklist renders as a read-only checkbox","true",js(rowById(first)+".querySelector('input[type=checkbox]').disabled"));
             js("document.querySelector('#nested-notes').scrollIntoView({block:'start',behavior:'instant'})");
             screenshot("android-smart-mini-notes-expanded");
-            js("document.querySelector('[data-workspace-focus]').click()");
+            js("document.querySelector('#notes-reader-menu').open=true;document.querySelector('[data-note-action=focus]').click()");
             waitFor("document.querySelector('.notes-focus-page').classList.contains('workspace-focus') && document.querySelectorAll('#section-list > .mini-note[open] .mini-note-content[data-loaded]').length===3");
-            assertEquals("Focus Reading hides all authoring and upload controls","true",js("['#section-add','.section-controls','.mini-note-actions','#notes-media-upload','.notes-media-menu','.anvaya-native-reader-header > a'].every(s=>Array.from(document.querySelectorAll(s)).every(e=>e.getClientRects().length===0))"));
+            assertEquals("Focus Reading hides all authoring and upload controls","true",js("['#section-add','#section-editor','#section-management','#notes-media-management','#notes-reader-menu','.section-controls','.mini-note-actions','#notes-media-upload','.notes-media-menu','.anvaya-native-reader-header > a'].every(s=>Array.from(document.querySelectorAll(s)).every(e=>e.getClientRects().length===0))"));
             screenshot("android-smart-focus-reading");
-            js("document.querySelector('[data-workspace-focus]').click()");
+            instrumentation.runOnMainSync(activity::onBackPressed);
             waitFor("!document.querySelector('.notes-focus-page').classList.contains('workspace-focus') && document.querySelector('#section-add').getClientRects().length>0");
+            assertEquals("Native Back exits focus before navigating", "/notes/view/"+note, string("location.pathname"));
             sectionAction(first,"Edit");
             waitFor("!document.querySelector('#section-editor').hidden");
             js("document.querySelector('#section-title').value='Recall cues revised';document.querySelector('#section-body').value="+JSONObject.quote("**Revised retrieval cue**\n\n- [x] Explain the example without looking.")+";document.querySelector('#section-editor').requestSubmit()");

@@ -53,3 +53,41 @@ def test_library_name_survives_phone_runtime_restart_without_source_changes(tmp_
         assert 'data/learning_assistant.db.display.sqlite3' in ZipFile(io.BytesIO(export_backup(r.root))).namelist()
         r.stop()
     ''')
+
+
+def test_native_download_disposition_preserves_unicode_and_sanitizes_untrusted_names(tmp_path):
+    """Android 12 URLUtil only understands the ASCII filename fallback."""
+    import shutil
+    import subprocess
+    from pathlib import Path
+    import pytest
+    if not shutil.which('javac'):
+        pytest.skip('JDK unavailable')
+    source=Path(__file__).parents[1]/'android/app/src/main/java/in/anvaya/privateapp/DownloadSpec.java'
+    harness=tmp_path/'UnicodeDownloadHarness.java'
+    harness.write_text(r'''import in.anvaya.privateapp.DownloadSpec;
+public class UnicodeDownloadHarness {
+  public static void main(String[] args) {
+    String header="attachment; filename=math.pdf; filename*=UTF-8''%CF%80%20+%20%CE%BB%20%E2%88%88%20%E2%84%9D.pdf";
+    assert DownloadSpec.fromDisposition("math.pdf",header,"application/pdf").name.equals("π + λ ∈ ℝ.pdf");
+    assert DownloadSpec.fromDisposition("math.pdf",header.replace("UTF-8''","utf-8'en'"),"application/pdf").name.equals("π + λ ∈ ℝ.pdf");
+    assert DownloadSpec.fromDisposition("browser fallback.pdf","attachment; filename=\"browser fallback.pdf\"","application/pdf").name.equals("browser fallback.pdf");
+    for(String malformed:new String[]{"UTF-8''%ZZ.pdf","UTF-8''%４１.pdf","UTF-8''%C3%28.pdf","UTF-8''%E2%82.pdf","UTF-8''bad%.pdf","ISO-8859-1''%E9.pdf","UTF-8''","UTF-8'bad language'value.pdf","\"UTF-8''quoted.pdf\"","UTF-8''raw space.pdf"}) {
+      assert DownloadSpec.fromDisposition("fallback.pdf","attachment; filename*= "+malformed,"application/pdf").name.equals("fallback.pdf"):malformed;
+    }
+    assert DownloadSpec.fromDisposition("fallback.pdf","attachment; filename*=UTF-8''one.pdf; filename*=UTF-8''two.pdf","application/pdf").name.equals("fallback.pdf");
+    assert DownloadSpec.fromDisposition("fallback.pdf","attachment; filename=\"not; filename*=UTF-8''fake.pdf\"","application/pdf").name.equals("fallback.pdf");
+    assert DownloadSpec.fromDisposition("fallback.pdf",header+"\r\nInjected: yes","application/pdf").name.equals("fallback.pdf");
+    DownloadSpec safe=DownloadSpec.fromDisposition("fallback.pdf","attachment; filename*=UTF-8''..%2Fprivate%5Cnotes%0D%0A.pdf","application/pdf");
+    assert !safe.name.contains("/")&&!safe.name.contains("\\")&&!safe.name.contains("\r")&&!safe.name.contains("\n")&&!safe.name.startsWith(".");
+    assert safe.name.endsWith(".pdf");
+    assert DownloadSpec.fromDisposition("fallback.pdf","attachment; filename*=UTF-8''"+"a".repeat(9000),"application/pdf").name.equals("fallback.pdf");
+    DownloadSpec bounded=DownloadSpec.fromDisposition("fallback.pdf","attachment; filename*=UTF-8''"+"a".repeat(300)+".pdf","application/pdf");
+    assert bounded.name.length()<=120&&bounded.name.endsWith(".pdf");
+    DownloadSpec emoji=DownloadSpec.fromDisposition("fallback.pdf","attachment; filename*=UTF-8''a"+"%F0%9F%92%A1".repeat(100)+".pdf","application/pdf");
+    assert emoji.name.length()<=120&&Character.isLowSurrogate(emoji.name.charAt(emoji.name.length()-5));
+    assert DownloadSpec.fromDisposition(null,null,null).name.equals("ANVAYA-download");
+  }
+}''', encoding='utf-8')
+    subprocess.run(['javac','-encoding','UTF-8','-d',str(tmp_path),str(source),str(harness)],check=True,capture_output=True)
+    subprocess.run(['java','-ea','-cp',str(tmp_path),'UnicodeDownloadHarness'],check=True,capture_output=True)

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hmac
+
 from flask import (
     abort,
     Blueprint,
@@ -2921,6 +2923,11 @@ def notes():
         "course": request.args.get("course", "", type=str),
         "kind": request.args.get("kind", "", type=str),
     }
+    # Keep injected legacy service call signatures compatible by adding only
+    # explicitly requested optional filters.
+    for key in ("pinned", "view"):
+        if key in request.args:
+            query[key] = request.args.get(key, "", type=str)
     try:
         workspace = _anvaya_notes_service().library(**query)
         error_message = ""
@@ -2990,12 +2997,42 @@ def anvaya_notes_create():
 
 @web_blueprint.get("/notes/create/typed")
 def anvaya_notes_typed():
+    initial = {"body": "- [ ] First item\n- [ ] Next item\n"} if request.args.get("format") == "checklist" else {}
     return render_template(
         "anvaya_notes_editor.html",
         active_page="notes",
-        editor=_native_note_editor_view(),
+        editor=_native_note_editor_view(initial),
         error_message="",
     )
+
+
+@web_blueprint.route("/notes/create/media/<capture_kind>", methods=["GET", "POST"])
+def anvaya_notes_capture(capture_kind):
+    from personal_learning_assistant.services.notes_media_service import MAX_MEDIA_REQUEST_BYTES
+    choices = {"image": ("Image Note", ".png,.jpg,.jpeg"),
+               "audio": ("Audio Note", ".mp3,.wav,.m4a,.aac"),
+               "document": ("Import Document", ".pdf,.txt,.md,.csv,.docx,.pptx,.xlsx")}
+    if capture_kind not in choices:
+        abort(404)
+    label, accept = choices[capture_kind]
+    error_message = ""
+    status = 200
+    if request.method == "POST":
+        request.max_content_length = MAX_MEDIA_REQUEST_BYTES + 1024 * 1024
+        if not hmac.compare_digest(request.form.get("csrf_token", ""),
+                                   current_app.extensions.get("notes_media_csrf", "")):
+            return "Refresh the form before creating a note.", 403
+        try:
+            uploads = [(item.filename, item.stream) for item in request.files.getlist("files") if item.filename]
+            result = _anvaya_notes_service().create_media_note(_native_note_form_payload(), uploads, capture_kind=capture_kind)
+            return redirect(url_for("web.anvaya_note_reader", note_id=result["id"]), code=303)
+        except AnvayaNotesValidationError as error:
+            error_message, status = str(error), 400
+        except AnvayaNotesUnavailableError:
+            error_message, status = "The note could not be saved. Try again.", 503
+    return render_template("anvaya_notes_capture.html", active_page="notes", label=label,
+                           accept=accept, capture_kind=capture_kind, form=request.form,
+                           error_message=error_message), status
 
 
 @web_blueprint.post("/notes/create/typed")
@@ -3103,6 +3140,26 @@ def anvaya_note_reader(note_id):
             ),
             503,
         )
+
+
+@web_blueprint.post("/notes/action/<note_id>")
+def anvaya_note_action(note_id):
+    if not hmac.compare_digest(request.headers.get("X-Notes-CSRF", ""),
+                               current_app.extensions.get("notes_media_csrf", "")):
+        return jsonify(error="Refresh the note before changing it."), 403
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify(error="Choose a valid note action."), 400
+    try:
+        return jsonify(_anvaya_notes_service().change_note(note_id, payload.get("action"), payload))
+    except AnvayaNotesValidationError as error:
+        return jsonify(error=str(error)), 400
+    except AnvayaNotesConflictError:
+        return jsonify(error="This note changed. Refresh before trying again."), 409
+    except AnvayaNotesNotFoundError:
+        return jsonify(error="That personal note was not found."), 404
+    except AnvayaNotesUnavailableError:
+        return jsonify(error="The note could not be changed. Please retry."), 503
 
 
 @web_blueprint.post("/notes/view/<note_id>/companion")
