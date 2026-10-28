@@ -31,7 +31,12 @@ public class NativePdfHandoffTest {
     private WebView web;
     private String origin;
     private JSONObject fixture;
-    private File fixtureFile(){return new File(context.getFilesDir(),"evidence/native-pdf-fixture.json");}
+    // Keep the synthetic fixture in the same replaceable data tree as its SQLite
+    // document. A staged workspace restore swaps files/data atomically, but leaves
+    // files/evidence intact; storing the fixture there produced a stale ID with
+    // no database after restore, falsely reporting a PDF resolver failure.
+    // tmp is excluded from user backup exports and never bundled in the APK.
+    private File fixtureFile(){return new File(context.getFilesDir(),"data/native_library/tmp/native-pdf-fixture.json");}
     private File routeFailureFile(){return new File(context.getFilesDir(),"evidence/android-native-pdf-route-failure.txt");}
     private String row(){return "[data-document-id=\""+fixture.optString("id")+"\"]";}
     private com.chaquo.python.PyObject eval(String expression){return Python.getInstance().getModule("builtins").callAttr("eval",expression,Python.getInstance().getModule("builtins").callAttr("dict"));}
