@@ -49,7 +49,20 @@ public class NativePdfHandoffTest {
         deadline=System.currentTimeMillis()+15000;boolean[] visible={false};
         while(System.currentTimeMillis()<deadline){inst.runOnMainSync(()->visible[0]=web.hasWindowFocus()&&web.getImportantForAccessibility()==android.view.View.IMPORTANT_FOR_ACCESSIBILITY_AUTO);if(visible[0])break;Thread.sleep(100);}
         assertTrue("Splash is dismissed",visible[0]);
-        if(create&&!fixtureFile().isFile())createFixture();
+        if(create){
+            // Restore/import tests can replace the whole Library data directory
+            // without touching this evidence sidecar. A saved ID alone does not
+            // prove the original is still present in the running workspace.
+            boolean fresh=!fixtureFile().isFile();
+            if(!fresh){
+                try {
+                    JSONObject previous=new JSONObject(read(fixtureFile()));
+                    Python.getInstance().getModule("personal_learning_assistant.services.native_document_library")
+                        .callAttr("resolve_android_document",context.getFilesDir().getCanonicalPath(),previous.getString("id"));
+                }catch(Exception stale){fresh=true;}
+            }
+            if(fresh)createFixture();
+        }
         assertTrue("Imported fixture persists",fixtureFile().isFile());fixture=new JSONObject(read(fixtureFile()));
         assertManagedOriginal();
         assertEquals("Fixture and running web service use the same durable Library",new File(context.getFilesDir(),"data/native_library").getCanonicalPath(),eval("str(__import__('personal_learning_assistant.android_runtime',fromlist=['_runtime'])._runtime.app.config['NATIVE_LIBRARY_ROOT'])").toString());
@@ -65,8 +78,14 @@ public class NativePdfHandoffTest {
             pdf.writeTo(output);
         } finally {pdf.close();}
         String encoded=android.util.Base64.encodeToString(output.toByteArray(),android.util.Base64.NO_WRAP);
-        String expression="(lambda lib: (lambda d: [d['id'],d['sha256'],d['size']])(lib.update(lib.upload(__import__('io').BytesIO(__import__('base64').b64decode('"+encoded+"')),'Imported lecture.pdf',indexing=False)['id'],display_name='गणित π + λ ∈ ℝ',subject_id='ma103',tags=['native-viewer-test'])))(__import__('personal_learning_assistant.services.native_document_library',fromlist=['NativeDocumentLibrary']).NativeDocumentLibrary("+JSONObject.quote(context.getFilesDir().getCanonicalPath())+"+'/data/native_library',autostart=False))";
+        String expression="(lambda lib: (lambda d: [d['id'],d['sha256'],d['size']])(lib.update(lib.upload(__import__('io').BytesIO(__import__('base64').b64decode('"+encoded+"')),'Imported lecture.pdf',indexing=False)['id'],display_name='गणित π + λ ∈ ℝ',subject_id='ma103',tags=['native-viewer-test'])))(__import__('personal_learning_assistant.services.native_document_library',fromlist=['NativeDocumentLibrary']).NativeDocumentLibrary(str(__import__('personal_learning_assistant.android_runtime',fromlist=['_runtime'])._runtime.app.config['NATIVE_LIBRARY_ROOT']),autostart=False))";
         java.util.List<com.chaquo.python.PyObject> item=eval(expression).asList();JSONObject data=new JSONObject();data.put("id",item.get(0).toString());data.put("sha256",item.get(1).toString());data.put("size",item.get(2).toLong());
+        // Fail at fixture creation rather than misdiagnosing the Android
+        // viewer if the seeded database cannot be reopened from the app root.
+        File database=new File(context.getFilesDir(),"data/native_library/library.sqlite3");
+        assertTrue("Fixture must create the managed Library database",database.isFile());
+        Python.getInstance().getModule("personal_learning_assistant.services.native_document_library")
+            .callAttr("resolve_android_document",context.getFilesDir().getCanonicalPath(),data.getString("id"));
         fixtureFile().getParentFile().mkdirs();try(FileOutputStream file=new FileOutputStream(fixtureFile())){file.write(data.toString().getBytes("UTF-8"));file.getFD().sync();}
     }
     @Test public void libraryTapOpensExternalPdfWithCurrentNameAndReadOnlyGrant() throws Exception {
