@@ -24,9 +24,11 @@ This source report records observations made during implementation. The exact fi
 | Notes core lifecycle and existing backend contracts | 96 passed (final combined backend/compatibility selection) |
 | Existing Notes separation/inline/visual-library contracts | 42 passed |
 | Original Library storage/routes/JVM and browser selection | 42 passed |
-| Notes and existing nested/media real Chromium journeys | 29 passed; final 21-case Keep selection after layout adjustment passed |
+| Notes and existing nested/media real Chromium journeys | 29 passed; final21Keep selection passed; recovered full UI/template105passed; Back/recovery/Assessment/native-contract selection37passed |
 | Final combined Notes/Library/Android/browser selection | 190 passed in 70.29s, zero failures/skips |
-| Complete local Python/browser suite | Running at candidate preparation; inspect final PR report |
+| Complete local diagnostic Python/browser suite | 3,794 passed, 6 failed, 4 external-fixture skips. Outdated Notes assertions and the Study Tools keyboard-focus regression were repaired; recovered UI/template suite passed105. Final-source broad acceptance remains required. |
+| Initial canonical Ubuntu and Windows checks | Each: 3,812 passed, 5 failed, 4 external-fixture skips; same Notes UI failures, now repaired. |
+| Initial installed API31/API35 | Build/install passed; 14 earlier cases per API passed. First new PDF case blocked before handoff because the fixture row was absent. Additional diagnostic evidence added; PDF handoff is not yet verified. |
 | Canonical final-source Ubuntu and Windows suite | Required PR and main gates |
 | Local native app + instrumentation source compilation / JVM unit tests | Passed; 9 JVM cases, zero failures; installed execution still required |
 | Build-once signed APK and API31/API35 installed checks | Required before publication |

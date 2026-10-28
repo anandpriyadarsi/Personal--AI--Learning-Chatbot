@@ -142,11 +142,21 @@ def test_focus_reading_is_reversible_and_keyboard_operable(context, ui, surface)
     page = context.new_page()
     page.goto(ui['base'] + ui['routes'][surface])
     focus = page.locator('[data-workspace-focus]')
-    focus.focus()
+    if surface == 'notes-reader':
+        summary = page.locator('#notes-reader-menu > summary')
+        summary.focus()
+        page.keyboard.press('Enter')
+        focus_action = page.locator('[data-note-action="focus"]')
+        focus_action.focus()
+    else:
+        focus.focus()
     page.keyboard.press('Enter')
     assert focus.get_attribute('aria-pressed') == 'true'
+    if surface == 'notes-reader':
+        assert not page.locator('.topbar').is_visible()
     page.keyboard.press('Escape')
     assert focus.get_attribute('aria-pressed') == 'false'
+    assert page.locator('.topbar').is_visible()
 
 
 def test_personal_note_filter_reader_editor_preserves_identity(context, ui):
@@ -157,7 +167,8 @@ def test_personal_note_filter_reader_editor_preserves_identity(context, ui):
     assert page.locator('.anvaya-note-card-link').count() == 1
     page.locator('.anvaya-note-card-link').click()
     assert ui['note_id'] in page.url
-    page.get_by_role('link', name='Edit note', exact=True).click()
+    page.locator('#notes-reader-menu > summary').click()
+    page.get_by_role('link', name='Edit Note', exact=True).click()
     assert page.locator('input[name="title"]').input_value() == 'Elimination practice'
     assert 'Worked example' in page.locator('textarea[name="body"]').input_value()
     assert ui['notes_repository'].get_note(ui['note_id'])['title'] == 'Elimination practice'
@@ -229,7 +240,11 @@ def test_vault_empty_disconnected_unavailable_states(context, ui, tmp_path, stat
 def test_personal_drawer_initial_tab_is_keyboard_reachable(context, ui):
     page = context.new_page()
     page.goto(ui['base'] + ui['routes']['notes-reader'])
-    page.locator('#notes-study-tools-launcher').click()
+    summary = page.locator('#notes-reader-menu > summary')
+    summary.focus()
+    page.keyboard.press('Enter')
+    page.locator('#notes-study-tools-launcher').focus()
+    page.keyboard.press('Enter')
     saved = page.locator('[data-study-tab="saved"]')
     # Opening transfers focus on the next animation frame; require the real
     # focused state before sending keyboard input, including on busy CI runners.
@@ -239,6 +254,9 @@ def test_personal_drawer_initial_tab_is_keyboard_reachable(context, ui):
     page.keyboard.press('ArrowRight')
     assert page.locator('[data-study-tab="doubts"]').get_attribute('aria-selected') == 'true'
     assert page.locator('[data-study-panel="doubts"] textarea').is_visible()
+    page.keyboard.press('Escape')
+    expect(summary).to_be_focused()
+    assert not page.locator('#notes-reader-menu').evaluate('element => element.open')
 
 
 def test_focus_resize_restores_operable_sidebar(context, ui):
@@ -265,13 +283,18 @@ def test_mobile_notes_show_first_card_without_filter_wall(context, ui):
 def test_study_tools_launcher_does_not_cover_reading_column(context, ui, surface):
     page = context.new_page(); page.set_viewport_size({'width':390,'height':844})
     page.goto(ui['base'] + ui['routes'][surface])
-    launcher = page.locator('#notes-study-tools-launcher').bounding_box()
     if surface == 'notes-reader':
-        # Mini-notes deliberately do not render bodies until opened. Measure
-        # the actual reading column after the user expands Original Content.
-        page.locator('#section-list > .mini-note > summary').first.click()
-    article = page.locator('main article').first.bounding_box()
-    assert launcher['y'] + launcher['height'] <= article['y']
+        from playwright.sync_api import expect
+        expect(page.locator('#notes-study-tools-launcher')).to_be_hidden()
+        expect(page.locator('#section-list > .mini-note').first).to_have_js_property('open', True)
+        # The visible overflow trigger stays above the immediately open content.
+        launcher = page.locator('#notes-reader-menu > summary').bounding_box()
+    else:
+        launcher = page.locator('#notes-study-tools-launcher').bounding_box()
+    article = page.locator('main article').first
+    from playwright.sync_api import expect
+    expect(article).to_be_visible()
+    assert launcher['y'] + launcher['height'] <= article.bounding_box()['y']
 
 
 def test_mobile_no_javascript_navigation_is_native(browser, ui):
@@ -299,7 +322,12 @@ def test_animated_drawer_open_moves_keyboard_focus(context, ui):
     from playwright.sync_api import expect
     page=context.new_page();page.emulate_media(reduced_motion='no-preference')
     page.goto(ui['base']+ui['routes']['notes-reader'])
+    summary = page.locator('#notes-reader-menu > summary')
+    summary.focus();page.keyboard.press('Enter')
     page.locator('#notes-study-tools-launcher').focus();page.keyboard.press('Enter')
     expect(page.locator('[data-study-tab="saved"]')).to_be_focused(timeout=2000)
     page.keyboard.press('ArrowRight')
     expect(page.locator('[data-study-tab="doubts"]')).to_be_focused()
+    page.locator('#notes-study-tools-close').click()
+    expect(summary).to_be_focused()
+    expect(page.locator('#notes-study-tools-launcher')).to_be_hidden()

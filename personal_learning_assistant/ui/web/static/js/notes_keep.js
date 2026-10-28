@@ -29,7 +29,25 @@
     const launcher = document.getElementById('notes-study-tools-launcher');
     if (launcher) {
       menu.querySelector('nav').append(launcher);
-      launcher.addEventListener('click', () => { menu.open = false; });
+      const drawer = document.getElementById('notes-study-tools-drawer');
+      launcher.addEventListener('click', () => {
+        menu.open = false;
+        // Closing the overflow hides the launcher before the shared observer
+        // can transfer focus. Move it explicitly once the drawer is visible.
+        requestAnimationFrame(() => {
+          if (drawer?.classList.contains('is-open')) {
+            drawer.querySelector('[data-study-tab][aria-selected="true"]')?.focus();
+          }
+        });
+      });
+      if (drawer) {
+        let wasOpen = drawer.classList.contains('is-open');
+        new MutationObserver(() => {
+          const isOpen = drawer.classList.contains('is-open');
+          if (wasOpen && !isOpen) menu.querySelector('summary').focus({preventScroll:true});
+          wasOpen = isOpen;
+        }).observe(drawer, {attributes:true, attributeFilter:['class']});
+      }
     }
   });
   const dialog = document.getElementById('note-action-dialog');

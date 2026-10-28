@@ -76,6 +76,9 @@ def test_imported_modes_pause_restart_and_closed_book_review(mode_browser,mode_l
         else:
             page.get_by_role('button',name='Attempted on paper',exact=True).click()
             expect(page.get_by_role('button',name='Undo attempted',exact=True)).to_be_visible()
+            # The persisted-page label can paint before deferred handlers finish
+            # their mobile palette layout. Interact with the completed reload.
+            page.wait_for_load_state('load')
             assert page.get_by_role('button',name='Reveal solution and marking guide').count()==0
             if not page.locator('.palette-disclosure').evaluate('e=>e.open'):
                 page.locator('.palette-disclosure summary').click()

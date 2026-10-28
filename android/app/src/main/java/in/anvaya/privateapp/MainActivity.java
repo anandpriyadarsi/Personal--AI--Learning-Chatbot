@@ -511,6 +511,8 @@ public class MainActivity extends Activity {
         target.evaluateJavascript("(() => {"
             + "const modal=document.querySelector('dialog[open]');"
             + "if(modal){modal.close();return true;}"
+            + "const noteDrawer=document.getElementById('notes-study-tools-drawer');"
+            + "if(noteDrawer&&noteDrawer.classList.contains('is-open')){document.getElementById('notes-study-tools-close').click();return true;}"
             + "const noteMenu=document.querySelector('#notes-create-menu[open],#notes-reader-menu[open]');"
             + "if(noteMenu){noteMenu.open=false;return true;}"
             + "const noteFocus=document.querySelector('[data-workspace-focus]');"

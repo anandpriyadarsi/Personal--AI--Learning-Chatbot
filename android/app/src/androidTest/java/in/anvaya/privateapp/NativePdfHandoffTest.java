@@ -32,6 +32,7 @@ public class NativePdfHandoffTest {
     private String origin;
     private JSONObject fixture;
     private File fixtureFile(){return new File(context.getFilesDir(),"evidence/native-pdf-fixture.json");}
+    private File routeFailureFile(){return new File(context.getFilesDir(),"evidence/android-native-pdf-route-failure.txt");}
     private String row(){return "[data-document-id=\""+fixture.optString("id")+"\"]";}
     private com.chaquo.python.PyObject eval(String expression){return Python.getInstance().getModule("builtins").callAttr("eval",expression,Python.getInstance().getModule("builtins").callAttr("dict"));}
     private void workspace(boolean create) throws Exception {
@@ -50,7 +51,12 @@ public class NativePdfHandoffTest {
         assertTrue("Splash is dismissed",visible[0]);
         if(create&&!fixtureFile().isFile())createFixture();
         assertTrue("Imported fixture persists",fixtureFile().isFile());fixture=new JSONObject(read(fixtureFile()));
-        inst.runOnMainSync(()->web.loadUrl(origin+"/library/files"));waitJs("!!document.querySelector('"+row()+"')");
+        assertManagedOriginal();
+        assertEquals("Fixture and running web service use the same durable Library",new File(context.getFilesDir(),"data/native_library").getCanonicalPath(),eval("str(__import__('personal_learning_assistant.android_runtime',fromlist=['_runtime'])._runtime.app.config['NATIVE_LIBRARY_ROOT'])").toString());
+        routeFailureFile().delete();
+        eval("__import__('flask').got_request_exception.connect(lambda sender,exception: __import__('pathlib').Path("+JSONObject.quote(routeFailureFile().getCanonicalPath())+").write_text(''.join(__import__('traceback').format_exception(type(exception),exception,exception.__traceback__)),encoding='utf-8'),sender=__import__('personal_learning_assistant.android_runtime',fromlist=['_runtime'])._runtime.app,weak=False)");
+        js("window.__nativePdfNavigationPending=true");
+        inst.runOnMainSync(()->web.loadUrl(origin+"/library/files"));waitJs("!window.__nativePdfNavigationPending&&location.pathname==='/library/files'&&!!document.querySelector("+JSONObject.quote(row())+")");
     }
     private void createFixture() throws Exception {
         ByteArrayOutputStream output=new ByteArrayOutputStream();PdfDocument pdf=new PdfDocument();
@@ -134,7 +140,21 @@ public class NativePdfHandoffTest {
         String check="(lambda d: d['display_name']=='गणित π + λ ∈ ℝ' and d['subject_id']=='ma103' and d['tags']==['native-viewer-test'] and d['status']=='disabled')(__import__('personal_learning_assistant.services.native_document_library',fromlist=['NativeDocumentLibrary']).NativeDocumentLibrary("+JSONObject.quote(context.getFilesDir().getCanonicalPath())+"+'/data/native_library',autostart=False).get('"+fixture.getString("id")+"'))";assertTrue("Rename/course/tags/index choice persist",eval(check).toBoolean());File copies=new File(context.getCacheDir(),"shared-originals");assertFalse("No view copy",copies.isDirectory()&&copies.list().length>0);
     }
     private String js(String source) throws Exception {CountDownLatch done=new CountDownLatch(1);String[] result={null};inst.runOnMainSync(()->web.evaluateJavascript(source,value->{result[0]=value;done.countDown();}));assertTrue(done.await(10,TimeUnit.SECONDS));return result[0];}
-    private void waitJs(String condition) throws Exception {long deadline=System.currentTimeMillis()+20000;while(System.currentTimeMillis()<deadline){if("true".equals(js("document.readyState==='complete'&&("+condition+")")))return;Thread.sleep(100);}fail("Library state did not appear: "+condition+" at "+js("location.href"));}
+    private void waitJs(String condition) throws Exception {
+        long deadline=System.currentTimeMillis()+20000;
+        while(System.currentTimeMillis()<deadline){if("true".equals(js("document.readyState==='complete'&&("+condition+")")))return;Thread.sleep(100);}
+        String page=js("JSON.stringify({url:location.href,ready:document.readyState,title:document.title,pending:!!window.__nativePdfNavigationPending,ids:Array.from(document.querySelectorAll('[data-document-id]')).map(r=>r.dataset.documentId),body:document.body?.innerText.slice(0,5000)})");
+        // This uses the real authenticated WebView connection. Capture the HTTP
+        // status/body as well as DOM so route errors cannot look like missing rows.
+        js("window.__nativePdfHttpProbe=null;fetch('/library/files',{cache:'no-store',credentials:'same-origin'}).then(async r=>{window.__nativePdfHttpProbe=JSON.stringify({status:r.status,url:r.url,body:(await r.text()).slice(0,6000)})}).catch(e=>{window.__nativePdfHttpProbe=String(e)})");
+        long probeDeadline=System.currentTimeMillis()+10000;
+        while(System.currentTimeMillis()<probeDeadline&&"true".equals(js("window.__nativePdfHttpProbe===null")))Thread.sleep(100);
+        String details="condition="+condition+"; fixture="+fixture+"; page="+page+"; HTTP="+js("window.__nativePdfHttpProbe")+"; routeException="+(routeFailureFile().isFile()?read(routeFailureFile()):"none");
+        File evidence=new File(context.getFilesDir(),"evidence/android-native-pdf-state-failure.txt");evidence.getParentFile().mkdirs();
+        try(FileOutputStream output=new FileOutputStream(evidence)){output.write(details.getBytes("UTF-8"));}
+        screenshot("android-native-pdf-state-failure");
+        fail("Library state did not appear: "+details);
+    }
     private void tap(String selector) throws Exception {
         waitJs("!!document.querySelector("+JSONObject.quote(selector)+")");JSONObject point=new JSONObject(js("(()=>{const a=document.querySelector("+JSONObject.quote(selector)+");a.scrollIntoView({block:'center'});const r=a.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2,width:innerWidth}})()"));
         CountDownLatch frame=new CountDownLatch(1);int[] location=new int[2];inst.runOnMainSync(()->{web.getLocationOnScreen(location);web.postVisualStateCallback(System.nanoTime(),new WebView.VisualStateCallback(){@Override public void onComplete(long id){web.postOnAnimation(frame::countDown);}});});assertTrue(frame.await(10,TimeUnit.SECONDS));float scale=web.getWidth()/(float)point.getDouble("width");float x=location[0]+(float)point.getDouble("x")*scale,y=location[1]+(float)point.getDouble("y")*scale;long now=android.os.SystemClock.uptimeMillis();android.view.MotionEvent down=android.view.MotionEvent.obtain(now,now,android.view.MotionEvent.ACTION_DOWN,x,y,0),up=android.view.MotionEvent.obtain(now,now+80,android.view.MotionEvent.ACTION_UP,x,y,0);down.setSource(android.view.InputDevice.SOURCE_TOUCHSCREEN);up.setSource(android.view.InputDevice.SOURCE_TOUCHSCREEN);assertTrue(inst.getUiAutomation().injectInputEvent(down,true));assertTrue(inst.getUiAutomation().injectInputEvent(up,true));down.recycle();up.recycle();

@@ -37,4 +37,10 @@ def test_native_back_closes_notes_menus_and_focus_before_navigation(protected_br
         assert page.evaluate(native_back_script()) is True
         expect(page.locator('body')).not_to_have_class(re.compile('workspace-focus'))
         expect(page).to_have_url(base + '/notes/view/' + note)
+        page.locator('#notes-reader-menu>summary').click()
+        page.get_by_role('button', name='Study tools', exact=True).click()
+        expect(page.locator('#notes-study-tools-drawer')).to_have_class(re.compile('is-open'))
+        assert page.evaluate(native_back_script()) is True
+        expect(page.locator('#notes-study-tools-drawer')).not_to_have_class(re.compile('is-open'))
+        expect(page).to_have_url(base + '/notes/view/' + note)
         assert page.evaluate(native_back_script()) is False
