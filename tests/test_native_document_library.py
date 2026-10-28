@@ -314,3 +314,12 @@ def test_reimport_identical_original_repairs_corrupt_blob_without_new_record(lib
     assert repaired['id']==doc['id']
     assert lib.original(doc['id']).read_bytes()==raw
     assert len(lib.list_documents()['items'])==1
+
+
+def test_android_resolver_missing_library_does_not_create_database(tmp_path):
+    from personal_learning_assistant.services.native_document_library import resolve_android_document
+    root = tmp_path / 'phone'
+    database = root / 'data/native_library/library.sqlite3'
+    with pytest.raises(LibraryError):
+        resolve_android_document(root, 'a' * 32)
+    assert not database.exists()
