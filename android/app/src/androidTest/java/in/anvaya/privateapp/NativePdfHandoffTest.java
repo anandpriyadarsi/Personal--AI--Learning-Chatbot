@@ -135,7 +135,20 @@ public class NativePdfHandoffTest {
         } finally {source.delete();}
     }
     private void assertManagedOriginal() throws Exception {
-        java.util.List<com.chaquo.python.PyObject> item=Python.getInstance().getModule("personal_learning_assistant.services.native_document_library").callAttr("resolve_android_document",context.getFilesDir().getCanonicalPath(),fixture.getString("id")).asList();File file=new File(item.get(0).toString());assertTrue(file.isFile());assertEquals(new File(context.getFilesDir(),"data/native_library/blobs/"+fixture.getString("sha256")).getCanonicalPath(),file.getCanonicalPath());
+        java.util.List<com.chaquo.python.PyObject> item;
+        try {
+            item=Python.getInstance().getModule("personal_learning_assistant.services.native_document_library").callAttr("resolve_android_document",context.getFilesDir().getCanonicalPath(),fixture.getString("id")).asList();
+        } catch(com.chaquo.python.PyException error) {
+            // CI-only diagnostics: no document contents, just fixture storage state.
+            File db=new File(context.getFilesDir(),"data/native_library/library.sqlite3");
+            String sqlProbe;
+            try {
+                String expression="(lambda p: {'db_exists':p.is_file(),'db_size':p.stat().st_size if p.is_file() else -1,'doc_ids':__import__('sqlite3').connect(str(p)).execute('SELECT id FROM documents').fetchall() if p.is_file() else []})(__import__('pathlib').Path("+JSONObject.quote(db.getCanonicalPath())+"))";
+                sqlProbe=eval(expression).toString();
+            } catch(Exception diagnosticError) {sqlProbe=diagnosticError.toString();}
+            throw new AssertionError("Native resolver failed; fixture="+fixture+"; sqlite="+sqlProbe+"; root="+context.getFilesDir().getCanonicalPath(),error);
+        }
+        File file=new File(item.get(0).toString());assertTrue(file.isFile());assertEquals(new File(context.getFilesDir(),"data/native_library/blobs/"+fixture.getString("sha256")).getCanonicalPath(),file.getCanonicalPath());
         MessageDigest hash=MessageDigest.getInstance("SHA-256");try(InputStream input=new FileInputStream(file)){byte[] buffer=new byte[32768];int count;while((count=input.read(buffer))!=-1)hash.update(buffer,0,count);}StringBuilder actual=new StringBuilder();for(byte b:hash.digest())actual.append(String.format(java.util.Locale.ROOT,"%02x",b&255));assertEquals(fixture.getString("sha256"),actual.toString());assertEquals("गणित π + λ ∈ ℝ.pdf",item.get(2).toString());
         String check="(lambda d: d['display_name']=='गणित π + λ ∈ ℝ' and d['subject_id']=='ma103' and d['tags']==['native-viewer-test'] and d['status']=='disabled')(__import__('personal_learning_assistant.services.native_document_library',fromlist=['NativeDocumentLibrary']).NativeDocumentLibrary("+JSONObject.quote(context.getFilesDir().getCanonicalPath())+"+'/data/native_library',autostart=False).get('"+fixture.getString("id")+"'))";assertTrue("Rename/course/tags/index choice persist",eval(check).toBoolean());File copies=new File(context.getCacheDir(),"shared-originals");assertFalse("No view copy",copies.isDirectory()&&copies.list().length>0);
     }
