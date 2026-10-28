@@ -13,6 +13,8 @@ import androidx.core.content.FileProvider;
 import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.chaquo.python.Python;
+import com.chaquo.python.PyObject;
+import com.chaquo.python.Kwarg;
 import org.json.JSONObject;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -54,7 +56,7 @@ public class NativePdfHandoffTest {
         assertManagedOriginal();
         assertEquals("Fixture and running web service use the same durable Library",new File(context.getFilesDir(),"data/native_library").getCanonicalPath(),eval("str(__import__('personal_learning_assistant.android_runtime',fromlist=['_runtime'])._runtime.app.config['NATIVE_LIBRARY_ROOT'])").toString());
         routeFailureFile().delete();
-        eval("__import__('flask').got_request_exception.connect(lambda sender,exception: __import__('pathlib').Path("+JSONObject.quote(routeFailureFile().getCanonicalPath())+").write_text(''.join(__import__('traceback').format_exception(type(exception),exception,exception.__traceback__)),encoding='utf-8'),sender=__import__('personal_learning_assistant.android_runtime',fromlist=['_runtime'])._runtime.app,weak=False)");
+        installRouteDiagnostics();
         js("window.__nativePdfNavigationPending=true");
         inst.runOnMainSync(()->web.loadUrl(origin+"/library/files"));waitJs("!window.__nativePdfNavigationPending&&location.pathname==='/library/files'&&!!document.querySelector("+JSONObject.quote(row())+")");
     }
@@ -65,8 +67,14 @@ public class NativePdfHandoffTest {
             pdf.writeTo(output);
         } finally {pdf.close();}
         String encoded=android.util.Base64.encodeToString(output.toByteArray(),android.util.Base64.NO_WRAP);
-        String expression="(lambda lib: (lambda d: [d['id'],d['sha256'],d['size']])(lib.update(lib.upload(__import__('io').BytesIO(__import__('base64').b64decode('"+encoded+"')),'Imported lecture.pdf',indexing=False)['id'],display_name='गणित π + λ ∈ ℝ',subject_id='ma103',tags=['native-viewer-test'])))(__import__('personal_learning_assistant.services.native_document_library',fromlist=['NativeDocumentLibrary']).NativeDocumentLibrary("+JSONObject.quote(context.getFilesDir().getCanonicalPath())+"+'/data/native_library',autostart=False))";
-        java.util.List<com.chaquo.python.PyObject> item=eval(expression).asList();JSONObject data=new JSONObject();data.put("id",item.get(0).toString());data.put("sha256",item.get(1).toString());data.put("size",item.get(2).toLong());
+        PyObject library=fixtureLibrary();
+        PyObject raw=Python.getInstance().getModule("base64").callAttr("b64decode",encoded);
+        PyObject stream=Python.getInstance().getModule("io").callAttr("BytesIO",raw);
+        PyObject imported=library.callAttr("upload",stream,"Imported lecture.pdf",new Kwarg("indexing",false));
+        PyObject tags=Python.getInstance().getModule("builtins").callAttr("list");tags.callAttr("append","native-viewer-test");
+        PyObject document=library.callAttr("update",imported.callAttr("__getitem__","id"),new Kwarg("display_name","गणित π + λ ∈ ℝ"),new Kwarg("subject_id","ma103"),new Kwarg("tags",tags));
+        assertTrue("Fixture database exists at the runtime's durable location",new File(context.getFilesDir(),"data/native_library/library.sqlite3").isFile());
+        JSONObject data=new JSONObject();data.put("id",document.callAttr("__getitem__","id").toString());data.put("sha256",document.callAttr("__getitem__","sha256").toString());data.put("size",document.callAttr("__getitem__","size").toLong());
         fixtureFile().getParentFile().mkdirs();try(FileOutputStream file=new FileOutputStream(fixtureFile())){file.write(data.toString().getBytes("UTF-8"));file.getFD().sync();}
     }
     @Test public void libraryTapOpensExternalPdfWithCurrentNameAndReadOnlyGrant() throws Exception {
@@ -150,7 +158,37 @@ public class NativePdfHandoffTest {
         }
         File file=new File(item.get(0).toString());assertTrue(file.isFile());assertEquals(new File(context.getFilesDir(),"data/native_library/blobs/"+fixture.getString("sha256")).getCanonicalPath(),file.getCanonicalPath());
         MessageDigest hash=MessageDigest.getInstance("SHA-256");try(InputStream input=new FileInputStream(file)){byte[] buffer=new byte[32768];int count;while((count=input.read(buffer))!=-1)hash.update(buffer,0,count);}StringBuilder actual=new StringBuilder();for(byte b:hash.digest())actual.append(String.format(java.util.Locale.ROOT,"%02x",b&255));assertEquals(fixture.getString("sha256"),actual.toString());assertEquals("गणित π + λ ∈ ℝ.pdf",item.get(2).toString());
-        String check="(lambda d: d['display_name']=='गणित π + λ ∈ ℝ' and d['subject_id']=='ma103' and d['tags']==['native-viewer-test'] and d['status']=='disabled')(__import__('personal_learning_assistant.services.native_document_library',fromlist=['NativeDocumentLibrary']).NativeDocumentLibrary("+JSONObject.quote(context.getFilesDir().getCanonicalPath())+"+'/data/native_library',autostart=False).get('"+fixture.getString("id")+"'))";assertTrue("Rename/course/tags/index choice persist",eval(check).toBoolean());File copies=new File(context.getCacheDir(),"shared-originals");assertFalse("No view copy",copies.isDirectory()&&copies.list().length>0);
+        PyObject document=fixtureLibrary().callAttr("get",fixture.getString("id"));
+        assertEquals("Rename persists","गणित π + λ ∈ ℝ",document.callAttr("__getitem__","display_name").toString());
+        assertEquals("Course persists","ma103",document.callAttr("__getitem__","subject_id").toString());
+        assertEquals("Indexing choice persists","disabled",document.callAttr("__getitem__","status").toString());
+        java.util.List<PyObject> tags=document.callAttr("__getitem__","tags").asList();assertEquals("Tag count persists",1,tags.size());assertEquals("native-viewer-test",tags.get(0).toString());
+        File copies=new File(context.getCacheDir(),"shared-originals");assertFalse("No view copy",copies.isDirectory()&&copies.list().length>0);
+    }
+    private PyObject fixtureLibrary() throws Exception {
+        // Android JSON escapes every slash. JSON string literals belong in JS,
+        // never in Python source: pass file paths across the JNI boundary as data.
+        String expected=new File(context.getFilesDir(),"data/native_library").getCanonicalPath();
+        PyObject library=Python.getInstance().getModule("personal_learning_assistant.services.native_document_library").callAttr("NativeDocumentLibrary",expected,new Kwarg("autostart",false));
+        PyObject builtins=Python.getInstance().getModule("builtins");
+        String actual=builtins.callAttr("str",builtins.callAttr("getattr",library,"root")).toString();
+        assertEquals("Fixture Library uses the canonical runtime root",expected,actual);
+        assertEquals("Fixture Library matches the running web service root",eval("str(__import__('personal_learning_assistant.android_runtime',fromlist=['_runtime'])._runtime.app.config['NATIVE_LIBRARY_ROOT'])").toString(),actual);
+        return library;
+    }
+    private void installRouteDiagnostics() throws Exception {
+        PyObject builtins=Python.getInstance().getModule("builtins"),globals=builtins.callAttr("dict");
+        builtins.callAttr("exec", """
+            def install_route_diagnostics(path):
+                from pathlib import Path
+                import traceback
+                from flask import got_request_exception
+                from personal_learning_assistant.android_runtime import _runtime
+                def capture(sender, exception):
+                    Path(path).write_text(''.join(traceback.format_exception(type(exception), exception, exception.__traceback__)), encoding='utf-8')
+                got_request_exception.connect(capture, sender=_runtime.app, weak=False)
+            """,globals);
+        globals.callAttr("__getitem__","install_route_diagnostics").call(routeFailureFile().getCanonicalPath());
     }
     private String originalResolverDiagnostic() throws Exception {
         com.chaquo.python.PyObject builtins=Python.getInstance().getModule("builtins");
