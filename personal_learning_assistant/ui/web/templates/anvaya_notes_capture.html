@@ -1,0 +1,16 @@
+{% extends "workspace_base.html" %}
+{% block title %}{{ label }} · ANVAYA{% endblock %}
+{% block workspace_assets %}{{ super() }}<link rel="stylesheet" href="{{ url_for('static', filename='css/notes_keep.css') }}">{% endblock %}
+{% block content %}
+<nav class="notes-reader-back"><a href="{{ url_for('web.notes') }}">← My Notes</a></nav>
+<header class="notes-library-heading"><h1>{{ label }}</h1></header>
+{% if error_message %}<p class="notice-panel error-panel" role="alert">{{ error_message }}</p>{% endif %}
+<form method="post" enctype="multipart/form-data" class="dashboard-panel notes-capture-form">
+<input type="hidden" name="csrf_token" value="{{ notes_media_csrf }}">
+<label>Note name<input name="title" maxlength="200" value="{{ form.get('title', '') }}" required autofocus></label>
+<label>Course <small>(optional)</small><input name="course" maxlength="100" value="{{ form.get('course', '') }}"></label>
+<label>{% if capture_kind == 'audio' %}Audio files{% elif capture_kind == 'image' %}Images{% else %}Documents{% endif %}<input type="file" name="files" accept="{{ accept }}" multiple required {% if capture_kind == 'image' %}capture="environment"{% endif %}></label>
+<p>Original files are preserved. Up to 20 files, 512 MB per file.</p>
+<div class="form-actions"><button class="button" type="submit">Create note</button><a href="{{ url_for('web.notes') }}">Cancel</a></div>
+</form>
+{% endblock %}

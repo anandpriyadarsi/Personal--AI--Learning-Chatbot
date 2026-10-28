@@ -59,6 +59,17 @@ done
 adb shell am force-stop in.anvaya.privateapp
 adb shell am instrument -w -r -e class in.anvaya.privateapp.SmartNestedNotesTest\#savedTypedNotesAndAttachmentsSurviveForceStop in.anvaya.privateapp.test/androidx.test.runner.AndroidJUnitRunner | tee android-evidence/smart-typed-force-stop.log
 python -c "from pathlib import Path;s=Path('android-evidence/smart-typed-force-stop.log').read_text();assert 'OK (1 test)' in s and not any(v in s for v in ('FAILURES','INSTRUMENTATION_FAILED','shortMsg='))"
+# Default Library taps must hand original bytes to a separate installed PDF app.
+for method in libraryTapOpensExternalPdfWithCurrentNameAndReadOnlyGrant openWithCancellationAndAbsentViewerPreserveLibrary documentProviderRejectsWritesAndUnrelatedFilesAndShareKeepsName managedOriginalAndMetadataSurviveActivityRestart; do
+  adb shell am instrument -w -r -e class in.anvaya.privateapp.NativePdfHandoffTest\#"$method" in.anvaya.privateapp.test/androidx.test.runner.AndroidJUnitRunner | tee "android-evidence/pdf-$method.log"
+  python -c "from pathlib import Path;s=Path('android-evidence/pdf-$method.log').read_text();assert 'OK (1 test)' in s and not any(v in s for v in ('FAILURES','INSTRUMENTATION_FAILED','shortMsg='))"
+done
+adb shell am force-stop in.anvaya.privateapp
+adb shell am instrument -w -r -e class in.anvaya.privateapp.NativePdfHandoffTest\#managedOriginalSurvivesForceStop in.anvaya.privateapp.test/androidx.test.runner.AndroidJUnitRunner | tee android-evidence/pdf-after-force-stop.log
+python -c "from pathlib import Path;s=Path('android-evidence/pdf-after-force-stop.log').read_text();assert 'OK (1 test)' in s and not any(v in s for v in ('FAILURES','INSTRUMENTATION_FAILED','shortMsg='))"
+for name in android-notes-main android-notes-create-menu android-notes-opened android-notes-overflow android-native-pdf-external-viewer android-native-pdf-library android-native-pdf-no-viewer android-native-pdf-after-activity-restart android-native-pdf-after-force-stop; do
+  adb exec-out run-as in.anvaya.privateapp cat files/evidence/"$name".png > android-evidence/"$name".png
+done
 # Original-document Library has a separate native renderer. Compilation alone
 # cannot prove that its private content URI opens at the requested PDF page.
 adb shell am instrument -w -r -e class in.anvaya.privateapp.NativePdfPageTest in.anvaya.privateapp.test/androidx.test.runner.AndroidJUnitRunner | tee android-evidence/native-pdf-page.log
@@ -77,7 +88,7 @@ done
 
 # Deliver precisely the APK which passed the installed-app checks above.
 source_short="$(git rev-parse --short=12 HEAD)"
-verified_apk="android-evidence/ANVAYA-Unified-Android-V1.2.1-Debug-${source_short}.apk"
+verified_apk="android-evidence/ANVAYA-Unified-Android-V1.3.0-Debug-${source_short}.apk"
 cp android/app/build/outputs/apk/debug/app-debug.apk "$verified_apk"
 sha256sum "$verified_apk" > android-evidence/TESTED_APK_SHA256.txt
 # Inspect the actual package installed above, not Gradle configuration alone.
@@ -95,7 +106,7 @@ import ssl
 import zipfile
 report=Path('android-evidence/apk-badging.txt').read_text()
 assert "name='in.anvaya.privateapp'" in report
-assert "versionCode='17'" in report and "versionName='1.2.1-unified-debug'" in report
+assert "versionCode='18'" in report and "versionName='1.3.0-unified-debug'" in report
 assert "sdkVersion:'24'" in report and "targetSdkVersion:'35'" in report
 for abi in ('armeabi-v7a','arm64-v8a','x86_64'):
     assert abi in report, abi

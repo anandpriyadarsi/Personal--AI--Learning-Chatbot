@@ -24,6 +24,18 @@
       if(action==='close-dialog')close(button);
       if(action==='upload-cancel'){if(upload){upload.abort();upload=null;say('Upload cancelled. Reload to check whether storage completed.');}close(button);}
       if(action==='toggle-view'){const grid=document.getElementById('file-list').classList.toggle('grid');button.setAttribute('aria-pressed',String(grid));}
+      if(action==='rename'||action==='move-course'){
+        const d=(await api(path(id))).document;
+        const form=document.getElementById(action==='rename'?'rename-form':'course-form');
+        form.elements.id.value=id;
+        if(action==='rename')form.elements.display_name.value=d.display_name;
+        else {
+          const input=form.elements.subject_id;
+          if(d.subject_id&&!Array.from(input.options).some(o=>o.value===d.subject_id))input.add(new Option('Assigned course (unavailable)',d.subject_id));
+          input.value=d.subject_id||'';
+        }
+        show(action==='rename'?'rename-dialog':'course-dialog');
+      }
       if(action==='edit'){
         const d=(await api(path(id))).document, form=document.getElementById('edit-form');
         for(const key of ['id','display_name','folder_id','subject_id','topic']){
@@ -55,17 +67,16 @@
       }
       if(action==='zoom-in'||action==='zoom-out'){zoom=Math.max(50,Math.min(300,zoom+(action==='zoom-in'?25:-25)));document.getElementById('pdf-page').style.width=zoom+'%';}
       if(action==='share-original'){
-        // Native link is intercepted only after an actual user tap; no JS bridge.
-        const native=root.querySelector('[data-native-open]');
-        if(/; wv\)/.test(navigator.userAgent)||/\bwv\b/.test(navigator.userAgent)){
-          const url=new URL(native.href);url.searchParams.set('native_action','share');location.href=url.pathname+url.search;return;
-        }
-        const metadata=(await api(path(root.dataset.document))).document;
-        const response=await fetch(path(root.dataset.document)+'/original?download=1');if(!response.ok)throw new Error('Original unavailable.');
-        if(metadata.size>30*1024*1024)throw new Error('For files above 30 MiB, download and share through your file manager.');
-        const file=new File([await response.blob()],metadata.original_name,{type:metadata.mime});
+        // A real anchor tap carries the gesture into the native intent policy.
+        if(/; wv\)/.test(navigator.userAgent)||/\bwv\b/.test(navigator.userAgent))return;
+        event.preventDefault();
+        const identity=id||root.dataset.document;
+        const metadata=(await api(path(identity))).document;
+        if(metadata.size>30*1024*1024)throw new Error('For files above 30 MiB, use Save / Export and share through your file manager.');
+        const response=await fetch(path(identity)+'/original?download=1');if(!response.ok)throw new Error('Original unavailable.');
+        const file=new File([await response.blob()],metadata.filename,{type:metadata.mime});
         if(navigator.canShare?.({files:[file]})){await navigator.share({files:[file],title:metadata.display_name});}
-        else say('This browser cannot share files directly. Download original, then share it through your file manager.');
+        else say('This browser cannot share files directly. Use Save / Export, then share through your file manager.');
       }
     }catch(error){say(error.message);}
   });
@@ -79,6 +90,13 @@
     upload.onerror=()=>{upload=null;say('Upload interrupted. Retry the original document.');document.getElementById('upload-dialog').close();};
     upload.send(data);
   });
+  for(const [formId,field] of [['rename-form','display_name'],['course-form','subject_id']]){
+    document.getElementById(formId)?.addEventListener('submit',async event=>{
+      event.preventDefault();const form=event.target;
+      try{await api(path(form.elements.id.value),'PATCH',{[field]:form.elements[field].value||null});refresh();}
+      catch(e){say(e.message);close(form);}
+    });
+  }
   document.getElementById('edit-form')?.addEventListener('submit',async event=>{
     event.preventDefault();const form=event.target;
     try{await api(path(form.elements.id.value),'PATCH',{display_name:form.elements.display_name.value,folder_id:form.elements.folder_id.value||null,subject_id:form.elements.subject_id.value||null,topic:form.elements.topic.value,tags:form.elements.tags.value.split(',').map(t=>t.trim()).filter(Boolean)});refresh();}catch(e){say(e.message);close(form);}

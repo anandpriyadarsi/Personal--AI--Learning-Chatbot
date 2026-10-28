@@ -34,6 +34,7 @@ def test_real_upload_reopen_rename_delete_no_preload(protected_browser,live_medi
         page.goto(f'{base}/notes/view/{note}')
         expect(page.get_by_role('heading',name='Attached Media')).to_be_visible()
         expect(page.locator('#notes-media-status')).to_contain_text('No media attached')
+        page.locator('#notes-media-management>summary').click()
         page.locator('#notes-media-files').set_input_files([
             {'name':'Spectroscopy Lecture.mp4','mimeType':'video/mp4','buffer':SAMPLES['mp4']},
             {'name':'Teacher Explanation.mp3','mimeType':'audio/mpeg','buffer':SAMPLES['mp3']}])
@@ -70,6 +71,7 @@ def test_failed_upload_keeps_selection_for_retry(protected_browser,live_media):
     base,note,_=live_media
     with protected_browser.new_context(viewport={'width':390,'height':844}) as context:
         page=context.new_page();page.goto(f'{base}/notes/view/{note}')
+        page.locator('#notes-media-management>summary').click()
         picker=page.locator('#notes-media-files')
         picker.set_input_files({'name':'not-valid.mp3','mimeType':'audio/mpeg','buffer':b'<html>not media</html>'})
         page.get_by_role('button',name='Attach Media',exact=True).click()

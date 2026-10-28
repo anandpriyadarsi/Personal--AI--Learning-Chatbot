@@ -2,10 +2,12 @@
 
 {% block title %}{{ note.title if note else 'Note' }} · ANVAYA{% endblock %}
 {% block body_class %}{{ super() }} notes-focus-page{% endblock %}
+{% block global_search %}{% endblock %}
 
 {% block workspace_assets %}
 {{ super() }}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/nested_notes.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/notes_keep.css') }}">
 {% if note %}<link rel="stylesheet" href="{{ url_for('static', filename='css/notes_media.css') }}">{% endif %}
 {% endblock %}
 
@@ -13,6 +15,7 @@
 {{ super() }}
 <script defer src="{{ url_for('static', filename='js/anvaya_notes_reader.js') }}"></script>
 <script defer src="{{ url_for('static', filename='js/nested_notes.js') }}"></script>
+<script defer src="{{ url_for('static', filename='js/notes_keep.js') }}"></script>
 {% if note %}<script defer src="{{ url_for('static', filename='js/notes_media.js') }}"></script>{% endif %}
 {% endblock %}
 
@@ -39,15 +42,32 @@
     </details>
     {% endif %}
   </div>
-  <a class="button secondary-button" href="{{ url_for('web.anvaya_note_edit', note_id=note.id) }}">Edit note</a>
+  <details id="notes-reader-menu" class="notes-reader-menu" data-url="{{ url_for('web.anvaya_note_action', note_id=note.id) }}" data-version="{{ note.updated_at }}" data-csrf="{{ notes_media_csrf }}" data-title="{{ note.title }}" data-course="{{ note.course }}">
+    <summary aria-label="Note actions">⋮</summary><nav aria-label="Note actions">
+      <a href="{{ url_for('web.anvaya_note_edit', note_id=note.id) }}">Edit Note</a>
+      <button type="button" data-note-action="rename">Rename</button>
+      <button type="button" data-note-action="pin">{{ 'Unpin' if note.pinned else 'Pin' }}</button>
+      <button type="button" data-note-action="course">Move to Course</button>
+      <button type="button" data-note-action="section">Add Section</button>
+      <button type="button" data-note-action="sections">Manage Sections</button>
+      <button type="button" data-note-action="attachments">Manage Attachments</button>
+      <button type="button" data-note-action="focus">Focus Reading</button>
+      {% if note.status in ['archived', 'deleted'] %}<button type="button" data-note-action="restore">Restore to Notes</button>{% endif %}
+      {% if note.status != 'archived' %}<button type="button" data-note-action="archive">Archive</button>{% endif %}
+      {% if note.status != 'deleted' %}<button type="button" data-note-action="delete" class="notes-delete-action">Delete</button>{% endif %}
+    </nav>
+  </details>
 </header>
+<p id="note-action-status" role="status" aria-live="polite"></p>
+<dialog id="note-action-dialog" class="note-action-dialog"><form id="note-action-form"><h2 id="note-action-title"></h2><p id="note-action-description"></p><label id="note-action-field"><span id="note-action-label"></span><input id="note-action-value" maxlength="200"></label><p id="note-action-error" role="alert"></p><div class="form-actions"><button type="submit" class="button" id="note-action-save">Save</button><button type="button" class="button secondary-button" id="note-action-cancel">Cancel</button></div></form></dialog>
 
 <section id="nested-notes" data-sections-url="{{ url_for('nested_notes.collection', note_id=note.id) }}" data-csrf="{{ notes_media_csrf }}" aria-label="Full note · Mini-notes">
-  <div class="section-controls"><label>Search within main note<input type="search" id="section-search" placeholder="Find a section or topic"></label>
-  <label class="section-mode"><input id="section-multiple" type="checkbox"> Keep several open</label>
+  <div id="section-list"></div>
+  <details id="section-management" class="notes-management"><summary>Search &amp; sections</summary><div class="section-controls"><label>Search within main note<input type="search" id="section-search" placeholder="Find a section or topic"></label>
+  <label class="section-mode"><input id="section-multiple" type="checkbox" checked> Keep several open</label>
   <button type="button" id="sections-collapse">Collapse all</button><button type="button" id="sections-expand">Expand all</button></div>
-  <p id="section-status" role="status" aria-live="polite"></p><div id="section-list"></div>
-  <button type="button" id="section-add" class="button">+ Add Section</button>
+  <button type="button" id="section-add" class="button">+ Add Section</button></details>
+  <p id="section-status" role="status" aria-live="polite"></p>
   <form id="section-editor" hidden><h3>Edit mini-note</h3><label>Section title<input id="section-title" maxlength="200" required></label>
   <label>Content · Markdown, lists, checklists and links<textarea id="section-body" rows="10" maxlength="500000"></textarea></label>
   <small>Use **bold**, - bullet points, - [ ] tasks and [title](https://...) links. Attach files after saving.</small>

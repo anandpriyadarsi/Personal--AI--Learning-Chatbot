@@ -18,7 +18,7 @@ def token(app):
 
 def test_original_upload_search_open_rename_move_and_download(app):
     c=app.test_client(); raw=pdf_bytes()
-    response=c.post('/library/files/upload',data={'file':(BytesIO(raw),'Lecture.pdf'),'subject_id':'ma103'},headers=token(app))
+    response=c.post('/library/files/upload',data={'file':(BytesIO(raw),'Lecture.pdf'),'subject_id':'ma103','indexing':'true'},headers=token(app))
     assert response.status_code==201
     doc=response.json['document']; lib=app.config['NATIVE_LIBRARY_SERVICE']; lib.run_pending()
     results=c.get('/library/files/search?q=Eigenvalues&subject_id=ma103').json['matches']
@@ -91,3 +91,28 @@ def test_browse_and_status_complete_while_indexer_is_busy(app,monkeypatch):
         assert c.get('/library/files/'+doc['id']+'/original').data.startswith(b'%PDF')
     finally:release.set();worker.join(5)
     assert not worker.is_alive()
+
+
+def test_default_open_and_separate_menu_actions_preserve_bytes_and_current_name(app):
+    c=app.test_client();lib=app.config['NATIVE_LIBRARY_SERVICE']
+    raw=pdf_bytes();doc=lib.upload(BytesIO(raw),'Original.pdf',indexing=False)
+    identity=doc['id'];base=f'/library/files/{identity}'
+    assert c.patch(base,json={'display_name':'My lecture'},headers=token(app)).status_code==200
+    metadata=c.get(base).json['document']
+    assert metadata['open_url']==base+'/original?native_action=view'
+    assert metadata['open_with_url']==base+'/original?native_action=open_with'
+    assert metadata['filename']=='My lecture.pdf'
+    html=c.get('/library/files').get_data(as_text=True)
+    assert f'<a href="{metadata["open_url"]}">My lecture</a>' in html
+    for name in ['Open','Open with…','Rename','Move to Course','Share','Save / Export','Copy','Delete']:
+        assert f'>{name}</' in html
+    assert 'name="indexing" checked' not in html
+    response=c.get(base+'/original?native_action=view')
+    assert response.data==raw and 'My lecture.pdf' in response.headers['Content-Disposition']
+    assert lib.get(identity)['status']=='disabled'
+
+
+def test_upload_requires_explicit_content_indexing(app):
+    c=app.test_client()
+    doc=c.post('/library/files/upload',data={'file':(BytesIO(pdf_bytes()),'Plain.pdf')},headers=token(app)).json['document']
+    assert doc['indexing_enabled']==0 and doc['status']=='disabled'

@@ -26,8 +26,8 @@ public class NativePdfPageTest {
     @Test public void rendersRequestedPageThroughPrivateContentUri() throws Exception {
         android.app.Instrumentation instrumentation=InstrumentationRegistry.getInstrumentation();
         android.content.Context context=instrumentation.getTargetContext();
-        File directory=new File(context.getCacheDir(),"shared-originals/synthetic-render-test");directory.mkdirs();
-        File original=new File(directory,"synthetic-three-pages.pdf");
+        File directory=new File(context.getFilesDir(),"data/native_library/blobs");directory.mkdirs();
+        File original=new File(directory,"synthetic-explicit-reader");
         PdfDocument pdf=new PdfDocument();
         try {
             for(int number=1;number<=3;number++){
@@ -36,9 +36,11 @@ public class NativePdfPageTest {
             }
             try(FileOutputStream output=new FileOutputStream(original)){pdf.writeTo(output);}
         } finally { pdf.close(); }
-        android.net.Uri uri=androidx.core.content.FileProvider.getUriForFile(context,context.getPackageName()+".documents",original);
+        android.net.Uri uri=androidx.core.content.FileProvider.getUriForFile(context,context.getPackageName()+".documents",original,"Synthetic.pdf");
         assertEquals("content",uri.getScheme());
-        Intent intent=new Intent(context,PdfPageActivity.class);intent.setData(uri);intent.putExtra("page",2);intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        NativeDocumentRequest explicit=NativeDocumentRequest.parse("http://127.0.0.1:12345","http://127.0.0.1:12345/library/files/"+"a".repeat(32)+"/open?native_action=reader&position=2");
+        assertNotNull(explicit);assertTrue("Internal renderer is an explicit reader action",explicit.reader);
+        Intent intent=new Intent(context,PdfPageActivity.class);intent.setData(uri);intent.putExtra("page",explicit.position);intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         Activity activity=instrumentation.startActivitySync(intent);
         try {
             long deadline=System.currentTimeMillis()+15000;boolean[] matched={false};
@@ -48,6 +50,6 @@ public class NativePdfPageTest {
             }
             assertTrue("Actual original PDF page 2 must render",matched[0]);
             assertTrue("Original is retained",original.length()>0);
-        }finally{instrumentation.runOnMainSync(activity::finish);}
+        }finally{instrumentation.runOnMainSync(activity::finish);original.delete();}
     }
 }

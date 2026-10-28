@@ -36,12 +36,14 @@ def test_upload_search_read_rename_move_download_and_delete(server,width,theme,t
         raw=pdf_bytes()
         page.locator('#upload-form input[type=file]').set_input_files({'name':'Linear Algebra Chapter 3.pdf','mimeType':'application/pdf','buffer':raw})
         page.locator('#upload-form select[name=subject_id]').select_option('ma103')
+        page.locator('#upload-form input[name=indexing]').check()
         page.get_by_role('button',name='Store document').click()
         expect(page.locator('.file-row')).to_have_count(1)
         expect(page.locator('[data-status]')).to_have_text('Search Ready',timeout=20000)
         page.get_by_role('button',name='Upload').click()
         page.locator('#upload-form input[type=file]').set_input_files({'name':'Matrix Methods Lecture.pptx','mimeType':'application/vnd.openxmlformats-officedocument.presentationml.presentation','buffer':pptx_bytes()})
         page.locator('#upload-form select[name=subject_id]').select_option('ma103')
+        page.locator('#upload-form input[name=indexing]').check()
         page.get_by_role('button',name='Store document').click()
         expect(page.locator('.file-row')).to_have_count(2)
         expect(page.locator('[data-status]').first).to_have_text('Search Ready',timeout=20000)
@@ -69,7 +71,7 @@ def test_upload_search_read_rename_move_download_and_delete(server,width,theme,t
         page.keyboard.press('Escape')
         page.goto(base+'/library/files')
         row=page.locator('.file-row').filter(has_text='Linear Algebra Chapter 3.pdf')
-        row.locator('summary').click();row.get_by_role('button',name='Rename / Move / Details').click()
+        row.locator('summary').click();row.get_by_role('button',name='Details / Move folder').click()
         page.locator('#edit-form input[name=display_name]').fill('My Linear Algebra')
         page.locator('#edit-form input[name=topic]').fill('Eigenvalues')
         page.locator('#edit-form input[name=tags]').fill('exam, revision')
@@ -79,15 +81,15 @@ def test_upload_search_read_rename_move_download_and_delete(server,width,theme,t
         page.locator('#folder-form input[name=name]').fill('Semester 1')
         page.get_by_role('button',name='Save folder').click()
         row=page.locator('.file-row').filter(has_text='My Linear Algebra')
-        row.locator('summary').click();row.get_by_role('button',name='Rename / Move / Details').click()
+        row.locator('summary').click();row.get_by_role('button',name='Details / Move folder').click()
         page.locator('#edit-form select[name=folder_id]').select_option(label='Semester 1')
         page.locator('#edit-form button[type=submit]').click()
         page.locator('.files-folders').get_by_role('link',name='Semester 1').click()
         expect(page.locator('.file-row')).to_have_count(1)
         row=page.locator('.file-row');row.locator('summary').click()
-        with page.expect_download() as info: row.get_by_role('link',name='Download original',exact=True).click()
+        with page.expect_download() as info: row.get_by_role('link',name='Save / Export',exact=True).click()
         download=info.value
-        assert download.suggested_filename=='Linear Algebra Chapter 3.pdf'
+        assert download.suggested_filename=='My Linear Algebra.pdf'
         assert open(download.path(),'rb').read()==raw
         page.on('dialog',lambda dialog:dialog.accept())
         row.get_by_role('button',name='Delete',exact=True).click()
@@ -132,3 +134,38 @@ def test_inside_document_search_has_more_matches(server):
         expect(page.locator('#within-results a')).to_have_count(55)
         expect(page.locator('#within-results')).to_contain_text('Page 55')
         browser.close()
+
+
+def test_default_open_and_distinct_rename_course_actions_keep_original(server):
+    from io import BytesIO
+    from playwright.sync_api import sync_playwright,expect
+    base,lib=server;raw=pdf_bytes()
+    doc=lib.upload(BytesIO(raw),'Imported PDF.pdf',indexing=False)
+    with sync_playwright() as pw:
+        browser=pw.chromium.launch();context=browser.new_context(viewport={'width':390,'height':844},accept_downloads=True)
+        page=context.new_page();page.goto(base+'/library/files');row=page.locator('.file-row')
+        assert row.locator('.file-main h2 a').get_attribute('href')==f"/library/files/{doc['id']}/original?native_action=view"
+        with page.expect_response(lambda response:response.url.endswith('/original?native_action=view')) as opened:
+            row.locator('.file-main h2 a').click()
+        assert opened.value.headers['content-type']=='application/pdf'
+        assert lib.get(doc['id'])['status']=='disabled'
+        page.goto(base+'/library/files');row=page.locator('.file-row');row.locator('summary').click()
+        assert row.get_by_role('link',name='Open with…',exact=True).get_attribute('href').endswith('native_action=open_with')
+        row.get_by_role('button',name='Rename',exact=True).click()
+        expect(page.locator('#rename-dialog')).to_be_visible()
+        page.locator('#rename-form input[name=display_name]').fill('Renamed visible lecture')
+        page.get_by_role('button',name='Save name',exact=True).click()
+        expect(page.locator('.file-main h2')).to_have_text('Renamed visible lecture')
+        row=page.locator('.file-row');row.locator('summary').click();row.get_by_role('button',name='Move to Course',exact=True).click()
+        page.locator('#course-form select[name=subject_id]').select_option('ma103');page.get_by_role('button',name='Save course',exact=True).click()
+        expect(page.locator('.file-row')).to_contain_text('MA103N — Linear Algebra')
+        assert lib.get(doc['id'])['id']==doc['id'] and lib.get(doc['id'])['status']=='disabled'
+        row=page.locator('.file-row');row.locator('summary').click()
+        output=os.environ.get('ANVAYA_NATIVE_LIBRARY_ARTIFACTS')
+        if output:
+            from pathlib import Path
+            page.screenshot(path=str(Path(output)/'files-native-actions-390.png'),full_page=True)
+        with page.expect_download() as info:row.get_by_role('link',name='Save / Export',exact=True).click()
+        assert info.value.suggested_filename=='Renamed visible lecture.pdf'
+        assert open(info.value.path(),'rb').read()==raw
+        context.close();browser.close()

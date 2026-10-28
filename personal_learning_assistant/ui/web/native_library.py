@@ -7,7 +7,7 @@ from threading import Lock
 import hmac
 import sqlite3
 from flask import Blueprint, abort, current_app, jsonify, render_template, request, send_file, url_for
-from personal_learning_assistant.services.native_document_library import NativeDocumentLibrary, LibraryError, MAX_UPLOAD
+from personal_learning_assistant.services.native_document_library import NativeDocumentLibrary, LibraryError, MAX_UPLOAD, document_filename
 from personal_learning_assistant.services.native_document_extraction import ocr_available
 
 files = Blueprint('native_library', __name__)
@@ -72,8 +72,11 @@ def payload(allowed):
 
 
 def view_document(doc):
-    return {**doc,'status_label':STATUS[doc['status']],
-        'open_url':url_for('native_library.open_document',document_id=doc['id']),
+    return {**doc,'status_label':STATUS[doc['status']], 'filename':document_filename(doc),
+        'open_url':url_for('native_library.original',document_id=doc['id'],native_action='view'),
+        'open_with_url':url_for('native_library.original',document_id=doc['id'],native_action='open_with'),
+        'share_url':url_for('native_library.original',document_id=doc['id'],native_action='share'),
+        'reader_url':url_for('native_library.open_document',document_id=doc['id'],native_action='reader'),
         'download_url':url_for('native_library.original',document_id=doc['id'],download=1)}
 
 
@@ -112,7 +115,7 @@ def upload():
     if len(request.files.getlist('file'))!=1: raise LibraryError('Choose one original document per upload.')
     file=request.files['file']
     doc=service().upload(file.stream,file.filename,folder_id=request.form.get('folder_id') or None,
-        subject_id=subject(request.form.get('subject_id')),indexing=request.form.get('indexing','true')!='false')
+        subject_id=subject(request.form.get('subject_id')),indexing=request.form.get('indexing','false')=='true')
     return jsonify(document=view_document(doc)),201
 
 
@@ -122,7 +125,7 @@ def search():
     matches=service().search(request.args.get('q',''),folder_id=request.args.get('folder_id') or None,
         subject_id=request.args.get('subject_id') or None,document_id=request.args.get('document_id') or None,
         offset=int(request.args.get('offset',0)),limit=int(request.args.get('limit',50)))
-    return jsonify(matches=[{**view_document(d),'open_url':url_for('native_library.open_document',document_id=d['id'],position=d['position'] or 1,q=request.args.get('q',''))} for d in matches])
+    return jsonify(matches=[{**view_document(d),'open_url':url_for('native_library.open_document',document_id=d['id'],native_action='reader',position=d['position'] or 1,q=request.args.get('q',''))} for d in matches])
 
 
 @files.get('/library/files/status')
@@ -200,7 +203,7 @@ def folder_update(folder_id):
 def original(document_id):
     d=service().get(document_id)
     response=send_file(service().original(document_id),mimetype=d['mime'],
-        as_attachment=request.args.get('download')=='1', download_name=d['original_name'],conditional=True)
+        as_attachment=request.args.get('download')=='1', download_name=document_filename(d),conditional=True)
     response.headers['Content-Security-Policy']='sandbox'
     return response
 

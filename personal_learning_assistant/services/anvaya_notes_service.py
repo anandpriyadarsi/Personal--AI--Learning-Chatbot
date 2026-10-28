@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import io
 import re
+import shutil
 import zipfile
 from datetime import datetime, timedelta, timezone
 from importlib import import_module
@@ -21,6 +22,7 @@ from personal_learning_assistant.repositories.json.anvaya_notes_repository impor
     AnvayaNotesNotFoundError,
     AnvayaNotesRepository,
     AnvayaNotesRepositoryError,
+    notes_storage_lock,
 )
 
 
@@ -505,10 +507,13 @@ class AnvayaNotesService:
             "id": str(row.get("id") or ""),
             "title": str(row.get("title") or "Untitled"),
             "course": str(row.get("course") or ""),
+            "pinned": bool(row.get("pinned", False)),
+            "status": str(row.get("status") or "active"),
             "note_kind": str(row.get("note_kind") or "typed"),
             "card_style": _style(row.get("card_style")),
             "card_family": _card_family(row.get("card_style")),
             "key_points": list(row.get("key_points") or [])[:3],
+            "preview": _text(re.sub(r"[\#*`_~>]", "", str(row.get("body") or "")), limit=180),
             "section_count": len(row.get("sections",[])) + bool(row.get("body")),
             "attachment_count": len(row.get("media",[])),
             "created_at": str(row.get("created_at") or ""),
@@ -521,7 +526,7 @@ class AnvayaNotesService:
             ),
         }
 
-    def library(self, *, search="", course="", kind=""):
+    def library(self, *, search="", course="", kind="", pinned="", view="active"):
         try:
             rows = self.repository.list_notes()
         except AnvayaNotesRepositoryError as error:
@@ -529,9 +534,12 @@ class AnvayaNotesService:
         search_key = _text(search, limit=300).casefold()
         course_key = _text(course, limit=100).casefold()
         kind_key = _text(kind, limit=30).casefold()
+        status = view if view in {"active", "archived", "deleted"} else "active"
         cards = []
         for row in rows:
-            if str(row.get("status") or "active") != "active":
+            if str(row.get("status") or "active") != status:
+                continue
+            if str(pinned) == "1" and not row.get("pinned"):
                 continue
             haystack = " ".join(
                 [
@@ -550,6 +558,8 @@ class AnvayaNotesService:
                 continue
             cards.append(self._card(row))
         cards.sort(key=lambda item: str(item["created_at"]), reverse=True)
+        # Stable partition preserves the library's existing order in each group.
+        cards.sort(key=lambda item: not item["pinned"])
         all_active = [row for row in rows if str(row.get("status") or "active") == "active"]
         courses = sorted(
             {str(row.get("course") or "") for row in all_active if str(row.get("course") or "")},
@@ -570,9 +580,45 @@ class AnvayaNotesService:
                 "search": str(search or ""),
                 "course": str(course or ""),
                 "kind": str(kind or ""),
+                "pinned": str(pinned or ""),
+                "view": status,
             },
             "filter_options": {"courses": courses, "kinds": kinds},
         }
+
+    def change_note(self, note_id, action, payload):
+        """Change one metadata field without replacing content or attachments.
+
+        Archive and Delete retain the complete record and source files, so a
+        misplaced note can be restored from the library's Archive or Trash.
+        The repository serializes the version check and metadata replacement.
+        """
+        expected = str(payload.get("expected_updated_at") or "")
+        if not expected:
+            raise AnvayaNotesValidationError("Refresh the note before changing it.")
+        try:
+            changes = {"updated_at": str(self.now())}
+            if action == "rename":
+                title = _text(payload.get("title"), limit=200)
+                if not title:
+                    raise AnvayaNotesValidationError("Note name is required.")
+                changes["title"] = title
+            elif action == "course":
+                changes["course"] = _text(payload.get("course"), limit=100)
+            elif action == "pin":
+                current = self.repository.get_note(note_id)
+                changes["pinned"] = not bool(current.get("pinned"))
+            elif action in {"archive", "delete", "restore"}:
+                changes["status"] = {"archive": "archived", "delete": "deleted", "restore": "active"}[action]
+            else:
+                raise AnvayaNotesValidationError("Choose a valid note action.")
+            stored = self.repository.update_note(note_id, expected_updated_at=expected, changes=changes)
+        except (AnvayaNotesNotFoundError, AnvayaNotesConflictError):
+            raise
+        except AnvayaNotesRepositoryError as error:
+            raise AnvayaNotesUnavailableError("The note could not be changed.") from error
+        return {"id": stored["id"], "pinned": bool(stored.get("pinned")),
+                "status": stored.get("status", "active"), "updated_at": stored["updated_at"]}
 
     def _base_record(self, payload, *, note_kind):
         title = _text(payload.get("title"), limit=200)
@@ -609,6 +655,38 @@ class AnvayaNotesService:
         except AnvayaNotesRepositoryError as error:
             raise AnvayaNotesUnavailableError("The note could not be saved.") from error
         return {"id": stored["id"]}
+
+    def create_media_note(self, payload, uploads, *, capture_kind):
+        """Create a note and its media together using the existing media store."""
+        from personal_learning_assistant.services.notes_media_service import NotesMediaStore, media_mime
+        record = self._base_record(payload, note_kind="typed")
+        record["capture_kind"] = capture_kind
+        uploads = list(uploads)
+        if not uploads or len(uploads) > 20:
+            raise AnvayaNotesValidationError("Choose between 1 and 20 files.")
+        prefixes = {"audio": ("audio/",), "image": ("image/",), "document": ("application/", "text/")}
+        if capture_kind not in prefixes:
+            raise AnvayaNotesValidationError("Choose an image, audio note or document.")
+        for filename, stream in uploads:
+            header = stream.read(4096)
+            stream.seek(0)
+            if not media_mime(filename, header).startswith(prefixes[capture_kind]):
+                raise AnvayaNotesValidationError("Choose a file matching this note type.")
+        # Readers/writers cannot observe an empty note between the two commits.
+        # Roll back only this new UUID if media storage fails.
+        with notes_storage_lock(self.repository.notes_path):
+            try:
+                self.repository.create_note(record)
+            except AnvayaNotesRepositoryError as error:
+                raise AnvayaNotesUnavailableError("The note could not be saved.") from error
+            try:
+                NotesMediaStore(self.repository).add(record["id"], uploads)
+            except Exception:
+                rows = self.repository.list_notes()
+                self.repository._save([row for row in rows if row.get("id") != record["id"]])
+                shutil.rmtree(self.repository.assets_root / record["id"], ignore_errors=True)
+                raise
+        return {"id": record["id"]}
 
     def create_typed_notes(self, payloads):
         """Validate independent Markdown copies, then save the batch atomically."""

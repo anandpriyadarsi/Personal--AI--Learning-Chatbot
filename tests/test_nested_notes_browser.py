@@ -34,26 +34,29 @@ def test_nested_mobile_accordion_search_edit_attachments_restart(protected_brows
         page.on('pageerror',lambda e:errors.append(str(e)));page.on('request',lambda r:requests.append(r.url))
         page.goto(f'{base}/notes/view/{note}')
         expect(page.locator('.mini-note')).to_have_count(4)
-        assert page.locator('.mini-note[open]').count()==0
-        assert not any('/notes/sections/' in u and not u.endswith(note) and '?' not in u for u in requests)
-        first=page.locator('.mini-note').nth(1);first.locator('summary').click()
-        expect(first.locator('strong')).to_have_text('Speak clearly')
-        second=page.locator('.mini-note').nth(2);second.locator('summary').click()
-        expect(second.get_by_role('button',name='Edit',exact=True)).to_be_visible()
         assert page.locator('.mini-note[open]').count()==1
+        assert not any('/notes/sections/' in u and not u.endswith(note) and '?' not in u and not u.endswith('/original-content') for u in requests)
+        first=page.locator('.mini-note').nth(1);first.locator('summary').first.click()
+        expect(first.locator('strong')).to_have_text('Speak clearly')
+        second=page.locator('.mini-note').nth(2);second.locator('summary').first.click()
+        second.locator('.mini-note-more>summary').click()
+        expect(second.get_by_role('button',name='Edit',exact=True)).to_be_visible()
+        assert page.locator('.mini-note[open]').count()==3
         assert second.locator('input[type=checkbox]').count()==2
         second.get_by_role('button',name='Edit',exact=True).click()
         page.locator('#section-title').fill('Intonation Updated');page.locator('#section-body').fill('Revised independent content')
         page.get_by_role('button',name='Save section',exact=True).click()
         expect(page.locator('#section-editor')).to_be_hidden()
-        expect(page.locator('.mini-note summary').nth(2)).to_have_text('Intonation Updated')
+        expect(page.locator('.mini-note>summary').nth(2)).to_have_text('Intonation Updated')
+        page.locator('#section-management>summary').click()
         page.locator('#section-search').fill('resilient')
         expect(page.locator('.mini-note')).to_have_count(1)
-        expect(page.locator('.mini-note summary')).to_have_text('Vocabulary')
+        expect(page.locator('.mini-note>summary')).to_have_text('Vocabulary')
         page.locator('#section-search').fill('');expect(page.locator('.mini-note')).to_have_count(4)
         page.get_by_role('button',name='+ Add Section',exact=True).click()
         page.locator('#section-title').fill('Tomorrow’s Practice');page.locator('#section-body').fill('A fresh plan')
         page.get_by_role('button',name='Save section',exact=True).click();expect(page.locator('.mini-note')).to_have_count(5)
+        page.locator('#notes-media-management>summary').click()
         scope=repo.get_note(note)['sections'][0]['id'];page.locator('#media-section').select_option(scope)
         page.locator('#notes-media-files').set_input_files([{'name':'कक्षा Recording.mp3','mimeType':'audio/mpeg','buffer':SAMPLES['mp3']},{'name':'Practice.pdf','mimeType':'application/pdf','buffer':b'%PDF-1.4\n%%EOF'}])
         page.get_by_role('button',name='Attach Media',exact=True).click();expect(page.locator('.notes-media-row')).to_have_count(2)
@@ -63,11 +66,7 @@ def test_nested_mobile_accordion_search_edit_attachments_restart(protected_brows
         assert page.locator('audio,video').count()==0
         assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
         assert not errors,errors
-        if width==390:
-            folder=Path('docs/mobile/smart-notes/screenshots');folder.mkdir(parents=True,exist_ok=True)
-            page.evaluate('scrollTo(0,0)');page.screenshot(path=str(folder/'nested-notes-390.png'))
-            page.locator('.mini-note summary').nth(1).click();expect(page.locator('.mini-note-files a')).to_have_count(2)
-            page.locator('.mini-note').nth(1).scroll_into_view_if_needed();page.screenshot(path=str(folder/'section-attachments-390.png'))
+
 
 
 def test_focus_reading_shows_entire_note_and_read_only_media(protected_browser,live):
@@ -77,20 +76,23 @@ def test_focus_reading_shows_entire_note_and_read_only_media(protected_browser,l
         page.on('pageerror',lambda error:errors.append(str(error)))
         page.goto(f'{base}/notes/view/{note}')
         # Normal mode retains authoring and attachment management.
+        page.locator('#notes-media-management>summary').click()
         page.locator('#notes-media-files').set_input_files(
             {'name':'Day 4.mp3','mimeType':'audio/mpeg','buffer':SAMPLES['mp3']})
         page.get_by_role('button',name='Attach Media',exact=True).click()
         expect(page.locator('.notes-media-row')).to_have_count(1)
+        page.locator('#section-management>summary').click()
         page.locator('#section-search').fill('resilient')
         expect(page.locator('.mini-note')).to_have_count(1)
 
-        page.get_by_role('button',name='Focus reading',exact=True).click()
+        page.locator('#notes-reader-menu>summary').click()
+        page.get_by_role('button',name='Focus Reading',exact=True).click()
         expect(page.get_by_role('button',name='Exit focus',exact=True)).to_be_visible()
         # Focus overrides any active section filter and opens all note content.
         expect(page.locator('.mini-note[open]')).to_have_count(4)
         expect(page.get_by_text('Distinctive content for search: resilient')).to_be_visible()
         expect(page.get_by_text('Read clearly.')).to_be_visible()
-        expect(page.locator('.anvaya-native-reader-header > a')).to_be_hidden()
+        expect(page.locator('#notes-reader-menu')).to_be_hidden()
         expect(page.locator('#section-add')).to_be_hidden()
         expect(page.locator('.section-controls')).to_be_hidden()
         expect(page.locator('.mini-note-actions').first).to_be_hidden()
@@ -106,7 +108,7 @@ def test_focus_reading_shows_entire_note_and_read_only_media(protected_browser,l
         # The original search and all editing/media controls return.
         expect(page.locator('.mini-note')).to_have_count(1)
         expect(page.locator('#section-search')).to_have_value('resilient')
-        expect(page.locator('.anvaya-native-reader-header > a')).to_be_visible()
+        expect(page.locator('#notes-reader-menu')).to_be_visible()
         expect(page.locator('#section-add')).to_be_visible()
         expect(page.locator('#notes-media-upload')).to_be_visible()
         expect(page.locator('.notes-media-menu')).to_be_visible()

@@ -6,6 +6,11 @@
   const search=root.querySelector('#section-search'), multiple=root.querySelector('#section-multiple');
   const editor=root.querySelector('#section-editor'), title=root.querySelector('#section-title'), body=root.querySelector('#section-body');
   const base=root.dataset.sectionsUrl; let version='', rows=[], editing=null, editVersion='', busy=false, generation=0, timer;
+  const management=root.querySelector('#section-management');
+  let draftStart={title:'',body:''};
+  const syncDraft=()=>{root.dataset.draftDirty=String(!editor.hidden&&(title.value!==draftStart.title||body.value!==draftStart.body));};
+  title.addEventListener('input',syncDraft);body.addEventListener('input',syncDraft);
+  window.addEventListener('beforeunload',event=>{if(root.dataset.draftDirty==='true'){event.preventDefault();event.returnValue='';}});
   // Focus Reading must expose the entire note without editing/upload controls.
   // Save the reader's pre-focus state so exiting focus restores normal editing.
   const keyPoints=document.querySelector('.anvaya-native-reader-header .reader-summary');
@@ -48,7 +53,7 @@
     try {const value=await request(base,{method:'POST',headers:{'Content-Type':'application/json','X-Notes-CSRF':root.dataset.csrf},body:JSON.stringify({action,expected_updated_at:expected,...values})});await load();tell('Saved.');return value;}
     catch(e){tell(e.message);return null;}finally{busy=false;root.setAttribute('aria-busy','false');}
   }
-  function edit(section,readVersion){editing=section.id||'';editVersion=readVersion;title.value=section.title||'';body.value=section.body||'';editor.hidden=false;title.focus();editor.scrollIntoView({block:'nearest',behavior:'auto'});}
+  function edit(section,readVersion){if(root.dataset.draftDirty==='true'&&!confirm('Discard your unsaved section changes and open another section?'))return;editing=section.id||'';editVersion=readVersion;title.value=section.title||'';body.value=section.body||'';draftStart={title:title.value,body:body.value};editor.hidden=false;syncDraft();title.focus();editor.scrollIntoView({block:'nearest',behavior:'auto'});}
   function action(label,fn){const b=node('button',label);b.type='button';b.addEventListener('click',fn);return b;}
   async function expand(details,section){
     const content=details.querySelector('.mini-note-content'); if(content.dataset.loaded)return;
@@ -59,7 +64,7 @@
       article.querySelectorAll('li').forEach(li=>{const text=li.firstChild;if(text&&text.nodeType===3&&/^\[[ xX]\] /.test(text.textContent)){const checked=/^\[[xX]\]/.test(text.textContent);text.textContent=text.textContent.slice(4);const box=node('input');box.type='checkbox';box.checked=checked;box.disabled=true;li.prepend(box);}});
       const tools=node('div');tools.className='mini-note-actions';
       tools.append(action('Edit',()=>edit(data,data.version)),action('Duplicate',()=>mutate('duplicate',{section_id:section.id})));
-      tools.append(action('Attach file',()=>{const picker=document.getElementById('media-section');if(picker){picker.value=section.id;document.getElementById('notes-media').scrollIntoView({block:'start'});}}));
+      tools.append(action('Attach file',()=>{const picker=document.getElementById('media-section');if(picker){picker.value=section.id;document.getElementById('notes-media-management').open=true;document.getElementById('notes-media').scrollIntoView({block:'start'});}}));
       if(section.id!=='original-content'){
         const index=rows.filter(s=>s.id!=='original-content').findIndex(s=>s.id===section.id);
         ['Move up','Move down'].forEach((label,offset)=>tools.append(action(label,()=>{if(search.value){tell('Clear search before reordering.');return;}const order=rows.filter(s=>s.id!=='original-content').map(s=>s.id);const next=index+(offset?1:-1);if(next<0||next>=order.length)return;[order[index],order[next]]=[order[next],order[index]];mutate('reorder',{order});})));
@@ -68,8 +73,8 @@
         }));
         tools.append(action('Delete',()=>{if(confirm(`Delete “${section.title}”? Its attachments will remain on the main note.`))mutate('delete',{section_id:section.id});}));
       }
-      const extra=node('details');extra.className='mini-note-more';extra.append(node('summary','More actions'));
-      Array.from(tools.children).filter(b=>!['Edit','Attach file'].includes(b.textContent)).forEach(b=>extra.append(b));tools.append(extra);
+      const extra=node('details');extra.className='mini-note-more';extra.append(node('summary','Section actions'));
+      Array.from(tools.children).forEach(b=>extra.append(b));tools.append(extra);
       const files=node('div');files.className='mini-note-files';
       const attachments=await request(document.getElementById('notes-media').dataset.url);
       attachments.attachments.filter(a=>a.section_id===section.id).forEach(a=>{const link=node('a',a.filename);link.href=a.open_url;files.append(link);});
@@ -78,10 +83,15 @@
   }
   async function load(){
     const sequence=++generation;const value=await request(base+'?q='+encodeURIComponent(search.value));if(sequence!==generation)return;
-    version=value.version;rows=value.sections;list.replaceChildren();
+    const previousOpen=new Set(Array.from(list.querySelectorAll('.mini-note[open]'),item=>item.id));
+    version=value.version;root.dataset.version=version;rows=value.sections;list.replaceChildren();
+    document.dispatchEvent(new CustomEvent('notes-version-changed',{detail:{version}}));
     rows.forEach(section=>{const d=node('details');d.className='mini-note';d.id='mini-'+section.id;
       const summary=node('summary',section.title+(section.attachment_count?` · ${section.attachment_count} files`:''));const content=node('div');content.className='mini-note-content';d.append(summary,content);
-      d.addEventListener('toggle',()=>{if(d.open){if(!multiple.checked)list.querySelectorAll('.mini-note[open]').forEach(other=>{if(other!==d)other.open=false;});expand(d,section);}});list.append(d);
+      const isMain=section.id==='original-content';
+      if(isMain)d.classList.add('mini-note--main');
+      d.addEventListener('toggle',()=>{if(d.open){if(!multiple.checked&&!isMain)list.querySelectorAll('.mini-note[open]:not(.mini-note--main)').forEach(other=>{if(other!==d)other.open=false;});expand(d,section);}});list.append(d);
+      if(isMain||previousOpen.has(d.id))d.open=true;
     });
     tell(rows.length?`${rows.length} sections`:'No sections found. Add one below.');
     // Attachment scope is populated independently of search so an active filter
@@ -90,8 +100,10 @@
     syncFocusReading();
   }
   root.querySelector('#section-add').addEventListener('click',()=>edit({},version));
-  root.querySelector('#section-cancel').addEventListener('click',()=>{editor.hidden=true;});
-  editor.addEventListener('submit',async e=>{e.preventDefault();const result=await mutate(editing?'edit':'add',{section_id:editing,title:title.value,body:body.value},editVersion);if(result)editor.hidden=true;});
+  document.addEventListener('notes-add-section',()=>edit({},version));
+  document.addEventListener('notes-manage-sections',()=>{management.open=true;management.scrollIntoView({block:'nearest'});search.focus();});
+  root.querySelector('#section-cancel').addEventListener('click',()=>{editor.hidden=true;syncDraft();});
+  editor.addEventListener('submit',async e=>{e.preventDefault();const result=await mutate(editing?'edit':'add',{section_id:editing,title:title.value,body:body.value},editVersion);if(result){editor.hidden=true;syncDraft();}});
   root.querySelector('#sections-collapse').addEventListener('click',()=>list.querySelectorAll('.mini-note').forEach(d=>d.open=false));
   root.querySelector('#sections-expand').addEventListener('click',()=>{multiple.checked=true;list.querySelectorAll('.mini-note').forEach(d=>d.open=true);});
   search.addEventListener('input',()=>{clearTimeout(timer);timer=setTimeout(()=>load().catch(e=>tell(e.message)),200);});

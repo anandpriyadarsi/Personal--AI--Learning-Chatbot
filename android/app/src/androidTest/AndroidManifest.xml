@@ -5,5 +5,12 @@
             android:exported="true" android:grantUriPermissions="true" />
         <!-- Synthetic external recipient exists only in the test APK. -->
         <activity android:name="in.anvaya.privateapp.test.MediaReceiverActivity" android:exported="true" />
+        <activity android:name="in.anvaya.privateapp.test.PdfReceiverActivity" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" android:mimeType="application/pdf" />
+            </intent-filter>
+        </activity>
     </application>
 </manifest>

@@ -267,7 +267,7 @@ public class MainActivity extends Activity {
         web.setDownloadListener((url, agent, disposition, mime, length) -> {
             if (!allowed.permits(url)) return;
             if(openNativeDocument(url))return;
-            DownloadSpec spec=DownloadSpec.from(URLUtil.guessFileName(url,disposition,mime),mime);
+            DownloadSpec spec=DownloadSpec.fromDisposition(URLUtil.guessFileName(url,disposition,mime),disposition,mime);
             downloadLimit=MediaRequest.isDownload(allowed,url) ? 512L*1024*1024 : 100L*1024*1024;
             downloadUrl=url; downloadCookie=CookieManager.getInstance().getCookie(url);
             Intent save=new Intent(Intent.ACTION_CREATE_DOCUMENT);
@@ -360,55 +360,46 @@ public class MainActivity extends Activity {
         if(request==null)return false;
         if(documentBusy)return true;
         documentBusy=true;
-        final String cookie=CookieManager.getInstance().getCookie(origin);
         new Thread(()->{
-            java.net.HttpURLConnection connection=null;
             try {
-                java.io.File directory=new java.io.File(getCacheDir(),"shared-originals");directory.mkdirs();
-                // Only old, explicit share/view copies are removed; originals live in filesDir.
-                java.io.File[] old=directory.listFiles();
-                if(old!=null)for(java.io.File folder:old)if(folder.isDirectory()&&System.currentTimeMillis()-folder.lastModified()>86400000L){
-                    java.io.File[] files=folder.listFiles();if(files!=null)for(java.io.File file:files)file.delete();folder.delete();
-                }
-                connection=(java.net.HttpURLConnection)new java.net.URL(request.originalAddress).openConnection();
-                connection.setInstanceFollowRedirects(false);connection.setConnectTimeout(10000);connection.setReadTimeout(30000);
-                connection.setRequestProperty("Cookie",cookie);
-                if(connection.getResponseCode()!=200)throw new java.io.IOException("Original unavailable");
-                String mime=connection.getContentType();
-                if(!"application/pdf".equals(mime)&&!"application/vnd.ms-powerpoint".equals(mime)&&
-                   !"application/vnd.openxmlformats-officedocument.presentationml.presentation".equals(mime))throw new java.io.IOException("Unsupported original");
-                DownloadSpec spec=DownloadSpec.from(URLUtil.guessFileName(address,connection.getHeaderField("Content-Disposition"),mime),mime);
-                java.io.File folder=new java.io.File(directory,java.util.UUID.randomUUID().toString());folder.mkdir();
-                java.io.File original=new java.io.File(folder,spec.name);
-                try(java.io.InputStream input=connection.getInputStream();java.io.FileOutputStream output=new java.io.FileOutputStream(original)){
-                    byte[] buffer=new byte[32768];int n;long total=0;
-                    while((n=input.read(buffer))!=-1){total+=n;if(total>100L*1024*1024)throw new java.io.IOException("Original too large");output.write(buffer,0,n);}
-                    output.getFD().sync();
-                }catch(Exception error){original.delete();folder.delete();throw error;}
-                Uri uri=androidx.core.content.FileProvider.getUriForFile(this,getPackageName()+".documents",original);
+                List<PyObject> item=Python.getInstance().getModule("personal_learning_assistant.services.native_document_library")
+                    .callAttr("resolve_android_document",getFilesDir().getCanonicalPath(),request.documentId).asList();
+                java.io.File original=new java.io.File(item.get(0).toString());
+                String mime=item.get(1).toString();
+                if(!DocumentIntents.supportsMime(mime))throw new java.io.IOException("Unsupported document");
+                Uri uri=androidx.core.content.FileProvider.getUriForFile(this,getPackageName()+".documents",original,item.get(2).toString());
                 runOnUiThread(()->{
                     documentBusy=false;if(isFinishing()||isDestroyed())return;
-                    try {
-                        if(request.share){
-                            Intent share=new Intent(Intent.ACTION_SEND);share.setType(spec.mime);share.putExtra(Intent.EXTRA_STREAM,uri);
-                            share.setClipData(android.content.ClipData.newRawUri("Original document",uri));
-                            share.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);startActivity(Intent.createChooser(share,"Share original document"));
-                        }else if("application/pdf".equals(spec.mime)){
-                            viewerBrowserUrl=request.browserAddress;
-                            Intent view=new Intent(this,PdfPageActivity.class);view.setData(uri);view.putExtra("page",request.position);
-                            startActivityForResult(view,VIEW_PDF);
-                        }else{
-                            Intent view=new Intent(Intent.ACTION_VIEW);view.setDataAndType(uri,spec.mime);
-                            view.setClipData(android.content.ClipData.newRawUri("Original document",uri));view.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                            Toast.makeText(this,"Open slide "+request.position+" in your viewer. Slide linking is not supported.",Toast.LENGTH_LONG).show();
-                            startActivity(Intent.createChooser(view,"Open original slides"));
-                        }
-                    }catch(android.content.ActivityNotFoundException error){Toast.makeText(this,"No compatible viewer. Use Download original to save the file.",Toast.LENGTH_LONG).show();}
+                    if(request.reader && "application/pdf".equals(mime)) {
+                        viewerBrowserUrl=request.browserAddress;
+                        Intent view=new Intent(this,PdfPageActivity.class);view.setData(uri);view.putExtra("page",request.position);
+                        try {startActivityForResult(view,VIEW_PDF);}
+                        catch(android.content.ActivityNotFoundException | SecurityException error){documentError();}
+                        return;
+                    }
+                    DocumentIntents.Action action=request.share?DocumentIntents.Action.SHARE:
+                        request.openWith?DocumentIntents.Action.OPEN_WITH:DocumentIntents.Action.VIEW;
+                    DocumentIntents.Result result=DocumentIntents.launch(this::startActivity,uri,mime,action);
+                    if(result==DocumentIntents.Result.NO_COMPATIBLE_APP) noDocumentViewer(request);
+                    else if(result==DocumentIntents.Result.FAILED) documentError();
                 });
-            }catch(Exception error){runOnUiThread(()->{documentBusy=false;Toast.makeText(this,"Could not open original. Return to Library or download it.",Toast.LENGTH_LONG).show();});}
-            finally{if(connection!=null)connection.disconnect();}
+            } catch(Exception error) {
+                runOnUiThread(()->{documentBusy=false;documentError();});
+            }
         },"anvaya-original-document").start();
         return true;
+    }
+
+    private void noDocumentViewer(NativeDocumentRequest request) {
+        if(isFinishing()||isDestroyed())return;
+        new AlertDialog.Builder(this).setTitle("No compatible viewer found")
+            .setMessage("Install a PDF or document viewer, or save this original to open it later. Your document is kept in Library.")
+            .setPositiveButton("Save / Export",(dialog,which)->web.loadUrl(request.originalAddress))
+            .setNegativeButton("Cancel",null).show();
+    }
+    private void documentError() {
+        if(!isFinishing()&&!isDestroyed())Toast.makeText(this,
+            "Document could not be opened. It may be missing or damaged. Restore a backup or import the original again.",Toast.LENGTH_LONG).show();
     }
 
     @Override protected void onActivityResult(int code, int result, Intent data) {
@@ -520,6 +511,12 @@ public class MainActivity extends Activity {
         target.evaluateJavascript("(() => {"
             + "const modal=document.querySelector('dialog[open]');"
             + "if(modal){modal.close();return true;}"
+            + "const noteDrawer=document.getElementById('notes-study-tools-drawer');"
+            + "if(noteDrawer&&noteDrawer.classList.contains('is-open')){document.getElementById('notes-study-tools-close').click();return true;}"
+            + "const noteMenu=document.querySelector('#notes-create-menu[open],#notes-reader-menu[open]');"
+            + "if(noteMenu){noteMenu.open=false;return true;}"
+            + "const noteFocus=document.querySelector('[data-workspace-focus]');"
+            + "if(noteFocus&&document.body.classList.contains('notes-focus-page')&&document.body.classList.contains('workspace-focus')){noteFocus.click();return true;}"
             + "const focus=document.getElementById('ls-focus');"
             + "if(focus&&document.body.classList.contains('ls-focus')){focus.click();return true;}"
             + "return false;})()", consumed -> {

@@ -305,13 +305,13 @@ def test_private_note_editor_formatting_templates_media_and_save(protected_brows
         expect(page.locator('main')).to_contain_text('Synthetic mobile note')
         page.reload()
         section=page.locator('#mini-original-content')
-        expect(section).not_to_have_attribute('open','')
-        section.locator('summary').click()
+        expect(section).to_have_attribute('open','')
         expect(section).to_contain_text('Synthetic explanation')
         expect(section.locator('img')).to_have_count(1)
         expect(section.locator('img')).to_be_visible()
         assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
-        capture(page,'mobile-notes-saved-390')
+        evidence=Path(__file__).resolve().parents[1]/'docs/mobile/smart-notes/screenshots';evidence.mkdir(parents=True,exist_ok=True)
+        page.screenshot(path=str(evidence/'keep-editor-saved-390.png'))
 
 
 def test_health_check_supports_webviews_without_abortsignal_timeout(protected_browser, mobile_live):

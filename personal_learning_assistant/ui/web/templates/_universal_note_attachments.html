@@ -1,5 +1,6 @@
 <section id="notes-media" class="notes-media" aria-label="Attached Media" data-url="{{ url_for('notes_media.attachments', note_id=note.id) }}" data-csrf="{{ notes_media_csrf }}">
   <h3>Attached Media</h3>
+  <details id="notes-media-management" class="notes-management"><summary>Manage attachments</summary>
   <p>Open audio and video in an installed player. In a browser, download the file and open it with your device app.</p>
   <form id="notes-media-upload" class="notes-media-upload" enctype="multipart/form-data">
     <label>Attach audio, video, images or documents<input id="notes-media-files" type="file" name="files" multiple required accept=".mp3,.wav,.m4a,.aac,.mp4,.mkv,.mov,.webm,.png,.jpg,.jpeg,.pdf,.txt,.md,.csv,.docx,.pptx,.xlsx"></label>
@@ -7,6 +8,7 @@
     <button class="button" type="submit">Attach Media</button>
   </form>
   <p><small>Audio, video, PNG/JPG, PDF, text and Office files · Up to 512 MB per file, 20 files per upload.</small></p>
+  </details>
   <p id="notes-media-status" class="notes-media-status" role="status" aria-live="polite">Loading attachments…</p>
   <ul id="notes-media-list" class="notes-media-list"></ul>
   <noscript>Enable JavaScript to attach and manage audio or video files.</noscript>

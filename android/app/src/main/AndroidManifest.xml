@@ -16,7 +16,7 @@
             android:exported="false" android:grantUriPermissions="true">
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/media_paths" />
         </provider>
-        <provider android:name="androidx.core.content.FileProvider"
+        <provider android:name=".DocumentFileProvider"
             android:authorities="${applicationId}.documents" android:exported="false"
             android:grantUriPermissions="true">
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/document_paths" />

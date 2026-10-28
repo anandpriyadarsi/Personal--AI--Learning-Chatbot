@@ -1,120 +1,44 @@
 {% extends "workspace_base.html" %}
-
 {% block title %}My Notes · ANVAYA{% endblock %}
-
-{% block workspace_assets %}{{ super() }}<link rel="stylesheet" href="{{ url_for('static', filename='css/nested_notes.css') }}">{% endblock %}
+{% block body_class %}{{ super() }} notes-library-page{% endblock %}
+{% block global_search %}{% endblock %}
+{% block workspace_assets %}{{ super() }}<link rel="stylesheet" href="{{ url_for('static', filename='css/notes_keep.css') }}">{% endblock %}
+{% block page_scripts %}{{ super() }}<script defer src="{{ url_for('static', filename='js/notes_keep.js') }}"></script>{% endblock %}
 {% block content %}
-<section class="anvaya-notes-hero" aria-labelledby="anvaya-notes-title">
-  <div>
-    <p class="eyebrow">Personal study notebook</p>
-    <h2 id="anvaya-notes-title">My Notes</h2>
-    <p class="lede">Capture an idea. Keep the useful parts. Return when you need them.</p>
-  </div>
-  <a class="button anvaya-notes-create-button" href="{{ url_for('web.anvaya_notes_create') }}">
-    <span aria-hidden="true">+</span> Create note
-  </a>
-</section>
-
-<details class="source-context source-context-disclosure"><summary>Personal library · Separate from Obsidian</summary>
-  <div><strong>My Notes · Personal library</strong><p>Typed notes and original handwritten pages saved in ANVAYA. Your Obsidian vault is a separate library.</p></div>
-  <a href="{{ url_for('web.obsidian') }}">Browse Obsidian →</a>
-</details>
-
-{% if error_message %}
-<section class="notice-panel error-panel" role="alert"><strong>{{ error_message }}</strong></section>
-{% endif %}
-
+<div id="notes-library-scroll" class="notes-library-scroll" tabindex="0" aria-label="Notes library">
+<header class="notes-library-heading"><h1 id="anvaya-notes-title">My Notes</h1><div class="notes-layout-switch" aria-label="Note layout"><button type="button" data-notes-layout="grid" aria-label="Grid view" aria-pressed="true">▦</button><button type="button" data-notes-layout="list" aria-label="List view" aria-pressed="false">☰</button></div></header>
+<form method="get" action="{{ url_for('web.notes') }}" class="notes-library-search" role="search">
+  <label class="visually-hidden" for="notes-query">Search your notes</label><input id="notes-query" type="search" name="q" value="{{ dashboard.query.search }}" placeholder="Search your notes…"><button type="submit" aria-label="Search notes">⌕</button>
+  <details class="notes-filters" {% if dashboard.query.course or dashboard.query.kind or dashboard.query.pinned or dashboard.query.view in ['archived','deleted'] %}open{% endif %}><summary>Filters{% if dashboard.query.course or dashboard.query.kind or dashboard.query.pinned %} · on{% endif %}</summary><div>
+    <label>Course<select name="course"><option value="">All courses</option>{% for option in dashboard.filter_options.courses %}<option value="{{ option }}" {% if dashboard.query.course|lower == option|lower %}selected{% endif %}>{{ option }}</option>{% endfor %}</select></label>
+    <label>Kind<select name="kind"><option value="">All notes</option><option value="typed" {% if dashboard.query.kind == 'typed' %}selected{% endif %}>Typed</option><option value="handwritten" {% if dashboard.query.kind == 'handwritten' %}selected{% endif %}>Handwritten</option></select></label>
+    <label>Library<select name="view"><option value="active">Notes</option><option value="archived" {% if dashboard.query.view == 'archived' %}selected{% endif %}>Archive</option><option value="deleted" {% if dashboard.query.view == 'deleted' %}selected{% endif %}>Trash</option></select></label>
+    <label class="notes-pinned-filter"><input type="checkbox" name="pinned" value="1" {% if dashboard.query.pinned == '1' %}checked{% endif %}> Pinned only</label><button type="submit">Apply</button><a href="{{ url_for('web.notes') }}">Clear</a>
+  </div></details>
+</form>
+<p class="notes-library-context">Personal library <span>·</span> <a href="{{ url_for('web.obsidian') }}">Obsidian is separate ↗</a></p>
+{% if error_message %}<section class="notice-panel error-panel" role="alert"><strong>{{ error_message }}</strong></section>{% endif %}
+{% macro cards(items, label) %}
+{% if items %}<section class="notes-card-group" aria-label="{{ label }}"><h2>{{ label }}</h2><div class="anvaya-notes-grid" data-notes-grid>
+{% for note in items %}<a class="anvaya-note-card-link" href="{{ url_for('web.anvaya_note_reader', note_id=note.id) }}" aria-label="Open {{ note.title }}"><article class="anvaya-note-card anvaya-note-card--{{ note.card_family }} anvaya-note-template--{{ note.card_style }}">
+  {% if note.thumbnail_url %}<div class="anvaya-note-card-preview"><img src="{{ note.thumbnail_url }}" alt="" loading="lazy"></div>{% endif %}
+  <div class="anvaya-note-card-body"><div class="anvaya-note-card-topline">{% if note.course %}<span class="anvaya-note-course">{{ note.course }}</span>{% endif %}<span class="anvaya-note-kind">{{ note.note_kind|title }}</span>{% if note.pinned %}<span class="notes-pin" aria-label="Pinned"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M16 3l5 5-4 2-3 6-3-3-6 6m3-15 8 8M8 4l4 1 4-2-2 4 1 4"/></svg></span>{% endif %}</div>
+  <h3>{{ note.title }}</h3>{% if note.key_points %}<ul>{% for point in note.key_points %}<li>{{ point }}</li>{% endfor %}</ul>{% else %}<p class="anvaya-note-card-empty">{{ note.preview or 'Open to read your note.' }}</p>{% endif %}
+  <small>{% if note.section_count %}{{ note.section_count }} sections{% endif %}{% if note.attachment_count %} · {{ note.attachment_count }} attachments{% endif %}</small><time datetime="{{ note.created_at }}">{{ note.created_label }}</time></div>
+</article></a>{% endfor %}</div></section>{% endif %}
+{% endmacro %}
 {% if dashboard.available %}
-<section class="dashboard-panel anvaya-notes-toolbar" aria-label="Filter personal notes">
-  <form method="get" action="{{ url_for('web.notes') }}">
-    <label class="form-field anvaya-notes-search">
-      <span>Find a note</span>
-      <input type="search" name="q" value="{{ dashboard.query.search }}" placeholder="Topic, course, or key point">
-    </label>
-    <label class="form-field">
-      <span>Course</span>
-      <select name="course">
-        <option value="">All courses</option>
-        {% for option in dashboard.filter_options.courses %}
-          <option value="{{ option }}" {% if dashboard.query.course|lower == option|lower %}selected{% endif %}>{{ option }}</option>
-        {% endfor %}
-      </select>
-    </label>
-    <label class="form-field">
-      <span>Note type</span>
-      <select name="kind">
-        <option value="">All notes</option>
-        <option value="typed" {% if dashboard.query.kind == 'typed' %}selected{% endif %}>Typed</option>
-        <option value="handwritten" {% if dashboard.query.kind == 'handwritten' %}selected{% endif %}>Handwritten</option>
-      </select>
-    </label>
-    <div class="form-actions">
-      <button class="button" type="submit">Filter</button>
-      {% if dashboard.query.search or dashboard.query.course or dashboard.query.kind %}
-        <a class="button secondary-button" href="{{ url_for('web.notes') }}">Clear</a>
-      {% endif %}
-    </div>
-  </form>
-</section>
-
-<section class="workspace-summary anvaya-notes-summary" aria-label="Notes summary">
-  <span><strong>{{ dashboard.summary.total }}</strong> notes</span>
-  <span><strong>{{ dashboard.summary.typed }}</strong> typed</span>
-  <span><strong>{{ dashboard.summary.handwritten }}</strong> handwritten</span>
-</section>
-
-<div class="source-section-heading"><h3>Your notes</h3><p>{{ dashboard.cards|length }} shown{% if dashboard.query.search or dashboard.query.course or dashboard.query.kind %} · Filters applied{% endif %}</p></div>
-{% if dashboard.cards %}
-<section class="anvaya-notes-grid" aria-label="Your notes">
-  {% for note in dashboard.cards %}
-  <a class="anvaya-note-card-link" href="{{ url_for('web.anvaya_note_reader', note_id=note.id) }}" aria-label="Open {{ note.title }}">
-    <article class="anvaya-note-card anvaya-note-card--{{ note.card_family }} anvaya-note-template--{{ note.card_style }}">
-      {% if note.card_family == 'preview' %}
-      <div class="anvaya-note-card-preview">
-        {% if note.thumbnail_url %}
-          <img src="{{ note.thumbnail_url }}" alt="" loading="lazy">
-        {% else %}
-          <span class="anvaya-note-preview-placeholder" aria-hidden="true">{% if note.note_kind == 'handwritten' %}PDF{% else %}NOTE{% endif %}</span>
-        {% endif %}
-      </div>
-      {% endif %}
-      <div class="anvaya-note-card-body">
-        <div class="anvaya-note-card-topline">
-          {% if note.course %}<span class="anvaya-note-course">{{ note.course }}</span>{% endif %}
-          <span class="anvaya-note-kind" aria-label="{{ note.note_kind }} note">
-            {{ note.note_kind|title }}
-          </span>
-        </div>
-        <h3>{{ note.title }}</h3>
-        <small>{{ note.section_count }} sections{% if note.attachment_count %} · {{ note.attachment_count }} attachments{% endif %}</small>
-        {% if note.key_points %}
-        <ul>
-          {% for point in note.key_points %}
-          <li>{{ point }}</li>
-          {% endfor %}
-        </ul>
-        {% else %}
-        <p class="anvaya-note-card-empty">Open to view the full note.</p>
-        {% endif %}
-        <time datetime="{{ note.created_at }}">{{ note.created_label }}</time>
-      </div>
-    </article>
-  </a>
-  {% endfor %}
-</section>
-{% else %}
-<section class="dashboard-panel anvaya-notes-empty">
-  <div class="anvaya-notes-empty-icon" aria-hidden="true">＋</div>
-  {% if dashboard.query.search or dashboard.query.course or dashboard.query.kind %}
-  <h3>No matching notes</h3><p>Try another phrase or clear your filters to see all personal notes.</p>
-  <a class="button secondary-button" href="{{ url_for('web.notes') }}">Clear filters</a>
-  {% else %}
-  <h3>No notes yet</h3><p>Upload your handwritten pages or create your first typed note.</p>
-  <a class="button" href="{{ url_for('web.anvaya_notes_create') }}">Create note</a>
-  {% endif %}
-</section>
-{% endif %}
-{% else %}
-<section class="dashboard-panel anvaya-notes-empty"><h3>Your notes are temporarily unavailable</h3><p>Your personal library could not be loaded. Return to this page to try again.</p><a class="button secondary-button" href="{{ url_for('web.notes') }}">Try again</a></section>
-{% endif %}
+{% set pinned = dashboard.cards|selectattr('pinned')|list %}{% set others = dashboard.cards|rejectattr('pinned')|list %}
+{{ cards(pinned, 'Pinned') }}{{ cards(others, 'Other notes' if pinned else ('Archive' if dashboard.query.view == 'archived' else 'Trash' if dashboard.query.view == 'deleted' else 'Your notes')) }}
+{% if not dashboard.cards %}<section class="anvaya-notes-empty"><div aria-hidden="true">▤</div><h2>{% if dashboard.query.search or dashboard.query.course or dashboard.query.kind or dashboard.query.pinned %}No matching notes{% elif dashboard.query.view in ['archived','deleted'] %}Nothing here yet{% else %}A little space for your ideas{% endif %}</h2><p>{% if dashboard.query.search %}Try another phrase or clear your filters.{% else %}Tap + to create a note or import a document.{% endif %}</p></section>{% endif %}
+{% else %}<section class="anvaya-notes-empty"><h2>Your notes are temporarily unavailable</h2><a href="{{ url_for('web.notes') }}">Try again</a></section>{% endif %}
+</div>
+<details id="notes-create-menu" class="notes-create-menu"><summary aria-label="Create note"><span aria-hidden="true">+</span><span class="visually-hidden">Create note</span></summary><nav aria-label="Create a note">
+  <a href="{{ url_for('web.anvaya_notes_typed') }}"><span aria-hidden="true">▤</span>Text Note</a>
+  <a href="{{ url_for('web.anvaya_notes_upload') }}"><span aria-hidden="true">✎</span>Handwritten Note</a>
+  <a href="{{ url_for('web.anvaya_notes_typed', format='checklist') }}"><span aria-hidden="true">☑</span>Checklist</a>
+  <a href="{{ url_for('web.anvaya_notes_capture', capture_kind='image') }}"><span aria-hidden="true">▧</span>Image Note</a>
+  <a href="{{ url_for('web.anvaya_notes_capture', capture_kind='audio') }}"><span aria-hidden="true">♫</span>Audio Note</a>
+  <a href="{{ url_for('web.anvaya_notes_capture', capture_kind='document') }}"><span aria-hidden="true">↥</span>Import Document</a>
+</nav></details>
 {% endblock %}

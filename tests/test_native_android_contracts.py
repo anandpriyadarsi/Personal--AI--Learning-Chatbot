@@ -16,6 +16,10 @@ public class NativeContract {
  public static void main(String[] args) {
   String origin="http://127.0.0.1:12345";
   String base=origin+"/library/files/"+"a".repeat(32)+"/original";
+  assert NativeDocumentRequest.parse(origin,base+"?native_action=view").documentId.equals("a".repeat(32));
+  assert !NativeDocumentRequest.parse(origin,base+"?native_action=view").openWith;
+  assert NativeDocumentRequest.parse(origin,base+"?native_action=open_with").openWith;
+  assert NativeDocumentRequest.parse(origin,base.replace("/original","/open")+"?native_action=reader&position=18").reader;
   assert NativeDocumentRequest.parse(origin,base+"?native_action=open&position=18&download=1").position==18;
   assert NativeDocumentRequest.parse(origin,base+"?native_action=share").share;
   for(String url:new String[]{base,base+"?native_action=open&position=0",base+"?native_action=open&position=2501",base+"?native_action=open&native_action=share",base+"?native_action=open&next=evil",base+"?native_action=open#page=2",base.replace(":12345",":12346")+"?native_action=open",base.replace("127.0.0.1","example.com")+"?native_action=open",origin+"/mobile/backup?native_action=open"}) {

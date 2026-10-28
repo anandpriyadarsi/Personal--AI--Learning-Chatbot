@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+from html.parser import HTMLParser
 from pathlib import Path
+
+import pytest
 
 from personal_learning_assistant.services.anvaya_notes_service import (
     AnvayaNotesService,
@@ -135,20 +138,46 @@ def test_iris_family_contains_subject_specific_choices():
         assert subject in picker
 
 
-def test_library_uses_family_and_exact_template_classes():
-    root = Path(__file__).resolve().parents[1]
-    library = (
-        root
-        / "personal_learning_assistant"
-        / "ui"
-        / "web"
-        / "templates"
-        / "anvaya_notes_library.html"
-    ).read_text(encoding="utf-8")
+@pytest.mark.parametrize(
+    ("style", "family"),
+    (("iris-indigo", "iris"), ("preview-left", "preview"), ("square-clean", "square")),
+)
+def test_library_uses_family_and_exact_template_classes(tmp_path, style, family):
+    from tests.test_phase7_5_15_10_notes_obsidian_separation import _app, _service
 
-    assert "anvaya-note-card--{{ note.card_family }}" in library
-    assert "anvaya-note-template--{{ note.card_style }}" in library
-    assert "note.card_family == 'preview'" in library
+    service, _repository = _service(tmp_path)
+    created = service.create_handwritten_note(
+        {"title": "Gallery note", "card_style": style},
+        [("page.png", b"\x89PNG\r\n\x1a\n" + b"x" * 32)],
+    )
+    response = _app(service).test_client().get("/notes")
+    assert response.status_code == 200
+
+    class Elements(HTMLParser):
+        def __init__(self):
+            super().__init__()
+            self.elements = []
+
+        def handle_starttag(self, tag, attrs):
+            self.elements.append((tag, dict(attrs)))
+
+    parser = Elements()
+    parser.feed(response.get_data(as_text=True))
+    links = [attrs for tag, attrs in parser.elements
+             if tag == "a" and "anvaya-note-card-link" in attrs.get("class", "").split()]
+    assert len(links) == 1
+    assert links[0]["href"] == f"/notes/view/{created['id']}"
+    cards = [attrs for tag, attrs in parser.elements
+             if tag == "article" and "anvaya-note-card" in attrs.get("class", "").split()]
+    assert len(cards) == 1
+    assert set(cards[0]["class"].split()) == {
+        "anvaya-note-card", f"anvaya-note-card--{family}", f"anvaya-note-template--{style}"
+    }
+    images = [attrs for tag, attrs in parser.elements
+              if tag == "img" and attrs.get("src", "").startswith(f"/notes/file/{created['id']}/")]
+    assert len(images) == 1
+    asset = service.reader(created["id"])["assets"][0]
+    assert images[0]["src"] == f"/notes/file/{created['id']}/{asset['id']}"
 
 
 def test_css_contains_all_eighteen_template_selectors():
