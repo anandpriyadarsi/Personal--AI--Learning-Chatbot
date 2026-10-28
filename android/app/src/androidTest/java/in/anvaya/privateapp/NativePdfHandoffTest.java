@@ -72,7 +72,7 @@ public class NativePdfHandoffTest {
         assertManagedOriginal();
         assertEquals("Fixture and running web service use the same durable Library",new File(context.getFilesDir(),"data/native_library").getCanonicalPath(),eval("str(__import__('personal_learning_assistant.android_runtime',fromlist=['_runtime'])._runtime.app.config['NATIVE_LIBRARY_ROOT'])").toString());
         routeFailureFile().delete();
-        eval("__import__('flask').got_request_exception.connect(lambda sender,exception: __import__('pathlib').Path("+JSONObject.quote(routeFailureFile().getCanonicalPath())+").write_text(''.join(__import__('traceback').format_exception(type(exception),exception,exception.__traceback__)),encoding='utf-8'),sender=__import__('personal_learning_assistant.android_runtime',fromlist=['_runtime'])._runtime.app,weak=False)");
+        eval("__import__('flask').got_request_exception.connect(lambda sender,exception: (__import__('pathlib').Path(__import__('personal_learning_assistant.android_runtime',fromlist=['_runtime'])._runtime.app.config['NATIVE_LIBRARY_ROOT']).parent.parent/'evidence/android-native-pdf-route-failure.txt').write_text(''.join(__import__('traceback').format_exception(type(exception),exception,exception.__traceback__)),encoding='utf-8'),sender=__import__('personal_learning_assistant.android_runtime',fromlist=['_runtime'])._runtime.app,weak=False)");
         js("window.__nativePdfNavigationPending=true");
         inst.runOnMainSync(()->web.loadUrl(origin+"/library/files"));waitJs("!window.__nativePdfNavigationPending&&location.pathname==='/library/files'&&!!document.querySelector("+JSONObject.quote(row())+")");
     }
