@@ -163,7 +163,10 @@ class NativeDocumentLibrary:
     def connection(self, *, write=False):
         _safe(self.database)
         with self._lock:
-            con = sqlite3.connect(self.database, timeout=15)
+            # Chaquopy's embedded SQLite adapter must receive a normalized filename,
+            # matching the native resolver; Path objects are not interchangeable on
+            # every Android Python/SQLite build.
+            con = sqlite3.connect(str(self.database), timeout=15)
             con.row_factory = sqlite3.Row
             con.create_function('library_normalize', 1, normalize)
             con.execute('PRAGMA secure_delete=ON')
