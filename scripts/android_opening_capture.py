@@ -30,11 +30,21 @@ def main() -> int:
     original = Image.open(root / 'android/app/src/main/res/drawable-nodpi/anvaya_opening.jpg')
     package = 'in.anvaya.privateapp'
     subprocess.run(['adb','shell','am','force-stop',package], check=True, capture_output=True)
+    # Initialize the compositor/ADB capture path before the brief real opening.
+    # This pre-launch frame proves capture readiness, never launch evidence.
+    ready = subprocess.run(['adb','exec-out','screencap','-p'],
+                           check=True, capture_output=True, timeout=10)
+    with Image.open(io.BytesIO(ready.stdout)) as frame:
+        frame.load()
     launch = subprocess.Popen(['adb','shell','am','start','-n',package+'/.MainActivity'],
                               stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     try:
         deadline = time.monotonic() + 45
         while time.monotonic() < deadline:
+            if launch.poll() not in (None, 0):
+                diagnostic, _ = launch.communicate(timeout=15)
+                raise RuntimeError('Android activity start failed: ' +
+                                   diagnostic.decode('utf-8', errors='replace').strip())
             capture = subprocess.run(['adb','exec-out','screencap','-p'], capture_output=True, timeout=10)
             if capture.returncode == 0:
                 try:

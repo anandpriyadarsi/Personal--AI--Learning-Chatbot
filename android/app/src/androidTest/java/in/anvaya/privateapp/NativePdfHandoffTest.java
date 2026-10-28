@@ -92,7 +92,7 @@ public class NativePdfHandoffTest {
             assertNull("System owns the preferred viewer",sent.getPackage());assertNull(sent.getComponent());assertEquals(Intent.ACTION_VIEW,sent.getAction());assertEquals("application/pdf",sent.getType());assertEquals("content",sent.getData().getScheme());
             assertTrue((sent.getFlags()&Intent.FLAG_GRANT_READ_URI_PERMISSION)!=0);assertEquals(0,sent.getFlags()&Intent.FLAG_GRANT_WRITE_URI_PERMISSION);assertEquals(sent.getData(),sent.getClipData().getItemAt(0).getUri());assertFalse(sent.toUri(0).contains(context.getFilesDir().getPath()));
             assertNull(report[0].getStringExtra("error"));assertNotEquals(android.os.Process.myUid(),report[0].getIntExtra("uid",-1));assertEquals("application/pdf",report[0].getStringExtra("mime"));assertEquals("गणित π + λ ∈ ℝ.pdf",report[0].getStringExtra("filename"));assertEquals(fixture.getString("sha256"),report[0].getStringExtra("sha256"));assertEquals(fixture.getLong("size"),report[0].getLongExtra("size",-1));assertEquals(3,report[0].getIntExtra("pages",-1));assertEquals(300,report[0].getIntExtra("pageWidth",-1));assertEquals(420,report[0].getIntExtra("pageHeight",-1));assertTrue(report[0].getBooleanExtra("writeDenied",false));assertTrue(report[0].getBooleanExtra("deleteDenied",false));
-            screenshot("android-native-pdf-external-viewer");inst.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK);waitJs("location.pathname==='/library/files'&&!!document.querySelector('"+row()+"')");assertManagedOriginal();screenshot("android-native-pdf-library");
+            screenshot("android-native-pdf-external-viewer");pressBack();waitJs("location.pathname==='/library/files'&&!!document.querySelector('"+row()+"')");assertManagedOriginal();screenshot("android-native-pdf-library");
         } finally {inst.removeMonitor(route);context.unregisterReceiver(receiver);}
     }
     @Test public void openWithCancellationAndAbsentViewerPreserveLibrary() throws Exception {
@@ -123,7 +123,7 @@ public class NativePdfHandoffTest {
         try {
             js("document.querySelector('"+row()+" details').removeAttribute('open')");tap(row()+" .file-main h2 a");long deadline=System.currentTimeMillis()+15000;boolean found=false;
             while(System.currentTimeMillis()<deadline){android.view.accessibility.AccessibilityNodeInfo root=inst.getUiAutomation().getRootInActiveWindow();found=root!=null&&!root.findAccessibilityNodeInfosByText("No compatible viewer found").isEmpty();if(found)break;Thread.sleep(100);}
-            assertTrue("Friendly no-viewer fallback",found);screenshot("android-native-pdf-no-viewer");inst.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK);waitJs("location.pathname==='/library/files'");assertManagedOriginal();
+            assertTrue("Friendly no-viewer fallback",found);screenshot("android-native-pdf-no-viewer");pressBack();waitJs("location.pathname==='/library/files'");assertManagedOriginal();
         } finally {inst.removeMonitor(absent);}
     }
     @Test public void managedOriginalAndMetadataSurviveActivityRestart() throws Exception {
@@ -261,6 +261,19 @@ public class NativePdfHandoffTest {
         try(FileOutputStream output=new FileOutputStream(evidence)){output.write(details.getBytes("UTF-8"));}
         screenshot("android-native-pdf-state-failure");
         fail("Library state did not appear: "+details);
+    }
+    private void pressBack() throws Exception {
+        // The installed receiver has its own UID. UiAutomation holds the test
+        // input capability required to press Back in that foreground activity.
+        long now=android.os.SystemClock.uptimeMillis();
+        android.view.KeyEvent down=new android.view.KeyEvent(now,now,android.view.KeyEvent.ACTION_DOWN,android.view.KeyEvent.KEYCODE_BACK,0);
+        android.view.KeyEvent up=new android.view.KeyEvent(now,now+80,android.view.KeyEvent.ACTION_UP,android.view.KeyEvent.KEYCODE_BACK,0);
+        down.setSource(android.view.InputDevice.SOURCE_KEYBOARD);up.setSource(android.view.InputDevice.SOURCE_KEYBOARD);
+        assertTrue("Real Back key down is injected",inst.getUiAutomation().injectInputEvent(down,true));
+        assertTrue("Real Back key up is injected",inst.getUiAutomation().injectInputEvent(up,true));
+        long deadline=System.currentTimeMillis()+20000;boolean[] returned={false};
+        while(System.currentTimeMillis()<deadline){inst.runOnMainSync(()->returned[0]=web.hasWindowFocus()&&!activity.isFinishing()&&!activity.isDestroyed());if(returned[0])break;Thread.sleep(100);}
+        assertTrue("Back returns focus to the live Library WebView",returned[0]);
     }
     private void tap(String selector) throws Exception {
         waitJs("!!document.querySelector("+JSONObject.quote(selector)+")");JSONObject point=new JSONObject(js("(()=>{const a=document.querySelector("+JSONObject.quote(selector)+");a.scrollIntoView({block:'center'});const r=a.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2,width:innerWidth}})()"));
