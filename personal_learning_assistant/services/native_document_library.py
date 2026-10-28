@@ -92,9 +92,16 @@ def resolve_android_document(root_path, document_id):
     database = _safe(root/'library.sqlite3')
     with storage_lock(root):
         try:
-            con = sqlite3.connect(database.as_uri()+'?mode=ro', uri=True)
+            # The Android embedded SQLite driver cannot reliably open the
+            # URI-mode read-only connection used by desktop Python. Check
+            # existence before opening so an unavailable Library is never
+            # silently initialized. query_only keeps this view non-mutating.
+            if not database.is_file():
+                raise LibraryError('Original file is unavailable.', 409)
+            con = sqlite3.connect(str(database), timeout=15)
             con.row_factory = sqlite3.Row
             try:
+                con.execute('PRAGMA query_only=ON')
                 doc = NativeDocumentLibrary._doc(con.execute('SELECT * FROM documents WHERE id=?', (document_id,)).fetchone())
                 return [str(_verified_original(root, doc)), doc['mime'], document_filename(doc)]
             finally: con.close()
