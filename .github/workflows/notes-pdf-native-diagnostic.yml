@@ -1,0 +1,16 @@
+name: Notes PDF native resolver diagnostic
+on:
+  push:
+    branches: [diagnostic/notes-pdf-native-gate-2026-10-28]
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: notes-pdf-native-diagnostic
+  cancel-in-progress: true
+jobs:
+  android:
+    uses: ./.github/workflows/verification-android.yml
+    with:
+      source_sha: ${{ github.sha }}
+      level: integration

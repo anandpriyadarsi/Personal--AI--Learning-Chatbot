@@ -10,6 +10,12 @@ capture_exit_evidence() {
     adb exec-out screencap -p > android-evidence/failed-installed-viewport.png || true
     adb exec-out run-as in.anvaya.privateapp cat files/evidence/startup-failure.png > android-evidence/startup-failure.png 2>/dev/null || true
     adb exec-out run-as in.anvaya.privateapp cat files/evidence/upload-picker-failure.png > android-evidence/upload-picker-failure.png 2>/dev/null || true
+    for name in android-notes-main android-notes-create-menu android-notes-opened android-notes-overflow android-native-pdf-state-failure; do
+      adb exec-out run-as in.anvaya.privateapp cat "files/evidence/$name.png" > "android-evidence/$name.png" 2>/dev/null || true
+    done
+    for name in android-native-pdf-state-failure android-native-pdf-route-failure android-native-pdf-resolver-failure; do
+      adb exec-out run-as in.anvaya.privateapp cat "files/evidence/$name.txt" > "android-evidence/$name.txt" 2>/dev/null || true
+    done
   fi
   exit "$result"
 }

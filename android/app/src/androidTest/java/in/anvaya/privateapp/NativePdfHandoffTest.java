@@ -135,9 +135,78 @@ public class NativePdfHandoffTest {
         } finally {source.delete();}
     }
     private void assertManagedOriginal() throws Exception {
-        java.util.List<com.chaquo.python.PyObject> item=Python.getInstance().getModule("personal_learning_assistant.services.native_document_library").callAttr("resolve_android_document",context.getFilesDir().getCanonicalPath(),fixture.getString("id")).asList();File file=new File(item.get(0).toString());assertTrue(file.isFile());assertEquals(new File(context.getFilesDir(),"data/native_library/blobs/"+fixture.getString("sha256")).getCanonicalPath(),file.getCanonicalPath());
+        java.util.List<com.chaquo.python.PyObject> item;
+        try {
+            item=Python.getInstance().getModule("personal_learning_assistant.services.native_document_library").callAttr("resolve_android_document",context.getFilesDir().getCanonicalPath(),fixture.getString("id")).asList();
+        } catch(RuntimeException failure) {
+            String diagnostic=originalResolverDiagnostic();
+            // Instrumentation teardown closes the Activity. Log and persist the
+            // underlying Python exception before that loses the installed state.
+            for(String line:diagnostic.split("\\n"))System.err.println("NATIVE_PDF_RESOLVER "+line);
+            File evidence=new File(context.getFilesDir(),"evidence/android-native-pdf-resolver-failure.txt");evidence.getParentFile().mkdirs();
+            try(FileOutputStream output=new FileOutputStream(evidence)){output.write(diagnostic.getBytes("UTF-8"));}
+            fail("Production original resolver failed: "+diagnostic);
+            throw failure;
+        }
+        File file=new File(item.get(0).toString());assertTrue(file.isFile());assertEquals(new File(context.getFilesDir(),"data/native_library/blobs/"+fixture.getString("sha256")).getCanonicalPath(),file.getCanonicalPath());
         MessageDigest hash=MessageDigest.getInstance("SHA-256");try(InputStream input=new FileInputStream(file)){byte[] buffer=new byte[32768];int count;while((count=input.read(buffer))!=-1)hash.update(buffer,0,count);}StringBuilder actual=new StringBuilder();for(byte b:hash.digest())actual.append(String.format(java.util.Locale.ROOT,"%02x",b&255));assertEquals(fixture.getString("sha256"),actual.toString());assertEquals("गणित π + λ ∈ ℝ.pdf",item.get(2).toString());
         String check="(lambda d: d['display_name']=='गणित π + λ ∈ ℝ' and d['subject_id']=='ma103' and d['tags']==['native-viewer-test'] and d['status']=='disabled')(__import__('personal_learning_assistant.services.native_document_library',fromlist=['NativeDocumentLibrary']).NativeDocumentLibrary("+JSONObject.quote(context.getFilesDir().getCanonicalPath())+"+'/data/native_library',autostart=False).get('"+fixture.getString("id")+"'))";assertTrue("Rename/course/tags/index choice persist",eval(check).toBoolean());File copies=new File(context.getCacheDir(),"shared-originals");assertFalse("No view copy",copies.isDirectory()&&copies.list().length>0);
+    }
+    private String originalResolverDiagnostic() throws Exception {
+        com.chaquo.python.PyObject builtins=Python.getInstance().getModule("builtins");
+        com.chaquo.python.PyObject globals=builtins.callAttr("dict");
+        builtins.callAttr("exec", """
+            def diagnose_original(root_path, document_id):
+                import json, os, sqlite3, traceback
+                from pathlib import Path
+                from urllib.parse import quote
+                from personal_learning_assistant.services.native_document_library import resolve_android_document
+                root = Path(root_path).absolute()
+                database = root/'data/native_library/library.sqlite3'
+                result = {'root': str(root), 'root_realpath': os.path.realpath(root), 'cwd': os.getcwd(),
+                          'database': str(database), 'database_realpath': os.path.realpath(database),
+                          'sqlite_version': sqlite3.sqlite_version, 'sqlite_module': sqlite3.__file__}
+                def error_details(error):
+                    return {'error': repr(error), 'cause': repr(error.__cause__), 'traceback': traceback.format_exc()}
+                for label, path in [('root_stat', root), ('database_stat', database)]:
+                    try:
+                        stat = path.stat()
+                        result[label] = {'exists': path.exists(), 'is_file': path.is_file(),
+                                         'mode': oct(stat.st_mode), 'size': stat.st_size,
+                                         'uid': stat.st_uid, 'gid': stat.st_gid}
+                    except Exception as error:
+                        result[label] = error_details(error)
+                try:
+                    result['production_resolver'] = resolve_android_document(root_path, document_id)
+                except Exception as error:
+                    result['production_resolver'] = error_details(error)
+                with sqlite3.connect(':memory:') as connection:
+                    result['sqlite_compile_options'] = [row[0] for row in connection.execute('PRAGMA compile_options')]
+                variants = [('path_as_uri', database.as_uri()+'?mode=ro', True),
+                            ('file_quoted_posix', 'file:'+quote(database.as_posix(), safe='/:')+'?mode=ro', True),
+                            ('plain_existing_query_only', str(database), False)]
+                result['connection_probes'] = {}
+                for label, address, uri in variants:
+                    probe = {'address': address, 'uri': uri}
+                    result['connection_probes'][label] = probe
+                    connection = None
+                    try:
+                        if not database.is_file():
+                            raise FileNotFoundError('Existing Library database is absent; will not create it')
+                        connection = sqlite3.connect(address, uri=uri)
+                        connection.execute('PRAGMA query_only=ON')
+                        probe['query_only'] = connection.execute('PRAGMA query_only').fetchone()[0]
+                        probe['database_list'] = connection.execute('PRAGMA database_list').fetchall()
+                        probe['count'] = connection.execute('SELECT count(*) FROM documents').fetchone()[0]
+                        probe['fixture_row'] = connection.execute('SELECT id,sha256,size,status,display_name FROM documents WHERE id=?', (document_id,)).fetchone()
+                    except Exception as error:
+                        probe.update(error_details(error))
+                    finally:
+                        if connection is not None:
+                            connection.close()
+                return json.dumps(result, ensure_ascii=False, indent=2)
+            """, globals);
+        return globals.callAttr("__getitem__","diagnose_original").call(context.getFilesDir().getCanonicalPath(),fixture.getString("id")).toString();
     }
     private String js(String source) throws Exception {CountDownLatch done=new CountDownLatch(1);String[] result={null};inst.runOnMainSync(()->web.evaluateJavascript(source,value->{result[0]=value;done.countDown();}));assertTrue(done.await(10,TimeUnit.SECONDS));return result[0];}
     private void waitJs(String condition) throws Exception {
