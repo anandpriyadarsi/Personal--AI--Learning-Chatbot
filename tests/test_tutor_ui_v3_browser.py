@@ -141,7 +141,7 @@ def test_sidebar_collapse_fills_tutor_viewport_without_outer_scroll(browser, rea
           const main = document.querySelector('.app-main');
           const viewport = document.documentElement.clientWidth;
           return Math.abs(main.getBoundingClientRect().width - viewport) <= 3 &&
-                 sidebar.getBoundingClientRect().width <= 3 &&
+                 sidebar.getBoundingClientRect().right <= 3 &&
                  shell.getBoundingClientRect().width >= viewport - 2;
         }""")
         content = reader.bounding_box()
