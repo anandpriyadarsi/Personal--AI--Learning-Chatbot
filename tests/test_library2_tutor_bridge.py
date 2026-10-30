@@ -111,3 +111,20 @@ class CopyScopeAndEvidenceTests(unittest.TestCase):
         self.addCleanup(runtime.close)
         self.assertEqual(len(runtime.search('Zirconium47')),1)
         self.assertEqual(len(runtime.search('Zirconium47',course_ids=('chem',))),1)
+
+
+class HumanCitationTests(unittest.TestCase):
+    setUp=TutorBridgeTests.setUp
+    records=TutorBridgeTests.records
+    def test_tutor_citations_show_current_filename_and_real_line(self):
+        from personal_learning_assistant.repositories.sqlite.search_metadata_repository import SQLiteSearchMetadataRepository
+        doc=self.lib.upload(BytesIO(b'First line\nZirconium47 is the source fact'),'professor.txt')
+        self.lib.run_pending()
+        record=next(r for r in self.records() if 'Zirconium47' in r['text'])
+        with closing(sqlite3.connect(self.root/'data/learning_assistant.db')) as con:
+            metadata=SQLiteSearchMetadataRepository(con)
+            self.assertEqual(metadata.evidence_locator(record['chunk_id'])['locator_label'],'Line 2')
+            self.assertEqual(metadata.document(record['document_id'])['title'],'professor.txt')
+        self.lib.update(doc['id'],display_name='Friendly source');self.lib.run_pending()
+        with closing(sqlite3.connect(self.root/'data/learning_assistant.db')) as con:
+            self.assertEqual(SQLiteSearchMetadataRepository(con).document(record['document_id'])['title'],'Friendly source')
