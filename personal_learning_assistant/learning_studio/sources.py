@@ -26,6 +26,17 @@ class RegisteredSources:
         require(row is not None and row[2] == 'application/pdf', 'Source ID must reference an existing registered PDF.')
         require(isinstance(row[0], str) and '/' in row[0] and '\\' not in row[0], 'Registered source has an invalid logical path.')
         logical, relative = row[0].split('/', 1)
+        if logical=='native_library':
+            from personal_learning_assistant.services.native_document_library import resolve_android_document
+            try:
+                resolved=resolve_android_document(db.parent.parent,relative)
+                path=safe_regular(resolved[0])
+            except (ValueError,OSError) as error:raise PackageError('Managed original is unavailable.',409) from error
+            require(resolved[1]=='application/pdf','Source ID must reference a registered PDF.')
+            require(path.stat().st_size<=MAX_SOURCE,'Registered source exceeds 20 MB.',413)
+            raw,digest=SourceRootResolver.snapshot(path)
+            require(digest==row[1],'Registered source changed. Existing ingestion must reconcile it first.',409)
+            return raw
         root = next((Path(v).absolute() for k, v in self.roots.items() if str(k).casefold() == logical.casefold()), None)
         require(root is not None and not PurePosixPath(relative).is_absolute() and '..' not in PurePosixPath(relative).parts, 'Registered source path escapes its configured root.')
         # Check the unresolved path BEFORE the existing resolver canonicalises it.

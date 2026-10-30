@@ -17,6 +17,9 @@ def _source_label(hit, number):
         parts.append("MIT L{}".format(locator["lecture_number"]))
     if hit.page_number is not None:
         parts.append("p.{}".format(hit.page_number))
+    for field,prefix in [('slide','slide'),('line','line'),('paragraph','paragraph')]:
+        if isinstance(locator.get(field),int) and locator[field]>0:
+            parts.append(prefix+' '+str(locator[field]));break
     if locator.get("topic"):
         parts.append(str(locator["topic"]))
     elif locator.get("section"):

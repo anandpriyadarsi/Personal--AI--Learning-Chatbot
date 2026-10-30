@@ -19,12 +19,6 @@ public final class DocumentFileProvider extends FileProvider {
         // Managed blobs have content hashes as filenames. The display name is
         // supplied by the verified resolver when creating each read grant.
         String name=uri.getQueryParameter("displayName");
-        if(name!=null){
-            String lower=name.toLowerCase(Locale.ROOT);
-            if(lower.endsWith(".pdf"))return "application/pdf";
-            if(lower.endsWith(".pptx"))return "application/vnd.openxmlformats-officedocument.presentationml.presentation";
-            if(lower.endsWith(".ppt"))return "application/vnd.ms-powerpoint";
-        }
-        return "application/octet-stream";
+        return DocumentFormats.mimeForName(name);
     }
 }

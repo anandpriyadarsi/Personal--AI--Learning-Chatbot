@@ -79,7 +79,7 @@ class RetrievalIndexBuilder:
 
     def preview(self, *, embedding_provider=None):
         records = self.source_repository.active_records()
-        fingerprint = self.source_repository.source_fingerprint()
+        fingerprint = self.source_repository.fingerprint_records(records)
         model_name = "" if embedding_provider is None else embedding_provider.model_name
         model_version = "" if embedding_provider is None else embedding_provider.model_version
         generation = _generation_id(
@@ -137,7 +137,7 @@ class RetrievalIndexBuilder:
         records = self.source_repository.active_records()
         if not records:
             raise RetrievalIndexBuildError("no active knowledge chunks are available")
-        fingerprint = self.source_repository.source_fingerprint()
+        fingerprint = self.source_repository.fingerprint_records(records)
         semantic_enabled = embedding_provider is not None
         model_name = "" if embedding_provider is None else str(embedding_provider.model_name)
         model_version = "" if embedding_provider is None else str(embedding_provider.model_version)
@@ -159,6 +159,8 @@ class RetrievalIndexBuilder:
                     existing.get("source_fingerprint") == fingerprint
                     and self.verify_manifest_files(existing)
                 ):
+                    if self.source_repository.source_fingerprint()!=fingerprint:
+                        raise RetrievalIndexBuildError('source changed while building retrieval generation')
                     self._install_pointer(generation)
                     if acknowledge:
                         self.source_repository.acknowledge_build(
@@ -223,6 +225,8 @@ class RetrievalIndexBuilder:
                 shutil.rmtree(final_dir)
             os.replace(str(temp_dir), str(final_dir))
             temp_dir = None
+            if self.source_repository.source_fingerprint()!=fingerprint:
+                raise RetrievalIndexBuildError('source changed while building retrieval generation')
             self._install_pointer(generation)
             if acknowledge:
                 self.source_repository.acknowledge_build(

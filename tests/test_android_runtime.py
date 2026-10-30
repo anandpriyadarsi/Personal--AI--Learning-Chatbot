@@ -129,6 +129,10 @@ def test_phone_source_registration_course_setup_and_backup(tmp_path):
         with sqlite3.connect(r.root/'data/learning_assistant.db') as con:
             identity=con.execute('SELECT id FROM knowledge_documents').fetchone()[0]
             assert con.execute('SELECT count(*) FROM knowledge_chunks').fetchone()[0]>0
+        response=c.get('/knowledge/item/'+identity,base_url=r.origin)
+        assert response.status_code==200,response.data
+        assert b'Open original file' in response.data
+        assert b'class="knowledge-reader-chunk"' not in response.data
         p,assets=authored_sample(raw); p['source']['source_id']=identity; p['mapping']=None
         studio=LearningStudioService(r.root/'data/learning_studio.sqlite3',
             source_loader=RegisteredSources(r.root/'data/learning_assistant.db',{'documents':r.root/'data/documents'}),
@@ -358,12 +362,15 @@ def test_library_pdf_upload_picker_entrypoint_and_source_integrity(tmp_path):
         def post(path, data):
             return client.post(path, base_url=r.origin,
                                headers={'Origin': r.origin}, data=data)
-        for path in ('/library', '/library?view=search', '/library?view=saved'):
-            html = get(path).get_data(as_text=True)
-            assert 'action="/library/upload"' in html
-            assert 'name="source"' in html
-            assert 'accept="application/pdf"' in html
-            assert 'Rebuild local text index' in html
+        entry=get('/library')
+        assert entry.status_code==302 and entry.location.endswith('/library/files')
+        html=get('/library/files').get_data(as_text=True)
+        assert 'id="import-form"' in html and 'multiple' in html
+        assert 'Prepare supported content for Tutor on this device' in html
+        for path in ('/library?view=search','/library?view=saved'):
+            html=get(path).get_data(as_text=True)
+            assert 'action="/library/upload"' not in html
+            assert 'Rebuild local text index' not in html
         original = source_pdf()
         token = r.app.extensions['tutor_action_csrf']
         denied = post('/library/upload', {'source': (io.BytesIO(original), 'study.pdf')})
@@ -383,11 +390,13 @@ def test_library_pdf_upload_picker_entrypoint_and_source_integrity(tmp_path):
         with sqlite3.connect(r.root/'data/learning_assistant.db') as con:
             doc = con.execute('SELECT id,path_key,content_hash,extraction_status FROM knowledge_documents').fetchone()
             assert doc and doc[0] in uploaded.location
-            assert doc[1] == 'documents/' + hashlib.sha256(original).hexdigest() + '.pdf'
+            assert doc[1].startswith('native_library/')
             assert doc[2] == hashlib.sha256(original).hexdigest()
             assert doc[3] == 'completed'
             assert con.execute('SELECT count(*) FROM knowledge_chunks').fetchone()[0] > 0
-        assert (r.root/'data'/doc[1]).read_bytes() == original
+        from personal_learning_assistant.services.native_document_library import resolve_android_document
+        stored=resolve_android_document(r.root,doc[1].split('/',1)[1])
+        assert __import__('pathlib').Path(stored[0]).read_bytes()==original
         repeated = post('/library/upload', {
             'csrf_token': token, 'source': (io.BytesIO(original), 'second-name.pdf')})
         assert repeated.status_code == 303

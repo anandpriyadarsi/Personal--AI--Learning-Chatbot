@@ -51,40 +51,27 @@ def register_android_device(app, root):
         raw = upload.read(20 * 1024 * 1024 + 1)
         if not raw or len(raw) > 20 * 1024 * 1024 or not raw.startswith(b'%PDF-'):
             raise ValueError('Choose a valid PDF of at most 20 MB.')
-        from personal_learning_assistant.repositories.sqlite.knowledge_registry_repository import SQLiteKnowledgeRegistryRepository
-        from personal_learning_assistant.services.knowledge_registry_service import KnowledgeRegistryService
-        from personal_learning_assistant.repositories.sqlite.ingestion_repository import SQLiteIngestionRepository
-        from personal_learning_assistant.services.unified_ingestion_service import UnifiedIngestionService
-        from personal_learning_assistant.ingestion.source_resolver import SourceRootResolver
-        digest = hashlib.sha256(raw).hexdigest()
-        directory = root / 'data/documents'
-        directory.mkdir(parents=True, exist_ok=True)
-        path = directory / (digest + '.pdf')
-        # Immutable, content-addressed originals. Reject unexpected existing
-        # files/symlinks instead of overwriting a source used by study records.
-        if path.exists() or path.is_symlink():
-            if path.is_symlink() or not path.is_file() or path.read_bytes() != raw:
-                raise ValueError('The local source identity has changed. No file was replaced.')
-        else:
-            with path.open('xb') as destination:
-                destination.write(raw)
-        with closing(sqlite3.connect(root / 'data/learning_assistant.db', isolation_level=None)) as con:
-            con.row_factory = sqlite3.Row
-            con.execute('PRAGMA foreign_keys=ON')
-            registry = KnowledgeRegistryService(SQLiteKnowledgeRegistryRepository(con))
-            registry.register_document(
-                kind='document', path_key='documents/' + path.name,
-                content_hash=digest, mime_type='application/pdf', size_bytes=len(raw))
-            row = con.execute('SELECT id FROM knowledge_documents WHERE path_key=?',
-                              ('documents/' + path.name,)).fetchone()
-            if row is None:
-                raise RuntimeError('Canonical source registration was not confirmed.')
-            identity = row[0]
-            extraction = UnifiedIngestionService(
-                SQLiteIngestionRepository(con),
-                SourceRootResolver({'documents': directory})).ingest_document(identity)
-        app.extensions['academic_wal_publisher'].request_refresh()
-        return identity, extraction.status
+        # Compatibility clients enter the same durable native owner. Reuse an
+        # existing hash explicitly; never create a second independent store.
+        from .native_library import service
+        import time
+        lib=service();digest=hashlib.sha256(raw).hexdigest()
+        with lib.connection() as con:
+            existing=con.execute('SELECT id FROM documents WHERE sha256=? AND trashed_at IS NULL ORDER BY created_at LIMIT 1',(digest,)).fetchone()
+        doc=lib.get(existing['id']) if existing else lib.upload(io.BytesIO(raw),upload.filename,indexing=True)
+        identity=lib.ensure_canonical_identity(doc['id'])
+        # Old clients expected extraction before the response. Bound their wait;
+        # the new multi-file UI remains asynchronous and never needs a rebuild.
+        deadline=time.monotonic()+5
+        while time.monotonic()<deadline:
+            lib.run_pending()
+            doc=lib.get(doc['id'])
+            if doc['status'] not in ('stored','indexing') and doc['tutor_state']!='preparing':break
+            time.sleep(0.02)
+        publisher=app.extensions.get('academic_wal_publisher')
+        if publisher:publisher.request_refresh()
+        status='completed' if doc['tutor_state']=='ready' else 'pending' if doc['status'] in ('stored','indexing') else 'unavailable'
+        return identity,status
 
     @device.post('/mobile/device/source')
     def source():
@@ -97,8 +84,7 @@ def register_android_device(app, root):
         except (OSError, sqlite3.Error, RuntimeError):
             return render_template('android_device.html', active_page='mobile-settings',
                                    message='PDF could not be stored safely. Existing study records were kept.'), 503
-        description = ('Text extraction complete.' if status in ('completed', 'matched')
-                       else 'PDF stored, but text extraction is unavailable (for example, scanned pages without OCR).')
+        description = ('Ready for Tutor.' if status=='completed' else 'Preparing for Tutor on this device.' if status=='pending' else 'Original saved; supported text may be unavailable (for example, scans without OCR).')
         return render_template('android_device.html', active_page='mobile-settings', message=
             'Source registered locally. Source ID: ' + identity + '. ' + description +
             ' Use this source ID and its original hash in an authored Learning package.')
@@ -146,21 +132,24 @@ def register_android_device(app, root):
 
     @device.get('/mobile/device/export')
     def export():
-        from personal_learning_assistant.android_backup import export_backup
+        from personal_learning_assistant.android_backup import export_backup_file
         include_media=request.args.get('include_media')!='0'
-        try: raw=export_backup(root,include_media=include_media)
+        try: path=export_backup_file(root,include_media=include_media)
         except (ValueError,OSError,sqlite3.Error):
             return render_template('android_device.html',active_page='mobile-settings',message=
-                'This backup exceeds the 100 MB backup limit or could not be read. Use “Back up study records without note attachments” below to keep your study records backed up. Export attachments separately from each note.'),409
+                'Backup could not be verified or exceeds the 4 GiB expanded / 512 MiB individual file limits. Free storage and retry; current data was kept.'),409
         name='ANVAYA-private-backup.zip' if include_media else 'ANVAYA-study-records-without-media.zip'
-        return send_file(io.BytesIO(raw),mimetype='application/zip',as_attachment=True,download_name=name)
+        response = send_file(path,mimetype='application/zip',as_attachment=True,download_name=name)
+        response.call_on_close(lambda: path.unlink(missing_ok=True))
+        return response
 
     @device.post('/mobile/device/restore')
     def restore():
-        from personal_learning_assistant.android_backup import stage_restore
+        from personal_learning_assistant.android_backup import stage_restore,MAX_BYTES
+        request.max_content_length=MAX_BYTES+1024*1024
         upload=request.files.get('backup')
         if upload is None:abort(400)
-        try:stage_restore(root,upload.read(100*1024*1024+1))
+        try:stage_restore(root,upload.stream)
         except (ValueError,OSError,sqlite3.Error):
             return render_template('android_device.html',active_page='mobile-settings',message='Backup rejected. Current data was kept.'),400
         return render_template('android_device.html',active_page='mobile-settings',message=
