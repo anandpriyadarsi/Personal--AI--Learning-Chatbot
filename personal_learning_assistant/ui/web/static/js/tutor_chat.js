@@ -42,30 +42,49 @@
     if (!composer) return;
     const fit = () => {
       composer.style.height = 'auto';
-      const limit = window.innerHeight <= 500 ? 80 : 160;
+      const limit = (window.visualViewport?.height || window.innerHeight) <= 520 ? 72 : 120;
       composer.style.height = Math.min(composer.scrollHeight, limit) + 'px';
     };
     composer.addEventListener('input', fit);
     fit();
     const panel = document.getElementById('tutor-composer');
+    const toolsToggle = document.getElementById('tutor-tools-toggle');
+    const tools = document.getElementById('tutor-quick-prompts');
+    const setToolsOpen = open => {
+      if (!tools || !toolsToggle) return;
+      tools.hidden = !open;
+      toolsToggle.setAttribute('aria-expanded', String(open));
+      document.body.classList.toggle('tutor-tools-open', open);
+      updateViewport();
+    };
+    toolsToggle?.addEventListener('click', () => setToolsOpen(tools.hidden));
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape' && tools && !tools.hidden) {
+        event.preventDefault();
+        setToolsOpen(false);
+        toolsToggle.focus();
+      }
+    });
     const composing = () => {
       // Do not move the panel between pointer-down and click on a prompt chip.
       // Once typing starts, retain its position while focus moves to Send.
       if (document.activeElement === composer) document.body.classList.add('tutor-writing');
       else if (!panel?.contains(document.activeElement)) document.body.classList.remove('tutor-writing');
     };
-    panel?.addEventListener('focusin', composing);
-    panel?.addEventListener('focusout', () => requestAnimationFrame(composing));
-    const reserveSpace = () => {
-      if (panel) document.documentElement.style.setProperty('--tutor-composer-height', panel.offsetHeight + 'px');
-    };
-    if (panel && typeof ResizeObserver === 'function') new ResizeObserver(reserveSpace).observe(panel);
-    const resize = () => {
-      const viewport = window.visualViewport;
-      const offset = viewport ? Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop) : 0;
-      document.documentElement.style.setProperty('--tutor-keyboard-offset', offset + 'px');
-      fit(); reserveSpace();
-    };
+    panel?.addEventListener('focusin', () => { composing(); updateViewport(); });
+    panel?.addEventListener('focusout', () => requestAnimationFrame(() => {
+      composing(); updateViewport();
+    }));
+    function updateViewport() {
+      const root = document.documentElement;
+      if (window.matchMedia('(max-width: 860px)').matches) {
+        const visualHeight = window.visualViewport?.height || window.innerHeight;
+        root.style.setProperty('--tutor-visual-height', Math.round(visualHeight) + 'px');
+      } else {
+        root.style.removeProperty('--tutor-visual-height');
+      }
+    }
+    const resize = () => { updateViewport(); fit(); };
     window.visualViewport?.addEventListener('resize', resize);
     window.visualViewport?.addEventListener('scroll', resize);
     window.addEventListener('resize', resize);
@@ -78,7 +97,10 @@
       submitting = true;
       form.setAttribute('aria-busy', 'true');
       form.querySelector('button[type="submit"]').setAttribute('aria-disabled', 'true');
-      if (status) status.textContent = 'Sending your question. Waiting for the tutor response…';
+      if (status) {
+        status.textContent = 'Sending your question. Waiting for the tutor response…';
+        status.classList.remove('visually-hidden');
+      }
       // Keep native form navigation, CSRF and request-id handling authoritative.
       // No automatic retry and no academic text in browser storage.
     });
@@ -102,6 +124,7 @@
         } else {
           composer.value = prompt;
         }
+        setToolsOpen(false);
         fit();
         composer.focus();
       });

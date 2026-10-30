@@ -109,6 +109,7 @@
         {% if active_page == 'assessments' and request.endpoint != 'web.assessment_session' %}{% include '_assessment_nav.html' %}{% endif %}
         {% block content %}{% endblock %}
       </main>
+      {% block page_bottom_dock %}{% endblock %}
 
       <footer class="app-footer">ANVAYA · Personal Learning Intelligence</footer>
     </div>
