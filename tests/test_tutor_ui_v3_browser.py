@@ -42,6 +42,7 @@ def test_chat_first_explicit_chips_and_composer_resize(browser, real_tutor, widt
         details = page.locator('#tutor-learning-details')
         expect(details).not_to_have_attribute('open', '')
         composer = page.locator('#agent-question')
+        page.get_by_role('button', name='+ Tools', exact=True).click()
         page.get_by_role('button', name='Hint only', exact=True).click()
         assert 'one hint' in composer.input_value()
         assert len(provider.requests) == 0
@@ -106,7 +107,7 @@ def test_sticky_context_stays_below_header_and_link_is_tappable(browser, real_tu
     page = browser.new_page(viewport={'width':width,'height':844})
     try:
         page.goto(base+'/agent/sessions/'+sid)
-        page.evaluate('scrollTo(0,1000)')
+        page.locator('#main-content').evaluate('(node) => node.scrollTop = 1000')
         bar = page.locator('.tutor-context-bar').bounding_box()
         topbar = page.locator('.topbar').bounding_box()
         assert bar['y'] >= topbar['y'] + topbar['height'] - 1
@@ -156,7 +157,8 @@ def test_phone_composer_keeps_full_readable_input_width(browser, real_tutor):
         page.goto(base+'/agent/sessions/'+sid)
         width = page.locator('#agent-question').bounding_box()['width']
         available = page.locator('#tutor-ask-form').bounding_box()['width']
-        assert width >= .85 * available
+        assert width >= .55 * available  # Compact Tools and Send share one row.
+        assert width >= 150
     finally:
         page.close()
 
@@ -178,5 +180,78 @@ def test_light_tutor_uses_saved_app_theme_and_stays_readable(browser, real_tutor
         if folder:
             Path(folder).mkdir(parents=True,exist_ok=True)
             page.screenshot(path=str(Path(folder)/f'session-light-{width}.png'))
+    finally:
+        page.close()
+
+
+@pytest.mark.parametrize('width,height', [
+    (320, 700), (360, 740), (390, 844), (768, 900), (1366, 900),
+])
+def test_compact_dock_does_not_overlap_answers_and_tools_expand(browser, real_tutor, width, height):
+    base, service, path, course, provider, before = real_tutor
+    provider.responses = [('The first explanation contains useful mathematics. ' * 20 + '\\n\\n') * 20]
+    sid = service.create_session(course_id=course['id'], mode='concept', source_policy='source_first')
+    service.ask(sid, 'Explain LU factorization.')
+    page = browser.new_page(viewport={'width': width, 'height': height})
+    errors = []
+    page.on('pageerror', lambda error: errors.append(str(error)))
+    try:
+        page.goto(base + '/agent/sessions/' + sid)
+        reader = page.locator('#main-content')
+        dock = page.locator('#tutor-composer')
+        assert dock.evaluate('(element) => getComputedStyle(element).position') != 'fixed'
+        assert reader.evaluate('(element) => getComputedStyle(element).overflowY') == 'auto'
+        assert reader.evaluate('(element) => element.scrollHeight > element.clientHeight')
+        assert page.evaluate('document.documentElement.scrollWidth <= innerWidth + 1')
+
+        def separate():
+            reading = reader.bounding_box()
+            composer = dock.bounding_box()
+            assert reading['y'] + reading['height'] <= composer['y'] + 2
+            assert composer['y'] + composer['height'] <= height + 1
+
+        separate()
+        reader.evaluate('(element) => element.scrollTop = element.scrollHeight')
+        separate()
+        reader.evaluate('(element) => element.scrollTop = 0')
+        separate()
+
+        tools = page.get_by_role('button', name='+ Tools', exact=True)
+        shortcuts = page.locator('#tutor-quick-prompts')
+        expect(shortcuts).to_be_hidden()
+        expect(tools).to_have_attribute('aria-expanded', 'false')
+        tools.click()
+        expect(shortcuts).to_be_visible()
+        expect(tools).to_have_attribute('aria-expanded', 'true')
+        separate()
+        page.get_by_role('button', name='Worked example').click()
+        expect(shortcuts).to_be_hidden()
+        expect(tools).to_have_attribute('aria-expanded', 'false')
+        expect(page.locator('#agent-question')).to_contain_text('worked example')
+        assert len(provider.requests) == 1  # No automatic send from Tools.
+
+        tools.click()
+        page.keyboard.press('Escape')
+        expect(shortcuts).to_be_hidden()
+        separate()
+        assert not errors, errors
+    finally:
+        page.close()
+
+
+@pytest.mark.parametrize('width', [360, 390, 1366])
+def test_compact_bar_remains_separate_at_short_viewport(browser, real_tutor, width):
+    base, service, path, course, provider, before = real_tutor
+    sid = service.create_session(course_id=course['id'], source_policy='source_first')
+    page = browser.new_page(viewport={'width': width, 'height': 440})
+    try:
+        page.goto(base + '/agent/sessions/' + sid)
+        page.locator('#agent-question').fill('A multi-line question ' * 35)
+        reading = page.locator('#main-content').bounding_box()
+        dock = page.locator('#tutor-composer').bounding_box()
+        assert reading['y'] + reading['height'] <= dock['y'] + 2
+        assert dock['y'] + dock['height'] <= 441
+        assert page.locator('#agent-question').bounding_box()['width'] >= 150
+        assert page.evaluate('document.documentElement.scrollWidth <= innerWidth + 1')
     finally:
         page.close()
