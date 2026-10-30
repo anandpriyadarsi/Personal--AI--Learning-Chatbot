@@ -57,6 +57,8 @@ body.tutor-v3 .tutor-pending-question {padding:.8rem 1rem;font-size:.85rem;borde
 body.tutor-v3 .tutor-pending-question .microcopy {font-size:.7rem}
 /* Tutor sessions have a genuine split viewport: the transcript scrolls in its
    own area; the composer is an adjacent flex item, never over an answer. */
+body.tutor-session-page {padding-bottom:0}
+body.tutor-session-page .app-shell {height:var(--tutor-visual-height,100dvh);min-height:0}
 body.tutor-session-page .app-main {height:var(--tutor-visual-height,100dvh);min-height:0;overflow:hidden}
 body.tutor-session-page .app-main>.topbar {flex:0 0 auto}
 body.tutor-session-page .app-main>.content {flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;scroll-padding-top:5.5rem;padding-bottom:2rem}
