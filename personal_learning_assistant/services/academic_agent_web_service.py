@@ -242,6 +242,26 @@ class AcademicAgentWebService:
             index_root=self.index_root,
         ), None
 
+    @staticmethod
+    def _canonical_course_identity(repository, catalogue_course):
+        """Match the rendered course code to an active Tutor SQLite identity.
+
+        The legacy Courses catalogue can be JSON-backed while Tutor writes
+        through SQLite. A stale catalogue ID must never be persisted as a
+        foreign key or mapped to a different course with a coincident ID.
+        """
+        if not isinstance(catalogue_course, dict):
+            return None
+        code = str(catalogue_course.get("code") or "").strip()
+        if not code:
+            return None
+        for identifier in (catalogue_course.get("id"), code):
+            canonical = repository.resolve_course_id(identifier)
+            identity = repository.course_identity(canonical)
+            if identity and identity["code"].casefold() == code.casefold():
+                return identity
+        return None
+
     def workspace(self, course_code=""):
         selected_course_code = str(course_code or "").strip()
         catalogue = self._course_catalogue()
@@ -253,6 +273,17 @@ class AcademicAgentWebService:
                 "personal_learning_assistant.repositories.sqlite.tutor_repository"
             )
             repository = repository_module.SQLiteTutorRepository(connection)
+            # The Courses UI may be backed by legacy JSON while Tutor owns
+            # canonical SQLite session relationships. Render only canonical
+            # Tutor IDs, and visibly disable courses that cannot be matched.
+            courses = [
+                (
+                    {**item, "id": identity["id"], "tutor_unavailable": False}
+                    if (identity := self._canonical_course_identity(repository, item))
+                    else {**item, "tutor_unavailable": True}
+                )
+                for item in courses
+            ]
             tutor_topics = [
                 topic
                 for course in courses
@@ -341,8 +372,14 @@ class AcademicAgentWebService:
     ):
         selected_course = str(course_id or "").strip()
         selected_topic = str(topic_id or "").strip()
+        selected_mode = str(mode or "concept").strip().casefold()
+        selected_policy = str(source_policy or "source_only").strip().casefold()
         if selected_topic and not selected_course:
-            raise AcademicAgentWebValidationError("Choose a course before a topic.")
+            raise AcademicAgentWebValidationError("Choose a course before selecting a topic.")
+        if selected_mode not in TUTOR_MODES or selected_policy not in SOURCE_POLICIES:
+            raise AcademicAgentWebValidationError(
+                "Choose a valid Tutor mode and source policy."
+            )
         connection = _open_database(self.database_path, writable=True)
         try:
             models_module = import_module(
@@ -355,11 +392,38 @@ class AcademicAgentWebService:
                 "personal_learning_assistant.services.tutor_session_service"
             )
             repository = repository_module.SQLiteTutorRepository(connection)
+            # Prefer canonical SQLite IDs, then reconcile an old Courses-menu
+            # ID only when its catalogue code resolves to that same course.
+            canonical_course = None
+            if selected_course:
+                canonical_course = repository.resolve_course_id(selected_course)
+                if canonical_course is None:
+                    catalogue = self._course_catalogue()
+                    item = next(
+                        (
+                            item for item in catalogue.get("courses", ())
+                            if str(item.get("id") or "").strip() == selected_course
+                        ),
+                        None,
+                    )
+                    if item is not None:
+                        identity = self._canonical_course_identity(repository, item)
+                        canonical_course = None if identity is None else identity["id"]
+                if canonical_course is None:
+                    raise AcademicAgentWebValidationError(
+                        "Selected course is unavailable in the Tutor database. "
+                        "Refresh Tutor or choose another course."
+                    )
+            if selected_topic and repository.topic_course_id(selected_topic) != canonical_course:
+                raise AcademicAgentWebValidationError(
+                    "Selected topic is unavailable for this course. "
+                    "Choose Whole selected course or refresh Tutor."
+                )
             sessions = service_module.TutorSessionService(repository)
             spec = models_module.TutorSessionSpec(
-                mode=str(mode or "concept").strip().casefold(),
-                source_policy=str(source_policy or "source_only").strip().casefold(),
-                course_id=selected_course or None,
+                mode=selected_mode,
+                source_policy=selected_policy,
+                course_id=canonical_course,
                 topic_id=selected_topic or None,
                 title=str(title or "").strip(),
                 metadata={"origin": "phase7.5.9_web"},

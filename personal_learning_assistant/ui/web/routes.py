@@ -4464,17 +4464,27 @@ def academic_agent_create_session():
             url_for("web.academic_agent_session", session_id=session_id),
             code=303,
         )
-    except AcademicAgentWebValidationError:
+    except AcademicAgentWebValidationError as error:
         try:
             workspace = service.workspace("")
         except Exception:
             workspace = _unavailable_agent_workspace()
+        # Only fixed, author-controlled messages may cross the web boundary.
+        safe_messages = {
+            "Choose a course before selecting a topic.",
+            "Choose a valid Tutor mode and source policy.",
+            "Selected course is unavailable in the Tutor database. Refresh Tutor or choose another course.",
+            "Selected topic is unavailable for this course. Choose Whole selected course or refresh Tutor.",
+        }
+        message = str(error)
+        if message not in safe_messages:
+            message = "The selected tutor session settings are invalid."
         return (
             render_template(
                 "agent.html",
                 active_page="agent",
                 workspace=workspace,
-                error_message="The selected tutor session settings are invalid.",
+                error_message=message,
             ),
             400,
         )

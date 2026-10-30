@@ -710,3 +710,103 @@ def test_tutor_feedback_requires_explicit_csrf_protected_post():
     assert submitted.status_code == 303
     assert observed == [("session-1", "assistant-1", False)]
     assert fake.llm_calls == 0
+
+
+def test_tutor_unscoped_session_creates_without_ai_call(tmp_path):
+    service, path, _course, provider, _retrieval = build_test_web_service(tmp_path)
+    session_id = service.create_session(course_id="", mode="concept", source_policy="source_first")
+    connection = open_database(path)
+    try:
+        row = connection.execute(
+            "SELECT course_id,topic_id,mode,source_policy FROM tutor_sessions WHERE id=?",
+            (session_id,),
+        ).fetchone()
+        assert row is not None
+        assert row["course_id"] is None
+        assert row["topic_id"] is None
+        assert row["mode"] == "concept"
+        assert row["source_policy"] == "source_first"
+    finally:
+        connection.close()
+    assert provider.calls == 0
+
+
+def test_tutor_legacy_catalogue_id_reconciles_by_matching_course_code(tmp_path):
+    service, path, course, provider, _retrieval = build_test_web_service(tmp_path)
+    service._course_catalogue_loader = lambda: {
+        "courses": [
+            {"id": "old-json-id", "code": course["code"], "name": course["name"]},
+            {"id": "orphan-json-id", "code": "ORPHAN-NO-SQLITE", "name": "Missing course"},
+        ],
+    }
+    workspace = service.workspace()
+    assert workspace["courses"][0]["id"] == course["id"]
+    assert workspace["courses"][0]["tutor_unavailable"] is False
+    assert workspace["courses"][1]["tutor_unavailable"] is True
+    session_id = service.create_session(course_id="old-json-id", source_policy="source_first")
+    connection = open_database(path)
+    try:
+        row = connection.execute(
+            "SELECT course_id FROM tutor_sessions WHERE id=?", (session_id,),
+        ).fetchone()
+        assert row["course_id"] == course["id"]
+    finally:
+        connection.close()
+    assert provider.calls == 0
+
+
+def test_tutor_rejects_missing_course_and_wrong_topic_without_writing(tmp_path):
+    from personal_learning_assistant.services.academic_agent_web_service import (
+        AcademicAgentWebValidationError,
+    )
+    service, path, course, _provider, _retrieval = build_test_web_service(tmp_path)
+    connection = open_database(path)
+    try:
+        before = connection.execute("SELECT COUNT(*) FROM tutor_sessions").fetchone()[0]
+    finally:
+        connection.close()
+    with pytest.raises(AcademicAgentWebValidationError, match="unavailable in the Tutor database"):
+        service.create_session(course_id="invalid-old-id")
+    with pytest.raises(AcademicAgentWebValidationError, match="Choose a course"):
+        service.create_session(course_id="", topic_id="topic-that-must-not-be-selected")
+    with pytest.raises(AcademicAgentWebValidationError, match="Choose Whole selected course"):
+        service.create_session(course_id=course["id"], topic_id="wrong-topic")
+    connection = open_database(path)
+    try:
+        assert connection.execute("SELECT COUNT(*) FROM tutor_sessions").fetchone()[0] == before
+    finally:
+        connection.close()
+
+
+def test_tutor_session_route_displays_only_safe_scope_diagnostic():
+    from personal_learning_assistant.services.academic_agent_web_service import (
+        AcademicAgentWebValidationError,
+    )
+
+    class InvalidScopeService(FakeWebService):
+        def create_session(self, **kwargs):
+            raise AcademicAgentWebValidationError(
+                "Selected course is unavailable in the Tutor database. "
+                "Refresh Tutor or choose another course."
+            )
+
+    app = fake_web_app(InvalidScopeService())
+    response = app.test_client().post(
+        "/agent/sessions",
+        data={"csrf_token": app.extensions["tutor_action_csrf"], "course_id": "old-id"},
+    )
+    assert response.status_code == 400
+    assert b"Selected course is unavailable in the Tutor database" in response.data
+
+    class RawErrorService(FakeWebService):
+        def create_session(self, **kwargs):
+            raise AcademicAgentWebValidationError("private SQLite id should not leak")
+
+    app = fake_web_app(RawErrorService())
+    response = app.test_client().post(
+        "/agent/sessions",
+        data={"csrf_token": app.extensions["tutor_action_csrf"]},
+    )
+    assert response.status_code == 400
+    assert b"The selected tutor session settings are invalid." in response.data
+    assert b"private SQLite id should not leak" not in response.data
