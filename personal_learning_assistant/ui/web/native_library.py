@@ -105,7 +105,7 @@ def home():
     terms={}
     for c in courses:
         value=str(c.get('semester','')).strip().casefold()
-        match=re.fullmatch(r'(?:semester\s*|sem\s*)?([1-8])',value)
+        match=re.match(r'(?:semester\s*|sem\s*)?([1-8])(?:\s|$)',value)
         number=int(match[1]) if match else 1 if value in ('','first semester') else None
         if number is not None:terms.setdefault(number,[]).append(c)
     for number,configured in sorted(terms.items()):lib.bootstrap_academics(configured,number=number)
