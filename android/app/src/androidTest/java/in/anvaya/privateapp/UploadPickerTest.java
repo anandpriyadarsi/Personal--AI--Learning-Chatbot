@@ -93,15 +93,15 @@ public class UploadPickerTest {
             // Its click/submit handlers must run before exercising the picker.
             waitFor(web,"location.pathname==='/library/files' && document.readyState==='complete' && !!document.querySelector('input[type=file]')");
             for (String extension : new String[]{"pdf","pptx"}) {
-                waitFor(web,"document.readyState==='complete' && !!document.querySelector('#upload-form input[type=file]')");
+                waitFor(web,"document.readyState==='complete' && !!document.querySelector('#import-form input[type=file]')");
                 Uri selected=Uri.parse("content://in.anvaya.privateapp.test.changing_upload/document."+extension);
                 instrumentation.getContext().grantUriPermission(target.getPackageName(),selected,Intent.FLAG_GRANT_READ_URI_PERMISSION);
                 chosen.setData(selected);
                 int beforePicker=pickerCalls.get();
                 int previousCount=Integer.parseInt(js(web,"document.querySelectorAll('.file-row').length"));
-                js(web,"document.querySelector('[data-action=upload-dialog]').click()");
-                waitFor(web,"document.querySelector('#upload-dialog').open");
-                tap(web,"#upload-form input[type=file]");
+                js(web,"document.querySelector('[data-action=import]').click()");
+                waitFor(web,"document.querySelector('#import-dialog').open");
+                tap(web,"#import-form input[type=file]");
                 long pickerDeadline=System.currentTimeMillis()+10000;
                 while(pickerCalls.get()==beforePicker&&System.currentTimeMillis()<pickerDeadline)Thread.sleep(100);
                 assertEquals("Real gesture opens exactly one system document picker",beforePicker+1,pickerCalls.get());
@@ -109,12 +109,14 @@ public class UploadPickerTest {
                 assertTrue("System picker intent used",pickerCalls.get()>0);
                 assertEquals("\"Changing lecture."+extension+"\"",js(web,"document.querySelector('input[type=file]').files[0].name"));
                 js(web,"document.querySelector('input[type=file]').closest('form').requestSubmit()");
+                waitFor(web,"document.querySelector('#import-results').innerText.includes('Changing lecture."+extension+" · Saved')");
+                js(web,"Array.from(document.querySelectorAll('#import-results button')).find(b=>b.innerText.startsWith('Done')).click()");
                 waitFor(web,"document.querySelectorAll('.file-row').length==="+(previousCount+1)+" && Array.from(document.querySelectorAll('.file-row h2')).some(row=>row.innerText==='Changing lecture."+extension+"')");
                 assertEquals("false",js(web,"document.body.innerText.includes('Web page not available')"));
             }
             long searchDeadline=System.currentTimeMillis()+30000; boolean indexed=false;
             while(System.currentTimeMillis()<searchDeadline) {
-                js(web,"window.__pptxSearch='pending';fetch('/library/files?q=AnvayaPptxVerificationToken').then(r=>r.text()).then(t=>window.__pptxSearch=t.includes('Changing lecture.pptx')&&t.includes('AnvayaPptxVerificationToken')).catch(()=>window.__pptxSearch=false)");
+                js(web,"window.__pptxSearch='pending';fetch('/library/files?content=1&q=AnvayaPptxVerificationToken').then(r=>r.text()).then(t=>window.__pptxSearch=t.includes('Changing lecture.pptx')&&t.includes('AnvayaPptxVerificationToken')).catch(()=>window.__pptxSearch=false)");
                 waitFor(web,"window.__pptxSearch!=='pending'");
                 if("true".equals(js(web,"window.__pptxSearch"))) {indexed=true;break;}
                 Thread.sleep(200);
@@ -125,7 +127,7 @@ public class UploadPickerTest {
             if(activity!=null) {
                 final Activity current=activity;WebView[] failed={null};
                 instrumentation.runOnMainSync(()->failed[0]=find(current.getWindow().getDecorView()));
-                if(failed[0]!=null) System.err.println("UPLOAD_STATE="+js(failed[0],"JSON.stringify({path:location.pathname,focus:document.hasFocus(),dialog:document.querySelector('#upload-dialog')?.open,message:document.querySelector('#files-message')?.innerText,input:document.querySelector('input[type=file]')?.getBoundingClientRect().toJSON()})"));
+                if(failed[0]!=null) System.err.println("UPLOAD_STATE="+js(failed[0],"JSON.stringify({path:location.pathname,focus:document.hasFocus(),dialog:document.querySelector('#import-dialog')?.open,message:document.querySelector('#files-message')?.innerText,input:document.querySelector('input[type=file]')?.getBoundingClientRect().toJSON()})"));
                 java.io.File evidence=new java.io.File(target.getFilesDir(),"evidence");evidence.mkdirs();
                 android.graphics.Bitmap screen=instrumentation.getUiAutomation().takeScreenshot();
                 if(screen!=null)try(java.io.FileOutputStream out=new java.io.FileOutputStream(new java.io.File(evidence,"upload-picker-failure.png"))){screen.compress(android.graphics.Bitmap.CompressFormat.PNG,100,out);}

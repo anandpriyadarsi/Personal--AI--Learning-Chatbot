@@ -4281,10 +4281,18 @@ def retrieval_diagnostics():
 def knowledge_item(document_id):
     try:
         item = _knowledge_reader_service().view(document_id)
+        native_original=None
+        if current_app.config.get('ANDROID_LOCAL_RUNTIME'):
+            from .native_library import service,view_document
+            lib=service()
+            with lib.connection() as con:
+                linked=con.execute("SELECT document_id FROM source_links WHERE namespace='canonical' AND source_id=? AND content_hash=?",(document_id,item.version_hash)).fetchone()
+            if linked:
+                native_original=view_document(lib.get(linked['document_id']))
         return render_template(
-            "knowledge_item.html",
-            active_page="knowledge",
-            item=item,
+            "knowledge_item.html", active_page="knowledge", item=item,
+            native_original=native_original,
+            originals_only=current_app.config.get('ANDROID_LOCAL_RUNTIME',False),
         )
     except KnowledgeReaderNotFoundError:
         return "Knowledge source was not found.", 404
@@ -4701,6 +4709,8 @@ def source_lesson_helpers():
 
 @web_blueprint.get("/library")
 def learning_library():
+    if not request.args and current_app.config.get('ANDROID_LOCAL_RUNTIME') and current_app.config.get('LEARNING_LIBRARY_ENABLED',True):
+        return redirect(url_for('native_library.home'),code=302)
     from flask import abort
     from personal_learning_assistant.domain.learning_library_models import LibraryQuery
     from personal_learning_assistant.services.learning_library_service import LibraryUnavailableError

@@ -16,7 +16,7 @@
     {% endif %}
   </div>
   <div class="tag-row">{% set lesson_target=source_lesson_target(item.document_id,item.version_hash) %}{% if lesson_target %}<a class="button secondary-button" href="{{ lesson_target }}">Find source-linked lessons</a>{% endif %}
-    {% if item.open_original_url %}<a class="button secondary-button" href="{{ item.open_original_url }}" target="_blank" rel="noopener noreferrer">Open original ↗</a>{% endif %}
+    {% if native_original %}<a class="button secondary-button" href="{{ native_original.open_url }}">Open original file</a>{% elif item.open_original_url %}<a class="button secondary-button" href="{{ item.open_original_url }}" target="_blank" rel="noopener noreferrer">Open original ↗</a>{% endif %}
     <form method="post" action="{{ url_for('web.knowledge_ask_source', document_id=item.document_id) }}">
       <input type="hidden" name="csrf_token" value="{{ tutor_action_csrf }}">
       <input type="hidden" name="version_hash" value="{{ item.version_hash }}">
@@ -25,6 +25,11 @@
   </div>
 </header>
 
+{% if originals_only %}
+<p class="knowledge-provenance">Read the original file in a document viewer. Tutor processing stays private on this device.</p>
+{% if not native_original %}<p role="status">The original file is unavailable on this device. Its study history is preserved. Import the original again to repair the link.</p><a href="/library/files?collection=unsorted">Recover / Unsorted</a>{% endif %}
+<div class="knowledge-reader-layout">
+{% else %}
 <p class="knowledge-provenance">{{ item.source_label }} · {{ item.content|length }} passage{% if item.content|length != 1 %}s{% endif %} from this source. Saved questions and notes stay alongside your reading.</p>
 <div class="knowledge-reader-layout">
   <article class="dashboard-panel knowledge-reader-document" aria-label="Source content">
@@ -37,6 +42,7 @@
     {% endfor %}
   </article>
 
+{% endif %}
   <details class="source-disclosure knowledge-reader-tools" open><summary>Study tools &amp; reading history</summary>
   {% include "_study_companion.html" %}
   </details>

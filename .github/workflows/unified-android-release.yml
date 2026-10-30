@@ -88,7 +88,7 @@ jobs:
           root=Path('release-assets');apk=root/'ANVAYA-Unified-Latest.apk'
           metadata=(root/'APK-METADATA.txt').read_text()
           assert "name='in.anvaya.privateapp'" in metadata
-          assert "versionCode='18'" in metadata and "versionName='1.3.0-unified-debug'" in metadata
+          assert "versionCode='19'" in metadata and "versionName='1.4.0-unified-debug'" in metadata
           assert "sdkVersion:'24'" in metadata
           opening=Path('android/app/src/main/res/drawable-nodpi/anvaya_opening.jpg')
           opening_sha='319e31420b50e2e420de571d0906835ee4f9894dedbd26b88435d0ca57415fb6'
@@ -113,31 +113,31 @@ jobs:
                   shutil.copyfile(frames[0],root/(name+'-API'+str(api)+'.png'))
               logs=list(folder.rglob('pdf-*.log'))
               assert len(logs)==5 and all('OK (1 test)' in p.read_text() for p in logs)
-          shutil.copyfile('docs/integration/NOTES_PDF_RELEASE_1_3_0.md',root/'TEST-REPORT.md')
+          shutil.copyfile('docs/integration/LIBRARY_RELEASE_1_4_0.md',root/'TEST-REPORT.md')
           with (root/'TEST-REPORT.md').open('a') as report:
               report.write('\n## Actual publication gates\n\nSource: '+os.environ['SOURCE']+'\n\nCanonical Ubuntu/Windows: PASS — https://github.com/'+os.environ['GITHUB_REPOSITORY']+'/actions/runs/'+os.environ['CANONICAL_RUN']+'\n\nBuild/JVM and installed API31/API35: PASS — https://github.com/'+os.environ['GITHUB_REPOSITORY']+'/actions/runs/'+os.environ['GITHUB_RUN_ID']+'\n\nThe attached APK is the same binary exercised on both installed emulators. Physical M11, actual vendor viewers, phone reboot and production signing remain unverified/unavailable.\n')
           signature=(root/'SIGNATURE.txt').read_text()
           certificate=re.search(r'certificate SHA-256 digest: ([0-9a-f]{64})',signature).group(1)
           previous_certificate='4d79d8fffce282212d84494353d496e594286d8a954b6e913057c7988b43fad8'
           record={'signing_certificate_sha256':certificate,'update_in_place_from_1_2_1':certificate==previous_certificate,'production_signing':'unavailable', 'source_sha' :os.environ['SOURCE'],'tree_sha':subprocess.check_output(['git','rev-parse','HEAD^{tree}'],text=True).strip(),
-            'version_name':'1.3.0-unified-debug','version_code':18,'size_bytes':apk.stat().st_size,
+            'version_name':'1.4.0-unified-debug','version_code':19,'size_bytes':apk.stat().st_size,
             'sha256':hashlib.sha256(apk.read_bytes()).hexdigest(),'minimum_android':'7.0 (API24)',
             'abis':['armeabi-v7a','arm64-v8a','x86_64'],'signing':'debug; compare SIGNATURE.txt before updating an earlier installation',
             'verification_run':'https://github.com/'+os.environ['GITHUB_REPOSITORY']+'/actions/runs/'+os.environ['GITHUB_RUN_ID'],
             'opening_image_sha256':opening_sha,'opening':'static original artwork; FIT_CENTER on black','emulator_profile':'pixel_2','software_navigation':True,'installed_emulator_apis':[31,35],'physical_phone':'not verified','private_original_fixtures':'not certified'}
           (root/'BUILD.json').write_text(json.dumps(record,indent=2)+'\n')
-          Path('release-notes.md').write_text('Unified ANVAYA 1.3.0 — installable debug prerelease\n\n'
+          Path('release-notes.md').write_text('Unified ANVAYA 1.4.0 — installable debug prerelease\n\n'
             'Built from merged main '+os.environ['SOURCE']+'. Canonical Linux/Windows synthetic checks and installed API31/API35 emulator checks passed for this source. The attached APK is the same binary used by those emulator checks.\n\n'
             'Opening: the owner-supplied static blue-logo artwork is preserved byte for byte, centred on black without cropping or animation. Opening-API31-launch.png and Opening-API35-launch.png show the first app-controlled frame rendered on the installed emulators; portrait/landscape assets also verify letterboxing.\n\n'
-            'Includes the compact dark Notes card library, grid/list layouts, creation menu, note overflow actions and read-only Focus Reading. PDF taps open original stored bytes in an Android document viewer; Open with offers the native chooser. Renames and exports retain the current filename. Content indexing is opt-in. See docs/integration/NOTES_PDF_RELEASE_1_3_0.md at the source commit.\n\n'
+            'Includes the compact dark Notes card library, grid/list layouts, creation menu, note overflow actions and read-only Focus Reading. PDF taps open original stored bytes in an Android document viewer; Open with offers the native chooser. Renames and exports retain the current filename. Library now groups originals by semester and subject, with local Tutor processing, Trash, templates and streamed backup v2. No OCR or cloud AI is bundled. See docs/integration/LIBRARY_RELEASE_1_4_0.md at the source commit.\n\n'
             'Runs its Python backend on the phone; no separate computer/server is required. Cloud AI and Python internet access are disabled. Obsidian is a Markdown ZIP snapshot, not live sync. Legacy PPT needs conversion to PPTX for indexing. Scanned PDFs need OCR that may be unavailable. Physical phone, specific external player apps and private academic-source certification remain unverified.\n\n'
-            'Installation: first use Settings → Manage courses & backups → Export private backup in your existing app. Keep that ZIP and separate exported copies of any files beyond its 100 MiB limit. Download ANVAYA-Unified-Latest.apk, allow installation from your browser when Android asks, and attempt an update. If Android reports a signature conflict, stop; keep the existing installation and data until the backup has been verified and all attachments/originals have independent copies. Production signing is unavailable. This debug prerelease cannot promise update compatibility with earlier runner-generated debug keys.\n\n'
-            'Version 1.3.0-unified-debug / code 18; Android 7.0+; ARM32, ARM64, x86_64. BUILD.json records checksum, exact byte size and source provenance.\n')
+            'Installation: first use Settings → Manage courses & backups → Export private backup in your existing app. Keep that ZIP and independent copies of originals; older installed versions may have a 100 MiB backup limit. New v2 backups support up to 4 GiB expanded, with 512 MiB per file. Download ANVAYA-Unified-Latest.apk, allow installation from your browser when Android asks, and attempt an update. If Android reports a signature conflict, stop; keep the existing installation and data until the backup has been verified and all attachments/originals have independent copies. Production signing is unavailable. This debug prerelease cannot promise update compatibility with earlier runner-generated debug keys.\n\n'
+            'Version 1.4.0-unified-debug / code 19; Android 7.0+; ARM32, ARM64, x86_64. BUILD.json records checksum, exact byte size and source provenance.\n')
           PY
       - name: Publish a versioned GitHub prerelease without overwriting existing releases
         run: |
-          tag="anvaya-unified-v1.3.0-debug-${SOURCE:0:12}"
-          gh release create "$tag" release-assets/* --repo "$GITHUB_REPOSITORY" --target "$SOURCE" --prerelease --title "ANVAYA Unified 1.3.0 — Debug" --notes-file release-notes.md
+          tag="anvaya-unified-v1.4.0-debug-${SOURCE:0:12}"
+          gh release create "$tag" release-assets/* --repo "$GITHUB_REPOSITORY" --target "$SOURCE" --prerelease --title "ANVAYA Unified 1.4.0 — Debug" --notes-file release-notes.md
           mkdir downloaded-release
           curl --fail --location --retry 3 --output downloaded-release/ANVAYA-Unified-Latest.apk "https://github.com/$GITHUB_REPOSITORY/releases/download/$tag/ANVAYA-Unified-Latest.apk"
           cmp release-assets/ANVAYA-Unified-Latest.apk downloaded-release/ANVAYA-Unified-Latest.apk

@@ -179,7 +179,7 @@ public class OfflineSmokeTest {
             go(path);
             if ("/library".equals(path)) {
                 assertEquals("PDF picker is available in the Library", "true",
-                    js("!!document.querySelector('#library-pdf-upload input[type=file][accept=\"application/pdf\"]')"));
+                    js("!!document.querySelector('#import-form input[type=file][multiple]')"));
             }
             assertEquals("No server error at "+path,"false",js("document.body.innerText.includes('Internal Server Error')"));
             if ("/obsidian".equals(path)) assertEquals("Obsidian route is reachable offline","true",js("document.body.innerText.includes('Obsidian')"));
@@ -302,9 +302,10 @@ public class OfflineSmokeTest {
         assertEquals("Unsupported extractor action is not offered","true",js("!document.querySelector('form[action$=\"/conversion/preview\"]')"));
         screenshot("android-conversion-capability");
         go("/knowledge/item/"+sessions().getString("source_id"));
-        waitFor("document.body.innerText.includes('Mean score')");
+        waitFor("document.body.innerText.includes('Open original file')");
+        assertEquals("Derived text is not the default source reader","false",js("!!document.querySelector('.knowledge-reader-chunk')"));
         screenshot("android-library-reader");
-        go("/library");
+        go("/library?view=browse");
         waitFor("!!document.querySelector('[data-library-rename][data-key^=\"document:\"]')");
         js("document.querySelector('[data-library-rename][data-key^=\"document:\"]').click()");
         waitFor("document.querySelector('#library-rename-dialog').open");

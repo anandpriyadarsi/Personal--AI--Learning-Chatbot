@@ -18,7 +18,10 @@ import uuid
 from .native_document_extraction import extract_pages, normalize
 
 MAX_UPLOAD = 100 * 1024 * 1024
-MIMES = {'pdf': 'application/pdf', 'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation', 'ppt': 'application/vnd.ms-powerpoint'}
+from .native_document_formats import MIMES, validate as validate_format
+from .native_academic_files import AcademicFiles
+from .native_tutor_bridge import NativeTutorBridge
+from .native_legacy_sources import LegacySources
 _root_locks = {}
 _root_locks_guard = Lock()
 
@@ -65,7 +68,11 @@ def document_filename(doc):
 def _verified_original(root, doc):
     digest = doc['sha256']
     if not re.fullmatch('[0-9a-f]{64}', digest): raise LibraryError('Invalid storage identity.', 409)
-    path = _safe(root/'blobs'/digest)
+    locator=doc.get('managed_original')
+    if locator:
+        if not re.fullmatch(r'documents/[0-9a-f]{64}\.pdf',locator): raise LibraryError('Invalid managed source locator.',409)
+        path=_safe(root.parent/locator)
+    else: path = _safe(root/'blobs'/digest)
     try:
         if not path.is_file() or path.stat().st_size != doc['size']:
             raise LibraryError('Original file is missing or changed. Restore a backup.', 409)
@@ -103,13 +110,16 @@ def resolve_android_document(root_path, document_id):
             try:
                 con.execute('PRAGMA query_only=ON')
                 doc = NativeDocumentLibrary._doc(con.execute('SELECT * FROM documents WHERE id=?', (document_id,)).fetchone())
-                return [str(_verified_original(root, doc)), doc['mime'], document_filename(doc)]
+                # Integrity hashing runs outside the storage lock; immutable
+                # content-addressed bytes are never rewritten by metadata edits.
+                result=doc
             finally: con.close()
         except (sqlite3.Error, OSError) as error:
             raise LibraryError('Original file is unavailable.', 409) from error
+    return [str(_verified_original(root,result)),result['mime'],document_filename(result)]
 
 
-class NativeDocumentLibrary:
+class NativeDocumentLibrary(NativeTutorBridge, AcademicFiles, LegacySources):
     def __init__(self, root, *, autostart=True):
         self.root = _safe(Path(root).absolute())
         self.database = self.root/'library.sqlite3'
@@ -121,7 +131,7 @@ class NativeDocumentLibrary:
             _safe(directory).mkdir(parents=True, exist_ok=True, mode=0o700)
         with self.connection(write=True) as con:
             version = con.execute('PRAGMA user_version').fetchone()[0]
-            if version not in (0,1):
+            if version not in (0,1,2):
                 raise LibraryError('This Library needs a newer ANVAYA version.',409)
             con.executescript('''
                 CREATE TABLE IF NOT EXISTS folders(id TEXT PRIMARY KEY, name TEXT NOT NULL, parent_id TEXT REFERENCES folders(id));
@@ -138,16 +148,22 @@ class NativeDocumentLibrary:
                 CREATE INDEX IF NOT EXISTS documents_jobs ON documents(status);
                 CREATE TABLE IF NOT EXISTS pages(id INTEGER PRIMARY KEY, document_id TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
                     position INTEGER NOT NULL, text TEXT NOT NULL, UNIQUE(document_id,position));
-                PRAGMA user_version=1;
+
             ''')
             self._ensure_index(con)
-            con.execute("UPDATE documents SET status='stored' WHERE status='indexing'")
+        from .native_library_migrations import migrate
+        migrate(self, version)
+        with self.connection(write=True) as con:
+            con.execute("UPDATE documents SET status='stored' WHERE status='indexing' AND NOT EXISTS (SELECT 1 FROM processing_jobs j WHERE j.document_id=documents.id AND j.state='running' AND j.lease_until>strftime('%s','now'))")
+            for row in con.execute('SELECT id FROM documents').fetchall(): self._enqueue_publication(con,row['id'])
         try: os.chmod(self.database, 0o600)
         except OSError: pass
-        if autostart:
+        if autostart: self.start_worker()
+
+    def start_worker(self):
+        if self._thread is None:
             self._thread = Thread(target=self._work, name='anvaya-file-index', daemon=True)
-            self._thread.start()
-            self._wake.set()
+            self._thread.start(); self._wake.set()
 
     def _ensure_index(self, con):
         existing = con.execute("SELECT sql FROM sqlite_master WHERE name='page_fts'").fetchone()
@@ -215,12 +231,13 @@ class NativeDocumentLibrary:
     def original(self, document_id):
         return _verified_original(self.root, self.get(document_id))
 
-    def upload(self, stream, filename, *, folder_id=None, subject_id=None, indexing=True):
+    def upload(self, stream, filename, *, folder_id=None, subject_id=None, indexing=True, duplicate=None):
+        if duplicate not in (None, 'reuse', 'copy'): raise LibraryError('Choose reuse or copy for a duplicate.')
         filename = label(filename)
         if '/' in filename or '\\' in filename or filename in ('.','..'):
             raise LibraryError('Choose a filename without directory separators.')
         kind = filename.rsplit('.', 1)[-1].lower()
-        if kind not in MIMES: raise LibraryError('Choose a PDF, PPTX or PPT file.')
+        if kind not in MIMES: raise LibraryError('Choose a supported document, image or text file.')
         digest, size, prefix = hashlib.sha256(), 0, b''
         handle, temporary = tempfile.mkstemp(dir=_safe(self.root/'tmp'))
         temporary = Path(temporary)
@@ -234,12 +251,22 @@ class NativeDocumentLibrary:
                     if len(prefix) < 1024: prefix += chunk[:1024-len(prefix)]
                     digest.update(chunk); output.write(chunk)
                 output.flush(); os.fsync(output.fileno())
-            valid = (kind == 'pdf' and b'%PDF-' in prefix[:1024]) or (kind == 'pptx' and prefix.startswith(b'PK\x03\x04')) or (kind == 'ppt' and prefix.startswith(b'\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1'))
-            if not valid: raise LibraryError('The file does not match its document format.')
+            try: validate_format(temporary,kind,prefix)
+            except (ValueError,UnicodeError) as error:
+                raise LibraryError('The file does not match its supported format.') from error
             sha = digest.hexdigest(); document_id = uuid.uuid4().hex
             with self.connection(write=True) as con:
                 self._folder(con, folder_id)
-                duplicate = con.execute('SELECT * FROM documents WHERE sha256=? AND original_name=?', (sha, filename)).fetchone()
+                existing = con.execute('SELECT * FROM documents WHERE sha256=? AND original_name=? AND trashed_at IS NULL ORDER BY created_at LIMIT 1', (sha, filename)).fetchone()
+                binding=self._binding(con,folder_id)
+                if binding: subject_id=binding['course_id']
+                display_name=filename
+                if existing and duplicate is None:
+                    raise LibraryError('This original is already saved. Choose Open existing or Copy here.',409)
+                suffix=2
+                stem,extension=filename.rsplit('.',1)
+                while con.execute('SELECT 1 FROM documents WHERE folder_id IS ? AND display_name=? AND trashed_at IS NULL',(folder_id,display_name)).fetchone():
+                    display_name=stem[:230]+' ('+str(suffix)+').'+extension;suffix+=1
                 blob = self._blob(sha)
                 try: _verified_original(self.root, {'sha256':sha, 'size':size})
                 except LibraryError:
@@ -250,10 +277,13 @@ class NativeDocumentLibrary:
                         directory_fd = os.open(blob.parent, os.O_RDONLY)
                         try: os.fsync(directory_fd)
                         finally: os.close(directory_fd)
-                if duplicate: return self._doc(duplicate)
+                if existing and duplicate=='reuse':
+                    con.execute("UPDATE documents SET managed_original=NULL,availability='available' WHERE id=?",(existing['id'],))
+                    return self._doc(con.execute('SELECT * FROM documents WHERE id=?',(existing['id'],)).fetchone())
                 con.execute('''INSERT INTO documents(id,original_name,display_name,kind,sha256,size,folder_id,subject_id,indexing_enabled,status,created_at,updated_at)
-                    VALUES(?,?,?,?,?,?,?,?,?,?,?,?)''', (document_id, filename, filename, kind, sha, size, folder_id, subject_id,
+                    VALUES(?,?,?,?,?,?,?,?,?,?,?,?)''', (document_id, filename, display_name, kind, sha, size, folder_id, subject_id,
                     int(indexing), 'stored' if indexing else 'disabled', now(), now()))
+                self._enqueue_publication(con,document_id)
             self._wake.set()
             return self.get(document_id)
         finally:
@@ -267,13 +297,21 @@ class NativeDocumentLibrary:
         name = label(name); identity = uuid.uuid4().hex
         with self.connection(write=True) as con:
             self._folder(con, parent_id)
-            con.execute('INSERT INTO folders VALUES(?,?,?)', (identity, name, parent_id))
+            self._name_available(con,name,parent_id)
+            binding=self._binding(con,parent_id)
+            con.execute('INSERT INTO folders(id,name,parent_id,binding_id) VALUES(?,?,?,?)', (identity, name, parent_id,binding['id'] if binding else None))
         return {'id':identity, 'name':name, 'parent_id':parent_id}
 
-    def update_folder(self, folder_id, name, parent_id):
+    def update_folder(self, folder_id, name, parent_id, *, confirm_scope=False):
         name = label(name)
         with self.connection(write=True) as con:
             self._folder(con, folder_id); self._folder(con, parent_id)
+            old=con.execute('SELECT * FROM folders WHERE id=?',(folder_id,)).fetchone()
+            if old['node_kind']!='folder': raise LibraryError('Manage semester and subject roots in academic settings.',409)
+            self._name_available(con,name,parent_id,folder_id)
+            before=self._binding(con,folder_id);after=self._binding(con,parent_id)
+            if before!=after and not confirm_scope:
+                raise LibraryError('Confirm moving this folder and all descendants to a different subject.',409)
             current = parent_id
             for _ in range(100):
                 if current is None: break
@@ -281,10 +319,19 @@ class NativeDocumentLibrary:
                 current = con.execute('SELECT parent_id FROM folders WHERE id=?', (current,)).fetchone()[0]
             else: raise LibraryError('Folder nesting is limited to 100 levels.')
             con.execute('UPDATE folders SET name=?,parent_id=? WHERE id=?', (name, parent_id, folder_id))
+            descendants=[r[0] for r in con.execute('WITH RECURSIVE tree(id) AS (SELECT ? UNION SELECT f.id FROM folders f JOIN tree t ON f.parent_id=t.id) SELECT id FROM tree',(folder_id,))]
+            for identity in descendants:
+                con.execute('UPDATE folders SET binding_id=? WHERE id=?',(after['id'] if after else None,identity))
+                for doc in con.execute('SELECT id FROM documents WHERE folder_id=?',(identity,)).fetchall():
+                    con.execute('UPDATE documents SET subject_id=?,metadata_revision=metadata_revision+1,generation=generation+1 WHERE id=?',(after['course_id'] if after else None,doc['id']))
+                    self._enqueue_publication(con,doc['id'])
+        self._wake.set()
 
     def delete_folder(self, folder_id):
         with self.connection(write=True) as con:
             self._folder(con, folder_id)
+            if con.execute('SELECT node_kind FROM folders WHERE id=?',(folder_id,)).fetchone()[0]!='folder':
+                raise LibraryError('Manage semester and subject roots in academic settings.',409)
             if con.execute('SELECT 1 FROM folders WHERE parent_id=? UNION ALL SELECT 1 FROM documents WHERE folder_id=? LIMIT 1', (folder_id, folder_id)).fetchone():
                 raise LibraryError('Move files and subfolders out before deleting this folder.', 409)
             con.execute('DELETE FROM folders WHERE id=?', (folder_id,))
@@ -304,20 +351,28 @@ class NativeDocumentLibrary:
             fields['tags'] = json.dumps([label(t, maximum=80) for t in tags])
         with self.connection(write=True) as con:
             self._doc(con.execute('SELECT * FROM documents WHERE id=?',(document_id,)).fetchone())
-            if 'folder_id' in fields: self._folder(con, fields['folder_id'])
+            if 'folder_id' in fields:
+                binding=self._binding(con,fields['folder_id'])
+                fields['subject_id']=binding['course_id'] if binding else None
             fields['updated_at'] = now()
-            con.execute('UPDATE documents SET '+','.join(k+'=?' for k in fields)+' WHERE id=?', (*fields.values(),document_id))
+            con.execute('UPDATE documents SET '+','.join(k+'=?' for k in fields)+',metadata_revision=metadata_revision+1,generation=generation+1 WHERE id=?', (*fields.values(),document_id))
+            self._enqueue_publication(con,document_id)
+        self._wake.set()
         return self.get(document_id)
 
-    def copy(self, document_id):
+    def copy(self, document_id, *, folder_id=None):
         with self.connection(write=True) as con:
             doc = self._doc(con.execute('SELECT * FROM documents WHERE id=?',(document_id,)).fetchone())
+            if folder_id is not None:
+                binding=self._binding(con,folder_id);doc['folder_id']=folder_id;doc['subject_id']=binding['course_id'] if binding else None
+            doc['favorite']=0;doc['trashed_at']=None;doc['opened_at']=None
             doc.pop('mime'); doc['tags'] = json.dumps(doc['tags']); doc['id'] = uuid.uuid4().hex
             doc['display_name'] = doc['display_name'][:240] + ' (copy)'
             doc['created_at'] = doc['updated_at'] = now()
             doc['status'] = 'stored' if doc['indexing_enabled'] else 'disabled'
             doc['position_count'] = doc['indexed_count'] = 0
             con.execute('INSERT INTO documents('+','.join(doc)+') VALUES('+','.join('?' for _ in doc)+')', tuple(doc.values()))
+            self._enqueue_publication(con,doc['id'])
         self._wake.set()
         return self.get(doc['id'])
 
@@ -336,6 +391,8 @@ class NativeDocumentLibrary:
     def delete(self, document_id):
         with self.connection(write=True) as con:
             doc = self._doc(con.execute('SELECT * FROM documents WHERE id=?',(document_id,)).fetchone())
+            if con.execute('SELECT 1 FROM source_pins WHERE document_id=?',(document_id,)).fetchone() or con.execute('SELECT 1 FROM source_links WHERE document_id=?',(document_id,)).fetchone():
+                raise LibraryError('This file has linked study sources. Resolve those references before permanently deleting it.',409)
             self._cancel_job(document_id)
             self._remove_index(con, document_id, purge=True)
             con.execute('DELETE FROM documents WHERE id=?', (document_id,))
@@ -355,6 +412,9 @@ class NativeDocumentLibrary:
             self._remove_index(con, document_id, purge=True)
             con.execute("UPDATE documents SET indexing_enabled=?,generation=generation+1,status=?,position_count=0,indexed_count=0,status_detail='' WHERE id=?",
                         (int(enabled), 'stored' if enabled else 'disabled', document_id))
+            con.execute('UPDATE documents SET tutor_state=? WHERE id=?',('preparing' if enabled else 'disabled',document_id))
+            con.execute("UPDATE processing_jobs SET state='cancelled' WHERE document_id=?",(document_id,))
+            self._enqueue_publication(con,document_id)
         self._wake.set()
 
     def rebuild(self, document_id=None, *, ocr=False):
@@ -366,44 +426,15 @@ class NativeDocumentLibrary:
             else: self._remove_index(con, document_id)
             con.execute("UPDATE documents SET generation=generation+1,status=CASE WHEN indexing_enabled=1 THEN 'stored' ELSE 'disabled' END,ocr=?,position_count=0,indexed_count=0,status_detail=''"+
                         (' WHERE id=?' if document_id else ''), (int(ocr), document_id) if document_id else (int(ocr),))
+            for row in con.execute('SELECT id FROM documents'+(' WHERE id=?' if document_id else ''),(document_id,) if document_id else ()).fetchall(): self._enqueue_publication(con,row['id'])
         self._wake.set()
 
     def _extract(self, doc):
         return extract_pages(self.original(doc['id']), doc['kind'], ocr=bool(doc['ocr']),
                              cancelled=self._job_cancel[doc['id']].is_set)
 
-    def run_pending(self):
-        if not self._worker_lock.acquire(blocking=False): return
-        try:
-            while not self._stop.is_set():
-                with self.connection(write=True) as con:
-                    row = con.execute("SELECT * FROM documents WHERE status='stored' AND indexing_enabled=1 ORDER BY created_at LIMIT 1").fetchone()
-                    if row is None: return
-                    doc = self._doc(row)
-                    self._job_cancel[doc['id']] = Event()
-                    con.execute("UPDATE documents SET status='indexing' WHERE id=?", (doc['id'],))
-                try:
-                    pages, status, detail = self._extract(doc)
-                except Exception:
-                    pages, status, detail = [], 'failed', 'Indexing failed or exceeded local resource limits. Original preserved; retry or use an external viewer.'
-                with self.connection(write=True) as con:
-                    self._job_cancel.pop(doc['id'],None)
-                    current = con.execute('SELECT generation,indexing_enabled FROM documents WHERE id=?',(doc['id'],)).fetchone()
-                    if current is None or current['generation'] != doc['generation'] or not current['indexing_enabled']: continue
-                    self._remove_index(con, doc['id'])
-                    indexed = 0
-                    for position, text in pages:
-                        normalized = normalize(text)
-                        if not normalized: continue
-                        indexed += 1
-                        cursor = con.execute('INSERT INTO pages(document_id,position,text) VALUES(?,?,?)',(doc['id'], position, text))
-                        con.execute('INSERT INTO page_fts(rowid,document_id,position,text) VALUES(?,?,?,?)',(cursor.lastrowid, doc['id'], position, normalized))
-                    con.execute('UPDATE documents SET status=?,status_detail=?,position_count=?,indexed_count=? WHERE id=?',
-                                (status, detail, len(pages), indexed, doc['id']))
-        finally: self._worker_lock.release()
-
     def _scope(self, con, folder_id=None, subject_id=None, document_id=None):
-        clauses, args = [], []
+        clauses, args = ['d.trashed_at IS NULL'], []
         if folder_id:
             self._folder(con, folder_id)
             clauses.append('d.folder_id IN (WITH RECURSIVE tree(id) AS (SELECT ? UNION SELECT f.id FROM folders f JOIN tree t ON f.parent_id=t.id) SELECT id FROM tree)')
@@ -450,7 +481,7 @@ class NativeDocumentLibrary:
             return hits
 
     def list_documents(self, *, folder_id=None, subject_id=None, kind=None, sort='newest', page=1, page_size=30):
-        order = {'newest':'d.created_at DESC','name':'d.display_name COLLATE NOCASE','size':'d.size DESC'}.get(sort)
+        order = {'newest':'d.created_at DESC','name':'d.display_name COLLATE NOCASE','size':'d.size DESC','type':'d.kind,d.display_name COLLATE NOCASE'}.get(sort)
         if not order: raise LibraryError('Choose a valid sort order.')
         if kind and kind not in MIMES: raise LibraryError('Choose a valid file type.')
         page, page_size = int(page), int(page_size)

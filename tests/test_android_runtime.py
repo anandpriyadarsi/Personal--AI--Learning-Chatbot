@@ -358,12 +358,15 @@ def test_library_pdf_upload_picker_entrypoint_and_source_integrity(tmp_path):
         def post(path, data):
             return client.post(path, base_url=r.origin,
                                headers={'Origin': r.origin}, data=data)
-        for path in ('/library', '/library?view=search', '/library?view=saved'):
-            html = get(path).get_data(as_text=True)
-            assert 'action="/library/upload"' in html
-            assert 'name="source"' in html
-            assert 'accept="application/pdf"' in html
-            assert 'Rebuild local text index' in html
+        entry=get('/library')
+        assert entry.status_code==302 and entry.location.endswith('/library/files')
+        html=get('/library/files').get_data(as_text=True)
+        assert 'id="import-form"' in html and 'multiple' in html
+        assert 'Prepare supported content for Tutor on this device' in html
+        for path in ('/library?view=search','/library?view=saved'):
+            html=get(path).get_data(as_text=True)
+            assert 'action="/library/upload"' not in html
+            assert 'Rebuild local text index' not in html
         original = source_pdf()
         token = r.app.extensions['tutor_action_csrf']
         denied = post('/library/upload', {'source': (io.BytesIO(original), 'study.pdf')})

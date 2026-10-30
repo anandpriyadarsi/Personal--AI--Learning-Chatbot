@@ -22,7 +22,7 @@ def test_static_assets_are_privately_cacheable_but_every_page_is_no_store(tmp_pa
         assert c.head('/static/js/app.js', base_url=r.origin).status_code == 200
         assert c.get('/static/js/does-not-exist.js', base_url=r.origin).headers['Cache-Control'] == 'no-store'
         for path in ('/', '/notes', '/learning', '/assessments', '/library', '/mobile/device'):
-            response = c.get(path, base_url=r.origin)
+            response = c.get(path, base_url=r.origin,follow_redirects=True)
             assert response.status_code == 200, path
             assert response.headers['Cache-Control'] == 'no-store', path
         # A cached CSS or JS URL still requires the private capability on the server.
@@ -74,4 +74,36 @@ def test_static_file_does_not_block_an_authenticated_navigation(tmp_path):
             worker.join(15)
             r.stop()
         assert not worker.is_alive() and not failures, failures
+    ''')
+
+
+def test_real_runtime_library_upload_does_not_hold_academic_navigation_lock(tmp_path):
+    run(tmp_path, r'''
+        from personal_learning_assistant.android_runtime import start
+        from flask import request
+        from threading import Event,Thread
+        import urllib.request,json,io
+        r=start();entered=Event();release=Event();errors=[]
+        @r.app.before_request
+        def slow_library_stream():
+            if request.endpoint=='native_library.upload':
+                entered.set();assert release.wait(12)
+        client=r.app.test_client();client.set_cookie('anvaya_native',r.token,domain='127.0.0.1')
+        assert client.get('/library/files',base_url=r.origin).status_code==200
+        csrf=r.app.extensions['native_library_csrf']
+        def upload():
+            try:
+                c=r.app.test_client();c.set_cookie('anvaya_native',r.token,domain='127.0.0.1')
+                response=c.post('/library/files/upload',base_url=r.origin,
+                    headers={'Origin':r.origin,'X-Library-CSRF':csrf},
+                    data={'file':(io.BytesIO(b'Synthetic local evidence'),'fact.txt'),'indexing':'true'})
+                assert response.status_code==201,response.data
+            except Exception as error:errors.append(str(error))
+        worker=Thread(target=upload,daemon=True);worker.start()
+        try:
+            assert entered.wait(8)
+            req=urllib.request.Request(r.origin+'/notes',headers={'Cookie':'anvaya_native='+r.token})
+            with urllib.request.urlopen(req,timeout=2) as response:assert response.status==200
+        finally:release.set();worker.join(15);r.stop()
+        assert not errors,errors
     ''')

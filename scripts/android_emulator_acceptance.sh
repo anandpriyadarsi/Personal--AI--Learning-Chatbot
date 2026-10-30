@@ -88,7 +88,7 @@ done
 
 # Deliver precisely the APK which passed the installed-app checks above.
 source_short="$(git rev-parse --short=12 HEAD)"
-verified_apk="android-evidence/ANVAYA-Unified-Android-V1.3.0-Debug-${source_short}.apk"
+verified_apk="android-evidence/ANVAYA-Unified-Android-V1.4.0-Debug-${source_short}.apk"
 cp android/app/build/outputs/apk/debug/app-debug.apk "$verified_apk"
 sha256sum "$verified_apk" > android-evidence/TESTED_APK_SHA256.txt
 # Inspect the actual package installed above, not Gradle configuration alone.
@@ -106,7 +106,7 @@ import ssl
 import zipfile
 report=Path('android-evidence/apk-badging.txt').read_text()
 assert "name='in.anvaya.privateapp'" in report
-assert "versionCode='18'" in report and "versionName='1.3.0-unified-debug'" in report
+assert "versionCode='19'" in report and "versionName='1.4.0-unified-debug'" in report
 assert "sdkVersion:'24'" in report and "targetSdkVersion:'35'" in report
 for abi in ('armeabi-v7a','arm64-v8a','x86_64'):
     assert abi in report, abi

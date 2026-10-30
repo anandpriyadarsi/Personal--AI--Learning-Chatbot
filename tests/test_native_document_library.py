@@ -82,7 +82,9 @@ def test_metadata_move_copy_delete_and_shared_blob(lib):
 def test_duplicate_returns_same_record_without_reassigning(lib):
     raw = pdf_bytes()
     first = upload(lib, raw=raw, subject_id='ma103')
-    again = upload(lib, raw=raw, subject_id='chem')
+    with pytest.raises(LibraryError,match='already saved'):
+        upload(lib, raw=raw, subject_id='chem')
+    again = upload(lib, raw=raw, subject_id='chem', duplicate='reuse')
     assert first['id'] == again['id']
     assert lib.get(first['id'])['subject_id'] == 'ma103'
     assert len(lib.list_documents()['items']) == 1
@@ -207,11 +209,14 @@ def test_delete_during_index_has_no_late_rows(lib,monkeypatch):
     with sqlite3.connect(lib.database) as con: assert con.execute('SELECT count(*) FROM pages').fetchone()[0]==0
 
 
-def test_resource_limit_reports_failed_without_losing_original(lib):
-    bad=b'PK\x03\x04'+b'not a complete presentation'
-    d=upload(lib,'Bad.pptx',bad);lib.run_pending()
+def test_resource_limit_reports_failed_without_losing_original(lib,monkeypatch):
+    with pytest.raises(LibraryError): upload(lib,'Bad.pptx',b'PK\x03\x04not a presentation')
+    from personal_learning_assistant.services import native_document_extraction
+    monkeypatch.setattr(native_document_extraction,'MAX_PAGES',1)
+    raw=pptx_bytes()
+    d=upload(lib,'Two slides.pptx',raw);lib.run_pending()
     assert lib.get(d['id'])['status']=='failed'
-    assert lib.original(d['id']).read_bytes()==bad
+    assert lib.original(d['id']).read_bytes()==raw
 
 
 def test_fts_unavailable_keeps_storage_and_exact_search(tmp_path,monkeypatch):
@@ -310,7 +315,7 @@ def test_rename_cannot_smuggle_paths_or_change_export_format(lib):
 def test_reimport_identical_original_repairs_corrupt_blob_without_new_record(lib):
     raw=pdf_bytes();doc=upload(lib,raw=raw,indexing=False)
     blob=lib.original(doc['id']);blob.write_bytes(b'x'*len(raw))
-    repaired=upload(lib,raw=raw,indexing=False)
+    repaired=upload(lib,raw=raw,indexing=False,duplicate='reuse')
     assert repaired['id']==doc['id']
     assert lib.original(doc['id']).read_bytes()==raw
     assert len(lib.list_documents()['items'])==1

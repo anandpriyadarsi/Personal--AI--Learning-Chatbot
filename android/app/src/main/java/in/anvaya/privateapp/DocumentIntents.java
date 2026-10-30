@@ -12,8 +12,7 @@ public final class DocumentIntents {
     public interface Launcher { void start(Intent intent); }
     private DocumentIntents() {}
     public static boolean supportsMime(String mime) {
-        return "application/pdf".equals(mime)||"application/vnd.ms-powerpoint".equals(mime)
-            ||"application/vnd.openxmlformats-officedocument.presentationml.presentation".equals(mime);
+        return DocumentFormats.supportsMime(mime);
     }
     public static Intent view(Uri uri,String mime) {
         return grant(new Intent(Intent.ACTION_VIEW).setDataAndType(uri,mime),uri,mime);

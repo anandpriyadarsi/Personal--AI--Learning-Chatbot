@@ -1,0 +1,70 @@
+/* Device-local academic file manager. Originals and credentials never leave origin. */
+(() => {
+  'use strict';
+  const root=document.querySelector('.academic-files');if(!root)return;
+  try{const theme=localStorage.getItem('anvaya.mobile.theme');if(['light','dark'].includes(theme))document.documentElement.dataset.theme=theme;}catch{}
+  const csrf=root.dataset.csrf, folder=root.dataset.folder;
+  const message=document.getElementById('files-message'), selected=new Set();
+  const say=text=>{message.textContent=text;};
+  const path=id=>'/library/files/'+encodeURIComponent(id);
+  let request=null,cancelImport=false,selection=false,destination=null,actionIds=[],destinationAction='move',detailsId=null,parentStack=[],destinationOffset=0;
+  function remember(){try{sessionStorage.setItem('anvaya.files.state',JSON.stringify({url:location.href,scroll:scrollY}));}catch{}}
+  const refresh=()=>{remember();location.reload();};
+  const show=id=>{document.querySelectorAll('.file-menu[open]').forEach(d=>d.open=false);document.getElementById(id).showModal();};
+  async function api(url,method='GET',body){
+    const response=await fetch(url,{method,credentials:'same-origin',headers:body===undefined?{}:{'Content-Type':'application/json','X-Library-CSRF':csrf},body:body===undefined?undefined:JSON.stringify(body)});
+    const data=await response.json();if(!response.ok){const error=new Error(data.error||'File action failed.');error.status=response.status;throw error;}return data;
+  }
+  function selectMode(enabled){selection=enabled;root.querySelectorAll('.file-select').forEach(el=>el.hidden=!enabled);document.getElementById('selection-toolbar').hidden=!enabled;root.querySelector('[data-action="select-mode"]').setAttribute('aria-pressed',String(enabled));if(!enabled){selected.clear();root.querySelectorAll('.file-select').forEach(el=>el.checked=false);}document.getElementById('selection-count').textContent=selected.size+' selected';}
+  function selectId(id){selectMode(true);selected.add(id);const input=root.querySelector(`.file-select[value="${id}"]`);if(input)input.checked=true;document.getElementById('selection-count').textContent=selected.size+' selected';}
+  root.addEventListener('change',e=>{if(e.target.matches('.file-select')){if(e.target.checked)selected.add(e.target.value);else selected.delete(e.target.value);document.getElementById('selection-count').textContent=selected.size+' selected';}});
+  let press;
+  root.addEventListener('pointerdown',e=>{const row=e.target.closest('[data-document-id]');if(row&&!e.target.closest('.file-menu'))press=setTimeout(()=>selectId(row.dataset.documentId),550);});
+  ['pointerup','pointercancel','pointermove'].forEach(name=>root.addEventListener(name,()=>clearTimeout(press)));
+  root.addEventListener('click',e=>{const link=e.target.closest('.file-main a');if(link&&selection){e.preventDefault();selectId(link.closest('[data-document-id]').dataset.documentId);}if(e.target.closest('a'))remember();});
+  async function destinations(parent=null,append=false){destination=parent;const data=await api('/library/files/folder-choices?parent_id='+encodeURIComponent(parent||'')+'&offset='+destinationOffset);const target=document.getElementById('destination-children');if(!append)target.replaceChildren();for(const item of data.items){const button=document.createElement('button');button.type='button';button.textContent=item.name;button.addEventListener('click',()=>{parentStack.push({id:destination,label:document.getElementById('destination-label').textContent});destinationOffset=0;document.getElementById('destination-label').textContent=item.name;destinations(item.id).catch(e=>say(e.message));});target.append(button);}root.querySelector('[data-action="destination-more"]').hidden=destinationOffset+data.items.length>=data.total;}
+  async function moveDialog(ids,action){if(!ids.length)throw new Error('Select files first.');actionIds=ids;destinationAction=action;destinationOffset=0;parentStack=[];document.getElementById('destination-label').textContent='Library / Unsorted';await destinations();show('destination-dialog');}
+  async function bulk(action,ids,extra={}){if(!ids.length)throw new Error('Select files first.');const data=await api('/library/files/bulk','POST',{action,ids,...extra});const failed=data.results.filter(r=>!r.ok);if(failed.length){say(data.results.filter(r=>r.ok).length+' completed. '+failed.map(r=>r.error).join(' '));return false;}return true;}
+  root.addEventListener('click',async e=>{
+    const button=e.target.closest('[data-action]');if(!button)return;
+    const action=button.dataset.action,id=button.dataset.id;
+    try{
+      if(action==='close')button.closest('dialog').close();
+      if(action==='import'){cancelImport=false;show('import-dialog');}
+      if(action==='cancel-import'){cancelImport=true;request?.abort();say('Remaining imports cancelled. Check the per-file results before retrying.');}
+      if(action==='select-mode')selectMode(!selection);
+      if(action==='cancel-selection')selectMode(false);
+      if(action==='select-one')selectId(id);
+      if(action==='toggle-view'){const enabled=document.getElementById('file-list').classList.toggle('grid');button.setAttribute('aria-pressed',String(enabled));try{localStorage.setItem('anvaya.files.grid',String(enabled));}catch{}}
+      if(action==='storage')show('storage-dialog');
+      if(action==='rename'){const d=(await api(path(id))).document;const form=document.getElementById('rename-form');form.elements.id.value=id;form.elements.display_name.value=d.display_name;show('rename-dialog');}
+      if(action==='favorite'){await api(path(id)+'/lifecycle','POST',{action:'favorite',enabled:button.dataset.enabled==='true'});refresh();}
+      if(action==='trash'){await api(path(id)+'/lifecycle','POST',{action:'trash'});say('Moved to Trash. Restore it from Library → Trash.');refresh();}
+      if(action==='restore'){await api(path(id)+'/lifecycle','POST',{action:'restore'});refresh();}
+      if(action==='permanent-delete'&&confirm('Permanently delete this file? Linked study sources can prevent deletion. This cannot be undone.')){await api(path(id),'DELETE',{confirm:true});refresh();}
+      if(action==='move'||action==='copy')await moveDialog([id],action);
+      if(action==='bulk-move'||action==='bulk-copy')await moveDialog([...selected],action.slice(5));
+      if(action==='bulk-trash'||action==='bulk-restore'){if(await bulk(action.slice(5),[...selected]))refresh();}
+      if(action==='destination-up'){const previous=parentStack.pop();destinationOffset=0;document.getElementById('destination-label').textContent=previous?.label||'Library / Unsorted';await destinations(previous?.id||null);}
+      if(action==='destination-more'){destinationOffset+=100;await destinations(destination,true);}
+      if(action==='destination-use'){if(confirm('Apply this destination to '+actionIds.length+' file(s)? Their effective subject follows this folder.')){if(await bulk(destinationAction,actionIds,{folder_id:destination,confirm_scope:true}))refresh();}}
+      if(action==='new-folder'||action==='folder-settings'){const form=document.getElementById('folder-form');form.elements.id.value=action==='folder-settings'?folder:'';form.elements.name.value=action==='folder-settings'?document.querySelector('.files-heading h1').textContent:'';form.querySelector('[data-action="delete-folder"]').hidden=action!=='folder-settings';show('folder-dialog');}
+      if(action==='delete-folder'&&confirm('Delete this empty custom folder?')){await api('/library/files/folders/'+folder,'DELETE',{confirm:true});location.href='/library/files';}
+      if(action==='template'){const data=await api('/library/files/templates/'+folder+'?key='+encodeURIComponent(button.dataset.code));if(confirm(data.added.length?'Add these editable folders?\n'+data.added.map(x=>x.name).join('\n'):'This template is already applied. Custom names and deleted folders are respected.')){await api('/library/files/templates/'+folder,'POST',{key:button.dataset.code,confirm:true});refresh();}}
+      if(action==='details'){detailsId=id;const d=(await api(path(id))).document,target=document.getElementById('file-details');target.replaceChildren();for(const [label,value] of [['Name',d.display_name],['Original name',d.original_name],['Type',d.mime],['Size',d.size+' bytes'],['Tutor',d.status_label],['Saved',d.created_at],['SHA-256',d.sha256],['Linked sources',d.linked_sources]]){const dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=label;dd.textContent=String(value??'');target.append(dt,dd);}document.getElementById('processing-detail').textContent=d.status_detail||'No additional processing diagnostics.';show('details-dialog');}
+      if(action==='retry'){await api(path(detailsId)+'/index','POST',{rebuild:true});say('Queued for local processing.');button.closest('dialog').close();}
+      if(action==='index-toggle'){const d=(await api(path(detailsId))).document;await api(path(detailsId)+'/index','POST',{enabled:!d.indexing_enabled});refresh();}
+    }catch(error){say(error.message);}
+  });
+  document.getElementById('repair-form').addEventListener('submit',async e=>{e.preventDefault();try{const response=await fetch(path(detailsId)+'/repair',{method:'POST',credentials:'same-origin',headers:{'X-Library-CSRF':csrf},body:new FormData(e.target)});const data=await response.json();if(!response.ok)throw new Error(data.error);refresh();}catch(error){say(error.message);}});
+  document.getElementById('rename-form').addEventListener('submit',async e=>{e.preventDefault();try{await api(path(e.target.elements.id.value),'PATCH',{display_name:e.target.elements.display_name.value});refresh();}catch(error){say(error.message);}});
+  document.getElementById('folder-form').addEventListener('submit',async e=>{e.preventDefault();const form=e.target,id=form.elements.id.value;try{let parent=folder||null;if(id){const crumbs=[...document.querySelectorAll('.files-breadcrumbs a')];parent=crumbs.length>2?new URL(crumbs[crumbs.length-2].href).searchParams.get('folder_id'):null;}await api('/library/files/folders'+(id?'/'+id:''),id?'PATCH':'POST',{name:form.elements.name.value,parent_id:parent});refresh();}catch(error){say(error.message);}});
+  function upload(file,indexing,duplicate){return new Promise((resolve,reject)=>{const data=new FormData();data.set('file',file);data.set('folder_id',folder);data.set('indexing',String(indexing));if(duplicate)data.set('duplicate',duplicate);request=new XMLHttpRequest();request.open('POST','/library/files/upload');request.setRequestHeader('X-Library-CSRF',csrf);request.upload.onprogress=e=>{if(e.lengthComputable)document.getElementById('upload-progress').value=Math.round(100*e.loaded/e.total);};request.onload=()=>{let result;try{result=JSON.parse(request.responseText);}catch{reject(new Error('Import response unavailable. Check Library before retrying.'));return;}if(request.status>=400){const error=new Error(result.error||'Import failed.');error.status=request.status;reject(error);}else resolve(result);};request.onerror=()=>reject(new Error('Import interrupted. Check Library before retrying.'));request.onabort=()=>reject(new Error('Import cancelled. It may already have been saved; check Library.'));request.send(data);});}
+  document.getElementById('import-form').addEventListener('submit',async e=>{e.preventDefault();if(request)return;const form=e.target,files=[...form.elements.files.files];if(files.length>20){say('Choose up to 20 files at a time.');return;}cancelImport=false;const results=document.getElementById('import-results');results.replaceChildren();document.getElementById('upload-progress').hidden=false;form.querySelector('[type="submit"]').disabled=true;try{for(const file of files){if(cancelImport)break;const line=document.createElement('p');line.textContent=file.name+' · Importing…';results.append(line);try{try{await upload(file,form.elements.indexing.checked);}catch(error){if(error.status!==409)throw error;const answer=await duplicateChoice(file.name);if(answer==='cancel'){line.textContent=file.name+' · Skipped';continue;}await upload(file,form.elements.indexing.checked,answer);}line.textContent=file.name+' · Saved';}catch(error){line.textContent=file.name+' · '+error.message;}finally{request=null;}}}finally{request=null;form.querySelector('[type="submit"]').disabled=false;const done=document.createElement('button');done.type='button';done.textContent='Done · Show saved files';done.addEventListener('click',refresh);results.append(done);}});
+  function duplicateChoice(name){return new Promise(resolve=>{const dialog=document.createElement('dialog'),p=document.createElement('p');p.textContent=name+' is already saved. Choose how to continue.';dialog.append(p);for(const [value,label] of [['reuse','Use existing location'],['copy','Copy here (share original bytes)'],['cancel','Skip this file']]){const b=document.createElement('button');b.type='button';b.textContent=label;b.addEventListener('click',()=>{dialog.close();dialog.remove();resolve(value);});dialog.append(b);}dialog.addEventListener('cancel',()=>{dialog.remove();resolve('cancel');});root.append(dialog);dialog.showModal();});}
+  addEventListener('pagehide',remember);
+  try{const state=JSON.parse(sessionStorage.getItem('anvaya.files.state')||'null');if(state?.url===location.href)requestAnimationFrame(()=>scrollTo(0,state.scroll));if(localStorage.getItem('anvaya.files.grid')==='true')document.getElementById('file-list').classList.add('grid');}catch{}
+  const rows=[...root.querySelectorAll('[data-document-id]')];
+  if(rows.length){const timer=setInterval(async()=>{if(document.hidden)return;try{for(let start=0;start<rows.length;start+=30){const data=await api('/library/files/status?ids='+rows.slice(start,start+30).map(r=>r.dataset.documentId).join(','));for(const d of data.documents){const row=rows.find(r=>r.dataset.documentId===d.id);row.querySelector('[data-status]').textContent=d.status_label;}}}catch{clearInterval(timer);}},5000);addEventListener('pagehide',()=>clearInterval(timer));}
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&selection)selectMode(false);});
+})();

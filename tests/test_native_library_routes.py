@@ -52,7 +52,7 @@ def test_disabled_searchable_status_and_metadata_only_search(app):
     assert not c.get('/library/files/search?q=Eigenvalues').json['matches']
     assert c.get('/library/files/search?q=Matrices').json['matches'][0]['id']==d['id']
     page=c.get('/library/files').get_data(as_text=True)
-    assert 'Matrices.pdf' in page and 'Content indexing off' in page
+    assert 'Matrices.pdf' in page and 'Tutor processing off' in page
 
 
 def test_hostile_names_unknown_subject_and_bad_queries(app):
@@ -104,9 +104,10 @@ def test_default_open_and_separate_menu_actions_preserve_bytes_and_current_name(
     assert metadata['filename']=='My lecture.pdf'
     html=c.get('/library/files').get_data(as_text=True)
     assert f'<a href="{metadata["open_url"]}">My lecture</a>' in html
-    for name in ['Open','Open with…','Rename','Move to Course','Share','Save / Export','Copy','Delete']:
+    for name in ['Open with…','Rename','Move','Favorite','Details','Export original','Copy','Move to Trash']:
         assert f'>{name}</' in html
-    assert 'name="indexing" checked' not in html
+    assert 'Prepare supported content for Tutor on this device' in html
+    assert 'no cloud service' in html
     response=c.get(base+'/original?native_action=view')
     assert response.data==raw and 'My lecture.pdf' in response.headers['Content-Disposition']
     assert lib.get(identity)['status']=='disabled'

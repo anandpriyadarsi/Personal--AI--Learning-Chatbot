@@ -146,21 +146,24 @@ def register_android_device(app, root):
 
     @device.get('/mobile/device/export')
     def export():
-        from personal_learning_assistant.android_backup import export_backup
+        from personal_learning_assistant.android_backup import export_backup_file
         include_media=request.args.get('include_media')!='0'
-        try: raw=export_backup(root,include_media=include_media)
+        try: path=export_backup_file(root,include_media=include_media)
         except (ValueError,OSError,sqlite3.Error):
             return render_template('android_device.html',active_page='mobile-settings',message=
-                'This backup exceeds the 100 MB backup limit or could not be read. Use “Back up study records without note attachments” below to keep your study records backed up. Export attachments separately from each note.'),409
+                'Backup could not be verified or exceeds the 4 GiB expanded / 512 MiB individual file limits. Free storage and retry; current data was kept.'),409
         name='ANVAYA-private-backup.zip' if include_media else 'ANVAYA-study-records-without-media.zip'
-        return send_file(io.BytesIO(raw),mimetype='application/zip',as_attachment=True,download_name=name)
+        response = send_file(path,mimetype='application/zip',as_attachment=True,download_name=name)
+        response.call_on_close(lambda: path.unlink(missing_ok=True))
+        return response
 
     @device.post('/mobile/device/restore')
     def restore():
-        from personal_learning_assistant.android_backup import stage_restore
+        from personal_learning_assistant.android_backup import stage_restore,MAX_BYTES
+        request.max_content_length=MAX_BYTES+1024*1024
         upload=request.files.get('backup')
         if upload is None:abort(400)
-        try:stage_restore(root,upload.read(100*1024*1024+1))
+        try:stage_restore(root,upload.stream)
         except (ValueError,OSError,sqlite3.Error):
             return render_template('android_device.html',active_page='mobile-settings',message='Backup rejected. Current data was kept.'),400
         return render_template('android_device.html',active_page='mobile-settings',message=
