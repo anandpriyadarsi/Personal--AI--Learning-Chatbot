@@ -222,32 +222,37 @@
 {% endif %}
 
 </details>
-{% if session.status == 'active' %}
+{% if session.status != 'active' %}
+<section class="notice-panel">
+  <h3>Session is not active</h3>
+  <p>This transcript remains readable, but new tutor questions are disabled.</p>
+</section>
+{% endif %}
+{% endif %}
+{% endblock %}
+
+{% block page_bottom_dock %}
+{% if session and session.status == 'active' %}
 <section class="tutor-composer" id="tutor-composer" aria-labelledby="ask-tutor-title">
   <h3 id="ask-tutor-title" class="visually-hidden">Ask grounded tutor</h3>
   <form id="tutor-ask-form" method="post" action="{{ url_for('web.academic_agent_ask', session_id=session.session_id) }}">
     <input type="hidden" name="csrf_token" value="{{ tutor_action_csrf }}">
     <input type="hidden" name="request_id" value="{{ retry_request_id|default(tutor_request_id, true) }}">
-    <label for="agent-question" class="visually-hidden">Question</label>
-    <div class="tutor-quick-prompts" aria-label="Teaching follow-ups">
+    <div id="tutor-quick-prompts" class="tutor-quick-prompts" aria-label="Teaching follow-ups" hidden>
       <button type="button" data-tutor-prompt="Give me one hint only; do not reveal the solution.">Hint only</button>
       <button type="button" data-tutor-prompt="Ask me one question at a time and wait for my answer.">Quiz me</button>
       <button type="button" data-tutor-prompt="Check my understanding with one question.">Check me</button>
       <button type="button" data-tutor-prompt="Explain the previous concept differently with an intuitive example.">Explain differently</button>
       <button type="button" data-tutor-prompt="Show one worked example and verify the calculation.">Worked example</button>
     </div>
-    <div class="tutor-input-row"><textarea id="agent-question" name="question" rows="2" maxlength="4000" required placeholder="Ask Alex, or share where you got stuck…">{{ failed_question if failed_question is defined else (session.prefill_question or "") }}</textarea>
-    </div><div class="tutor-composer-footer">
-    <p id="tutor-submit-status" class="microcopy" role="status" aria-live="polite">{{ error_message or "Review your message, then send. Learning guidance is not a grade." }}</p>
-    <button class="tutor-primary" type="submit">Ask tutor</button></div>
+    <div class="tutor-input-row">
+      <button class="tutor-tools-toggle" id="tutor-tools-toggle" type="button" aria-controls="tutor-quick-prompts" aria-expanded="false">+ Tools</button>
+      <label for="agent-question" class="visually-hidden">Question</label>
+      <textarea id="agent-question" name="question" rows="1" maxlength="4000" required placeholder="Ask Alex, or share where you got stuck…">{{ failed_question if failed_question is defined else (session.prefill_question or "") }}</textarea>
+      <button class="tutor-primary tutor-send" type="submit" aria-label="Ask tutor"><span aria-hidden="true">↑</span><span class="visually-hidden">Ask tutor</span></button>
+    </div>
+    <p id="tutor-submit-status" class="visually-hidden" role="status" aria-live="polite">{{ error_message or "Review your message, then send. Learning guidance is not a grade." }}</p>
   </form>
-
 </section>
-{% else %}
-<section class="notice-panel">
-  <h3>Session is not active</h3>
-  <p>This transcript remains readable, but new tutor questions are disabled.</p>
-</section>
-{% endif %}
 {% endif %}
 {% endblock %}
