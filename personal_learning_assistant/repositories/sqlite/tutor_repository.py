@@ -343,6 +343,17 @@ class SQLiteTutorRepository:
                 )
         return self.get_session(str(session_id))
 
+    def rename_session(self, session_id: str, title: str, updated_at: str):
+        """Change only the display title and activity timestamp of an existing session."""
+        with self._write_transaction():
+            cursor = self.connection.execute(
+                "UPDATE tutor_sessions SET title=?,updated_at=? WHERE id=?",
+                (title, updated_at, session_id),
+            )
+            if cursor.rowcount != 1:
+                raise TutorRepositoryError("tutor session not found: {}".format(session_id))
+        return self.get_session(session_id)
+
     def list_sessions(self, limit: int = 20):
         limit = int(limit)
         if limit < 1 or limit > 100:
