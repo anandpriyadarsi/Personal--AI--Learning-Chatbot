@@ -44,7 +44,7 @@
         <p class="eyebrow">Persistent tutor</p>
         <h2>What shall we learn?</h2>
       </div>
-      <span class="tutor-monogram" aria-hidden="true">A</span>
+      <img class="tutor-brand-logo" src="{{ url_for('static', filename='brand/anvaya-wordmark-white.png') }}" alt="ANVAYA">
     </div>
     <div class="tutor-starters" aria-label="Choose a learning intention">
       <button type="button" data-tutor-mode="concept">Explain a concept</button>
@@ -115,6 +115,7 @@
   <ul class="tutor-history-list">
     {% for session in workspace.sessions %}
     <li class="tutor-history-item">
+      <div class="tutor-history-row">
       <a class="tutor-history-link" href="{{ url_for('web.academic_agent_session', session_id=session.session_id) }}">
         <span class="tutor-history-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round"><path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5 8.4 8.4 0 0 1-3.6-.8L4 20l1.4-4.7A7.5 7.5 0 1 1 20 11.5Z"/><path d="M8 11.5h8"/></svg>
@@ -125,16 +126,20 @@
         </span>
         <time class="tutor-history-time" datetime="{{ session.updated_at }}" data-tutor-time>{{ session.updated_at[:10] }}</time>
       </a>
-      <details class="tutor-history-actions">
-        <summary aria-label="Rename {{ session.title or 'Untitled tutor session' }}" title="Chat options">⋯</summary>
-        <form action="{{ url_for('web.academic_agent_rename_session', session_id=session.session_id) }}" method="post" class="tutor-rename-form">
+      <button type="button" class="tutor-rename-toggle" data-tutor-rename-toggle
+        aria-label="Rename {{ session.title or 'Untitled tutor session' }}"
+        aria-controls="rename-editor-{{ loop.index }}" aria-expanded="false" title="Rename chat">⋯</button>
+      </div>
+      <form id="rename-editor-{{ loop.index }}" action="{{ url_for('web.academic_agent_rename_session', session_id=session.session_id) }}" method="post" class="tutor-rename-form" hidden>
           <input name="csrf_token" type="hidden" value="{{ tutor_action_csrf }}">
           <input name="return_to" type="hidden" value="history">
           <label for="rename-chat-{{ loop.index }}">Rename chat</label>
           <input id="rename-chat-{{ loop.index }}" name="title" type="text" maxlength="160" required value="{{ session.title or '' }}" placeholder="Enter a chat name" autocomplete="off">
-          <button type="submit">Save name</button>
-        </form>
-      </details>
+          <div class="tutor-rename-buttons">
+            <button type="button" class="tutor-rename-cancel" data-tutor-rename-cancel>Cancel</button>
+            <button type="submit">Save name</button>
+          </div>
+      </form>
     </li>
     {% endfor %}
   </ul>
