@@ -116,3 +116,103 @@ body.tutor-v3 .tutor-start .tutor-monogram {flex-shrink:0}
 body.tutor-v3 .tutor-markdown [data-assessment-math] {display:inline-block;vertical-align:middle;max-width:100%;overflow-x:auto}
 body.tutor-v3 .tutor-markdown .tutor-display-math {display:block}
 body.tutor-v3 #tutor-latest-turn {scroll-margin-top:7rem}
+
+/* Tutor home: use the available main-pane width, including desktop focus mode.
+   Only Tutor is affected; Library, Notes and Learning Studio keep their shells. */
+body.tutor-home-page .app-main>.content {
+  width:100%;max-width:none;margin-inline:0;
+  padding:clamp(1rem,2.5vw,2.25rem);
+}
+body.tutor-home-page .tutor-welcome {margin:.15rem 0 1.1rem}
+body.tutor-home-page .tutor-welcome p {margin:.3rem 0}
+body.tutor-home-page .tutor-home-grid {
+  display:grid;grid-template-columns:minmax(0,1fr);align-items:start;gap:1.15rem;
+}
+body.tutor-home-page .tutor-home-grid > * {min-width:0;margin:0}
+body.tutor-home-page .tutor-start {padding:clamp(1rem,2vw,1.55rem)}
+body.tutor-home-page .tutor-starters {margin:.8rem 0 1.05rem}
+body.tutor-home-page .tutor-starters button {padding:.52rem .75rem}
+body.tutor-home-page .tutor-start-form {column-gap:.8rem;row-gap:.7rem}
+body.tutor-home-page .tutor-start-form :is(input,select) {margin-top:.2rem}
+body.tutor-home-page .tutor-start-help {
+  margin:1rem 0 .35rem;font-size:.84rem;line-height:1.55;color:var(--text-muted)
+}
+body.tutor-home-page .tutor-start-info {border:0;padding:0;margin:0;color:var(--text-muted)}
+body.tutor-home-page .tutor-start-info summary {
+  display:inline-flex;align-items:center;font-size:.76rem;min-height:34px
+}
+body.tutor-home-page .tutor-start-info p {font-size:.76rem;line-height:1.65;margin:.25rem 0 0}
+body.tutor-home-page .tutor-history {
+  min-width:0;position:relative;padding:clamp(1rem,2vw,1.5rem);
+  border-radius:1.15rem;background:var(--surface);
+}
+body.tutor-home-page .tutor-history-heading {display:flex;align-items:flex-start;justify-content:space-between;gap:.8rem}
+body.tutor-home-page .tutor-history-heading h3 {font-size:1.25rem;margin:.28rem 0 .18rem;line-height:1.35}
+body.tutor-home-page .tutor-history-subtitle {margin:0;font-size:.77rem;color:var(--text-muted);line-height:1.5}
+body.tutor-home-page .tutor-history-count {background:var(--surface-muted);border:1px solid var(--border);color:var(--text-muted);border-radius:999px;min-width:2rem;text-align:center;padding:.27rem .45rem;font-size:.75rem}
+body.tutor-home-page .tutor-history-list {
+  list-style:none;margin:1.1rem 0 0;padding:0;display:flex;flex-direction:column;gap:.25rem;
+  max-height:min(66dvh,44rem);overflow-y:auto;overscroll-behavior:contain;
+  scrollbar-width:thin;scrollbar-color:var(--border) transparent;
+}
+body.tutor-home-page .tutor-history-item {display:flex;position:relative;align-items:center;min-width:0;border-radius:14px;transition:background .14s ease}
+body.tutor-home-page .tutor-history-item:hover,
+body.tutor-home-page .tutor-history-item:focus-within {background:var(--surface-elevated)}
+body.tutor-home-page .tutor-history-link {
+  display:flex;align-items:center;min-width:0;flex:1;gap:.7rem;
+  padding:.75rem .25rem .75rem .7rem;min-height:66px;text-decoration:none;
+  border:1px solid transparent;border-radius:14px;color:var(--text)
+}
+body.tutor-home-page .tutor-history-link:hover {text-decoration:none}
+body.tutor-home-page .tutor-history-link:focus-visible {border-color:var(--accent);outline-offset:-2px}
+body.tutor-home-page .tutor-history-icon {
+  flex:0 0 36px;width:36px;height:36px;border-radius:11px;
+  display:grid;place-items:center;background:var(--accent-soft);color:var(--accent)
+}
+body.tutor-home-page .tutor-history-copy {display:flex;flex-direction:column;min-width:0;gap:.25rem;flex:1}
+body.tutor-home-page .tutor-history-copy strong {
+  font-size:.9rem;font-weight:650;line-height:1.35;text-overflow:ellipsis;overflow:hidden;white-space:nowrap;
+  text-decoration:none
+}
+body.tutor-home-page .tutor-history-meta {color:var(--text-muted);font-size:.72rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+body.tutor-home-page .tutor-history-time {flex:0 0 auto;font-size:.69rem;color:var(--text-muted);white-space:nowrap;max-width:8rem;margin-left:.15rem}
+body.tutor-home-page .tutor-history-actions {position:relative;flex:0 0 35px;margin-right:.35rem}
+body.tutor-home-page .tutor-history-actions > summary {
+  display:grid;place-items:center;list-style:none;width:35px;height:37px;min-height:37px;
+  border-radius:9px;font-size:1.3rem;line-height:1;color:var(--text-muted);
+  cursor:pointer
+}
+body.tutor-home-page .tutor-history-actions > summary::-webkit-details-marker {display:none}
+body.tutor-home-page .tutor-history-actions > summary:hover,
+body.tutor-home-page .tutor-history-actions[open] > summary {color:var(--accent);background:var(--accent-soft)}
+body.tutor-home-page .tutor-history-actions[open] {z-index:25}
+body.tutor-home-page .tutor-rename-form {
+  position:absolute;right:0;top:calc(100% + .25rem);width:min(19rem,calc(100vw - 2rem));
+  background:var(--surface-elevated);border:1px solid var(--border);
+  border-radius:13px;padding:.9rem;box-shadow:0 15px 35px rgba(0,0,0,.3);
+  display:grid;gap:.5rem
+}
+body.tutor-home-page .tutor-history-item:nth-last-child(-n+2) .tutor-rename-form {top:auto;bottom:calc(100% + .25rem)}
+body.tutor-home-page .tutor-rename-form label {font-size:.75rem;color:var(--text-muted);font-weight:600}
+body.tutor-home-page .tutor-rename-form input {width:100%;min-width:0;font-size:.88rem;min-height:42px;background:var(--surface-muted)}
+body.tutor-home-page .tutor-rename-form button {
+  background:var(--accent);color:var(--surface-canvas);border:0;border-radius:9px;
+  padding:.58rem .8rem;min-height:40px;cursor:pointer;font-size:.8rem;font-weight:750
+}
+body.tutor-home-page .tutor-history-empty {margin:1rem 0 0;padding:1rem;border-radius:12px;background:var(--surface-muted);color:var(--text-muted)}
+@media(min-width:1440px) {
+  body.tutor-home-page .tutor-home-grid {grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr)}
+}
+@media(min-width:1150px) {
+  body.tutor-home-page.sidebar-collapsed .tutor-home-grid {grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr)}
+}
+@media(max-width:860px) {
+  body.tutor-home-page .app-main>.content {padding:1rem .75rem 2rem}
+  body.tutor-home-page .tutor-history {padding:1rem .75rem}
+  body.tutor-home-page .tutor-history-time {font-size:.65rem}
+}
+@media(max-width:420px) {
+  body.tutor-home-page .tutor-history-icon {flex-basis:30px;width:30px;height:30px}
+  body.tutor-home-page .tutor-history-link {gap:.5rem;padding-left:.35rem}
+  body.tutor-home-page .tutor-history-time {max-width:4rem;overflow:hidden;text-overflow:ellipsis}
+}
