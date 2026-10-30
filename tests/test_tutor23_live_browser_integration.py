@@ -87,6 +87,7 @@ def test_tutor_original_routes_and_new_controls_in_real_browser(browser, local_t
         assert page.get_by_text("Help me with **LU**.").count() == 1
         assert page.evaluate("document.documentElement.scrollWidth <= innerWidth + 1")
         assert fake.llm_calls == 0
+        page.get_by_role("button", name="+ Tools", exact=True).click()
         page.get_by_role("button", name="Hint only").click()
         expect(page.locator("#agent-question")).to_have_value(
             "Give me one hint only; do not reveal the solution."
