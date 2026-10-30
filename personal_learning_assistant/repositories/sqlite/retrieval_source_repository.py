@@ -189,7 +189,7 @@ class SQLiteRetrievalSourceRepository:
                     "extraction_version": str(row["extraction_version"]),
                     "text": str(row["chunk_text"]),
                     "resource_ids": tuple(sorted(resource_ids.get(document_id, set()))),
-                    "course_ids": ((str(native["subject_id"]),) if native and native["subject_id"] else ()) if native_id else tuple(sorted(course_ids.get(document_id, set()))),
+                    "course_ids": ((str(native["subject_id"]),) if native and native["subject_id"] else tuple(sorted(course_ids.get(document_id,set()))) if locator.get('preserve_legacy_scope') else ()) if native_id else tuple(sorted(course_ids.get(document_id, set()))),
                     "topic_ids": tuple(sorted(effective_topics)),
                     "providers": tuple(sorted(providers.get(document_id, set()))),
                 }
@@ -197,8 +197,12 @@ class SQLiteRetrievalSourceRepository:
         return tuple(records)
 
     def source_fingerprint(self):
+        return self.fingerprint_records(self.active_records())
+
+    @staticmethod
+    def fingerprint_records(records):
         compact = []
-        for item in self.active_records():
+        for item in records:
             compact.append(
                 {
                     "chunk_id": item["chunk_id"],

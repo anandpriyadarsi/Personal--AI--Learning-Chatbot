@@ -17,6 +17,7 @@ import tempfile
 import uuid
 from .native_document_extraction import extract_pages, normalize
 
+_UNCHANGED_FOLDER=object()
 MAX_UPLOAD = 100 * 1024 * 1024
 from .native_document_formats import MIMES, validate as validate_format
 from .native_academic_files import AcademicFiles
@@ -153,6 +154,7 @@ class NativeDocumentLibrary(NativeTutorBridge, AcademicFiles, LegacySources):
             self._ensure_index(con)
         from .native_library_migrations import migrate
         migrate(self, version)
+        self._restore_availability()
         with self.connection(write=True) as con:
             con.execute("UPDATE documents SET status='stored' WHERE status='indexing' AND NOT EXISTS (SELECT 1 FROM processing_jobs j WHERE j.document_id=documents.id AND j.state='running' AND j.lease_until>strftime('%s','now'))")
             for row in con.execute('SELECT id FROM documents').fetchall(): self._enqueue_publication(con,row['id'])
@@ -302,8 +304,9 @@ class NativeDocumentLibrary(NativeTutorBridge, AcademicFiles, LegacySources):
             con.execute('INSERT INTO folders(id,name,parent_id,binding_id) VALUES(?,?,?,?)', (identity, name, parent_id,binding['id'] if binding else None))
         return {'id':identity, 'name':name, 'parent_id':parent_id}
 
-    def update_folder(self, folder_id, name, parent_id, *, confirm_scope=False):
+    def update_folder(self, folder_id, name, parent_id, *, confirm_scope=False,sort_order=None):
         name = label(name)
+        if sort_order is not None and (type(sort_order) is not int or not 0<=sort_order<=100000):raise LibraryError('Choose a valid folder order.')
         with self.connection(write=True) as con:
             self._folder(con, folder_id); self._folder(con, parent_id)
             old=con.execute('SELECT * FROM folders WHERE id=?',(folder_id,)).fetchone()
@@ -318,12 +321,12 @@ class NativeDocumentLibrary(NativeTutorBridge, AcademicFiles, LegacySources):
                 if current == folder_id: raise LibraryError('A folder cannot be moved inside itself.')
                 current = con.execute('SELECT parent_id FROM folders WHERE id=?', (current,)).fetchone()[0]
             else: raise LibraryError('Folder nesting is limited to 100 levels.')
-            con.execute('UPDATE folders SET name=?,parent_id=? WHERE id=?', (name, parent_id, folder_id))
+            con.execute('UPDATE folders SET name=?,parent_id=?,sort_order=? WHERE id=?', (name, parent_id,old['sort_order'] if sort_order is None else sort_order,folder_id))
             descendants=[r[0] for r in con.execute('WITH RECURSIVE tree(id) AS (SELECT ? UNION SELECT f.id FROM folders f JOIN tree t ON f.parent_id=t.id) SELECT id FROM tree',(folder_id,))]
             for identity in descendants:
                 con.execute('UPDATE folders SET binding_id=? WHERE id=?',(after['id'] if after else None,identity))
                 for doc in con.execute('SELECT id FROM documents WHERE folder_id=?',(identity,)).fetchall():
-                    con.execute('UPDATE documents SET subject_id=?,metadata_revision=metadata_revision+1,generation=generation+1 WHERE id=?',(after['course_id'] if after else None,doc['id']))
+                    con.execute('UPDATE documents SET subject_id=?,scope_override=1,metadata_revision=metadata_revision+1,generation=generation+1,tutor_state=CASE WHEN indexing_enabled THEN "preparing" ELSE "disabled" END WHERE id=?',(after['course_id'] if after else None,doc['id']))
                     self._enqueue_publication(con,doc['id'])
         self._wake.set()
 
@@ -351,21 +354,23 @@ class NativeDocumentLibrary(NativeTutorBridge, AcademicFiles, LegacySources):
             fields['tags'] = json.dumps([label(t, maximum=80) for t in tags])
         with self.connection(write=True) as con:
             self._doc(con.execute('SELECT * FROM documents WHERE id=?',(document_id,)).fetchone())
+            if 'folder_id' in fields or 'subject_id' in fields:fields['scope_override']=1
             if 'folder_id' in fields:
                 binding=self._binding(con,fields['folder_id'])
                 fields['subject_id']=binding['course_id'] if binding else None
             fields['updated_at'] = now()
-            con.execute('UPDATE documents SET '+','.join(k+'=?' for k in fields)+',metadata_revision=metadata_revision+1,generation=generation+1 WHERE id=?', (*fields.values(),document_id))
+            con.execute('UPDATE documents SET '+','.join(k+'=?' for k in fields)+',metadata_revision=metadata_revision+1,generation=generation+1,tutor_state=CASE WHEN indexing_enabled THEN "preparing" ELSE "disabled" END WHERE id=?', (*fields.values(),document_id))
             self._enqueue_publication(con,document_id)
         self._wake.set()
         return self.get(document_id)
 
-    def copy(self, document_id, *, folder_id=None):
+    def copy(self, document_id, *, folder_id=_UNCHANGED_FOLDER):
         with self.connection(write=True) as con:
             doc = self._doc(con.execute('SELECT * FROM documents WHERE id=?',(document_id,)).fetchone())
-            if folder_id is not None:
+            if folder_id is not _UNCHANGED_FOLDER:
                 binding=self._binding(con,folder_id);doc['folder_id']=folder_id;doc['subject_id']=binding['course_id'] if binding else None
             doc['favorite']=0;doc['trashed_at']=None;doc['opened_at']=None
+            doc['tutor_state']='preparing' if doc['indexing_enabled'] else 'disabled'
             doc.pop('mime'); doc['tags'] = json.dumps(doc['tags']); doc['id'] = uuid.uuid4().hex
             doc['display_name'] = doc['display_name'][:240] + ' (copy)'
             doc['created_at'] = doc['updated_at'] = now()
@@ -377,7 +382,7 @@ class NativeDocumentLibrary(NativeTutorBridge, AcademicFiles, LegacySources):
         return self.get(doc['id'])
 
     def _cancel_job(self, document_id=None):
-        for identity, event in self._job_cancel.items():
+        for identity, event in tuple(self._job_cancel.items()):
             if document_id is None or identity == document_id: event.set()
 
     def _remove_index(self, con, document_id, *, purge=False):
@@ -391,8 +396,9 @@ class NativeDocumentLibrary(NativeTutorBridge, AcademicFiles, LegacySources):
     def delete(self, document_id):
         with self.connection(write=True) as con:
             doc = self._doc(con.execute('SELECT * FROM documents WHERE id=?',(document_id,)).fetchone())
-            if con.execute('SELECT 1 FROM source_pins WHERE document_id=?',(document_id,)).fetchone() or con.execute('SELECT 1 FROM source_links WHERE document_id=?',(document_id,)).fetchone():
+            if con.execute('SELECT 1 FROM source_pins WHERE document_id=?',(document_id,)).fetchone():
                 raise LibraryError('This file has linked study sources. Resolve those references before permanently deleting it.',409)
+            self._release_unreferenced_sources(con,doc)
             self._cancel_job(document_id)
             self._remove_index(con, document_id, purge=True)
             con.execute('DELETE FROM documents WHERE id=?', (document_id,))
@@ -403,6 +409,7 @@ class NativeDocumentLibrary(NativeTutorBridge, AcademicFiles, LegacySources):
                 con.execute('BEGIN IMMEDIATE')
                 if not con.execute('SELECT 1 FROM documents WHERE sha256=?',(doc['sha256'],)).fetchone():
                     self._blob(doc['sha256']).unlink(missing_ok=True)
+        self._needs_refresh=True;self._wake.set()
 
     def set_indexing(self, document_id, enabled):
         if type(enabled) is not bool: raise LibraryError('Indexing flag must be a boolean.')
@@ -443,13 +450,16 @@ class NativeDocumentLibrary(NativeTutorBridge, AcademicFiles, LegacySources):
         if document_id: clauses.append('d.id=?'); args.append(document_id)
         return (' AND '+' AND '.join(clauses) if clauses else ''), args
 
-    def search(self, query, *, folder_id=None, subject_id=None, document_id=None, offset=0, limit=50):
+    def search(self, query, *, folder_id=None, subject_id=None, document_id=None, kind=None,offset=0, limit=50):
         if len(query)>500: raise LibraryError('Search is limited to 500 characters.')
         normalized = normalize(query)
         if not normalized: return []
         limit, offset = min(100,max(1,int(limit))), max(0,int(offset))
         with self.connection() as con:
             scope, args = self._scope(con, folder_id, subject_id, document_id)
+            if kind:
+                if kind not in MIMES:raise LibraryError('Choose a supported type.')
+                scope+=' AND d.kind=?';args.append(kind)
             phrase = '"'+normalized+'"'
             rank_sql = 'bm25(page_fts)' if self.fts_enabled else '0.0'
             match_sql = 'page_fts MATCH ?' if self.fts_enabled else "instr(' ' || page_fts.text || ' ', ?) > 0"
@@ -496,3 +506,17 @@ class NativeDocumentLibrary(NativeTutorBridge, AcademicFiles, LegacySources):
             total = con.execute('SELECT count(*) FROM documents d WHERE 1=1'+scope,args).fetchone()[0]
             rows = con.execute('SELECT d.* FROM documents d WHERE 1=1'+scope+' ORDER BY '+order+' LIMIT ? OFFSET ?',(*args,page_size,(page-1)*page_size)).fetchall()
             return {'items':[self._doc(r) for r in rows], 'total':total,'page':page,'page_size':page_size}
+
+
+def record_android_open(root_path,document_id):
+    """Called off the UI thread only after a successful native viewer launch."""
+    if not isinstance(document_id,str) or not re.fullmatch('[0-9a-f]{32}',document_id):
+        raise LibraryError('Invalid document identity.',404)
+    root=_safe(Path(root_path).absolute()/'data/native_library')
+    database=_safe(root/'library.sqlite3')
+    if not database.is_file():raise LibraryError('Library unavailable.',409)
+    with storage_lock(root):
+        con=sqlite3.connect(str(database),timeout=15)
+        try:
+            con.execute('UPDATE documents SET opened_at=? WHERE id=? AND trashed_at IS NULL',(now(),document_id));con.commit()
+        finally:con.close()

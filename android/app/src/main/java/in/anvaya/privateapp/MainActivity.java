@@ -384,6 +384,11 @@ public class MainActivity extends Activity {
                     DocumentIntents.Action action=request.share?DocumentIntents.Action.SHARE:
                         request.openWith?DocumentIntents.Action.OPEN_WITH:DocumentIntents.Action.VIEW;
                     DocumentIntents.Result result=DocumentIntents.launch(this::startActivity,uri,mime,action);
+                    if(result==DocumentIntents.Result.OPENED) new Thread(()->{
+                        try {Python.getInstance().getModule("personal_learning_assistant.services.native_document_library")
+                            .callAttr("record_android_open",getFilesDir().getCanonicalPath(),request.documentId);}
+                        catch(Exception ignored) { /* Recent is metadata; the opened original stays readable. */ }
+                    },"anvaya-recent-original").start();
                     if(result==DocumentIntents.Result.NO_COMPATIBLE_APP) noDocumentViewer(request);
                     else if(result==DocumentIntents.Result.FAILED) documentError();
                 });

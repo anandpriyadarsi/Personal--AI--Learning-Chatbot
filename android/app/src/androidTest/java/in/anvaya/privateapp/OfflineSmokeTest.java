@@ -67,7 +67,7 @@ public class OfflineSmokeTest {
     }
     private void go(String path) throws Exception {
         js("location.href="+org.json.JSONObject.quote(path));
-        waitFor("location.pathname+location.search==="+org.json.JSONObject.quote(path)+" && document.readyState==='complete' && !!document.querySelector('main')");
+        waitFor("location.pathname+location.search==="+org.json.JSONObject.quote(path.equals("/library")?"/library/files":path)+" && document.readyState==='complete' && !!document.querySelector('main')");
     }
     private JSONObject sessions() throws Exception {
         try(InputStream in=getInstrumentation().getContext().getAssets().open("acceptance/sessions.json")) {

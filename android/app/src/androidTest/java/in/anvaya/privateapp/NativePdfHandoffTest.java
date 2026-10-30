@@ -108,7 +108,12 @@ public class NativePdfHandoffTest {
             assertNull("System owns the preferred viewer",sent.getPackage());assertNull(sent.getComponent());assertEquals(Intent.ACTION_VIEW,sent.getAction());assertEquals("application/pdf",sent.getType());assertEquals("content",sent.getData().getScheme());
             assertTrue((sent.getFlags()&Intent.FLAG_GRANT_READ_URI_PERMISSION)!=0);assertEquals(0,sent.getFlags()&Intent.FLAG_GRANT_WRITE_URI_PERMISSION);assertEquals(sent.getData(),sent.getClipData().getItemAt(0).getUri());assertFalse(sent.toUri(0).contains(context.getFilesDir().getPath()));
             assertNull(report[0].getStringExtra("error"));assertNotEquals(android.os.Process.myUid(),report[0].getIntExtra("uid",-1));assertEquals("application/pdf",report[0].getStringExtra("mime"));assertEquals("गणित π + λ ∈ ℝ.pdf",report[0].getStringExtra("filename"));assertEquals(fixture.getString("sha256"),report[0].getStringExtra("sha256"));assertEquals(fixture.getLong("size"),report[0].getLongExtra("size",-1));assertEquals(3,report[0].getIntExtra("pages",-1));assertEquals(300,report[0].getIntExtra("pageWidth",-1));assertEquals(420,report[0].getIntExtra("pageHeight",-1));assertTrue(report[0].getBooleanExtra("writeDenied",false));assertTrue(report[0].getBooleanExtra("deleteDenied",false));
-            screenshot("android-native-pdf-external-viewer");pressSystemBack();waitJs("location.pathname==='/library/files'&&!!document.querySelector('"+row()+"')");assertManagedOriginal();screenshot("android-native-pdf-library");
+            screenshot("android-native-pdf-external-viewer");pressSystemBack();waitJs("location.pathname==='/library/files'&&!!document.querySelector('"+row()+"')");assertManagedOriginal();
+            String recent="__import__('personal_learning_assistant.android_runtime',fromlist=['_runtime'])._runtime.app.extensions['native_document_library'].get('"+fixture.getString("id")+"')['opened_at'] is not None";
+            long recentDeadline=System.currentTimeMillis()+10000;
+            while(!eval(recent).toBoolean()&&System.currentTimeMillis()<recentDeadline)Thread.sleep(100);
+            assertTrue("Successful native viewer open appears in Recent",eval(recent).toBoolean());
+            screenshot("android-native-pdf-library");
         } finally {inst.removeMonitor(route);context.unregisterReceiver(receiver);}
     }
     @Test public void openWithCancellationAndAbsentViewerPreserveLibrary() throws Exception {

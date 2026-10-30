@@ -65,3 +65,49 @@ class TutorBridgeTests(unittest.TestCase):
         self.assertEqual(count,[doc['id']]);self.assertFalse(self.records())
 
 if __name__=='__main__': unittest.main()
+
+
+class RetrievalPublicationRaceTests(unittest.TestCase):
+    setUp=TutorBridgeTests.setUp
+    records=TutorBridgeTests.records
+    def test_trash_between_record_snapshot_and_fingerprint_cannot_publish_old_evidence(self):
+        from personal_learning_assistant.retrieval.index_builder import RetrievalIndexBuilder,RetrievalIndexBuildError
+        doc=self.lib.upload(BytesIO(b'Only evidence for Zirconium47.'),'fact.txt')
+        self.lib.run_pending()
+        with closing(sqlite3.connect(self.root/'data/learning_assistant.db')) as con:
+            repo=SQLiteRetrievalSourceRepository(con)
+            read=repo.active_records;first=[True]
+            def trash_after_read():
+                records=read()
+                if first[0]:first[0]=False;self.lib.trash(doc['id'])
+                return records
+            repo.active_records=trash_after_read
+            with self.assertRaises(RetrievalIndexBuildError):
+                RetrievalIndexBuilder(repo,self.root/'data/tutor_retrieval').build(acknowledge=False)
+        self.assertFalse(self.records())
+
+
+class IndexedDeletionTests(unittest.TestCase):
+    setUp=TutorBridgeTests.setUp
+    records=TutorBridgeTests.records
+    def test_unreferenced_indexed_trash_can_be_permanently_deleted(self):
+        doc=self.lib.upload(BytesIO(b'A file with no study relations'),'fact.txt')
+        self.lib.run_pending();original=self.lib.original(doc['id'])
+        self.lib.trash(doc['id']);self.lib.run_pending()
+        self.lib.delete(doc['id'])
+        self.assertFalse(original.exists())
+        self.assertFalse(self.records())
+
+
+class CopyScopeAndEvidenceTests(unittest.TestCase):
+    setUp=TutorBridgeTests.setUp
+    def test_copy_to_root_clears_scope_and_shared_bytes_do_not_duplicate_evidence(self):
+        roots=self.lib.bootstrap_academics([{'id':'chem','code':'CY100N','name':'Chemistry'}])
+        original=self.lib.upload(BytesIO(b'Zirconium47 is the unique catalyst.'),'fact.txt',folder_id=roots['subjects'][0]['folder_id'])
+        copied=self.lib.copy(original['id'],folder_id=None)
+        self.assertIsNone(copied['folder_id']);self.assertIsNone(copied['subject_id'])
+        self.lib.run_pending()
+        runtime=UnifiedSearchRuntime(database_path=self.root/'data/learning_assistant.db',index_root=self.root/'data/tutor_retrieval')
+        self.addCleanup(runtime.close)
+        self.assertEqual(len(runtime.search('Zirconium47')),1)
+        self.assertEqual(len(runtime.search('Zirconium47',course_ids=('chem',))),1)

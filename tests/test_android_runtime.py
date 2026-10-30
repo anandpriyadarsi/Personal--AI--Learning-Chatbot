@@ -386,11 +386,13 @@ def test_library_pdf_upload_picker_entrypoint_and_source_integrity(tmp_path):
         with sqlite3.connect(r.root/'data/learning_assistant.db') as con:
             doc = con.execute('SELECT id,path_key,content_hash,extraction_status FROM knowledge_documents').fetchone()
             assert doc and doc[0] in uploaded.location
-            assert doc[1] == 'documents/' + hashlib.sha256(original).hexdigest() + '.pdf'
+            assert doc[1].startswith('native_library/')
             assert doc[2] == hashlib.sha256(original).hexdigest()
             assert doc[3] == 'completed'
             assert con.execute('SELECT count(*) FROM knowledge_chunks').fetchone()[0] > 0
-        assert (r.root/'data'/doc[1]).read_bytes() == original
+        from personal_learning_assistant.services.native_document_library import resolve_android_document
+        stored=resolve_android_document(r.root,doc[1].split('/',1)[1])
+        assert __import__('pathlib').Path(stored[0]).read_bytes()==original
         repeated = post('/library/upload', {
             'csrf_token': token, 'source': (io.BytesIO(original), 'second-name.pdf')})
         assert repeated.status_code == 303

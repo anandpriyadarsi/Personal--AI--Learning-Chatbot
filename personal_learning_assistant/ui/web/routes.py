@@ -4285,10 +4285,8 @@ def knowledge_item(document_id):
         if current_app.config.get('ANDROID_LOCAL_RUNTIME'):
             from .native_library import service,view_document
             lib=service()
-            with lib.connection() as con:
-                linked=con.execute("SELECT document_id FROM source_links WHERE namespace='canonical' AND source_id=? AND content_hash=?",(document_id,item.version_hash)).fetchone()
-            if linked:
-                native_original=view_document(lib.get(linked['document_id']))
+            linked=lib.document_for_source(document_id,item.version_hash)
+            if linked:native_original=view_document(linked)
         return render_template(
             "knowledge_item.html", active_page="knowledge", item=item,
             native_original=native_original,

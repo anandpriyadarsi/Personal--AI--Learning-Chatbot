@@ -117,3 +117,15 @@ def test_upload_requires_explicit_content_indexing(app):
     c=app.test_client()
     doc=c.post('/library/files/upload',data={'file':(BytesIO(pdf_bytes()),'Plain.pdf')},headers=token(app)).json['document']
     assert doc['indexing_enabled']==0 and doc['status']=='disabled'
+
+
+def test_future_configured_terms_and_type_filtered_search_use_actual_courses(app):
+    app.config['NATIVE_LIBRARY_CATALOGUE_FACTORY']=lambda:{'courses':[
+        {'id':'actual-term2-course','code':'CS201','name':'Algorithms','semester':'Semester 2'}]}
+    client=app.test_client();body=client.get('/library/files').get_data(as_text=True)
+    assert 'Semester 2' in body and '>Semester 1<' not in body
+    lib=app.config['NATIVE_LIBRARY_SERVICE']
+    lib.upload(BytesIO(b'lesson content'),'lesson.txt',indexing=False)
+    lib.upload(BytesIO(pdf_bytes()),'lesson.pdf',indexing=False)
+    body=client.get('/library/files?q=lesson&kind=txt').get_data(as_text=True)
+    assert 'lesson.txt' in body and 'lesson.pdf' not in body

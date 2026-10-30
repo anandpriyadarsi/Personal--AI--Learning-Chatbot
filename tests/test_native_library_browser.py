@@ -65,6 +65,7 @@ def test_upload_search_read_rename_move_download_and_delete(server,width,theme,t
         row.get_by_role('button',name='Rename',exact=True).click()
         page.locator('#rename-form input[name=display_name]').fill('My Linear Algebra')
         page.get_by_role('button',name='Save name').click()
+        expect(page.locator('.file-main h2')).to_have_text('My Linear Algebra')
         page.goto(base+'/library/files')
         row=page.locator('.file-row').filter(has_text='My Linear Algebra')
         expect(row).to_be_visible()

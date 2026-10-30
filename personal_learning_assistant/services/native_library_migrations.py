@@ -6,7 +6,9 @@ SCHEMA_VERSION = 2
 
 
 def migrate(library, previous_version):
-    if previous_version == 2: return
+    if previous_version == 2:
+        with library.connection() as con:
+            if 'scope_override' in {r[1] for r in con.execute('PRAGMA table_info(documents)')}:return
     # Backup precedes the first schema-2 write. Its destination is outside data.
     if previous_version == 1:
         from personal_learning_assistant.android_backup import export_backup_file
@@ -22,7 +24,7 @@ def migrate(library, previous_version):
         for table, columns in {
             'folders': [('binding_id','TEXT'),('node_kind',"TEXT NOT NULL DEFAULT 'folder'"),
                         ('sort_order','INTEGER NOT NULL DEFAULT 0'),('template_origin','TEXT')],
-            'documents': [('managed_original','TEXT'),('favorite','INTEGER NOT NULL DEFAULT 0'),('opened_at','TEXT'),
+            'documents': [('scope_override','INTEGER NOT NULL DEFAULT 0'),('managed_original','TEXT'),('favorite','INTEGER NOT NULL DEFAULT 0'),('opened_at','TEXT'),
                           ('trashed_at','TEXT'),('availability',"TEXT NOT NULL DEFAULT 'available'"),
                           ('metadata_revision','INTEGER NOT NULL DEFAULT 1'),('tutor_state',"TEXT NOT NULL DEFAULT 'preparing'")]
         }.items():
@@ -57,3 +59,30 @@ def migrate(library, previous_version):
         for statement in statements: con.execute(statement)
         con.execute("INSERT OR IGNORE INTO migration_ledger VALUES('native-schema-v2','complete',datetime('now'),'{}')")
         con.execute('PRAGMA user_version=2')
+
+
+def validate_schema(con):
+    """Prove the restored owner can reopen, not just SQLite file integrity."""
+    version=con.execute('PRAGMA user_version').fetchone()[0]
+    if version not in (1,2):raise ValueError('Unsupported native Library schema')
+    required={
+        'folders':{'id','name','parent_id'},
+        'documents':{'id','original_name','display_name','kind','sha256','size','folder_id','subject_id','topic','tags',
+                     'indexing_enabled','ocr','generation','status','status_detail','position_count','indexed_count','created_at','updated_at'},
+        'pages':{'id','document_id','position','text'},
+    }
+    if version==2:
+        required['folders']|={'binding_id','node_kind','sort_order','template_origin'}
+        required['documents']|={'scope_override','managed_original','favorite','opened_at','trashed_at','availability','metadata_revision','tutor_state'}
+        required.update({
+            'semesters':{'id','number','label','year','program','folder_id','sort_order'},
+            'subject_bindings':{'id','semester_id','authority','course_id','code','folder_id'},
+            'source_links':{'document_id','namespace','source_id','content_hash','state','operation_id'},
+            'source_pins':{'document_id','owner','reference_id'},
+            'processing_jobs':{'id','document_id','content_hash','generation','extraction_version','state','lease_owner','lease_until','attempts','checkpoint','error_code'},
+            'template_applications':{'folder_id','template_key','origin_key','child_id','version'},
+            'migration_ledger':{'operation_id','phase','completed_at','details'},
+        })
+    for table,columns in required.items():
+        if not columns<={r[1] for r in con.execute('PRAGMA table_info('+table+')')}:
+            raise ValueError('Incompatible native Library owner schema')

@@ -10,7 +10,7 @@
 <header class="workspace-header">
   <div>
     <p class="eyebrow">{{ item.source_label }}</p>
-    <h2>{{ item.title }}</h2>
+    <h2>{{ native_original.display_name if native_original else item.title }}</h2>
     {% if item.course_labels or item.topic_labels %}
     <p class="microcopy">{{ (item.course_labels + item.topic_labels)|join(' · ') }}</p>
     {% endif %}

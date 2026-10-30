@@ -233,7 +233,8 @@ def _validate_databases(root, files, tombstones=()):
                     activate_assessment_extension(database_path=path,backup_path=directory/'backups')
                 elif name=='data/native_library/library.sqlite3':
                     with closing(sqlite3.connect(path)) as con:
-                        if con.execute('PRAGMA user_version').fetchone()[0] not in (1,2): raise ValueError('Unknown Library version')
+                        from personal_learning_assistant.services.native_library_migrations import validate_schema
+                        validate_schema(con)
                         columns={r[1] for r in con.execute('PRAGMA table_info(documents)')}
                         locator_sql='managed_original' if 'managed_original' in columns else 'NULL'
                         for identity,digest,size,locator in con.execute('SELECT id,sha256,size,'+locator_sql+' FROM documents'):
@@ -243,6 +244,14 @@ def _validate_databases(root, files, tombstones=()):
                                      else len(blob)==size and hashlib.sha256(blob).hexdigest()==digest))
                             if not valid and (identity,digest,size) not in declared:
                                 raise ValueError('Library original is missing or changed')
+                    if isinstance(payload,Path):
+                        with closing(sqlite3.connect(payload)) as staged_con:
+                            legacy=staged_con.execute('PRAGMA user_version').fetchone()[0]==1
+                        if legacy:
+                            from personal_learning_assistant.services.native_document_library import NativeDocumentLibrary
+                            staged=NativeDocumentLibrary(payload.parent,autostart=False)
+                            staged.close()
+                            with closing(sqlite3.connect(payload)) as staged_con:validate_schema(staged_con)
                 elif name=='data/learning_studio.sqlite3':
                     from personal_learning_assistant.learning_studio.store import StudioStore
                     with StudioStore(path).connection(): pass
@@ -293,6 +302,10 @@ def apply_pending_restore(root):
         (stage/'data').mkdir(exist_ok=True)
         if manifest.get('unavailable_originals'):
             _json_publish(stage/'data/library-recovery.json',manifest['unavailable_originals'])
+            native=stage/'data/native_library/library.sqlite3'
+            if native.is_file():
+                from personal_learning_assistant.services.native_document_library import NativeDocumentLibrary
+                restored=NativeDocumentLibrary(native.parent,autostart=False);restored.close()
         _json_publish(journal,state)
         if (root/'data').exists(): os.replace(root/'data',previous)
         state['phase']='old_moved'; _json_publish(journal,state)

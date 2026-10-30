@@ -53,18 +53,18 @@ class StreamingBackupTests(unittest.TestCase):
 
     def test_missing_native_original_is_declared_not_fabricated(self):
         native=self.root/'data/native_library'; native.mkdir()
-        with sqlite3.connect(native/'library.sqlite3') as con:
-            con.execute('CREATE TABLE documents(id TEXT,sha256 TEXT,size INTEGER)')
-            con.execute('PRAGMA user_version=1')
-            con.execute('INSERT INTO documents VALUES(?,?,?)',('d','a'*64,10))
+        from personal_learning_assistant.services.native_document_library import NativeDocumentLibrary
+        lib=NativeDocumentLibrary(native,autostart=False)
+        doc=lib.upload(io.BytesIO(b'Expected original'),'missing.txt',indexing=False)
+        lib.original(doc['id']).unlink();lib.close()
         archive=backup.export_backup_file(self.root)
         with zipfile.ZipFile(archive) as z:
             manifest=json.loads(z.read('manifest.json'))
-        self.assertEqual(manifest['unavailable_originals'][0]['sha256'],'a'*64)
+        self.assertEqual(manifest['unavailable_originals'][0]['sha256'],doc['sha256'])
         dest=self.root/'dest'
         with archive.open('rb') as stream: backup.stage_restore(dest,stream)
         backup.apply_pending_restore(dest)
-        self.assertFalse((dest/'data/native_library/blobs'/('a'*64)).exists())
+        self.assertFalse((dest/'data/native_library/blobs'/doc['sha256']).exists())
         self.assertTrue((dest/'data/library-recovery.json').exists())
 
     def test_interrupted_swap_recovered_before_reading_pending_archive(self):
@@ -77,3 +77,16 @@ class StreamingBackupTests(unittest.TestCase):
 
 
 if __name__ == '__main__': unittest.main()
+
+
+class SchemaCompatibilityTests(unittest.TestCase):
+    def test_incomplete_native_schema_never_replaces_live_data(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root=Path(temporary);source=root/'source';native=source/'data/native_library';native.mkdir(parents=True)
+            with sqlite3.connect(native/'library.sqlite3') as con:
+                con.execute('PRAGMA user_version=2');con.execute('CREATE TABLE documents(id TEXT,sha256 TEXT,size INTEGER)')
+            raw=backup.export_backup(source);target=root/'target';(target/'data').mkdir(parents=True)
+            (target/'data/notes.txt').write_text('keep existing records')
+            with self.assertRaises(ValueError):backup.stage_restore(target,raw)
+            self.assertEqual((target/'data/notes.txt').read_text(),'keep existing records')
+            self.assertFalse((target/'restore-pending.zip').exists())

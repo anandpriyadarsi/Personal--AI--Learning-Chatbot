@@ -14,12 +14,12 @@ class LegacySources:
         from personal_learning_assistant.android_backup import export_backup_file
         database=Path(database).absolute()
         if not database.is_file(): return {'imported':0}
-        with self.connection() as con:
-            if con.execute("SELECT 1 FROM migration_ledger WHERE operation_id='canonical-local-v2'").fetchone():
-                return {'imported':0}
         with closing(sqlite3.connect(str(database))) as academic:
             academic.row_factory=sqlite3.Row
             rows=[dict(r) for r in academic.execute("SELECT * FROM knowledge_documents WHERE path_key LIKE 'documents/%' AND mime_type='application/pdf'")]
+        with self.connection() as con:
+            known={(r['source_id'],r['content_hash']) for r in con.execute("SELECT source_id,content_hash FROM source_links WHERE namespace='canonical'")}
+        rows=[r for r in rows if (r['id'],r['content_hash']) not in known]
         if rows: export_backup_file(self.root.parent.parent)
         imported=0
         for source in rows:

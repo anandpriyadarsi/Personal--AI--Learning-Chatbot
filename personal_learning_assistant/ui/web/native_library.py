@@ -5,6 +5,7 @@ from pathlib import Path
 from secrets import token_urlsafe
 from threading import Lock
 import hmac
+import re
 import sqlite3
 from flask import Blueprint, abort, current_app, jsonify, render_template, request, send_file, url_for
 from personal_learning_assistant.services.native_document_library import NativeDocumentLibrary, LibraryError, MAX_UPLOAD, document_filename
@@ -100,9 +101,14 @@ def private(response):
 def home():
     lib=service(); folder=request.args.get('folder_id') or None
     courses=catalogue().get('courses',[])
-    # Read actual course semester values; never synthesize a sixth subject.
-    selected=[c for c in courses if str(c.get('semester','')).strip().casefold() in ('','1','semester 1','first semester','sem 1')]
-    lib.bootstrap_academics(selected)
+    # Group only authoritative configured terms; never fabricate eight cards.
+    terms={}
+    for c in courses:
+        value=str(c.get('semester','')).strip().casefold()
+        match=re.fullmatch(r'(?:semester\s*|sem\s*)?([1-8])',value)
+        number=int(match[1]) if match else 1 if value in ('','first semester') else None
+        if number is not None:terms.setdefault(number,[]).append(c)
+    for number,configured in sorted(terms.items()):lib.bootstrap_academics(configured,number=number)
     crumbs=lib.breadcrumbs(folder) if folder else []
     children=lib.children(folder,offset=int(request.args.get('folder_offset',0)))
     folders=children['items']
@@ -112,7 +118,7 @@ def home():
                             kind=request.args.get('kind') or None,page=request.args.get('page',1))
     content=request.args.get('content')=='1'
     searcher=lib.search if content else lib.metadata_search
-    matches=searcher(query,folder_id=None if request.args.get('scope')=='all' else folder,subject_id=course,offset=int(request.args.get('offset',0)),limit=50) if query else []
+    matches=searcher(query,kind=request.args.get('kind') or None,folder_id=None if request.args.get('scope')=='all' else folder,subject_id=course,offset=int(request.args.get('offset',0)),limit=50) if query else []
     return render_template('native_library.html',active_page='library', page=page,
         documents=[view_document(d) for d in page['items']], folders=folders,
         child_folders=folders if not view else [], crumbs=crumbs, folder_id=folder,
@@ -173,7 +179,9 @@ def document(document_id):
 @protect
 def copy(document_id):
     data=payload({'folder_id'})
-    return jsonify(document=view_document(service().copy(document_id,folder_id=data.get('folder_id')))),201
+    lib=service()
+    copied=lib.copy(document_id,folder_id=data['folder_id']) if 'folder_id' in data else lib.copy(document_id)
+    return jsonify(document=view_document(copied)),201
 
 
 @files.post('/library/files/<document_id>/index')
@@ -206,11 +214,11 @@ def folder_create():
 @files.route('/library/files/folders/<folder_id>',methods=['PATCH','DELETE'])
 @protect
 def folder_update(folder_id):
-    data=payload({'name','parent_id','confirm','confirm_scope'})
+    data=payload({'name','parent_id','confirm','confirm_scope','sort_order'})
     if request.method=='DELETE':
         if data.get('confirm') is not True: raise LibraryError('Confirm folder deletion.')
         service().delete_folder(folder_id)
-    else: service().update_folder(folder_id,data.get('name'),data.get('parent_id') or None,confirm_scope=data.get('confirm_scope') is True)
+    else: service().update_folder(folder_id,data.get('name'),data.get('parent_id') or None,confirm_scope=data.get('confirm_scope') is True,sort_order=data.get('sort_order'))
     return jsonify(saved=True)
 
 
@@ -262,7 +270,10 @@ def preview(document_id,position):
 @files.get('/library/files/<document_id>/learning')
 @protect
 def learning(document_id):
-    return render_template('native_learning_handoff.html',active_page='library',doc=view_document(service().get(document_id)))
+    lib=service();doc=view_document(lib.get(document_id))
+    if doc['kind']=='pdf' and doc['size']<=20*1024*1024 and getattr(lib,'_tutor_database',None):
+        doc['canonical_source_id']=lib.ensure_canonical_identity(document_id)
+    return render_template('native_learning_handoff.html',active_page='library',doc=doc)
 
 
 def register_native_library(app):

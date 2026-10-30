@@ -98,7 +98,7 @@ class AcademicFiles:
         with self.connection(write=True) as con:
             self._doc(con.execute('SELECT * FROM documents WHERE id=?',(document_id,)).fetchone())
             self._cancel_job(document_id);self._remove_index(con,document_id,purge=True)
-            con.execute("UPDATE documents SET trashed_at=?,generation=generation+1,status='disabled',metadata_revision=metadata_revision+1 WHERE id=?",(now(),document_id))
+            con.execute("UPDATE documents SET trashed_at=?,generation=generation+1,status='disabled',tutor_state='disabled',metadata_revision=metadata_revision+1 WHERE id=?",(now(),document_id))
             con.execute("UPDATE processing_jobs SET state='cancelled' WHERE document_id=?",(document_id,))
             self._enqueue_publication(con,document_id)
         self._wake.set()
@@ -120,6 +120,7 @@ class AcademicFiles:
     def _enqueue_publication(self,con,document_id):
         row=con.execute('SELECT * FROM documents WHERE id=?',(document_id,)).fetchone()
         if row is None: return
+        con.execute("UPDATE processing_jobs SET state='cancelled' WHERE document_id=? AND generation<>? AND state IN ('pending','running')",(document_id,row['generation']))
         con.execute('''INSERT OR IGNORE INTO processing_jobs(id,document_id,content_hash,generation,extraction_version)
             VALUES(?,?,?,?,?)''',(uuid.uuid4().hex,document_id,row['sha256'],row['generation'],'native-v2'))
 
@@ -209,3 +210,66 @@ class AcademicFiles:
                     self._enqueue_publication(con,row['id'])
             self._wake.set();return self.get(document_id)
         finally:temporary.unlink(missing_ok=True)
+
+
+    def _restore_availability(self):
+        from .native_document_library import _safe
+        recovery=_safe(self.root.parent/'library-recovery.json')
+        if not recovery.exists():return
+        if recovery.stat().st_size>8*1024*1024:raise ValueError('Recovery inventory exceeds limits')
+        records=json.loads(recovery.read_text(encoding='utf-8'))
+        if not isinstance(records,list):raise ValueError('Invalid recovery inventory')
+        import hashlib
+        operation='restore-recovery:'+hashlib.sha256(recovery.read_bytes()).hexdigest()
+        with self.connection(write=True) as con:
+            if con.execute('SELECT 1 FROM migration_ledger WHERE operation_id=?',(operation,)).fetchone():return
+            for record in records:
+                con.execute("UPDATE documents SET availability='missing',tutor_state='attention',status='unavailable',generation=generation+1 WHERE id=? AND sha256=? AND size=? AND availability<>'missing'",(record['document_id'],record['sha256'],record['size']))
+            con.execute("INSERT INTO migration_ledger VALUES(?,'complete',datetime('now'),'{}')",(operation,))
+
+
+    def _release_unreferenced_sources(self,con,doc):
+        from contextlib import closing
+        from .native_document_library import LibraryError,_safe
+        import sqlite3
+        links=con.execute("SELECT * FROM source_links WHERE document_id=?",(doc['id'],)).fetchall()
+        if not links:return
+        if any(link['namespace']!='canonical' for link in links):raise LibraryError('Resolve linked sources before permanent deletion.',409)
+        database=_safe(getattr(self,'_tutor_database',self.root.parent/'learning_assistant.db'))
+        if not database.is_file():raise LibraryError('Linked source inventory is unavailable; file retained.',409)
+        studio=_safe(self.root.parent/'learning_studio.sqlite3')
+        sources={r['source_id'] for r in links}
+        if studio.is_file():
+            try:
+                with closing(sqlite3.connect(str(studio),timeout=15)) as stored:
+                    stored.execute('PRAGMA query_only=ON')
+                    for (raw,) in stored.execute('SELECT package_json FROM modules'):
+                        package=json.loads(raw)
+                        if package.get('source',{}).get('source_id') in sources:
+                            raise LibraryError('A Learning Studio lesson still uses this original. Keep the source or resolve that lesson first.',409)
+            except (sqlite3.Error,ValueError) as error:
+                if isinstance(error,LibraryError):raise
+                raise LibraryError('Lesson references cannot be verified; file retained.',409) from error
+        with closing(sqlite3.connect(str(database),timeout=15,isolation_level=None)) as academic:
+            academic.execute('PRAGMA foreign_keys=ON')
+            academic.execute('BEGIN IMMEDIATE')
+            try:
+                for source in sources:
+                    for table,column,extra in [('resource_documents','document_id',''),('question_sources','document_id',''),
+                         ('study_item_reading_sessions','item_identity'," AND item_kind='knowledge_document'"),
+                         ('study_item_companion_entries','item_identity'," AND item_kind='knowledge_document'")]:
+                        exists=academic.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",(table,)).fetchone()
+                        if exists and academic.execute('SELECT 1 FROM '+table+' WHERE '+column+'=?'+extra+' LIMIT 1',(source,)).fetchone():
+                            raise LibraryError('Saved study history or resource references still use this source. Resolve them before deleting.',409)
+                    if con.execute('SELECT 1 FROM source_links WHERE source_id=? AND document_id<>?',(source,doc['id'])).fetchone():
+                        raise LibraryError('Another original placement still uses this source identity.',409)
+                    academic.execute("UPDATE knowledge_documents SET extraction_status='unavailable',extraction_error='Original permanently deleted by owner' WHERE id=?",(source,))
+                    academic.execute('DELETE FROM knowledge_chunks WHERE document_id=?',(source,))
+                academic.commit()
+            except BaseException:academic.rollback();raise
+
+
+    def document_for_source(self,source_id,content_hash):
+        with self.connection() as con:
+            row=con.execute("SELECT d.* FROM documents d JOIN source_links l ON l.document_id=d.id WHERE l.namespace='canonical' AND l.source_id=? AND l.content_hash=? ORDER BY d.trashed_at IS NOT NULL,d.created_at LIMIT 1",(source_id,content_hash)).fetchone()
+            return self._doc(row) if row else None

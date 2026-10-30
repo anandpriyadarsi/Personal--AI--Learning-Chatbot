@@ -88,7 +88,8 @@ class AcademicFilesTests(unittest.TestCase):
 if __name__=='__main__': unittest.main()
 
 
-class OriginalRepairTests(AcademicFilesTests):
+class OriginalRepairTests(unittest.TestCase):
+    setUp=AcademicFilesTests.setUp
     def test_repair_requires_identical_bytes_and_keeps_identity_and_opt_out(self):
         raw=b'Saved code example, never executed.'
         doc=self.lib.upload(BytesIO(raw),'lab.py',indexing=False)
@@ -97,4 +98,18 @@ class OriginalRepairTests(AcademicFilesTests):
         repaired=self.lib.repair_original(doc['id'],BytesIO(raw))
         self.assertEqual(repaired['id'],doc['id'])
         self.assertEqual(repaired['indexing_enabled'],0)
+        self.assertEqual(self.lib.original(doc['id']).read_bytes(),raw)
+
+
+class NativeRecentTests(unittest.TestCase):
+    setUp=AcademicFilesTests.setUp
+    def test_successful_native_open_records_recent_without_mutating_original(self):
+        from personal_learning_assistant.services.native_document_library import resolve_android_document,record_android_open
+        raw=b'Native original text'
+        doc=self.lib.upload(BytesIO(raw),'fact.txt',indexing=False)
+        app_root=self.lib.root.parent.parent
+        resolved=resolve_android_document(app_root,doc['id'])
+        self.assertEqual(resolved[1:],["text/plain","fact.txt"])
+        record_android_open(app_root,doc['id'])
+        self.assertEqual(self.lib.collection('recent')['items'][0]['id'],doc['id'])
         self.assertEqual(self.lib.original(doc['id']).read_bytes(),raw)

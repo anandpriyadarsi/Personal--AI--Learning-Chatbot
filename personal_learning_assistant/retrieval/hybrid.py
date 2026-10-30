@@ -77,12 +77,15 @@ class HybridRetriever:
             combined.items(),
             key=lambda item: (-item[1]["score"], item[0]),
         )
-        return tuple(
-            _hit(
-                rows[chunk_id],
-                info["score"],
-                info["lexical_rank"],
-                info["semantic_rank"],
-            )
-            for chunk_id, info in ranked[: int(top_k)]
-        )
+        hits=[];seen=set()
+        for chunk_id,info in ranked:
+            hit=_hit(rows[chunk_id],info['score'],info['lexical_rank'],info['semantic_rank'])
+            locator=hit.locator
+            if locator.get('native_document_id') and locator.get('content_hash'):
+                identity=(locator['content_hash'],hit.page_number,locator.get('slide'),locator.get('line'),
+                          locator.get('paragraph'),locator.get('char_start'),locator.get('char_end'),hit.text)
+                if identity in seen:continue
+                seen.add(identity)
+            hits.append(hit)
+            if len(hits)>=int(top_k):break
+        return tuple(hits)

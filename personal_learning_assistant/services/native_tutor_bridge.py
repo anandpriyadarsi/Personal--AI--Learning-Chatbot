@@ -18,6 +18,7 @@ class NativeTutorBridge:
         self._tutor_database=Path(database_path)
         self._tutor_index=Path(index_root)
         self._tutor_refresh=refresh
+        self._needs_refresh=True
         self._wake.set()
 
     def _claim(self):
@@ -51,20 +52,21 @@ class NativeTutorBridge:
             path_key='native_library/'+doc['id']
             with self.connection() as native:
                 linked=native.execute("SELECT source_id FROM source_links WHERE document_id=? AND namespace='canonical' AND content_hash=?",(doc['id'],doc['sha256'])).fetchone()
-            existing=con.execute('SELECT id FROM knowledge_documents WHERE id=?',(linked['source_id'],)).fetchone() if linked else con.execute('SELECT id FROM knowledge_documents WHERE path_key=?',(path_key,)).fetchone()
+            existing=con.execute('SELECT id,path_key FROM knowledge_documents WHERE id=?',(linked['source_id'],)).fetchone() if linked else con.execute('SELECT id,path_key FROM knowledge_documents WHERE path_key=?',(path_key,)).fetchone()
             if existing is None:
                 registry.register_document(kind='document',path_key=path_key,content_hash=doc['sha256'],mime_type=doc['mime'],size_bytes=doc['size'])
-            source=existing['id'] if existing else con.execute('SELECT id FROM knowledge_documents WHERE path_key=?',(path_key,)).fetchone()[0]
+            source=existing['id'] if existing else con.execute('SELECT id,path_key FROM knowledge_documents WHERE path_key=?',(path_key,)).fetchone()[0]
             if not doc['indexing_enabled'] or doc['trashed_at'] or not pages:
                 con.execute("UPDATE knowledge_documents SET extraction_status='unavailable' WHERE id=?",(source,))
                 con.execute('DELETE FROM knowledge_chunks WHERE document_id=?',(source,))
                 return source
+            preserve_legacy=bool(existing and str(existing['path_key']).startswith('documents/') and not doc.get('scope_override') and not doc['folder_id'])
             units=[]
             for position,text in pages:
                 if not text.strip(): continue
                 locator={'native_document_id':doc['id'],'content_hash':doc['sha256'],
                          'native_generation':doc['generation'],'metadata_revision':doc['metadata_revision'],
-                         'course_id':doc['subject_id'],'filename':doc['display_name'],
+                         'course_id':doc['subject_id'],'preserve_legacy_scope':preserve_legacy,'filename':doc['display_name'],
                          'source_url':'/library/files/'+doc['id']+'/original?native_action=view'}
                 if doc['kind']=='pdf': locator['page']=position
                 elif doc['kind']=='pptx': locator['slide']=position
@@ -83,6 +85,7 @@ class NativeTutorBridge:
 
     def _refresh_retrieval(self):
         if not getattr(self,'_tutor_database',None): return
+        self._needs_refresh=False
         from personal_learning_assistant.repositories.sqlite.retrieval_source_repository import SQLiteRetrievalSourceRepository
         from personal_learning_assistant.retrieval.index_builder import RetrievalIndexBuilder
         with closing(sqlite3.connect(str(self._tutor_database),timeout=15)) as con:
@@ -107,10 +110,10 @@ class NativeTutorBridge:
                 doc,job,token=claimed;stopped=Event()
                 pulse=Thread(target=self._heartbeat,args=(job,token,stopped),daemon=True);pulse.start()
                 try:
-                    active=doc['indexing_enabled'] and not doc['trashed_at']
+                    active=doc['indexing_enabled'] and not doc['trashed_at'] and doc['availability']=='available'
                     self._job_cancel[doc['id']]=Event()
                     if not active:
-                        pages,status,detail=[],'disabled',''
+                        pages,status,detail=([],'unavailable','Original is unavailable. Repair it from Details.') if doc['availability']!='available' else ([], 'disabled','')
                     elif doc['status'] in ('ready','partial','ocr_required','conversion_required','unavailable'):
                         with self.connection() as con:
                             pages=[(r['position'],r['text']) for r in con.execute('SELECT * FROM pages WHERE document_id=? ORDER BY position',(doc['id'],))]
@@ -134,7 +137,7 @@ class NativeTutorBridge:
                         # Publish only a still-current generation. The lock is
                         # held for owner transactions, never extraction or build.
                         source=self._publish_native(doc,pages if active else [])
-                        tutor='preparing' if source and indexed and active else ('stored_only' if active else 'disabled')
+                        tutor='attention' if doc['availability']!='available' else 'preparing' if source and indexed and active else ('stored_only' if active else 'disabled')
                         con.execute('UPDATE documents SET status=?,status_detail=?,position_count=?,indexed_count=?,tutor_state=? WHERE id=?',
                                     (status,detail,len(pages),indexed,tutor,doc['id']))
                         if source:
@@ -153,9 +156,29 @@ class NativeTutorBridge:
                 except (sqlite3.Error,OSError,RuntimeError,ValueError):
                     # A durable published checkpoint retries the derived build
                     # on the next wake. Never report ready for a failed build.
-                    self._wake.set()
+                    self._needs_refresh=True;self._wake.set()
             elif getattr(self,'_tutor_database',None):
                 with self.connection() as con:
                     retry=con.execute("SELECT 1 FROM documents WHERE tutor_state='preparing' LIMIT 1").fetchone()
-                if retry: self._refresh_retrieval()
+                if retry or getattr(self,'_needs_refresh',False):
+                    try:self._refresh_retrieval()
+                    except (sqlite3.Error,OSError,RuntimeError,ValueError):self._needs_refresh=True
         finally: self._worker_lock.release()
+
+    def ensure_canonical_identity(self,document_id):
+        """Compatibility handoff: persist identity without synchronous extraction."""
+        from .knowledge_registry_service import KnowledgeRegistryService
+        from personal_learning_assistant.repositories.sqlite.knowledge_registry_repository import SQLiteKnowledgeRegistryRepository
+        if not getattr(self,'_tutor_database',None):raise ValueError('Canonical source owner unavailable')
+        with self.connection(write=True) as native:
+            doc=self._doc(native.execute('SELECT * FROM documents WHERE id=?',(document_id,)).fetchone())
+            linked=native.execute("SELECT source_id FROM source_links WHERE document_id=? AND namespace='canonical' AND content_hash=?",(document_id,doc['sha256'])).fetchone()
+            if linked:return linked['source_id']
+            path='native_library/'+document_id
+            with closing(sqlite3.connect(str(self._tutor_database),isolation_level=None,timeout=15)) as con:
+                con.row_factory=sqlite3.Row;con.execute('PRAGMA foreign_keys=ON')
+                owner=KnowledgeRegistryService(SQLiteKnowledgeRegistryRepository(con))
+                owner.register_document(kind='document',path_key=path,content_hash=doc['sha256'],mime_type=doc['mime'],size_bytes=doc['size'])
+                identity=con.execute('SELECT id FROM knowledge_documents WHERE path_key=?',(path,)).fetchone()[0]
+            native.execute('INSERT OR REPLACE INTO source_links VALUES(?,?,?,?,?,?)',(document_id,'canonical',identity,doc['sha256'],'registered','register:'+document_id))
+        return identity
