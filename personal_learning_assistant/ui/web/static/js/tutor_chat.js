@@ -3,6 +3,43 @@
 (() => {
   'use strict';
   function installTutorFollowups() {
+    // Localized, concise date labels replace raw database timestamps.
+    document.querySelectorAll('[data-tutor-time]').forEach(node => {
+      const value = new Date(node.getAttribute('datetime') || '');
+      if (Number.isNaN(value.getTime())) return;
+      const today = new Date();
+      const day = new Date(value.getFullYear(), value.getMonth(), value.getDate());
+      const startToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      const difference = Math.round((startToday - day) / 86400000);
+      const clock = new Intl.DateTimeFormat(undefined, {hour: 'numeric', minute: '2-digit'}).format(value);
+      if (difference === 0) node.textContent = 'Today · ' + clock;
+      else if (difference === 1) node.textContent = 'Yesterday';
+      else node.textContent = new Intl.DateTimeFormat(undefined, {
+        month: 'short', day: 'numeric', ...(value.getFullYear() !== today.getFullYear() ? {year: 'numeric'} : {})
+      }).format(value);
+      node.title = value.toLocaleString();
+    });
+    const chatMenus = Array.from(document.querySelectorAll('.tutor-history-actions'));
+    chatMenus.forEach(menu => {
+      menu.addEventListener('toggle', () => {
+        if (!menu.open) return;
+        chatMenus.forEach(other => { if (other !== menu) other.open = false; });
+        menu.querySelector('input[name="title"]')?.focus();
+      });
+    });
+    document.addEventListener('keydown', event => {
+      if (event.key !== 'Escape') return;
+      const opened = chatMenus.find(menu => menu.open);
+      if (opened) {
+        opened.open = false;
+        opened.querySelector('summary')?.focus();
+      }
+    });
+    document.addEventListener('click', event => {
+      chatMenus.forEach(menu => {
+        if (menu.open && !menu.contains(event.target)) menu.open = false;
+      });
+    });
     const course = document.getElementById('session-course');
     const topic = document.getElementById('session-topic');
     if (course && topic) {
