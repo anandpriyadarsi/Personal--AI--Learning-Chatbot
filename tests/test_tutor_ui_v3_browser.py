@@ -227,7 +227,7 @@ def test_compact_dock_does_not_overlap_answers_and_tools_expand(browser, real_tu
         page.get_by_role('button', name='Worked example').click()
         expect(shortcuts).to_be_hidden()
         expect(tools).to_have_attribute('aria-expanded', 'false')
-        expect(page.locator('#agent-question')).to_contain_text('worked example')
+        expect(page.locator('#agent-question')).to_have_value('Show one worked example and verify the calculation.')
         assert len(provider.requests) == 1  # No automatic send from Tools.
 
         tools.click()
