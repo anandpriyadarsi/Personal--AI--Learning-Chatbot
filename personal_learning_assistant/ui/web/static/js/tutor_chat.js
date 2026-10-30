@@ -19,26 +19,35 @@
       }).format(value);
       node.title = value.toLocaleString();
     });
-    const chatMenus = Array.from(document.querySelectorAll('.tutor-history-actions'));
-    chatMenus.forEach(menu => {
-      menu.addEventListener('toggle', () => {
-        if (!menu.open) return;
-        chatMenus.forEach(other => { if (other !== menu) other.open = false; });
-        menu.querySelector('input[name="title"]')?.focus();
+    // Rename is an in-flow editor, never a narrow overlay over other chats.
+    const renameToggles = Array.from(document.querySelectorAll('[data-tutor-rename-toggle]'));
+    const setRenameOpen = (toggle, open, focus = false) => {
+      const editor = document.getElementById(toggle.getAttribute('aria-controls') || '');
+      if (!editor) return;
+      editor.hidden = !open;
+      toggle.setAttribute('aria-expanded', String(open));
+      if (focus) (open ? editor.querySelector('input[name="title"]') : toggle)?.focus();
+    };
+    renameToggles.forEach(toggle => {
+      toggle.addEventListener('click', () => {
+        const open = toggle.getAttribute('aria-expanded') !== 'true';
+        renameToggles.forEach(other => {
+          if (other !== toggle) setRenameOpen(other, false);
+        });
+        setRenameOpen(toggle, open, true);
+      });
+      const editor = document.getElementById(toggle.getAttribute('aria-controls') || '');
+      editor?.querySelector('[data-tutor-rename-cancel]')?.addEventListener('click', () => {
+        setRenameOpen(toggle, false, true);
       });
     });
     document.addEventListener('keydown', event => {
       if (event.key !== 'Escape') return;
-      const opened = chatMenus.find(menu => menu.open);
+      const opened = renameToggles.find(toggle => toggle.getAttribute('aria-expanded') === 'true');
       if (opened) {
-        opened.open = false;
-        opened.querySelector('summary')?.focus();
+        event.preventDefault();
+        setRenameOpen(opened, false, true);
       }
-    });
-    document.addEventListener('click', event => {
-      chatMenus.forEach(menu => {
-        if (menu.open && !menu.contains(event.target)) menu.open = false;
-      });
     });
     const course = document.getElementById('session-course');
     const topic = document.getElementById('session-topic');
