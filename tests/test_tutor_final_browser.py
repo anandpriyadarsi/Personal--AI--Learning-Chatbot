@@ -85,6 +85,7 @@ def test_persisted_adaptive_journey_in_real_browser(browser, real_tutor, width):
         state = inspect_session(path, session_id)
         assert state['current_learning_state']['pending_question'] == expected
         assert state['all_state_checks_pass']
+        page.get_by_role('button', name='+ Tools', exact=True).click()
         page.get_by_role('button', name='Hint only').click()
         assert len(provider.requests) == 1  # Draft control never submits.
         page.get_by_role('button', name='Ask tutor', exact=True).click()
