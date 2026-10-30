@@ -324,17 +324,28 @@ def test_tutor_home_uses_screen_and_chat_rename_is_accessible(browser, real_tuto
         assert home.is_visible()
         start = page.locator('#tutor-start').bounding_box()
         history = page.locator('#tutor-history').bounding_box()
-        if width >= 1366:
-            assert history['x'] > start['x'] + start['width'] - 3
-            assert abs(history['y'] - start['y']) <= 5
-        else:
-            assert history['y'] >= start['y'] + start['height'] - 3
+        # One vertical flow at every width, including large desktop displays.
+        assert history['y'] >= start['y'] + start['height'] - 3
+        assert abs(history['x'] - start['x']) <= 3
+        assert abs(history['width'] - start['width']) <= 3
+        assert page.locator('.tutor-brand-logo').is_visible()
+        assert page.locator('.tutor-brand-logo').get_attribute('alt') == 'ANVAYA'
+        assert page.evaluate('document.documentElement.scrollWidth <= innerWidth + 1')
         chat_link = page.locator('.tutor-history-link', has_text='My original chat')
         assert chat_link.count() == 1
         assert chat_link.evaluate('(el) => getComputedStyle(el).textDecorationLine') == 'none'
         page.get_by_label('Rename My original chat').click()
         rename = page.get_by_label('Rename chat')
         expect(rename).to_have_value('My original chat')
+        editor = page.locator('.tutor-rename-form:visible')
+        assert editor.count() == 1
+        form_box = editor.bounding_box()
+        assert form_box['width'] >= min(320, width - 45)
+        assert form_box['x'] >= 0 and form_box['x'] + form_box['width'] <= width + 1
+        assert page.locator('.tutor-history-list').evaluate('(el) => getComputedStyle(el).overflowY') != 'auto'
+        page.get_by_role('button', name='Cancel').click()
+        expect(editor).to_be_hidden()
+        page.get_by_label('Rename My original chat').click()
         rename.fill('Renamed LU study chat')
         page.get_by_role('button', name='Save name').click()
         expect(page.locator('.tutor-history-link', has_text='Renamed LU study chat')).to_have_count(1)
