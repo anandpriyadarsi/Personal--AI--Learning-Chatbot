@@ -252,6 +252,15 @@ public class MainActivity extends Activity {
                         }).show();
                     return true;
                 }
+                if (allowed.permits(req.getUrl().toString()) && req.isForMainFrame()
+                    && "/mobile/cache-clear".equals(req.getUrl().getPath())
+                    && req.getUrl().getQuery()==null && req.getUrl().getFragment()==null) {
+                    if(req.hasGesture()) {
+                        web.clearCache(true);
+                        Toast.makeText(MainActivity.this,"Interface asset cache cleared. Study files stay saved.",Toast.LENGTH_LONG).show();
+                    }
+                    return true;
+                }
                 String address=req.getUrl().toString();
                 if(req.isForMainFrame() && NativeDocumentRequest.parse(origin,address)!=null) {
                     if(req.hasGesture()) openNativeDocument(address);

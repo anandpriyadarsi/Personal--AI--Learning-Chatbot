@@ -60,6 +60,9 @@ adb shell am force-stop in.anvaya.privateapp
 adb shell am instrument -w -r -e class in.anvaya.privateapp.SmartNestedNotesTest\#savedTypedNotesAndAttachmentsSurviveForceStop in.anvaya.privateapp.test/androidx.test.runner.AndroidJUnitRunner | tee android-evidence/smart-typed-force-stop.log
 python -c "from pathlib import Path;s=Path('android-evidence/smart-typed-force-stop.log').read_text();assert 'OK (1 test)' in s and not any(v in s for v in ('FAILURES','INSTRUMENTATION_FAILED','shortMsg='))"
 # Default Library taps must hand original bytes to a separate installed PDF app.
+adb shell am instrument -w -r -e class in.anvaya.privateapp.NativePdfHandoffTest\#presentationTapHandsOriginalSlidesToExternalUid in.anvaya.privateapp.test/androidx.test.runner.AndroidJUnitRunner | tee android-evidence/pptx-original-handoff.log
+python -c "from pathlib import Path;s=Path('android-evidence/pptx-original-handoff.log').read_text();assert 'OK (1 test)' in s and not any(v in s for v in ('FAILURES','INSTRUMENTATION_FAILED','shortMsg='))"
+adb exec-out run-as in.anvaya.privateapp cat files/evidence/android-native-pptx-handoff.png > android-evidence/android-native-pptx-handoff.png
 for method in libraryTapOpensExternalPdfWithCurrentNameAndReadOnlyGrant openWithCancellationAndAbsentViewerPreserveLibrary documentProviderRejectsWritesAndUnrelatedFilesAndShareKeepsName managedOriginalAndMetadataSurviveActivityRestart; do
   adb shell am instrument -w -r -e class in.anvaya.privateapp.NativePdfHandoffTest\#"$method" in.anvaya.privateapp.test/androidx.test.runner.AndroidJUnitRunner | tee "android-evidence/pdf-$method.log"
   python -c "from pathlib import Path;s=Path('android-evidence/pdf-$method.log').read_text();assert 'OK (1 test)' in s and not any(v in s for v in ('FAILURES','INSTRUMENTATION_FAILED','shortMsg='))"
@@ -70,6 +73,19 @@ python -c "from pathlib import Path;s=Path('android-evidence/pdf-after-force-sto
 for name in android-notes-main android-notes-create-menu android-notes-opened android-notes-overflow android-native-pdf-external-viewer android-native-pdf-library android-native-pdf-no-viewer android-native-pdf-after-activity-restart android-native-pdf-after-force-stop; do
   adb exec-out run-as in.anvaya.privateapp cat files/evidence/"$name".png > android-evidence/"$name".png
 done
+# A process restart does not exercise Android's persisted app data across boot.
+adb reboot
+adb wait-for-device
+booted=0
+for attempt in $(seq 1 90); do
+  if [ "$(adb shell getprop sys.boot_completed | tr -d '\r')" = "1" ]; then booted=1; break; fi
+  sleep 2
+done
+test "$booted" = "1"
+adb shell input keyevent 82
+adb shell am instrument -w -r -e class in.anvaya.privateapp.NativePdfHandoffTest\#managedOriginalSurvivesForceStop in.anvaya.privateapp.test/androidx.test.runner.AndroidJUnitRunner | tee android-evidence/reboot-original.log
+python -c "from pathlib import Path;s=Path('android-evidence/reboot-original.log').read_text();assert 'OK (1 test)' in s and not any(v in s for v in ('FAILURES','INSTRUMENTATION_FAILED','shortMsg='))"
+adb exec-out run-as in.anvaya.privateapp cat files/evidence/android-native-pdf-after-force-stop.png > android-evidence/android-native-original-after-reboot.png
 # Original-document Library has a separate native renderer. Compilation alone
 # cannot prove that its private content URI opens at the requested PDF page.
 adb shell am instrument -w -r -e class in.anvaya.privateapp.NativePdfPageTest in.anvaya.privateapp.test/androidx.test.runner.AndroidJUnitRunner | tee android-evidence/native-pdf-page.log

@@ -129,6 +129,10 @@ def test_phone_source_registration_course_setup_and_backup(tmp_path):
         with sqlite3.connect(r.root/'data/learning_assistant.db') as con:
             identity=con.execute('SELECT id FROM knowledge_documents').fetchone()[0]
             assert con.execute('SELECT count(*) FROM knowledge_chunks').fetchone()[0]>0
+        response=c.get('/knowledge/item/'+identity,base_url=r.origin)
+        assert response.status_code==200,response.data
+        assert b'Open original file' in response.data
+        assert b'class="knowledge-reader-chunk"' not in response.data
         p,assets=authored_sample(raw); p['source']['source_id']=identity; p['mapping']=None
         studio=LearningStudioService(r.root/'data/learning_studio.sqlite3',
             source_loader=RegisteredSources(r.root/'data/learning_assistant.db',{'documents':r.root/'data/documents'}),

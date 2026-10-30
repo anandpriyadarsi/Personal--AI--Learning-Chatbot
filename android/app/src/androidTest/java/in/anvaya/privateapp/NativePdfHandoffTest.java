@@ -116,6 +116,68 @@ public class NativePdfHandoffTest {
             screenshot("android-native-pdf-library");
         } finally {inst.removeMonitor(route);context.unregisterReceiver(receiver);}
     }
+    @Test public void presentationTapHandsOriginalSlidesToExternalUid() throws Exception {
+        workspace(true);
+        byte[] original;
+        try(InputStream input=context.getContentResolver().openInputStream(Uri.parse("content://in.anvaya.privateapp.test.changing_upload/lecture.pptx"));
+            ByteArrayOutputStream output=new ByteArrayOutputStream()) {
+            byte[] buffer=new byte[4096];int count;
+            while((count=input.read(buffer))!=-1)output.write(buffer,0,count);
+            original=output.toByteArray();
+        }
+        String encoded=android.util.Base64.encodeToString(original,android.util.Base64.NO_WRAP);
+        String expression="(lambda lib: __import__('json').dumps(lib.upload(__import__('io').BytesIO(__import__('base64').b64decode('"+encoded+"')),'Original presentation.pptx',indexing=False,duplicate='copy')))(__import__('personal_learning_assistant.android_runtime',fromlist=['_runtime'])._runtime.app.extensions['native_document_library'])";
+        JSONObject presentation=new JSONObject(eval(expression).toString());
+        String selector="[data-document-id=\""+presentation.getString("id")+"\"]";
+        inst.runOnMainSync(()->web.loadUrl(origin+"/library/files"));
+        waitJs("!!document.querySelector("+JSONObject.quote(selector)+")");
+        tap(selector+" summary");tap(selector+" [data-action=rename]");
+        waitJs("document.querySelector('#rename-dialog').open");
+        js("document.querySelector('#rename-form [name=display_name]').value='गणित slides';document.querySelector('#rename-form').requestSubmit()");
+        waitJs("!document.querySelector('#rename-dialog').open&&document.querySelector("+JSONObject.quote(selector+" h2")+").innerText==='गणित slides'");
+        CountDownLatch done=new CountDownLatch(1);Intent[] report={null};
+        BroadcastReceiver receiver=new BroadcastReceiver(){@Override public void onReceive(Context c,Intent value){report[0]=value;done.countDown();}};
+        IntentFilter filter=new IntentFilter("in.anvaya.privateapp.TEST_MEDIA_RESULT");
+        if(Build.VERSION.SDK_INT>=33)context.registerReceiver(receiver,filter,Context.RECEIVER_EXPORTED);else context.registerReceiver(receiver,filter);
+        String mime="application/vnd.openxmlformats-officedocument.presentationml.presentation";
+        AtomicReference<Intent> observed=new AtomicReference<>();
+        Instrumentation.ActivityMonitor route=new Instrumentation.ActivityMonitor(){@Override public Instrumentation.ActivityResult onStartActivity(Intent intent){
+            if(Intent.ACTION_VIEW.equals(intent.getAction())&&mime.equals(intent.getType())){
+                observed.set(new Intent(intent));intent.setComponent(new ComponentName(inst.getContext(),"in.anvaya.privateapp.test.MediaReceiverActivity"));
+            }return null;
+        }};
+        inst.addMonitor(route);
+        try {
+            tap(selector+" .file-main h2 a");
+            assertTrue("Separate-UID PPTX receiver returned",done.await(25,TimeUnit.SECONDS));
+            Intent sent=observed.get();assertNotNull(sent);assertNull(sent.getPackage());assertNull(sent.getComponent());
+            assertEquals("content",sent.getData().getScheme());assertEquals(mime,sent.getType());
+            assertTrue((sent.getFlags()&Intent.FLAG_GRANT_READ_URI_PERMISSION)!=0);
+            assertEquals(0,sent.getFlags()&Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+            assertEquals(sent.getData(),sent.getClipData().getItemAt(0).getUri());
+            assertNull(report[0].getStringExtra("error"));
+            assertNotEquals(android.os.Process.myUid(),report[0].getIntExtra("uid",-1));
+            assertEquals(mime,report[0].getStringExtra("mime"));
+            assertEquals("गणित slides.pptx",report[0].getStringExtra("filename"));
+            assertTrue(report[0].getBooleanExtra("writeDenied",false));
+            byte[] received=report[0].getByteArrayExtra("payload");assertArrayEquals("Exact original OOXML, never extracted text",original,received);
+            boolean slideFound=false;
+            try(java.util.zip.ZipInputStream zip=new java.util.zip.ZipInputStream(new ByteArrayInputStream(received))){
+                java.util.zip.ZipEntry entry;
+                while((entry=zip.getNextEntry())!=null){
+                    if(entry.getName().equals("ppt/slides/slide1.xml")){
+                        ByteArrayOutputStream output=new ByteArrayOutputStream();byte[] buffer=new byte[4096];int count;
+                        while((count=zip.read(buffer))!=-1)output.write(buffer,0,count);
+                        assertTrue(output.toString("UTF-8").contains("AnvayaPptxVerificationToken"));slideFound=true;
+                    }
+                }
+            }
+            assertTrue("Original presentation slide is readable",slideFound);
+            waitJs("location.pathname==='/library/files'&&!!document.querySelector("+JSONObject.quote(selector)+")");
+            screenshot("android-native-pptx-handoff");
+            assertManagedOriginal();
+        } finally {inst.removeMonitor(route);context.unregisterReceiver(receiver);}
+    }
     @Test public void openWithCancellationAndAbsentViewerPreserveLibrary() throws Exception {
         workspace(true);AtomicReference<Intent> chooser=new AtomicReference<>();
         Instrumentation.ActivityMonitor cancel=new Instrumentation.ActivityMonitor(){@Override public Instrumentation.ActivityResult onStartActivity(Intent intent){if(Intent.ACTION_CHOOSER.equals(intent.getAction())){chooser.set(new Intent(intent));return new Instrumentation.ActivityResult(Activity.RESULT_CANCELED,null);}return null;}};
