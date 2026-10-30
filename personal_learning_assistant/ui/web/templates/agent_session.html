@@ -25,13 +25,6 @@
 {% endif %}
 
 {% if session %}
-<nav class="tutor-context-bar" aria-label="Tutor session context">
-  <span>{{ session.course.code if session.course else (session.course_id or 'Unscoped') }}</span>
-  <span>{{ session.topic.name if session.topic else 'Whole course' }}</span>
-  <span>{{ session.mode|replace('_', ' ')|title }}</span>
-  <span>{% if session.source_policy == 'source_only' %}Source Only{% else %}Source First{% endif %}</span>
-  <a href="#tutor-learning-details">Learning details ↓</a>
-</nav>
 {% set adaptive = session.adaptive_state|default({}) %}
 {% set goal = session.session_goal|default({}) %}
 {% set teaching = session.teaching_plan|default({}) %}

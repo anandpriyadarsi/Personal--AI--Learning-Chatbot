@@ -33,6 +33,9 @@ def test_session_conversation_precedes_secondary_learning_details(ui):
     assert 'id="tutor-composer"' in html
     assert 'id="tutor-submit-status"' in html
     assert 'id="tutor-provider-state"' in html
+    assert 'class="tutor-context-bar"' not in html
+    assert 'Learning details ↓' not in html
+    assert 'id="tutor-learning-details"' in html  # On-demand details remain reachable.
 
 
 def test_failed_provider_submission_preserves_escaped_draft_and_request_id(ui):

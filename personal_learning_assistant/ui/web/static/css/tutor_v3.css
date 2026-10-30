@@ -31,9 +31,6 @@ body.tutor-v3 .tutor-provider-info a {display:inline-block;min-height:44px;align
 body.tutor-v3 .tutor-session-heading {display:flex;align-items:center;gap:.9rem;margin-bottom:.8rem}
 body.tutor-v3 .tutor-session-heading h1 {flex:1;font-size:1.1rem;line-height:1.45}
 body.tutor-v3 .tutor-back {display:flex;align-items:center;flex-shrink:0;text-decoration:none;color:var(--accent);font-size:.85rem}
-body.tutor-v3 .tutor-context-bar {display:flex;align-items:center;gap:.55rem;flex-wrap:wrap;position:sticky;top:var(--tutor-topbar-height,64px);z-index:15;padding:.65rem 0;background:var(--surface-canvas);border-block:1px solid var(--border);font-size:.72rem;color:var(--text-muted)}
-body.tutor-v3 .tutor-context-bar span:not(:first-child)::before {content:'·';margin-right:.55rem;color:var(--text-muted)}
-body.tutor-v3 .tutor-context-bar a {margin-left:auto;min-height:32px;align-content:center;color:var(--accent);text-underline-offset:4px}
 body.tutor-v3 .tutor-transcript {padding:.8rem 0}
 body.tutor-v3 .tutor-transcript>.panel-heading {margin-bottom:1rem}
 body.tutor-v3 .tutor-transcript>.panel-heading h3 {font-size:.8rem;color:var(--text-muted);font-weight:500}
@@ -57,13 +54,21 @@ body.tutor-v3 .tutor-pending-question {padding:.8rem 1rem;font-size:.85rem;borde
 body.tutor-v3 .tutor-pending-question .microcopy {font-size:.7rem}
 /* Tutor sessions have a genuine split viewport: the transcript scrolls in its
    own area; the composer is an adjacent flex item, never over an answer. */
-body.tutor-session-page {padding-bottom:0}
-body.tutor-session-page .app-shell {height:var(--tutor-visual-height,100dvh);min-height:0}
-body.tutor-session-page .app-main {height:var(--tutor-visual-height,100dvh);min-height:0;overflow:hidden}
+/* Contain session scrolling inside the reader. The former auto-sized sidebar
+   grid row also generated a second browser scrollbar and a blank side gutter. */
+body.tutor-session-page {padding-bottom:0;height:var(--tutor-visual-height,100dvh);overflow:hidden}
+body.tutor-session-page .app-shell {width:100%;height:var(--tutor-visual-height,100dvh);min-height:0;grid-template-rows:minmax(0,1fr)}
+body.tutor-session-page .app-sidebar {height:100%;min-height:0;overflow-y:auto}
+body.tutor-session-page .app-main {width:100%;max-width:100%;height:var(--tutor-visual-height,100dvh);min-width:0;min-height:0;overflow:hidden}
+@media (min-width:861px) {
+  /* Tutor CSS loads after app.css. Match the collapsed state explicitly,
+     otherwise the default 68rem max-width overrides the shell's focus mode. */
+  body.tutor-session-page.sidebar-collapsed .app-main>.content {width:100%;max-width:none;margin-inline:0;padding-inline:clamp(1rem,2vw,2rem)}
+  body.tutor-session-page.sidebar-collapsed .tutor-composer form {width:100%;max-width:none}
+}
 body.tutor-session-page .app-main>.topbar {flex:0 0 auto}
 body.tutor-session-page .app-main>.content {flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;scroll-padding-top:5.5rem;padding-bottom:2rem}
 body.tutor-session-page .app-footer {display:none}
-body.tutor-session-page .tutor-context-bar {top:0}
 body.tutor-v3 .tutor-composer {position:relative;z-index:5;flex:0 0 auto;width:100%;max-width:none;margin:0;padding:.55rem 1rem .65rem;background:var(--surface-canvas);border:0;border-top:1px solid var(--border);border-radius:0;box-shadow:none}
 body.tutor-v3 .tutor-composer form {max-width:60rem;margin:0 auto}
 body.tutor-v3 .tutor-quick-prompts[hidden] {display:none!important}
@@ -88,14 +93,12 @@ body.tutor-v3 #tutor-submit-status:not(.visually-hidden) {display:block;margin:.
  body.tutor-v3 .tutor-session-heading h1 {font-size:1rem;flex-basis:70%}
  body.tutor-v3 .tutor-session-heading .tutor-provider {margin-left:auto}
  body.tutor-v3 .tutor-session-heading .tutor-provider-info {left:auto;right:0}
- body.tutor-v3 .tutor-context-bar {top:var(--tutor-topbar-height,64px);font-size:.68rem;gap:.3rem .5rem}
  body.tutor-session-page .app-main {height:calc(var(--tutor-visual-height,100dvh) - 74px - env(safe-area-inset-bottom))}
  body.tutor-session-page:is(.tutor-writing,.tutor-tools-open) .app-main {height:var(--tutor-visual-height,100dvh)}
  body.tutor-session-page .content {padding:1rem .75rem 1.4rem}
  body.tutor-v3 .tutor-composer {padding:.4rem .55rem calc(.5rem + env(safe-area-inset-bottom))}
  body.tutor-v3 .tutor-input-row {gap:.3rem}
  body.tutor-v3 .tutor-tools-toggle {padding:.5rem .55rem}
- body.tutor-v3 .tutor-context-bar a {margin-left:0}
 }
 @media(max-height:500px) {
  body.tutor-v3 #agent-question {max-height:80px;min-height:48px}

@@ -98,21 +98,66 @@ def test_successful_send_shows_newest_answer_in_long_transcript(browser, real_tu
         page.close()
 
 
-@pytest.mark.parametrize('width', [320,1366])
-def test_sticky_context_stays_below_header_and_link_is_tappable(browser, real_tutor, width):
+@pytest.mark.parametrize('width', [320, 1366])
+def test_no_redundant_context_bar_but_learning_details_remain_accessible(browser, real_tutor, width):
     base, service, path, course, provider, before = real_tutor
-    provider.responses = [('A useful earlier explanation. ' * 20 + '\n\n') * 35]
+    provider.responses = [('A useful earlier explanation. ' * 20 + '\\n\\n') * 35]
     sid = service.create_session(course_id=course['id'], mode='free', source_policy='source_first')
     service.ask(sid, 'Explain this.')
     page = browser.new_page(viewport={'width':width,'height':844})
     try:
         page.goto(base+'/agent/sessions/'+sid)
-        page.locator('#main-content').evaluate('(node) => node.scrollTop = 1000')
-        bar = page.locator('.tutor-context-bar').bounding_box()
-        topbar = page.locator('.topbar').bounding_box()
-        assert bar['y'] >= topbar['y'] + topbar['height'] - 1
-        page.locator('.tutor-context-bar a').click()
-        expect(page.locator('#tutor-learning-details')).to_have_attribute('open','')
+        assert page.locator('.tutor-context-bar').count() == 0
+        assert page.get_by_text('Learning details ↓').count() == 0
+        details = page.locator('#tutor-learning-details')
+        expect(details).not_to_have_attribute('open','')
+        details.locator('summary').first.click()
+        expect(details).to_have_attribute('open','')
+        expect(details).to_contain_text('Source policy')
+    finally:
+        page.close()
+
+
+@pytest.mark.parametrize('width', [1024, 1366, 1745])
+def test_sidebar_collapse_fills_tutor_viewport_without_outer_scroll(browser, real_tutor, width):
+    base, service, path, course, provider, before = real_tutor
+    provider.responses = [('Long LU factorization explanation. ' * 30 + '\\n\\n') * 24]
+    sid = service.create_session(course_id=course['id'], mode='concept', source_policy='source_first')
+    service.ask(sid, 'Explain LU factorization.')
+    page = browser.new_page(viewport={'width':width, 'height':760})
+    try:
+        page.goto(base + '/agent/sessions/' + sid)
+        reader = page.locator('#main-content')
+        composer = page.locator('#tutor-composer')
+        assert reader.evaluate('(el) => el.scrollHeight > el.clientHeight')
+        expanded_width = reader.bounding_box()['width']
+        page.locator('#agent-question').fill('Preserve my draft when I hide navigation')
+        page.locator('#nav-toggle').click()
+        page.wait_for_function("document.body.classList.contains('sidebar-collapsed')")
+        # Wait for the shell's 180ms width transition to reach its final size.
+        page.wait_for_function("""() => {
+          const shell = document.querySelector('.app-shell');
+          const sidebar = document.querySelector('.app-sidebar');
+          const main = document.querySelector('.app-main');
+          const viewport = document.documentElement.clientWidth;
+          return Math.abs(main.getBoundingClientRect().width - viewport) <= 3 &&
+                 sidebar.getBoundingClientRect().right <= 3 &&
+                 shell.getBoundingClientRect().width >= viewport - 2;
+        }""")
+        content = reader.bounding_box()
+        dock = composer.bounding_box()
+        assert content['x'] <= 40
+        assert content['x'] + content['width'] >= width - 45
+        assert content['width'] > expanded_width + 100
+        assert dock['y'] >= content['y'] + content['height'] - 2
+        assert page.locator('#agent-question').input_value() == 'Preserve my draft when I hide navigation'
+        assert page.evaluate('document.scrollingElement.scrollHeight <= innerHeight + 2')
+        assert page.evaluate('document.documentElement.scrollWidth <= innerWidth + 1')
+        reader.evaluate('(el) => el.scrollTop = el.scrollHeight')
+        assert page.evaluate('document.scrollingElement.scrollHeight <= innerHeight + 2')
+        page.locator('#nav-toggle').click()
+        page.wait_for_function("!document.body.classList.contains('sidebar-collapsed')")
+        assert page.locator('#agent-question').input_value() == 'Preserve my draft when I hide navigation'
     finally:
         page.close()
 
