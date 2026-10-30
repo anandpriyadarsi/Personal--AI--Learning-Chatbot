@@ -35,6 +35,7 @@
   </section>
   {% endif %}
 
+<div class="tutor-home-grid" aria-label="Tutor dashboard">
 <section class="dashboard-grid" aria-label="Academic Agent controls">
 
   <article class="dashboard-panel tutor-start" id="tutor-start">
@@ -94,35 +95,54 @@
       </details>
       <button type="submit" class="tutor-primary">Create tutor session</button>
     </form>
-    <p class="empty-state">Source First uses project materials when available and clearly labels general explanations. Choose Source Only when you want no unsupported outside material.</p>
-    <p class="microcopy">Creating a session only stores its tutor scope. It does not call the LLM. Course, topic, mode, and source policy stay fixed after creation. Choose the whole course if you plan to switch topics.</p>
+    <p class="tutor-start-help">Source First draws on your study materials when available. Source Only restricts explanations to those materials.</p>
+    <details class="tutor-start-info"><summary>How Tutor sessions work</summary>
+      <p>Creating a session saves its settings without calling AI. Course, topic, mode, and source policy stay fixed. Choose the whole course to discuss different topics.</p>
+    </details>
   </article>
 </section>
 
-<section class="dashboard-panel" aria-labelledby="recent-sessions-title">
-  <div class="panel-heading">
+<section class="dashboard-panel tutor-history" id="tutor-history" aria-labelledby="recent-sessions-title">
+  <div class="tutor-history-heading">
     <div>
-      <p class="eyebrow">Conversation history</p>
-      <h3 id="recent-sessions-title">Recent tutor sessions</h3>
+      <p class="eyebrow">Your conversations</p>
+      <h3 id="recent-sessions-title">Recent chats</h3>
+      <p class="tutor-history-subtitle">Continue a discussion, or give a chat a better name.</p>
     </div>
-    <span class="count-badge">{{ workspace.sessions|length }}</span>
+    <span class="tutor-history-count" aria-label="{{ workspace.sessions|length }} recent chats">{{ workspace.sessions|length }}</span>
   </div>
   {% if workspace.sessions %}
-  <ul class="dashboard-list">
+  <ul class="tutor-history-list">
     {% for session in workspace.sessions %}
-    <li>
-      <div class="list-main">
-        <strong><a href="{{ url_for('web.academic_agent_session', session_id=session.session_id) }}">{{ session.title or 'Untitled tutor session' }}</a></strong>
-        <span>{{ session.mode|replace('_', ' ')|title }} · {% if session.source_policy == 'source_only' %}Source Only{% else %}Source First{% endif %} · {{ session.status|title }}</span>
-      </div>
-      <span class="tag">{{ session.updated_at }}</span>
+    <li class="tutor-history-item">
+      <a class="tutor-history-link" href="{{ url_for('web.academic_agent_session', session_id=session.session_id) }}">
+        <span class="tutor-history-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round"><path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5 8.4 8.4 0 0 1-3.6-.8L4 20l1.4-4.7A7.5 7.5 0 1 1 20 11.5Z"/><path d="M8 11.5h8"/></svg>
+        </span>
+        <span class="tutor-history-copy">
+          <strong>{{ session.title or 'Untitled tutor session' }}</strong>
+          <span class="tutor-history-meta">{{ session.mode|replace('_', ' ')|title }} · {% if session.source_policy == 'source_only' %}Source Only{% else %}Source First{% endif %}{% if session.status != 'active' %} · {{ session.status|title }}{% endif %}</span>
+        </span>
+        <time class="tutor-history-time" datetime="{{ session.updated_at }}" data-tutor-time>{{ session.updated_at[:10] }}</time>
+      </a>
+      <details class="tutor-history-actions">
+        <summary aria-label="Rename {{ session.title or 'Untitled tutor session' }}" title="Chat options">⋯</summary>
+        <form action="{{ url_for('web.academic_agent_rename_session', session_id=session.session_id) }}" method="post" class="tutor-rename-form">
+          <input name="csrf_token" type="hidden" value="{{ tutor_action_csrf }}">
+          <input name="return_to" type="hidden" value="history">
+          <label for="rename-chat-{{ loop.index }}">Rename chat</label>
+          <input id="rename-chat-{{ loop.index }}" name="title" type="text" maxlength="160" required value="{{ session.title or '' }}" placeholder="Enter a chat name" autocomplete="off">
+          <button type="submit">Save name</button>
+        </form>
+      </details>
     </li>
     {% endfor %}
   </ul>
   {% else %}
-    <p class="empty-state">No tutor sessions yet. Create one above to begin a persistent source-grounded conversation.</p>
+    <p class="tutor-history-empty">No conversations yet. Your saved Tutor chats will appear here.</p>
   {% endif %}
 </section>
+</div>
 <details class="tutor-secondary" id="tutor-mentor"{% if workspace.selected_course_code %} open{% endif %}><summary>Adaptive Mentor · course advice</summary>
   <article class="dashboard-panel">
     <div class="panel-heading">
