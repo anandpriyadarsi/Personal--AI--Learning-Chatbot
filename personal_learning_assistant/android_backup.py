@@ -42,7 +42,8 @@ def _sync_directory(path):
 
 
 def _json_publish(path, value):
-    temporary = path.with_suffix('.tmp')
+    path=_safe(path)
+    temporary = _safe(path.with_suffix('.tmp'))
     with temporary.open('w', encoding='utf-8') as stream:
         json.dump(value, stream, sort_keys=True); stream.flush(); os.fsync(stream.fileno())
     os.replace(temporary, path); _sync_directory(path.parent)
@@ -204,6 +205,7 @@ def export_backup_file(root, *, include_media=True, destination=None):
                 with tempfile.TemporaryDirectory(dir=root) as verify:
                     _unpack(temporary, Path(verify))
                 os.replace(temporary,destination); _sync_directory(destination.parent)
+                _json_publish(output_dir/'last-verified.json',{'verified_at':datetime.now(timezone.utc).isoformat(),'archive_size':destination.stat().st_size,'encrypted':False})
                 return destination
         finally: temporary.unlink(missing_ok=True)
 

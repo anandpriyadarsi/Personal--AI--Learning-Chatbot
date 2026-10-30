@@ -4,6 +4,7 @@
   const root=document.querySelector('.academic-files');if(!root)return;
   try{const theme=localStorage.getItem('anvaya.mobile.theme');if(['light','dark'].includes(theme))document.documentElement.dataset.theme=theme;}catch{}
   const csrf=root.dataset.csrf, folder=root.dataset.folder;
+  function saveUndo(ids){try{sessionStorage.setItem('anvaya.files.undo',JSON.stringify({ids,time:Date.now()}));}catch{}}
   const message=document.getElementById('files-message'), selected=new Set();
   const say=text=>{message.textContent=text;};
   const path=id=>'/library/files/'+encodeURIComponent(id);
@@ -24,7 +25,7 @@
   root.addEventListener('click',e=>{const link=e.target.closest('.file-main a');if(link&&selection){e.preventDefault();selectId(link.closest('[data-document-id]').dataset.documentId);}if(e.target.closest('a'))remember();});
   async function destinations(parent=null,append=false){destination=parent;const data=await api('/library/files/folder-choices?parent_id='+encodeURIComponent(parent||'')+'&offset='+destinationOffset);const target=document.getElementById('destination-children');if(!append)target.replaceChildren();for(const item of data.items){const button=document.createElement('button');button.type='button';button.textContent=item.name;button.addEventListener('click',()=>{parentStack.push({id:destination,label:document.getElementById('destination-label').textContent});destinationOffset=0;document.getElementById('destination-label').textContent=item.name;destinations(item.id).catch(e=>say(e.message));});target.append(button);}root.querySelector('[data-action="destination-more"]').hidden=destinationOffset+data.items.length>=data.total;}
   async function moveDialog(ids,action){if(!ids.length)throw new Error('Select files first.');actionIds=ids;destinationAction=action;destinationOffset=0;parentStack=[];document.getElementById('destination-label').textContent='Library / Unsorted';await destinations();show('destination-dialog');}
-  async function bulk(action,ids,extra={}){if(!ids.length)throw new Error('Select files first.');const data=await api('/library/files/bulk','POST',{action,ids,...extra});const failed=data.results.filter(r=>!r.ok);if(failed.length){say(data.results.filter(r=>r.ok).length+' completed. '+failed.map(r=>r.error).join(' '));return false;}return true;}
+  async function bulk(action,ids,extra={}){if(!ids.length)throw new Error('Select files first.');const data=await api('/library/files/bulk','POST',{action,ids,...extra});const failed=data.results.filter(r=>!r.ok);if(action==='trash')saveUndo(data.results.filter(r=>r.ok).map(r=>r.id));if(failed.length){say(data.results.filter(r=>r.ok).length+' completed. '+failed.map(r=>r.error).join(' '));return false;}return true;}
   root.addEventListener('click',async e=>{
     const button=e.target.closest('[data-action]');if(!button)return;
     const action=button.dataset.action,id=button.dataset.id;
@@ -39,7 +40,7 @@
       if(action==='storage')show('storage-dialog');
       if(action==='rename'){const d=(await api(path(id))).document;const form=document.getElementById('rename-form');form.elements.id.value=id;form.elements.display_name.value=d.display_name;show('rename-dialog');}
       if(action==='favorite'){await api(path(id)+'/lifecycle','POST',{action:'favorite',enabled:button.dataset.enabled==='true'});refresh();}
-      if(action==='trash'){await api(path(id)+'/lifecycle','POST',{action:'trash'});say('Moved to Trash. Restore it from Library → Trash.');refresh();}
+      if(action==='trash'){await api(path(id)+'/lifecycle','POST',{action:'trash'});saveUndo([id]);say('Moved to Trash. Restore it from Library → Trash.');refresh();}
       if(action==='restore'){await api(path(id)+'/lifecycle','POST',{action:'restore'});refresh();}
       if(action==='permanent-delete'&&confirm('Permanently delete this file? Linked study sources can prevent deletion. This cannot be undone.')){await api(path(id),'DELETE',{confirm:true});refresh();}
       if(action==='move'||action==='copy')await moveDialog([id],action);
@@ -66,6 +67,7 @@
   addEventListener('popstate',()=>{root.querySelectorAll('dialog[open]').forEach(d=>d.close());if(selection)selectMode(false);});
   addEventListener('pagehide',remember);
   try{const state=JSON.parse(sessionStorage.getItem('anvaya.files.state')||'null');if(state?.url===location.href)requestAnimationFrame(()=>scrollTo(0,state.scroll));if(localStorage.getItem('anvaya.files.grid')==='true')document.getElementById('file-list').classList.add('grid');}catch{}
+  try{const undo=JSON.parse(sessionStorage.getItem('anvaya.files.undo')||'null');if(undo?.ids?.length&&Date.now()-undo.time<30000){const button=document.createElement('button');button.type='button';button.textContent='Undo move to Trash';button.addEventListener('click',async()=>{try{await bulk('restore',undo.ids);sessionStorage.removeItem('anvaya.files.undo');refresh();}catch(error){say(error.message);}});message.append(button);}}catch{}
   const rows=[...root.querySelectorAll('[data-document-id]')];
   if(rows.length){const timer=setInterval(async()=>{if(document.hidden)return;try{for(let start=0;start<rows.length;start+=30){const data=await api('/library/files/status?ids='+rows.slice(start,start+30).map(r=>r.dataset.documentId).join(','));for(const d of data.documents){const row=rows.find(r=>r.dataset.documentId===d.id);row.querySelector('[data-status]').textContent=d.status_label;}}}catch{clearInterval(timer);}},5000);addEventListener('pagehide',()=>clearInterval(timer));}
   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&selection)selectMode(false);});

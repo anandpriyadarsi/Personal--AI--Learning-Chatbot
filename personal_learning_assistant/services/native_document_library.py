@@ -220,6 +220,9 @@ class NativeDocumentLibrary(NativeTutorBridge, AcademicFiles, LegacySources):
     def _doc(row):
         if row is None: raise LibraryError('Document not found.', 404)
         doc = dict(row); doc['tags'] = json.loads(doc['tags']); doc['mime'] = MIMES[doc['kind']]
+        if 'tutor_state' in doc:
+            if doc.get('availability')!='available':doc['tutor_state']='attention'
+            elif not doc['indexing_enabled'] or doc['trashed_at']:doc['tutor_state']='disabled'
         return doc
 
     def get(self, document_id):

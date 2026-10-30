@@ -86,3 +86,14 @@ def validate_schema(con):
     for table,columns in required.items():
         if not columns<={r[1] for r in con.execute('PRAGMA table_info('+table+')')}:
             raise ValueError('Incompatible native Library owner schema')
+    from .native_document_formats import MIMES
+    import json,re
+    for identity,kind,digest,size,tags,enabled,generation in con.execute('SELECT id,kind,sha256,size,tags,indexing_enabled,generation FROM documents'):
+        if (not isinstance(identity,str) or not re.fullmatch('[0-9a-f]{32}',identity)
+            or kind not in MIMES or not isinstance(digest,str) or not re.fullmatch('[0-9a-f]{64}',digest)
+            or type(size) is not int or not 0<=size<=100*1024*1024
+            or enabled not in (0,1) or type(generation) is not int or generation<1):
+            raise ValueError('Invalid native Library metadata')
+        values=json.loads(tags)
+        if not isinstance(values,list) or len(values)>30 or any(not isinstance(t,str) for t in values):
+            raise ValueError('Invalid native Library tags')

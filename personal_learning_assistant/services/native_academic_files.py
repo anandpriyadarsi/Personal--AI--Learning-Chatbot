@@ -154,7 +154,12 @@ class AcademicFiles:
             trash=con.execute('SELECT coalesce(sum(size),0) FROM (SELECT sha256,max(size) size FROM documents GROUP BY sha256 HAVING sum(trashed_at IS NULL)=0)').fetchone()[0]
             count=con.execute('SELECT count(*) FROM documents').fetchone()[0]
             unsorted=con.execute("SELECT count(*) FROM documents WHERE trashed_at IS NULL AND (subject_id IS NULL OR availability<>'available')").fetchone()[0]
-        return {'unique_bytes':unique,'trash_bytes':trash,'placements':count,'unsorted':unsorted,
+        last=None
+        backup=self.root.parent.parent/'backups/last-verified.json'
+        if backup.is_file() and not backup.is_symlink() and backup.stat().st_size<4096:
+            try:last=json.loads(backup.read_text(encoding='utf-8')).get('verified_at')
+            except (ValueError,OSError):pass
+        return {'last_verified_backup':last,'unique_bytes':unique,'trash_bytes':trash,'placements':count,'unsorted':unsorted,
                 'free_bytes':shutil.disk_usage(self.root).free,
                 'metadata_index_bytes':self.database.stat().st_size}
 
