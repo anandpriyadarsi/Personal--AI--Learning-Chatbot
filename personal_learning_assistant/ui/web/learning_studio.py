@@ -401,6 +401,58 @@ def correction_candidate(module_id,revision):
     return redirect(url_for('learning.preview',module_id=module_id,revision=result['revision'],view='learn',section=payload['section_id']))
 
 
+@learning_blueprint.post('/learning/modules/<module_id>/<int:revision>/mapping/catalogue')
+def register_mapping_course_topic(module_id, revision):
+    """Explicit local-owner course/topic setup for Learning Studio mapping.
+
+    Uses the existing routed course repository, not an independent duplicate
+    course catalogue. Learning Studio's own CSRF guard applies to this POST.
+    """
+    from personal_learning_assistant.learning_studio.validation import PackageError, require
+    from personal_learning_assistant.services.course_service import CourseService
+    from personal_learning_assistant.repositories.routed_course_repository import RoutedCourseRepository
+    from personal_learning_assistant.domain.course_models import AddTopicCommand, CreateCourseCommand
+    import re
+
+    studio = service()
+    studio.module(module_id, revision, staged=True)
+    require(studio.catalogue_loader().get('available'),
+            'Course catalogue unavailable; restore the Courses data source before linking.', 503)
+    require(not set(request.form) - {'csrf_token', 'action', 'code', 'name', 'semester', 'course_id', 'topic'},
+            'Unexpected course setup field.')
+    require(all(len(request.form.getlist(k)) <= 1 for k in request.form),
+            'Repeated course setup fields are unsupported.')
+    action = request.form.get('action', '')
+    topic = request.form.get('topic', '').strip()
+    require(0 < len(topic) <= 150, 'Enter a topic name (maximum 150 characters).')
+    factory = current_app.config.get('LEARNING_STUDIO_COURSE_SERVICE_FACTORY')
+    course_service = factory() if callable(factory) else CourseService(RoutedCourseRepository())
+    try:
+        if action == 'create':
+            code = request.form.get('code', '').strip().upper()
+            name = request.form.get('name', '').strip()
+            semester = request.form.get('semester', '').strip()
+            require(bool(re.fullmatch(r'[A-Z0-9_-]{2,20}', code)),
+                    'Use a valid course code of 2–20 letters/digits.')
+            require(0 < len(name) <= 150 and len(semester) <= 80,
+                    'Enter a course name of up to 150 characters.')
+            course_service.create_course(CreateCourseCommand(
+                code=code, name=name, semester=semester, topics=({'name': topic},)))
+        elif action == 'add_topic':
+            course_id = request.form.get('course_id', '').strip()
+            available = {c['id'] for c in studio.catalogue_loader().get('courses', [])}
+            require(course_id in available, 'Select an existing registered course.')
+            course_service.add_topic(AddTopicCommand(
+                course_identifier=course_id, topic_name=topic))
+        else:
+            raise PackageError('Choose create course or add topic.', 422)
+    except ValueError as error:
+        if isinstance(error, PackageError):
+            raise
+        raise PackageError(str(error), 422) from error
+    return redirect(url_for('learning.mapping_review', module_id=module_id, revision=revision), code=303)
+
+
 @learning_blueprint.route('/learning/modules/<module_id>/<int:revision>/mapping',methods=['GET','POST'])
 def mapping_review(module_id,revision):
     s=service()
