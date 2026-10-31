@@ -4,9 +4,12 @@ on:
     paths:
       - 'personal_learning_assistant/learning_studio/portable_bundle.py'
       - 'personal_learning_assistant/learning_studio/service.py'
+      - 'personal_learning_assistant/learning_studio/mapping_review.py'
+      - 'personal_learning_assistant/services/course_dashboard_service.py'
       - 'personal_learning_assistant/ui/web/learning_studio.py'
       - 'personal_learning_assistant/ui/web/templates/learning_*.html'
       - 'tests/learning_studio/test_self_contained_bundle.py'
+      - 'tests/learning_studio/test_course_topic_linking_portable.py'
       - '.github/workflows/learning-studio-portable-zip.yml'
   workflow_dispatch:
 permissions:
@@ -35,4 +38,4 @@ jobs:
       - name: Install Learning Studio requirements
         run: python -m pip install -r requirements-learning-studio.txt
       - name: Verify real portable staging, publish, safety, atomic rollback
-        run: python -m pytest tests/learning_studio/test_self_contained_bundle.py -q -x
+        run: python -m pytest tests/learning_studio/test_self_contained_bundle.py tests/learning_studio/test_course_topic_linking_portable.py -q -x
