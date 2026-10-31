@@ -1,6 +1,7 @@
 """Thin domain orchestration. No Tutor, official grades, Notes or mastery writes."""
 from __future__ import annotations
 import copy
+from contextlib import nullcontext
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -29,7 +30,7 @@ class LearningStudioService(ProgressMixin, ReviewStoreMixin, MappingReviewMixin,
         self.source_loader = source_loader
         self.catalogue_loader = catalogue_loader
 
-    def stage(self, package, assets=None, coverage=None, *, candidate=False, expected_parent=None, source_bytes=None):
+    def stage(self, package, assets=None, coverage=None, *, candidate=False, expected_parent=None, source_bytes=None, _connection=None):
         require(isinstance(package, dict) and isinstance(package.get('source'), dict), 'Missing source/package.')
         if expected_parent is not None:
             require(isinstance(expected_parent,dict) and set(expected_parent)=={'revision','digest'},'Invalid reviewed parent binding.')
@@ -51,7 +52,7 @@ class LearningStudioService(ProgressMixin, ReviewStoreMixin, MappingReviewMixin,
             validate_coverage(coverage, p, raw, assets)
         encoded = canonical(p)
         digest = hashlib.sha256(encoded.encode()).hexdigest()
-        with self.store.connection(write=True) as con:
+        with (self.store.connection(write=True) if _connection is None else nullcontext(_connection)) as con:
             if expected_parent is not None:
                 parent,prior=self._row(con,p['module_id'],expected_parent['revision'],include_source=True)
                 require(parent['digest']==expected_parent['digest'] and
@@ -108,6 +109,17 @@ class LearningStudioService(ProgressMixin, ReviewStoreMixin, MappingReviewMixin,
                     (p['module_id'],p['module_revision'],coverage_digest(coverage),canonical(coverage),now()))
         return {'module_id': p['module_id'], 'revision': p['module_revision'], 'state': 'staged',
                 'semantic_review_pages': sum(page['status'] != 'verified' for page in p['pages'])}
+
+    def stage_many_portable(self, prepared):
+        """Stage all prevalidated portable modules in one SQLite transaction.
+
+        Failure of any module rolls back every staged member of this bundle.
+        Existing published and active modules are never modified.
+        """
+        with self.store.connection(write=True) as con:
+            return [self.stage(package, assets, coverage, source_bytes=source,
+                               _connection=con)
+                    for package, assets, coverage, source in prepared]
 
     def _row(self, con, module_id, revision, *, staged=False, include_source=False):
         identity(module_id); integer(revision, 1, 1000000)
