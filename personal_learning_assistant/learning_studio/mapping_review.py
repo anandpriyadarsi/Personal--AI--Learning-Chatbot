@@ -17,6 +17,8 @@ class MappingReviewMixin:
         require(len(candidates)<=5000,'Catalogue mapping candidates exceed the review limit.',413)
         return {'module_id':module_id,'revision':revision,'mapping_snapshot':p['mapping'],
             'available':bool(catalogue.get('available')),'candidates':candidates,
+            'courses':[{'id':c['id'],'code':c.get('code',''),'name':c.get('name',c['id'])}
+                       for c in catalogue.get('courses',[]) if c.get('id')],
             'authority':'catalogue-identities-only','automatic_mapping':False}
 
     def confirm_mapping(self,module_id,revision,payload):
