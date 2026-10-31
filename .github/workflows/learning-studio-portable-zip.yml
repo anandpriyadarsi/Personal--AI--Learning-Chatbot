@@ -1,0 +1,38 @@
+name: Learning Studio portable ZIP acceptance
+on:
+  pull_request:
+    paths:
+      - 'personal_learning_assistant/learning_studio/portable_bundle.py'
+      - 'personal_learning_assistant/learning_studio/service.py'
+      - 'personal_learning_assistant/ui/web/learning_studio.py'
+      - 'personal_learning_assistant/ui/web/templates/learning_*.html'
+      - 'tests/learning_studio/test_self_contained_bundle.py'
+      - '.github/workflows/learning-studio-portable-zip.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: portable-zip-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  portable-zip:
+    name: Portable ZIP (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements-learning-studio.txt
+      - name: Install Learning Studio requirements
+        run: python -m pip install -r requirements-learning-studio.txt
+      - name: Verify real portable staging, publish, safety, atomic rollback
+        run: python -m pytest tests/learning_studio/test_self_contained_bundle.py -q -x
