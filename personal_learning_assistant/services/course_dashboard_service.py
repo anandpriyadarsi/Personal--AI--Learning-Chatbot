@@ -8,6 +8,7 @@ only when the Courses page is actually requested.
 from __future__ import annotations
 
 from importlib import import_module
+import hashlib
 from typing import Any
 
 
@@ -30,6 +31,16 @@ def _status_label(value: Any) -> str:
     return text.replace("_", " ").capitalize()
 
 
+def _topic_id(course_id: str, topic_name: str) -> str:
+    """Stable catalogue-only identity; existing persisted course JSON is unchanged.
+
+    Topic names are the canonical identifiers in the existing CourseService.
+    A rename necessarily changes this derived identity and requires re-review.
+    """
+    key = (str(course_id) + "\\0" + str(topic_name).strip().casefold()).encode("utf-8")
+    return "topic-" + hashlib.sha256(key).hexdigest()[:24]
+
+
 def build_course_catalogue_from_result(result: Any) -> dict[str, Any]:
     """Normalize CourseService.list_courses() output for Jinja rendering."""
     active_course_id = _value(result, "active_course_id")
@@ -39,6 +50,7 @@ def build_course_catalogue_from_result(result: Any) -> dict[str, Any]:
     weak_topics = 0
 
     for course in tuple(_value(result, "courses", ()) or ()):
+        course_id = str(_value(course, "id", "") or "")
         topics = []
         course_mastered = 0
         for topic in tuple(_value(course, "topics", ()) or ()):
@@ -50,6 +62,7 @@ def build_course_catalogue_from_result(result: Any) -> dict[str, Any]:
                 weak_topics += 1
             topics.append(
                 {
+                    "id": _topic_id(course_id, str(_value(topic, "name", "") or "Untitled topic")),
                     "name": str(_value(topic, "name", "") or "Untitled topic"),
                     "status": status,
                     "status_label": _status_label(status),
@@ -61,7 +74,6 @@ def build_course_catalogue_from_result(result: Any) -> dict[str, Any]:
         topic_count = len(topics)
         total_topics += topic_count
         progress_percent = round((course_mastered / topic_count) * 100) if topic_count else 0
-        course_id = str(_value(course, "id", "") or "")
         course_status = str(_value(course, "status", "active") or "active")
         courses.append(
             {

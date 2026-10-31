@@ -17,6 +17,8 @@ class MappingReviewMixin:
         require(len(candidates)<=5000,'Catalogue mapping candidates exceed the review limit.',413)
         return {'module_id':module_id,'revision':revision,'mapping_snapshot':p['mapping'],
             'available':bool(catalogue.get('available')),'candidates':candidates,
+            'courses':[{'id':c['id'],'code':c.get('code',''),'name':c.get('name',c['id'])}
+                       for c in catalogue.get('courses',[]) if c.get('id')],
             'authority':'catalogue-identities-only','automatic_mapping':False}
 
     def confirm_mapping(self,module_id,revision,payload):
@@ -29,8 +31,13 @@ class MappingReviewMixin:
         require(mapping['topic_id'] is not None,'Choose an exact registered topic ID.')
         validate_mapping(mapping,self.catalogue_loader())
         with self.store.connection() as con:
-            _,p=self._row(con,module_id,revision,staged=True)
+            row,p=self._row(con,module_id,revision,staged=True,include_source=True)
             assets={a['name']:a['bytes'] for a in con.execute('SELECT name,bytes FROM assets WHERE module_id=? AND revision=?',(module_id,revision))}
+            # The original PDF of a portable Learning Studio module is owned
+            # by its immutable snapshot, not the separate Knowledge registry.
+            portable=p['source']['source_id']=='portable.'+p['source']['sha256']
+            source_bytes=row['source_blob'] if portable else None
         derived=copy.deepcopy(p);derived['module_revision']=new_revision;derived['mapping']=mapping
-        # stage revalidates the live catalogue/source and enforces monotonic history.
-        return self.stage(derived,assets)
+        # Preserve the exact PDF and earlier attempt history. The new revision
+        # must still pass catalogue/source validation before it is staged.
+        return self.stage(derived,assets,source_bytes=source_bytes)
