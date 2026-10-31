@@ -3,7 +3,7 @@
 {% block content %}
 <section class="notice-panel">
   <h1>Import an authored learning module</h1>
-  <p>Upload a canonical JSON or ZIP (module.json and owned raster assets). Original PDF source registration is required before staging; importing never publishes automatically.</p>
+  <p><strong>Local website:</strong> Upload one self-contained Learning Studio ZIP containing original PDFs, lessons, quizzes and optional study resources. No separate PDF registration, Python script or source ID is needed. The PDFs are stored intact with their Learning Studio modules. Older canonical JSON/ZIP imports are still supported and still require registered PDF sources.</p>
   {% if config.get('ANDROID_LOCAL_RUNTIME') %}
   <p><strong>UC103N Vedic Schools Work package:</strong> This Android version also accepts the original
   <code>ANVAYA_UC103N_Vedic_Schools_Future_App_Import.zip</code> directly, after you register its unchanged
@@ -21,7 +21,7 @@
       <input type="text" name="source_id" maxlength="150" autocomplete="off" placeholder="Use the ID shown after Library PDF upload">
     </label>
     {% endif %}
-    <button type="submit">Validate and stage</button>
+    <button type="submit">Validate and stage learning package</button>
   </form>
   <p>Review the complete module and its source coverage before explicitly publishing. Personal Notes, Tutor history and assessments are not overwritten by import.</p>
   <p><a href="{{ url_for('learning.library') }}">Back to Learning Studio</a></p>
