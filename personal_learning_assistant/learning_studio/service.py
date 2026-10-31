@@ -1,6 +1,7 @@
 """Thin domain orchestration. No Tutor, official grades, Notes or mastery writes."""
 from __future__ import annotations
 import copy
+from contextlib import nullcontext
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -29,21 +30,29 @@ class LearningStudioService(ProgressMixin, ReviewStoreMixin, MappingReviewMixin,
         self.source_loader = source_loader
         self.catalogue_loader = catalogue_loader
 
-    def stage(self, package, assets=None, coverage=None, *, candidate=False, expected_parent=None):
+    def stage(self, package, assets=None, coverage=None, *, candidate=False, expected_parent=None, source_bytes=None, _connection=None):
         require(isinstance(package, dict) and isinstance(package.get('source'), dict), 'Missing source/package.')
         if expected_parent is not None:
             require(isinstance(expected_parent,dict) and set(expected_parent)=={'revision','digest'},'Invalid reviewed parent binding.')
             integer(expected_parent['revision'],1,1000000)
             require(isinstance(expected_parent['digest'],str) and len(expected_parent['digest'])==64 and
                 all(c in '0123456789abcdef' for c in expected_parent['digest']),'Invalid reviewed parent digest.')
-        raw = self.source_loader(package['source'].get('source_id'))
+        if source_bytes is None:
+            raw = self.source_loader(package['source'].get('source_id'))
+        else:
+            require(not candidate and expected_parent is None,
+                    'Portable source imports cannot edit reviewed revisions.')
+            require(isinstance(source_bytes, bytes) and
+                    package['source'].get('source_id') == 'portable.' + hashlib.sha256(source_bytes).hexdigest(),
+                    'Portable source identity does not match the exact bundled PDF.')
+            raw = source_bytes
         p = validate_package(package, self.catalogue_loader(), raw, assets)
         if coverage is not None:
             from .coverage import validate_coverage
             validate_coverage(coverage, p, raw, assets)
         encoded = canonical(p)
         digest = hashlib.sha256(encoded.encode()).hexdigest()
-        with self.store.connection(write=True) as con:
+        with (self.store.connection(write=True) if _connection is None else nullcontext(_connection)) as con:
             if expected_parent is not None:
                 parent,prior=self._row(con,p['module_id'],expected_parent['revision'],include_source=True)
                 require(parent['digest']==expected_parent['digest'] and
@@ -101,6 +110,17 @@ class LearningStudioService(ProgressMixin, ReviewStoreMixin, MappingReviewMixin,
         return {'module_id': p['module_id'], 'revision': p['module_revision'], 'state': 'staged',
                 'semantic_review_pages': sum(page['status'] != 'verified' for page in p['pages'])}
 
+    def stage_many_portable(self, prepared):
+        """Stage all prevalidated portable modules in one SQLite transaction.
+
+        Failure of any module rolls back every staged member of this bundle.
+        Existing published and active modules are never modified.
+        """
+        with self.store.connection(write=True) as con:
+            return [self.stage(package, assets, coverage, source_bytes=source,
+                               _connection=con)
+                    for package, assets, coverage, source in prepared]
+
     def _row(self, con, module_id, revision, *, staged=False, include_source=False):
         identity(module_id); integer(revision, 1, 1000000)
         require(con is not None, 'Module not found.', 404)
@@ -120,12 +140,16 @@ class LearningStudioService(ProgressMixin, ReviewStoreMixin, MappingReviewMixin,
         with self.store.connection(write=True) as con:
             row, p = self._row(con, module_id, revision, staged=True, include_source=True)
             assets = {a['name']: a['bytes'] for a in con.execute('SELECT name,bytes FROM assets WHERE module_id=? AND revision=?', (module_id, revision))}
-            # Re-resolve registry and catalogue after staging; no trusting an obsolete preview.
-            try:
-                raw = self.source_loader(p['source']['source_id'])
-            except PackageError: raise
-            except Exception as error:
-                raise PackageError('Registered source is unavailable; the staged revision was not published.', 503) from error
+            # Portable imports own an immutable PDF snapshot in the Studio DB.
+            # Legacy imports still re-resolve the external registry on publish.
+            if p['source']['source_id'] == 'portable.' + p['source']['sha256']:
+                raw = row['source_blob']
+            else:
+                try:
+                    raw = self.source_loader(p['source']['source_id'])
+                except PackageError: raise
+                except Exception as error:
+                    raise PackageError('Registered source is unavailable; the staged revision was not published.', 503) from error
             validate_package(p, self.catalogue_loader(), raw, assets)
             require(raw == row['source_blob'], 'Staged source snapshot no longer matches its registry source.', 409)
             con.execute('INSERT OR IGNORE INTO publications VALUES(?,?,?)', (module_id, revision, now()))

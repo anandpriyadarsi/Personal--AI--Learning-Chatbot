@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Learning package staged · ANVAYA{% endblock %}
+{% block content %}
+<section class="notice-panel">
+  <h1>Learning package staged for review</h1>
+  <p>All {{ results|length }} learning modules were validated with their original PDFs and staged in Learning Studio. Nothing has been published automatically.</p>
+  <p>Open each lesson module below, check the source pages, lessons and questions, then choose <strong>Publish</strong> on its preview page.</p>
+  <div class="learning-import-results">
+    {% for result in results %}
+    <article class="notice-panel">
+      <h2>{{ result.title }}</h2>
+      <p>Revision {{ result.revision }} · {{ result.semantic_review_pages }} page(s) flagged for semantic review</p>
+      <p><a href="{{ url_for('learning.preview', module_id=result.module_id, revision=result.revision) }}">Review and publish this module</a></p>
+    </article>
+    {% endfor %}
+  </div>
+  <p>The unchanged original PDFs are stored as immutable Learning Studio source snapshots. Notebook and Markdown extras remain in the downloaded ZIP for opening in Colab or an editor; they are not executed by ANVAYA.</p>
+  <p><a href="{{ url_for('learning.library') }}">Back to Learning Studio</a></p>
+</section>
+{% endblock %}
