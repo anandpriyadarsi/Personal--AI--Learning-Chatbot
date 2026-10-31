@@ -110,7 +110,7 @@ def test_portable_zip_rejects_extra_module_and_traversal():
 
 
 def test_portable_stage_publish_reads_immutable_snapshot_not_external_registry(tmp_path):
-    module, assets, coverage, source = _decode(_archive())
+    module, assets, coverage, source = _decode(_archive())[0]
     calls = []
     def unavailable_loader(source_id):
         calls.append(source_id)
@@ -130,7 +130,7 @@ def test_portable_stage_publish_reads_immutable_snapshot_not_external_registry(t
 
 
 def test_portable_stage_rejects_forged_source_id(tmp_path):
-    module, assets, coverage, source = _decode(_archive())
+    module, assets, coverage, source = _decode(_archive())[0]
     module['source']['source_id'] = 'portable.' + '0' * 64
     studio = LearningStudioService(
         tmp_path / 'learning_studio.sqlite3',
@@ -142,7 +142,7 @@ def test_portable_stage_rejects_forged_source_id(tmp_path):
 
 
 def test_portable_bundle_atomic_rollback_when_second_member_conflicts(tmp_path):
-    module, assets, coverage, source = _decode(_archive())
+    module, assets, coverage, source = _decode(_archive())[0]
     studio = LearningStudioService(
         tmp_path / 'learning_studio.sqlite3',
         source_loader=lambda source_id: None,
