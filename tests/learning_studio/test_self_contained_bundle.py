@@ -139,3 +139,26 @@ def test_portable_stage_rejects_forged_source_id(tmp_path):
     )
     with pytest.raises(PackageError, match='identity'):
         studio.stage(module, assets, coverage, source_bytes=source)
+
+
+def test_portable_bundle_atomic_rollback_when_second_member_conflicts(tmp_path):
+    module, assets, coverage, source = _decode(_archive())
+    studio = LearningStudioService(
+        tmp_path / 'learning_studio.sqlite3',
+        source_loader=lambda source_id: None,
+        catalogue_loader=lambda: {'available': False, 'courses': []},
+    )
+    second = dict(module, module_id='uc100n.test.existing')
+    studio.stage(second, assets, coverage, source_bytes=source)
+    conflicting = dict(second, title='Conflicting immutable revision')
+    with pytest.raises(PackageError, match='immutable'):
+        studio.stage_many_portable([
+            (module, assets, coverage, source),
+            (conflicting, assets, coverage, source),
+        ])
+    # The first module was not left partially staged after the second failed.
+    with studio.store.connection() as con:
+        assert con.execute('SELECT count(*) FROM modules WHERE module_id=?',
+                           (module['module_id'],)).fetchone()[0] == 0
+        assert con.execute('SELECT count(*) FROM modules WHERE module_id=?',
+                           (second['module_id'],)).fetchone()[0] == 1
