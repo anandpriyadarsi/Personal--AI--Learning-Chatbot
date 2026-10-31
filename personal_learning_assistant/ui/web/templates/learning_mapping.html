@@ -28,7 +28,45 @@
       <button id="ls-mapping-apply" type="button" style="min-height:48px">Link and stage new revision</button>
       <p id="ls-mapping-result" role="status" aria-live="polite"></p>
     {% else %}
-      <p>Registered subject/topic catalogue unavailable or empty. Add the correct subject and topic under <a href="{{ url_for('web.courses') }}">Courses</a> first; existing source notes are safe.</p>
+      {% if review.available %}
+      <p>No registered subjects with selectable topics are available yet. Create a course and its first topic below, or add a topic to an existing course.</p>
+      {% else %}
+      <p>The Courses catalogue is temporarily unavailable. Open <a href="{{ url_for('web.courses') }}">Courses</a> to check the data source; existing lessons and PDFs are safe. Linking is disabled until the catalogue is restored.</p>
+      {% endif %}
+    {% endif %}
+
+    {% if review.available %}
+      <details style="margin:1.5rem 0;padding:1rem;border:1px solid var(--border,#52606d);border-radius:12px" {% if not review.candidates %}open{% endif %}>
+        <summary><strong>Register a subject or add a missing topic</strong></summary>
+        <p>These changes use ANVAYA's existing course catalogue. They do not modify the original lesson or PDF.</p>
+        <h3>Create a subject with its first topic</h3>
+        <form method="post" action="{{ url_for('learning.register_mapping_course_topic',module_id=review.module_id,revision=review.revision) }}" style="display:grid;gap:.65rem;max-width:550px">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <input type="hidden" name="action" value="create">
+          <label>Subject code <input name="code" maxlength="20" placeholder="UC100N" required></label>
+          <label>Subject name <input name="name" maxlength="150" placeholder="Data Science & AI" required></label>
+          <label>Semester <input name="semester" maxlength="80" placeholder="Semester 1"></label>
+          <label>First topic <input name="topic" maxlength="150" placeholder="Data Preprocessing" required></label>
+          <button type="submit">Create subject and topic</button>
+        </form>
+        {% if review.courses %}
+        <h3 style="margin-top:1.5rem">Add a topic to an existing subject</h3>
+        <form method="post" action="{{ url_for('learning.register_mapping_course_topic',module_id=review.module_id,revision=review.revision) }}" style="display:grid;gap:.65rem;max-width:550px">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <input type="hidden" name="action" value="add_topic">
+          <label>Subject
+            <select name="course_id" required>
+              <option value="">Choose a subject</option>
+              {% for c in review.courses %}
+              <option value="{{ c.id }}">{{ c.code }} · {{ c.name }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label>Topic name <input name="topic" maxlength="150" placeholder="Data Preprocessing" required></label>
+          <button type="submit">Add topic</button>
+        </form>
+        {% endif %}
+      </details>
     {% endif %}
   </div>
   <p><a href="{{ url_for('learning.preview',module_id=review.module_id,revision=review.revision) }}">← Back to module</a></p>
