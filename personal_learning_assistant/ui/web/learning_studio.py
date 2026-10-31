@@ -229,11 +229,10 @@ def import_module():
                 valid = validate_package(package, catalogue, source_bytes, assets)
                 if coverage is not None:
                     validate_coverage(coverage, valid, source_bytes, assets)
-            results = []
             try:
-                for package, assets, coverage, source_bytes in prepared:
-                    staged = s.stage(package, assets, coverage, source_bytes=source_bytes)
-                    results.append(dict(staged, title=package['title']))
+                staged = s.stage_many_portable(prepared)
+                results = [dict(result, title=package['title'])
+                           for result, (package, _, _, _) in zip(staged, prepared)]
             except PackageError:
                 raise
             except Exception as error:
