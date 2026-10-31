@@ -206,35 +206,65 @@ def import_module():
     from personal_learning_assistant.learning_studio.validation import PackageError, require
     if request.method == 'GET':
         return render_template('learning_import.html', active_page='learning', csrf_token=current_app.extensions['learning_studio_csrf'])
-    from personal_learning_assistant.learning_studio.archive import decode_bundle
+    from personal_learning_assistant.learning_studio.archive import decode_bundle, read_zip
+    from personal_learning_assistant.learning_studio.portable_bundle import (
+        is_self_contained_bundle, decode_self_contained_bundle,
+    )
     upload = request.files.get('package')
     require(upload is not None, 'Choose an authored learning package.')
     raw = upload.read(25_000_001)
-    if current_app.config.get('ANDROID_LOCAL_RUNTIME') and str(upload.filename).lower().endswith('.zip'):
-        from personal_learning_assistant.learning_studio.archive import read_zip
-        from personal_learning_assistant.learning_studio.portable_vedic_import import (
-            bind_vedic_work_zip, is_vedic_authoring_archive,
-        )
+    filename = str(upload.filename or '')
+    if filename.lower().endswith('.zip'):
         members = read_zip(raw, pilot=True)
-        if is_vedic_authoring_archive(members):
-            package, assets, coverage = bind_vedic_work_zip(
-                raw,
-                database=current_app.config['LEARNING_STUDIO_SOURCE_DATABASE'],
-                roots=current_app.config['LEARNING_STUDIO_SOURCE_ROOTS'],
-                requested_source_id=request.form.get('source_id', ''),
+        if is_self_contained_bundle(members):
+            require(not current_app.config.get('ANDROID_LOCAL_RUNTIME'),
+                    'Self-contained bundles are currently supported on the local website, not the Android app.', 422)
+            from personal_learning_assistant.learning_studio.validation import validate_package
+            from personal_learning_assistant.learning_studio.coverage import validate_coverage
+            prepared = decode_self_contained_bundle(members)
+            s = service()
+            # Prevalidate EVERY module before committing ANY staged import.
+            catalogue = s.catalogue_loader()
+            for package, assets, coverage, source_bytes in prepared:
+                valid = validate_package(package, catalogue, source_bytes, assets)
+                if coverage is not None:
+                    validate_coverage(coverage, valid, source_bytes, assets)
+            results = []
+            try:
+                for package, assets, coverage, source_bytes in prepared:
+                    staged = s.stage(package, assets, coverage, source_bytes=source_bytes)
+                    results.append(dict(staged, title=package['title']))
+            except PackageError:
+                raise
+            except Exception as error:
+                current_app.logger.warning('Portable bundle staging failed (%s).', type(error).__name__)
+                raise PackageError('Portable bundle could not be staged; existing publications were not modified.', 503) from error
+            return render_template('learning_bundle_staged.html', active_page='learning',
+                                   results=results, csrf_token=current_app.extensions['learning_studio_csrf'])
+        if current_app.config.get('ANDROID_LOCAL_RUNTIME'):
+            from personal_learning_assistant.learning_studio.portable_vedic_import import (
+                bind_vedic_work_zip, is_vedic_authoring_archive,
             )
+            if is_vedic_authoring_archive(members):
+                package, assets, coverage = bind_vedic_work_zip(
+                    raw, database=current_app.config['LEARNING_STUDIO_SOURCE_DATABASE'],
+                    roots=current_app.config['LEARNING_STUDIO_SOURCE_ROOTS'],
+                    requested_source_id=request.form.get('source_id', ''),
+                )
+            else:
+                package, assets, coverage = decode_bundle(raw, filename)
         else:
-            package, assets, coverage = decode_bundle(raw, upload.filename)
+            package, assets, coverage = decode_bundle(raw, filename)
     else:
-        package, assets, coverage = decode_bundle(raw, upload.filename)
+        package, assets, coverage = decode_bundle(raw, filename)
     try:
         result = service().stage(package, assets, coverage)
-    except PackageError: raise
+    except PackageError:
+        raise
     except Exception as error:
         current_app.logger.warning('Learning source/import unavailable (%s).', type(error).__name__)
         raise PackageError('Registered source is unavailable. Configure existing source roots; academic data was not changed.', 503) from error
     return redirect(url_for('learning.preview', module_id=result['module_id'], revision=result['revision']))
-
 
 @learning_blueprint.get('/learning/modules/<module_id>/<int:revision>/source.pdf')
 def original(module_id, revision):
