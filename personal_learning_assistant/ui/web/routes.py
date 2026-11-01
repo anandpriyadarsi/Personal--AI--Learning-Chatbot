@@ -4500,6 +4500,26 @@ def academic_agent_create_session():
         )
 
 
+@web_blueprint.post("/agent/sessions/<session_id>/rename")
+def academic_agent_rename_session(session_id):
+    """Explicit, CSRF-protected edit of the local Tutor chat's display title."""
+    if not _tutor_action_token_matches():
+        return "Tutor action token is invalid.", 403
+    service = _academic_agent_service()
+    try:
+        service.rename_session(session_id, request.form.get("title", ""))
+    except AcademicAgentWebValidationError:
+        return "Enter a chat name of 1–160 characters on a single line.", 400
+    except AcademicAgentWebNotFoundError:
+        return "Tutor session was not found.", 404
+    except AcademicAgentWebUnavailableError:
+        return "Tutor session history is temporarily unavailable.", 503
+    # Accept only known local destinations; never redirect to user-provided URLs.
+    if request.form.get("return_to") == "session":
+        return redirect(url_for("web.academic_agent_session", session_id=session_id), code=303)
+    return redirect(url_for("web.academic_agent", _anchor="tutor-history"), code=303)
+
+
 @web_blueprint.get("/agent/sessions/<session_id>")
 def academic_agent_session(session_id):
     """Reopen a persisted tutor transcript without invoking the provider."""
