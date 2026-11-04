@@ -200,7 +200,8 @@ def export_backup_file(root, *, include_media=True, destination=None):
                             size, digest = _copy(source,target)
                         manifest['files'][name] = {'size':size,'sha256':digest}
                     archive.writestr('manifest.json',json.dumps(manifest,sort_keys=True))
-                with temporary.open('rb') as stream: os.fsync(stream.fileno())
+                # Windows requires a write-capable handle for flush-to-disk (os.fsync).
+                with temporary.open('r+b') as stream: os.fsync(stream.fileno())
                 # Verify the produced bytes before offering a backup.
                 with tempfile.TemporaryDirectory(dir=root) as verify:
                     _unpack(temporary, Path(verify))
