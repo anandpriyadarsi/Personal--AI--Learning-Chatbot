@@ -31,6 +31,26 @@ def ocr_available():
 
 
 def extract_pages(path, kind, *, ocr=False, cancelled=lambda: False):
+    from .native_document_formats import TEXT_KINDS
+    if kind in TEXT_KINDS:
+        if path.stat().st_size>MAX_TEXT: return [],'unavailable','Stored only: text exceeds local extraction budget.'
+        text=path.read_text(encoding='utf-8')
+        lines=text.splitlines()
+        if len(lines)>MAX_PAGES: return [],'unavailable','Stored only: line extraction budget exceeded.'
+        return list(enumerate(lines,1)),'ready','UTF-8 line text; code is never executed.'
+    if kind=='docx':
+        with ZipFile(path) as archive:
+            info=archive.getinfo('word/document.xml')
+            if info.file_size>MAX_XML: raise ValueError('Document XML resource limit exceeded')
+            raw=archive.read(info)
+            if b'<!DOCTYPE' in raw.upper() or b'<!ENTITY' in raw.upper(): raise ValueError('Unsafe XML')
+            root=ET.fromstring(raw)
+            ns={'w':'http://schemas.openxmlformats.org/wordprocessingml/2006/main'}
+            paragraphs=[''.join(p.itertext()) for p in root.findall('.//w:p',ns)]
+            if len(paragraphs)>MAX_PAGES or sum(map(len,paragraphs))>MAX_TEXT: raise ValueError('Document extraction budget exceeded')
+            return list(enumerate(paragraphs,1)),'ready','DOCX paragraph text; pagination depends on viewer.'
+    if kind in ('doc','png','jpg','jpeg','webp'):
+        return [],'unavailable','Stored only: local extraction is unavailable for this format.'
     if kind == 'ppt':
         return [], 'conversion_required', 'Legacy PPT: convert a copy to PPTX for content search. Original preserved.'
     if kind == 'pptx':

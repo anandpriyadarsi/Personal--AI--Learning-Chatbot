@@ -300,3 +300,57 @@ def test_compact_bar_remains_separate_at_short_viewport(browser, real_tutor, wid
         assert page.evaluate('document.documentElement.scrollWidth <= innerWidth + 1')
     finally:
         page.close()
+
+
+@pytest.mark.parametrize('width', [390, 1024, 1366, 1745])
+def test_tutor_home_uses_screen_and_chat_rename_is_accessible(browser, real_tutor, width):
+    base, service, path, course, provider, before = real_tutor
+    sid = service.create_session(course_id=course['id'], title='My original chat',
+                                 mode='concept', source_policy='source_first')
+    page = browser.new_page(viewport={'width': width, 'height': 900})
+    errors = []
+    page.on('pageerror', lambda error: errors.append(str(error)))
+    try:
+        page.goto(base + '/agent', wait_until='networkidle')
+        page.locator('#nav-toggle').click() if width >= 1024 else None
+        if width >= 1024:
+            page.wait_for_function("document.body.classList.contains('sidebar-collapsed')")
+            page.wait_for_function("""() => {
+                const content = document.getElementById('main-content').getBoundingClientRect();
+                return content.left <= 2 && content.right >= document.documentElement.clientWidth - 2;
+            }""")
+        assert page.evaluate('document.documentElement.scrollWidth <= innerWidth + 1')
+        home = page.locator('.tutor-home-grid')
+        assert home.is_visible()
+        start = page.locator('#tutor-start').bounding_box()
+        history = page.locator('#tutor-history').bounding_box()
+        # One vertical flow at every width, including large desktop displays.
+        assert history['y'] >= start['y'] + start['height'] - 3
+        assert abs(history['x'] - start['x']) <= 3
+        assert abs(history['width'] - start['width']) <= 3
+        assert page.locator('.tutor-brand-logo').is_visible()
+        assert page.locator('.tutor-brand-logo').get_attribute('alt') == 'ANVAYA'
+        assert page.evaluate('document.documentElement.scrollWidth <= innerWidth + 1')
+        chat_link = page.locator('.tutor-history-link', has_text='My original chat')
+        assert chat_link.count() == 1
+        assert chat_link.evaluate('(el) => getComputedStyle(el).textDecorationLine') == 'none'
+        page.get_by_label('Rename My original chat').click()
+        rename = page.get_by_label('Rename chat')
+        expect(rename).to_have_value('My original chat')
+        editor = page.locator('.tutor-rename-form:visible')
+        assert editor.count() == 1
+        form_box = editor.bounding_box()
+        assert form_box['width'] >= min(320, width - 45)
+        assert form_box['x'] >= 0 and form_box['x'] + form_box['width'] <= width + 1
+        assert page.locator('.tutor-history-list').evaluate('(el) => getComputedStyle(el).overflowY') != 'auto'
+        page.get_by_role('button', name='Cancel').click()
+        expect(editor).to_be_hidden()
+        page.get_by_label('Rename My original chat').click()
+        rename.fill('Renamed LU study chat')
+        page.get_by_role('button', name='Save name').click()
+        expect(page.locator('.tutor-history-link', has_text='Renamed LU study chat')).to_have_count(1)
+        assert service.session_view(sid)['title'] == 'Renamed LU study chat'
+        assert len(provider.requests) == 0
+        assert not errors
+    finally:
+        page.close()

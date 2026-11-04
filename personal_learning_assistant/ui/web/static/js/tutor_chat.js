@@ -3,6 +3,52 @@
 (() => {
   'use strict';
   function installTutorFollowups() {
+    // Localized, concise date labels replace raw database timestamps.
+    document.querySelectorAll('[data-tutor-time]').forEach(node => {
+      const value = new Date(node.getAttribute('datetime') || '');
+      if (Number.isNaN(value.getTime())) return;
+      const today = new Date();
+      const day = new Date(value.getFullYear(), value.getMonth(), value.getDate());
+      const startToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      const difference = Math.round((startToday - day) / 86400000);
+      const clock = new Intl.DateTimeFormat(undefined, {hour: 'numeric', minute: '2-digit'}).format(value);
+      if (difference === 0) node.textContent = 'Today · ' + clock;
+      else if (difference === 1) node.textContent = 'Yesterday';
+      else node.textContent = new Intl.DateTimeFormat(undefined, {
+        month: 'short', day: 'numeric', ...(value.getFullYear() !== today.getFullYear() ? {year: 'numeric'} : {})
+      }).format(value);
+      node.title = value.toLocaleString();
+    });
+    // Rename is an in-flow editor, never a narrow overlay over other chats.
+    const renameToggles = Array.from(document.querySelectorAll('[data-tutor-rename-toggle]'));
+    const setRenameOpen = (toggle, open, focus = false) => {
+      const editor = document.getElementById(toggle.getAttribute('aria-controls') || '');
+      if (!editor) return;
+      editor.hidden = !open;
+      toggle.setAttribute('aria-expanded', String(open));
+      if (focus) (open ? editor.querySelector('input[name="title"]') : toggle)?.focus();
+    };
+    renameToggles.forEach(toggle => {
+      toggle.addEventListener('click', () => {
+        const open = toggle.getAttribute('aria-expanded') !== 'true';
+        renameToggles.forEach(other => {
+          if (other !== toggle) setRenameOpen(other, false);
+        });
+        setRenameOpen(toggle, open, true);
+      });
+      const editor = document.getElementById(toggle.getAttribute('aria-controls') || '');
+      editor?.querySelector('[data-tutor-rename-cancel]')?.addEventListener('click', () => {
+        setRenameOpen(toggle, false, true);
+      });
+    });
+    document.addEventListener('keydown', event => {
+      if (event.key !== 'Escape') return;
+      const opened = renameToggles.find(toggle => toggle.getAttribute('aria-expanded') === 'true');
+      if (opened) {
+        event.preventDefault();
+        setRenameOpen(opened, false, true);
+      }
+    });
     const course = document.getElementById('session-course');
     const topic = document.getElementById('session-topic');
     if (course && topic) {

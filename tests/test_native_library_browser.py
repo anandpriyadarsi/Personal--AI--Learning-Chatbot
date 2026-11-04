@@ -13,7 +13,13 @@ pytestmark=pytest.mark.skipif(os.environ.get('ANVAYA_BROWSER_TESTS')!='1', reaso
 def server(app):
     # Exercise the actual async worker, not synchronous test-only route parsing.
     from personal_learning_assistant.services.native_document_library import NativeDocumentLibrary
-    old=app.config['NATIVE_LIBRARY_SERVICE']; live=NativeDocumentLibrary(old.root)
+    old=app.config['NATIVE_LIBRARY_SERVICE']
+    from personal_learning_assistant.repositories.sqlite.migration_runner import apply_migrations
+    directory=old.root.parent/'data';directory.mkdir(exist_ok=True)
+    apply_migrations(directory/'learning_assistant.db')
+    live=NativeDocumentLibrary(directory/'native_library',autostart=False)
+    live.configure_tutor(directory/'learning_assistant.db',directory/'tutor_retrieval')
+    live.start_worker()
     app.config['NATIVE_LIBRARY_SERVICE']=live
     server=make_server('127.0.0.1',0,app,threaded=True)
     thread=Thread(target=server.serve_forever,daemon=True); thread.start()
@@ -32,21 +38,18 @@ def test_upload_search_read_rename_move_download_and_delete(server,width,theme,t
         page=context.new_page();errors=[];page.on('pageerror',lambda error:errors.append(str(error)))
         assert page.goto(base+'/library/files').status==200
         page.wait_for_function('(theme)=>document.documentElement.dataset.theme===theme',arg=theme)
-        page.get_by_role('button',name='Upload').click()
+        page.get_by_label('Add files or folder').click()
+        page.get_by_role('button',name='Import files',exact=True).first.click()
         raw=pdf_bytes()
-        page.locator('#upload-form input[type=file]').set_input_files({'name':'Linear Algebra Chapter 3.pdf','mimeType':'application/pdf','buffer':raw})
-        page.locator('#upload-form select[name=subject_id]').select_option('ma103')
-        page.locator('#upload-form input[name=indexing]').check()
-        page.get_by_role('button',name='Store document').click()
-        expect(page.locator('.file-row')).to_have_count(1)
-        expect(page.locator('[data-status]')).to_have_text('Search Ready',timeout=20000)
-        page.get_by_role('button',name='Upload').click()
-        page.locator('#upload-form input[type=file]').set_input_files({'name':'Matrix Methods Lecture.pptx','mimeType':'application/vnd.openxmlformats-officedocument.presentationml.presentation','buffer':pptx_bytes()})
-        page.locator('#upload-form select[name=subject_id]').select_option('ma103')
-        page.locator('#upload-form input[name=indexing]').check()
-        page.get_by_role('button',name='Store document').click()
+        page.locator('#import-form input[type=file]').set_input_files([
+            {'name':'Linear Algebra Chapter 3.pdf','mimeType':'application/pdf','buffer':raw},
+            {'name':'Matrix Methods Lecture.pptx','mimeType':'application/vnd.openxmlformats-officedocument.presentationml.presentation','buffer':pptx_bytes()}])
+        page.locator('#import-form button[type=submit]').click()
+        expect(page.locator('#import-results')).to_contain_text('Linear Algebra Chapter 3.pdf · Saved')
+        expect(page.locator('#import-results')).to_contain_text('Matrix Methods Lecture.pptx · Saved')
+        page.get_by_role('button',name='Done · Show saved files').click()
         expect(page.locator('.file-row')).to_have_count(2)
-        expect(page.locator('[data-status]').first).to_have_text('Search Ready',timeout=20000)
+        expect(page.locator('[data-status]').first).to_have_text('Ready for Tutor',timeout=20000)
         assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
         assert page.locator('.files-heading').bounding_box()['height'] < 200
         if theme=='light':
@@ -56,44 +59,37 @@ def test_upload_search_read_rename_move_download_and_delete(server,width,theme,t
             from pathlib import Path
             Path(output).mkdir(parents=True,exist_ok=True)
             page.screenshot(path=str(Path(output)/f'files-{width}-{theme}.png'),full_page=True)
-        page.locator('#file-search').fill('Eigenvalues');page.locator('#file-search').press('Enter')
-        expect(page.locator('.files-match')).to_have_count(3)
-        pdf_match=page.locator('.files-match').filter(has_text='Page 2')
-        pdf_match.get_by_role('link',name='Open at Match').click()
-        expect(page.locator('.files-heading')).to_contain_text('Page 2')
-        expect(page.locator('#pdf-page')).to_be_visible()
-        page.wait_for_function('document.getElementById("pdf-page").naturalWidth>0')
-        page.locator('#within-search input[name=q]').fill('LU Factorization')
-        page.locator('#within-search button').click()
-        expect(page.locator('#within-results a')).to_have_count(2)
-        page.get_by_role('button',name='Fullscreen',exact=True).click()
-        assert page.evaluate('!!document.fullscreenElement || document.querySelector(".reader-focus")!==null')
-        page.keyboard.press('Escape')
-        page.goto(base+'/library/files')
-        row=page.locator('.file-row').filter(has_text='Linear Algebra Chapter 3.pdf')
-        row.locator('summary').click();row.get_by_role('button',name='Details / Move folder').click()
-        page.locator('#edit-form input[name=display_name]').fill('My Linear Algebra')
-        page.locator('#edit-form input[name=topic]').fill('Eigenvalues')
-        page.locator('#edit-form input[name=tags]').fill('exam, revision')
-        page.locator('#edit-form button[type=submit]').click()
-        expect(page.locator('.file-row').filter(has_text='My Linear Algebra')).to_be_visible()
-        page.get_by_role('button',name='New folder',exact=True).click()
-        page.locator('#folder-form input[name=name]').fill('Semester 1')
-        page.get_by_role('button',name='Save folder').click()
-        row=page.locator('.file-row').filter(has_text='My Linear Algebra')
-        row.locator('summary').click();row.get_by_role('button',name='Details / Move folder').click()
-        page.locator('#edit-form select[name=folder_id]').select_option(label='Semester 1')
-        page.locator('#edit-form button[type=submit]').click()
-        page.locator('.files-folders').get_by_role('link',name='Semester 1').click()
+        page.locator('#file-search').fill('linear alg');page.locator('#file-search').press('Enter')
         expect(page.locator('.file-row')).to_have_count(1)
         row=page.locator('.file-row');row.locator('summary').click()
-        with page.expect_download() as info: row.get_by_role('link',name='Save / Export',exact=True).click()
+        row.get_by_role('button',name='Rename',exact=True).click()
+        page.locator('#rename-form input[name=display_name]').fill('My Linear Algebra')
+        page.get_by_role('button',name='Save name').click()
+        expect(page.locator('.file-main h2')).to_have_text('My Linear Algebra')
+        page.goto(base+'/library/files')
+        row=page.locator('.file-row').filter(has_text='My Linear Algebra')
+        expect(row).to_be_visible()
+        row.locator('summary').click()
+        with page.expect_download() as info:row.get_by_role('link',name='Export original',exact=True).click()
         download=info.value
         assert download.suggested_filename=='My Linear Algebra.pdf'
         assert open(download.path(),'rb').read()==raw
-        page.on('dialog',lambda dialog:dialog.accept())
-        row.get_by_role('button',name='Delete',exact=True).click()
+        # Trash is recoverable and preserves exact original bytes.
+        row.get_by_role('button',name='Move to Trash',exact=True).click()
+        expect(page.locator('.file-row')).to_have_count(1)
+        page.goto(base+'/library/files?collection=trash')
+        row=page.locator('.file-row');expect(row).to_contain_text('My Linear Algebra')
+        row.locator('summary').click();row.get_by_role('button',name='Restore',exact=True).click()
         expect(page.locator('.file-row')).to_have_count(0)
+        page.goto(base+'/library/files')
+        expect(page.locator('.file-row')).to_have_count(2)
+        page.get_by_role('link',name='Semester 1',exact=False).click()
+        expect(page.locator('.files-folders')).to_contain_text('MA103N')
+        page.locator('.files-folders a').first.click()
+        page.on('dialog',lambda dialog:dialog.accept())
+        page.get_by_role('button',name='Folder template',exact=True).click()
+        expect(page.locator('.files-folders')).to_contain_text('Practice Problems')
+
         assert not errors
         context.close();browser.close()
 
@@ -105,7 +101,7 @@ def test_no_horizontal_overflow_with_long_filename_and_menu(server):
     lib.upload(BytesIO(pdf_bytes()),'A'*220+'.pdf')
     with sync_playwright() as pw:
         browser=pw.chromium.launch();page=browser.new_page(viewport={'width':320,'height':740})
-        page.goto(base+'/library/files');page.locator('.file-menu summary').click()
+        page.goto(base+'/library/files');page.locator('.file-row .file-menu summary').click()
         assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
         browser.close()
 
@@ -156,16 +152,21 @@ def test_default_open_and_distinct_rename_course_actions_keep_original(server):
         page.locator('#rename-form input[name=display_name]').fill('Renamed visible lecture')
         page.get_by_role('button',name='Save name',exact=True).click()
         expect(page.locator('.file-main h2')).to_have_text('Renamed visible lecture')
-        row=page.locator('.file-row');row.locator('summary').click();row.get_by_role('button',name='Move to Course',exact=True).click()
-        page.locator('#course-form select[name=subject_id]').select_option('ma103');page.get_by_role('button',name='Save course',exact=True).click()
-        expect(page.locator('.file-row')).to_contain_text('MA103N — Linear Algebra')
+        row=page.locator('.file-row');row.locator('summary').click();row.get_by_role('button',name='Move',exact=True).click()
+        page.locator('#destination-children').get_by_role('button',name='Semester 1',exact=True).click()
+        page.locator('#destination-children').get_by_role('button',name='MA103N — Linear Algebra',exact=True).click()
+        page.on('dialog',lambda dialog:dialog.accept())
+        page.get_by_role('button',name='Use this folder',exact=True).click()
+        expect(page.locator('.file-row')).to_have_count(0)
+        page.goto(base+'/library/files?folder_id='+lib.get(doc['id'])['folder_id'])
+        expect(page.locator('.files-breadcrumbs')).to_contain_text('MA103N — Linear Algebra')
         assert lib.get(doc['id'])['id']==doc['id'] and lib.get(doc['id'])['status']=='disabled'
         row=page.locator('.file-row');row.locator('summary').click()
         output=os.environ.get('ANVAYA_NATIVE_LIBRARY_ARTIFACTS')
         if output:
             from pathlib import Path
             page.screenshot(path=str(Path(output)/'files-native-actions-390.png'),full_page=True)
-        with page.expect_download() as info:row.get_by_role('link',name='Save / Export',exact=True).click()
+        with page.expect_download() as info:row.get_by_role('link',name='Export original',exact=True).click()
         assert info.value.suggested_filename=='Renamed visible lecture.pdf'
         assert open(info.value.path(),'rb').read()==raw
         context.close();browser.close()

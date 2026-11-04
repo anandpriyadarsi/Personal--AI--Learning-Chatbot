@@ -8,6 +8,21 @@
   {% if course %}<span aria-hidden="true">/</span><span aria-current="page">{{ profile.title }}</span>{% endif %}
 </nav>
 
+{% if resume %}
+<section class="ls-continue-reading" aria-labelledby="ls-continue-title">
+  <div class="ls-continue-copy">
+    <p class="ls-workspace-overline">Your saved learning position</p>
+    <h2 id="ls-continue-title">Continue Learning</h2>
+    <p><strong>{{ resume.title }}</strong></p>
+    <p>{{ resume.completed_count }} of {{ resume.total_lessons }} lessons marked completed · self-reported reading, not assessment mastery.</p>
+  </div>
+  <a class="ls-workspace-primary" href="{{ url_for('learning.module',module_id=resume.module_id,revision=resume.revision,view='overview' if resume.all_completed else 'learn',section=resume.next_section) }}">
+    {{ 'Review completed module' if resume.all_completed else 'Resume: ' ~ resume.next_title }}
+    <span aria-hidden="true">→</span>
+  </a>
+</section>
+{% endif %}
+
 {% if not course %}
 <header class="ls-workspace-hero">
   <div class="ls-workspace-intro">
