@@ -64,3 +64,7 @@ Clean server shutdown during extraction now keeps the job pending with its durab
 - V3 source excerpts accept literal comparisons and code as escaped inert text; teaching/question and legacy package markup guards stay strict. New tests preserve original bytes and prove script-like literals remain escaped in the reader.
 - The A–K browser contract measures the compact composer's available row width after Tools/Send and requires the transcript to end above it. This replaces the superseded full-form textarea-width assumption without changing the selected layout.
 - Final local execution is unavailable; these final changes require current-source GitHub checks. Earlier cancelled runs do not constitute acceptance.
+
+### Windows acceptance repairs
+
+Windows exposed SQLite fixture contexts that committed without closing OS handles, plus a real rapid Save & Next / Submit timing edge. Fixture transactions now close explicitly; the runner disables final submission during authoritative actions and restores controls after a failed save. The end-to-end journey waits for Save & Next navigation before submitting. A delayed-write Node regression verifies the control state and failure recovery.

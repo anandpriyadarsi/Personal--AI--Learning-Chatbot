@@ -134,7 +134,7 @@ class RoutedCanonicalScopeTests(unittest.TestCase):
     setUp=TutorBridgeTests.setUp
     records=TutorBridgeTests.records
     def test_pinned_routed_course_scope_does_not_follow_a_reused_course_code(self):
-        with sqlite3.connect(self.root/'data/learning_assistant.db') as con:
+        with closing(sqlite3.connect(self.root/'data/learning_assistant.db')) as con, con:
             con.execute("INSERT INTO courses(id,code,name,status,description,created_at,updated_at) VALUES('canonical-chem','CY100N','Chemistry','active','','now','now')")
         courses=[{'id':'legacy-chem','code':'CY100N','name':'Chemistry'}]
         self.lib.bootstrap_academics(courses)
@@ -146,7 +146,7 @@ class RoutedCanonicalScopeTests(unittest.TestCase):
         self.addCleanup(runtime.close)
         self.assertTrue(runtime.search('Zirconium47',course_ids=('canonical-chem',)))
         self.assertFalse(runtime.search('Zirconium47',course_ids=('other',)))
-        with sqlite3.connect(self.root/'data/learning_assistant.db') as con:
+        with closing(sqlite3.connect(self.root/'data/learning_assistant.db')) as con, con:
             con.execute("UPDATE courses SET deleted_at='now',code='OLD-CY100N' WHERE id='canonical-chem'")
             con.execute("INSERT INTO courses(id,code,name,status,description,created_at,updated_at) VALUES('different-course','CY100N','Reused code','active','','now','now')")
         self.lib.synchronize_course_scopes(self.root/'data/learning_assistant.db',courses)

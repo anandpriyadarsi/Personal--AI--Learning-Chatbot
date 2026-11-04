@@ -1,5 +1,6 @@
 """Synthetic UC100N journey in real Chromium; no provider network or invented marks."""
 import copy
+from contextlib import closing
 import io
 import json
 import os
@@ -28,7 +29,7 @@ def setup_journey(tmp_path):
     database=tmp_path/'data/learning_assistant.db';database.parent.mkdir()
     apply_migrations(database)
     now='2026-11-04T10:00:00Z'
-    with sqlite3.connect(database) as con:
+    with closing(sqlite3.connect(database)) as con, con:
         con.execute("INSERT INTO courses(id,code,name,status,description,created_at,updated_at) VALUES('c0','UC100N','Data Science and Artificial Intelligence','active','Synthetic demo',?,?)",(now,now))
         con.execute("INSERT INTO topics(id,course_id,name,normalized_name,position,status,created_at,updated_at) VALUES('t0','c0','Centering','centering',1,'not_started',?,?)",(now,now))
     cat={'available':True,'courses':[{'id':'c0','code':'UC100N','name':'Data Science and Artificial Intelligence','academic_year':'2026–27','semester':'Semester 1','topics':[{'id':'t0','name':'Centering'}]}]}
@@ -114,7 +115,10 @@ def test_originals_tutor_authoring_quickcheck_formal_results_resume(tmp_path,wid
             # A real canonical Assessment submission and evaluation, not an imported mark.
             page.goto(base+'/assessments/tests/'+aid);page.locator('input[name=confirmed]').check();page.get_by_role('button',name='Start CBT Test').click()
             page.wait_for_url('**/assessments/sessions/**');assessment_sid=page.url.split('/sessions/')[1].split('/')[0]
-            page.locator('input[name=option_ids][value=A]').check();page.get_by_role('button',name='Save & Next',exact=True).click()
+            page.locator('input[name=option_ids][value=A]').check()
+            # Save & Next is an asynchronous authoritative write and navigation.
+            with page.expect_navigation(wait_until='domcontentloaded'):
+                page.get_by_role('button',name='Save & Next',exact=True).click()
             page.on('dialog',lambda dialog:dialog.accept());page.get_by_role('button',name='Submit Test',exact=True).click()
             page.wait_for_url('**/summary');page.get_by_role('button',name='Evaluate / Open Results').click();page.wait_for_url('**/evaluation*')
             assert evaluation.results(assessment_sid)['confirmed_score_milli']==0

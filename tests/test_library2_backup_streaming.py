@@ -1,3 +1,4 @@
+from contextlib import closing
 """Real disk round trips; runnable with unittest when optional test deps are absent."""
 import hashlib
 import io
@@ -83,7 +84,7 @@ class SchemaCompatibilityTests(unittest.TestCase):
     def test_incomplete_native_schema_never_replaces_live_data(self):
         with tempfile.TemporaryDirectory() as temporary:
             root=Path(temporary);source=root/'source';native=source/'data/native_library';native.mkdir(parents=True)
-            with sqlite3.connect(native/'library.sqlite3') as con:
+            with closing(sqlite3.connect(native/'library.sqlite3')) as con, con:
                 con.execute('PRAGMA user_version=2');con.execute('CREATE TABLE documents(id TEXT,sha256 TEXT,size INTEGER)')
             raw=backup.export_backup(source);target=root/'target';(target/'data').mkdir(parents=True)
             (target/'data/notes.txt').write_text('keep existing records')

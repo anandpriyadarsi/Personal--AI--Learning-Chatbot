@@ -22,13 +22,15 @@ function harness(type='numerical', options={}) {
   form.querySelectorAll=(selector)=>selector==='input, textarea'?[...(fillParts.length?fillParts:[input])]:selector==='[data-fill-part]'?fillParts:selector.includes(':checked')?[]:[button];
   form.querySelector=(selector)=>selector==='fieldset'?fieldset:selector.includes(':checked')?null:input;
   const nav=new Element({href:'/next'}), submit=new Element(), retry=new Element(), status=new Element(), timer=new Element();
+  const submitButton=new Element({type:'submit'});
+  submit.querySelectorAll=()=>[submitButton];
   const root=new Element({dataset:{sessionId:'s',questionId:'q',questionType:type,remainingSeconds:'3600',heartbeatUrl:'/heartbeat',autosaveUrl:'/autosave',submitUrl:'/submit',summaryUrl:'/summary'}});
   const nodes={'assessment-runner':root,'assessment-response-form':form,'assessment-submit-form':submit,'assessment-timer':timer,'assessment-save-status':status,'assessment-focus-seconds':focus,'assessment-save-retry':retry};
   const document=new Element({visibilityState:'visible',getElementById:id=>nodes[id]||null,querySelectorAll:selector=>selector==='[data-runner-nav]'?[nav]:[]});
   const window=new Element({location:{assign:url=>navigations.push(url)},setTimeout:(fn)=>{timers.set(++serial,fn);return serial},clearTimeout:id=>timers.delete(id),setInterval:(fn,ms)=>{intervals.set(ms,fn)},confirm:message=>{confirmations.push(message);return window.confirmResult},confirmResult:true});
   const fetch=async(url,opts)=>{const payload=JSON.parse(opts.body);calls.push({url,payload});const data=await responder(url,payload);return {ok:true,json:async()=>data}};
   vm.runInNewContext(source,{document,window,performance:{now:()=>now},fetch,URLSearchParams,FormData,console});
-  return {input,fillParts,form,button,nav,submit,retry,status,window,document,calls,navigations,confirmations,
+  return {input,fillParts,form,button,nav,submit,submitButton,retry,status,window,document,calls,navigations,confirmations,
     setResponder:fn=>responder=fn,advance:ms=>{now+=ms},interval:async ms=>{await intervals.get(ms)();await settle()},
     edit:async value=>{input.value=value;await input.emit('input');await input.emit('change')},
     debounce:async()=>{const tasks=[...timers.values()];timers.clear();tasks.forEach(fn=>fn());await settle()}};
@@ -104,4 +106,19 @@ test('structured fill-up autosave sends ordered parts and compatible combined va
   const payload=h.calls.find(x=>x.url==='/autosave').payload.response;
   assert.deepEqual(Array.from(payload.parts),['2','4','-2']);
   assert.equal(payload.value,'2,4,-2');
+});
+
+test('final submission is disabled during an authoritative save and restored on failure',async()=>{
+  const h=harness();let rejectSave;
+  h.setResponder(()=>new Promise((_resolve,reject)=>{rejectSave=reject}));
+  const saving=h.form.emit('submit',{submitter:{value:'save_next'}});
+  await settle();
+  assert.equal(h.submitButton.disabled,true);
+  assert.equal(h.calls.length,1);
+  rejectSave(Error('offline'));
+  await saving;
+  assert.equal(h.submitButton.disabled,false);
+  assert.equal(h.form.querySelector('fieldset').disabled,false);
+  assert.deepEqual(h.navigations,[]);
+  assert.match(h.status.textContent,/action failed/i);
 });
