@@ -68,3 +68,9 @@ Clean server shutdown during extraction now keeps the job pending with its durab
 ### Windows acceptance repairs
 
 Windows exposed SQLite fixture contexts that committed without closing OS handles, plus a real rapid Save & Next / Submit timing edge. Fixture transactions now close explicitly; the runner disables final submission during authoritative actions and restores controls after a failed save. The end-to-end journey waits for Save & Next navigation before submitting. A delayed-write Node regression verifies the control state and failure recovery.
+
+### Resumed verification and final geometry correction
+
+At source `7468d5288d010cc6c0c9c481d30a79d0cbe46572`, focused web CI run `41821734549` passed **176 checks with zero skips on each of Ubuntu and Windows**, including the full lecture-to-formal-assessment browser journey. Canonical run `41821734666` executed 3,932 cases on each platform: its only 42 failures shared the Tutor geometry calculation; all other canonical categories passed. Four named external private-fixture checks remained explicitly unavailable.
+
+The geometry calculation counted the absolutely positioned accessibility label as a visible flex control and allocated it a nonexistent gap. It now measures only controls participating in layout; input-width, containment and answer/composer separation assertions remain mandatory. After the local environment returned, **all 43 A–K Chromium checks passed in 91.73 seconds**, plus 26 multi-lecture/background-route checks and 11 Assessment runner JavaScript checks. The final source must still pass fresh GitHub Ubuntu/Windows gates before merge; earlier failed or cancelled runs are not accepted as passes.
