@@ -1,0 +1,7 @@
+{% extends 'base.html' %}{% block title %}Library backup and recovery · ANVAYA{% endblock %}
+{% block content %}<main><h1>Backup and recovery</h1><p role="status">{{ message }}</p>
+<p>Exports are unencrypted and include private academic records and available originals. Keep the backup in a private location. Missing originals are recorded for repair; metadata is retained.</p>
+<p>{{ usage.placements }} file placements · {{ usage.unique_bytes }} unique original bytes · {{ usage.free_bytes }} free bytes.</p>
+<a href="/library/backup/export" download>Export verified backup</a>
+<form method="post" action="/library/backup/restore" enctype="multipart/form-data"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><label>Restore a verified ANVAYA backup<input name="backup" type="file" accept=".zip" required></label><p>Validation is staged first. Existing data remains active until you stop and restart the local website.</p><button type="submit">Validate and stage restore</button></form>
+<form method="post" action="/library/settings/refresh-courses"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><p>After adding subjects through Courses, explicitly refresh their Library folders.</p><button type="submit">Refresh configured subject folders</button></form><a href="/library/files">Return to Library</a></main>{% endblock %}

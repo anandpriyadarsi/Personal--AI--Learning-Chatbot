@@ -151,6 +151,9 @@ class LearningStudioService(ProgressMixin, ReviewStoreMixin, MappingReviewMixin,
                 except Exception as error:
                     raise PackageError('Registered source is unavailable; the staged revision was not published.', 503) from error
             validate_package(p, self.catalogue_loader(), raw, assets)
+            if p['schema']=='anvaya.learning-module.v3':
+                from .multilecture_authoring import quality
+                quality(p,publish=True)
             require(raw == row['source_blob'], 'Staged source snapshot no longer matches its registry source.', 409)
             con.execute('INSERT OR IGNORE INTO publications VALUES(?,?,?)', (module_id, revision, now()))
             active = con.execute('SELECT revision FROM active_modules WHERE module_id=?', (module_id,)).fetchone()

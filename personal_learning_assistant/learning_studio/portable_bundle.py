@@ -37,7 +37,7 @@ def decode_self_contained_bundle(members):
     require(isinstance(members, dict) and 'bundle.json' in members,
             'Self-contained package needs bundle.json.')
     manifest = decode_json(members['bundle.json'])
-    require(set(manifest) == {'schema', 'modules'} and manifest['schema'] == SCHEMA,
+    require(set(manifest) == {'schema', 'modules'} and manifest['schema'] in {SCHEMA,'anvaya.learning-bundle.v2'},
             'Unsupported self-contained Learning Studio manifest.')
     names = manifest['modules']
     require(isinstance(names, list) and 1 <= len(names) <= 8 and
@@ -66,6 +66,10 @@ def decode_self_contained_bundle(members):
         package['source']['source_id'] = 'portable.' + digest
         assets = {}
         for path, raw in members.items():
+            if path.startswith(prefix + 'originals/'):
+                filename=path[len(prefix):]
+                require(manifest['schema']=='anvaya.learning-bundle.v2' and re.fullmatch(r'originals/[1-8]\.(?:pdf|pptx|docx|txt|md|csv|py)',filename),'Invalid bundled lecture original.')
+                assets[filename]=raw;expected.add(path)
             if path.startswith(prefix + 'assets/'):
                 filename = path[len(prefix):]
                 require(re.fullmatch(r'assets/[A-Za-z0-9_.-]+\.(?:png|jpe?g|webp)', filename),

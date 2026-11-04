@@ -6,6 +6,7 @@ academic WAL snapshot publisher. Imports and generic create_app() remain inert.
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 from . import create_app
 
@@ -22,6 +23,9 @@ def prepare_local_app(*, assessment_enabled=None, database_path=None):
         InstalledAcademicWalPublisher, InstalledWalPublisherError,
     )
 
+    if database_path is None:
+        from personal_learning_assistant.android_backup import apply_pending_restore
+        apply_pending_restore(installed_config.BASE_PATH)
     enabled = (os.environ.get("ANVAYA_ASSESSMENT_EXTENDED", "true").strip().lower() == "true"
                if assessment_enabled is None else bool(assessment_enabled))
     database = database_path if database_path is not None else installed_config.DATABASE_PATH
@@ -38,7 +42,14 @@ def prepare_local_app(*, assessment_enabled=None, database_path=None):
             print("Pre-migration database backup:", status["backup"], flush=True)
 
     publication = None
-    config = {"ASSESSMENT_EXTENDED_ENABLED": enabled}
+    config = {"ASSESSMENT_EXTENDED_ENABLED": enabled,
+              "ACADEMIC_DATABASE_PATH": database,
+              "WEB_ORIGINAL_LIBRARY": True,
+              "TUTOR_INDEX_ROOT": (Path(installed_config.BASE_PATH)/".phase5_retrieval" if database_path is None else Path(database).parent/"tutor_retrieval"),
+              "LEARNING_STUDIO_SOURCE_DATABASE": database,
+              "NATIVE_LIBRARY_ROOT": Path(database).parent/'native_library'}
+    source_directory=Path(database).parent/'documents'
+    if source_directory.is_dir(): config['LEARNING_STUDIO_SOURCE_ROOTS']={'documents':source_directory}
     # The publisher has explicitly authorized read-only access in a worker
     # thread. Ordinary app factories and HTTP handlers never start it.
     candidate = InstalledAcademicWalPublisher(database)
@@ -61,6 +72,8 @@ def prepare_local_app(*, assessment_enabled=None, database_path=None):
         app = create_app(config)
         if publication is not None:
             app.extensions["academic_wal_publisher"] = publication
+        from .native_library import initialize_library
+        initialize_library(app)
         return app, publication
     except Exception:
         if publication is not None:
@@ -70,11 +83,15 @@ def prepare_local_app(*, assessment_enabled=None, database_path=None):
 
 def main() -> None:
     """Start the normal local ANVAYA server on loopback only."""
+    import logging
+    logging.getLogger("werkzeug").disabled=True
     port = int(os.environ.get("PLA_WEB_PORT", "5000"))
     app, publication = prepare_local_app()
     try:
         app.run(host="127.0.0.1", port=port, debug=False, use_reloader=False)
     finally:
+        library=app.extensions.get('native_document_library')
+        if library is not None: library.close()
         if publication is not None:
             publication.stop()
 

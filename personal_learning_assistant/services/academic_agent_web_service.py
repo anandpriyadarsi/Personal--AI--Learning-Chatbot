@@ -508,6 +508,45 @@ class AcademicAgentWebService:
         finally:
             connection.close()
 
+    def rename_session(self, session_id, title):
+        """Rename a persisted chat, leaving teaching scope, turns and sources intact."""
+        clean_id = str(session_id or "").strip()
+        clean_title = str(title or "").strip()
+        if not clean_id:
+            raise AcademicAgentWebNotFoundError("Tutor session was not found.")
+        if (
+            not clean_title
+            or len(clean_title) > 160
+            or any(ord(character) < 32 or ord(character) == 127 for character in clean_title)
+        ):
+            raise AcademicAgentWebValidationError(
+                "Chat name must contain 1–160 characters on a single line."
+            )
+        connection = _open_database(self.database_path, writable=True)
+        try:
+            repository_module = import_module(
+                "personal_learning_assistant.repositories.sqlite.tutor_repository"
+            )
+            repository = repository_module.SQLiteTutorRepository(connection)
+            try:
+                return _session_summary(
+                    repository.rename_session(clean_id, clean_title, _utc_now_text())
+                )
+            except repository_module.TutorRepositoryError as error:
+                if "tutor session not found" in str(error).casefold():
+                    raise AcademicAgentWebNotFoundError(
+                        "Tutor session was not found."
+                    ) from error
+                raise AcademicAgentWebUnavailableError(
+                    "Tutor session history is temporarily unavailable."
+                ) from error
+            except sqlite3.Error as error:
+                raise AcademicAgentWebUnavailableError(
+                    "Tutor session history is temporarily unavailable."
+                ) from error
+        finally:
+            connection.close()
+
     def session_view(self, session_id):
         clean_session_id = str(session_id or "").strip()
         if not clean_session_id:

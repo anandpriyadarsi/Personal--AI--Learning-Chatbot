@@ -4281,10 +4281,17 @@ def retrieval_diagnostics():
 def knowledge_item(document_id):
     try:
         item = _knowledge_reader_service().view(document_id)
+        native_original=None
+        originals_only=bool(current_app.config.get('ANDROID_LOCAL_RUNTIME') or current_app.config.get('WEB_ORIGINAL_LIBRARY'))
+        if originals_only:
+            from .native_library import service,view_document
+            lib=service()
+            linked=lib.document_for_source(document_id,item['version_hash'])
+            if linked:native_original=view_document(linked)
         return render_template(
-            "knowledge_item.html",
-            active_page="knowledge",
-            item=item,
+            "knowledge_item.html", active_page="knowledge", item=item,
+            native_original=native_original,
+            originals_only=originals_only,
         )
     except KnowledgeReaderNotFoundError:
         return "Knowledge source was not found.", 404
@@ -4500,6 +4507,26 @@ def academic_agent_create_session():
         )
 
 
+@web_blueprint.post("/agent/sessions/<session_id>/rename")
+def academic_agent_rename_session(session_id):
+    """Explicit, CSRF-protected edit of the local Tutor chat's display title."""
+    if not _tutor_action_token_matches():
+        return "Tutor action token is invalid.", 403
+    service = _academic_agent_service()
+    try:
+        service.rename_session(session_id, request.form.get("title", ""))
+    except AcademicAgentWebValidationError:
+        return "Enter a chat name of 1–160 characters on a single line.", 400
+    except AcademicAgentWebNotFoundError:
+        return "Tutor session was not found.", 404
+    except AcademicAgentWebUnavailableError:
+        return "Tutor session history is temporarily unavailable.", 503
+    # Accept only known local destinations; never redirect to user-provided URLs.
+    if request.form.get("return_to") == "session":
+        return redirect(url_for("web.academic_agent_session", session_id=session_id), code=303)
+    return redirect(url_for("web.academic_agent", _anchor="tutor-history"), code=303)
+
+
 @web_blueprint.get("/agent/sessions/<session_id>")
 def academic_agent_session(session_id):
     """Reopen a persisted tutor transcript without invoking the provider."""
@@ -4711,6 +4738,8 @@ def source_lesson_helpers():
 
 @web_blueprint.get("/library")
 def learning_library():
+    if not request.args and (current_app.config.get('ANDROID_LOCAL_RUNTIME') or current_app.config.get('WEB_ORIGINAL_LIBRARY')) and current_app.config.get('LEARNING_LIBRARY_ENABLED',True):
+        return redirect(url_for('native_library.home'),code=302)
     from flask import abort
     from personal_learning_assistant.domain.learning_library_models import LibraryQuery
     from personal_learning_assistant.services.learning_library_service import LibraryUnavailableError

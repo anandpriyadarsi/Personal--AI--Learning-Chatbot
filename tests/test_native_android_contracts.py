@@ -43,11 +43,18 @@ def test_backup_restore_preserves_native_original_and_search(tmp_path):
     assert len(restored.search('Eigenvalues'))==2
 
 
-def test_restore_rejects_missing_native_original(tmp_path):
+def test_restore_preserves_declared_missing_native_original_for_recovery(tmp_path):
     from personal_learning_assistant.android_backup import export_backup,stage_restore
     from personal_learning_assistant.services.native_document_library import NativeDocumentLibrary
     root=tmp_path/'source';lib=NativeDocumentLibrary(root/'data/native_library',autostart=False)
     d=lib.upload(BytesIO(pdf_bytes()),'Original.pdf')
     lib.original(d['id']).unlink()
     backup=export_backup(root)
-    with pytest.raises(ValueError):stage_restore(tmp_path/'target',backup)
+    import json,zipfile
+    with zipfile.ZipFile(BytesIO(backup)) as archive:
+        manifest=json.loads(archive.read('manifest.json'))
+    assert manifest['unavailable_originals'][0]['document_id']==d['id']
+    stage_restore(tmp_path/'target',backup)
+    from personal_learning_assistant.android_backup import apply_pending_restore
+    apply_pending_restore(tmp_path/'target')
+    assert json.loads((tmp_path/'target/data/library-recovery.json').read_text())[0]['sha256']==d['sha256']

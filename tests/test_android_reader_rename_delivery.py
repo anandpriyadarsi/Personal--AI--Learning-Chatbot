@@ -32,7 +32,12 @@ def test_library_name_survives_phone_runtime_restart_without_source_changes(tmp_
         result=c.post('/library/items/document/'+document[0]+'/rename',base_url=r.origin,headers=headers,
             json={'title':'Offline friendly name','expected_title':original})
         assert result.status_code==200,result.data
-        assert (r.root/'data'/document[1]).read_bytes()==raw
+        from personal_learning_assistant.ui.web.native_library import service
+        with r.app.app_context():
+            lib=service()
+            with lib.connection() as native:
+                native_id=native.execute('SELECT document_id FROM source_links WHERE source_id=?',(document[0],)).fetchone()[0]
+            assert lib.original(native_id).read_bytes()==raw
         (r.root/'delivery-identity.json').write_text(json.dumps(document))
         r.stop()
     ''')
@@ -42,7 +47,7 @@ def test_library_name_survives_phone_runtime_restart_without_source_changes(tmp_
         r=start();c=r.app.test_client()
         c.set_cookie('anvaya_native',r.token,domain='127.0.0.1')
         document=json.loads((r.root/'delivery-identity.json').read_text())
-        page=c.get('/library?q=Offline',base_url=r.origin)
+        page=c.get('/library?view=browse&q=Offline',base_url=r.origin)
         assert page.status_code==200,page.data
         assert b'Offline friendly name' in page.data
         with sqlite3.connect(r.root/'data/learning_assistant.db') as con:

@@ -186,7 +186,10 @@ def test_launcher_enables_real_assessment_by_default_without_import_side_effects
     from personal_learning_assistant.ui.web import __main__ as launch
     from personal_learning_assistant.services import assessment_activation
     calls = []
+    from personal_learning_assistant.ui.web import native_library
+    monkeypatch.setattr(native_library,'initialize_library',lambda app:None)
     class FakeApp:
+        extensions={}
         def run(self, **kwargs):
             calls.append(("run", kwargs))
     monkeypatch.delenv("ANVAYA_ASSESSMENT_EXTENDED", raising=False)
@@ -195,13 +198,14 @@ def test_launcher_enables_real_assessment_by_default_without_import_side_effects
     monkeypatch.setattr(launch, "create_app", lambda options: calls.append(("config", options)) or FakeApp())
     launch.main()
     assert calls[0] == ("migrate", True)
-    assert calls[1] == ("config", {"ASSESSMENT_EXTENDED_ENABLED": True})
+    assert calls[1][0] == "config" and calls[1][1]["ASSESSMENT_EXTENDED_ENABLED"] is True
+    assert calls[1][1]["NATIVE_LIBRARY_ROOT"].name == "native_library"
     assert calls[2][0] == "run" and calls[2][1]["host"] == "127.0.0.1"
 
     calls.clear()
     monkeypatch.setenv("ANVAYA_ASSESSMENT_EXTENDED", "false")
     launch.main()
-    assert calls[0] == ("config", {"ASSESSMENT_EXTENDED_ENABLED": False})
+    assert calls[0][0] == "config" and calls[0][1]["ASSESSMENT_EXTENDED_ENABLED"] is False
     assert len(calls) == 2
 
 

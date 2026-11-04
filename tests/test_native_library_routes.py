@@ -9,7 +9,7 @@ from test_native_document_library import pdf_bytes, pptx_bytes
 def app(tmp_path):
     lib = NativeDocumentLibrary(tmp_path/'library', autostart=False)
     return create_app({'TESTING':True, 'NATIVE_LIBRARY_SERVICE':lib,
-        'NATIVE_LIBRARY_CATALOGUE_FACTORY':lambda:{'available':True,'courses':[{'id':'ma103','code':'MA103N','name':'Linear Algebra','topics':[{'name':'Eigenvalues'}]}]}})
+        'NATIVE_LIBRARY_CATALOGUE_FACTORY':lambda:{'available':True,'courses':[{'id':'ma103','code':'MA103N','name':'Linear Algebra','semester':'Semester 1','topics':[{'name':'Eigenvalues'}]}]}})
 
 
 def token(app):
@@ -52,7 +52,7 @@ def test_disabled_searchable_status_and_metadata_only_search(app):
     assert not c.get('/library/files/search?q=Eigenvalues').json['matches']
     assert c.get('/library/files/search?q=Matrices').json['matches'][0]['id']==d['id']
     page=c.get('/library/files').get_data(as_text=True)
-    assert 'Matrices.pdf' in page and 'Content indexing off' in page
+    assert 'Matrices.pdf' in page and 'Tutor processing off' in page
 
 
 def test_hostile_names_unknown_subject_and_bad_queries(app):
@@ -103,10 +103,11 @@ def test_default_open_and_separate_menu_actions_preserve_bytes_and_current_name(
     assert metadata['open_with_url']==base+'/original?native_action=open_with'
     assert metadata['filename']=='My lecture.pdf'
     html=c.get('/library/files').get_data(as_text=True)
-    assert f'<a href="{metadata["open_url"]}">My lecture</a>' in html
-    for name in ['Open','Open with…','Rename','Move to Course','Share','Save / Export','Copy','Delete']:
+    assert f'<a href="/library/files/{identity}/open?position=1">My lecture</a>' in html
+    for name in ['Open with…','Rename','Move','Favorite','Details','Export original','Copy','Move to Trash']:
         assert f'>{name}</' in html
-    assert 'name="indexing" checked' not in html
+    assert 'Prepare supported content for Tutor on this device' in html
+    assert 'no cloud service' in html
     response=c.get(base+'/original?native_action=view')
     assert response.data==raw and 'My lecture.pdf' in response.headers['Content-Disposition']
     assert lib.get(identity)['status']=='disabled'
@@ -116,3 +117,123 @@ def test_upload_requires_explicit_content_indexing(app):
     c=app.test_client()
     doc=c.post('/library/files/upload',data={'file':(BytesIO(pdf_bytes()),'Plain.pdf')},headers=token(app)).json['document']
     assert doc['indexing_enabled']==0 and doc['status']=='disabled'
+
+
+def test_future_configured_terms_and_type_filtered_search_use_actual_courses(app):
+    app.config['NATIVE_LIBRARY_CATALOGUE_FACTORY']=lambda:{'courses':[
+        {'id':'actual-term2-course','code':'CS201','name':'Algorithms','semester':'Semester 2 First Year'}]}
+    from personal_learning_assistant.ui.web.native_library import synchronize_academic_folders
+    synchronize_academic_folders(app.config['NATIVE_LIBRARY_SERVICE'],app.config['NATIVE_LIBRARY_CATALOGUE_FACTORY']()['courses'])
+    client=app.test_client();body=client.get('/library/files').get_data(as_text=True)
+    assert 'Semester 2' in body and '>Semester 1<' not in body
+    lib=app.config['NATIVE_LIBRARY_SERVICE']
+    lib.upload(BytesIO(b'lesson content'),'lesson.txt',indexing=False)
+    lib.upload(BytesIO(pdf_bytes()),'lesson.pdf',indexing=False)
+    body=client.get('/library/files?q=lesson&kind=txt').get_data(as_text=True)
+    assert 'lesson.txt' in body and 'lesson.pdf' not in body
+
+
+def test_canonical_writer_contention_does_not_block_web_library_navigation(tmp_path,monkeypatch):
+    import sqlite3
+    from threading import Event,Thread
+    from personal_learning_assistant.repositories.sqlite.migration_runner import apply_migrations
+    directory=tmp_path/'data';directory.mkdir()
+    database=directory/'learning_assistant.db';apply_migrations(database)
+    lib=NativeDocumentLibrary(directory/'native_library',autostart=False)
+    lib.configure_tutor(database,directory/'retrieval')
+    doc=lib.upload(BytesIO(b'Unique local evidence remains available.'),'fact.txt')
+    web=create_app({'TESTING':True,'NATIVE_LIBRARY_SERVICE':lib,
+                    'NATIVE_LIBRARY_CATALOGUE_FACTORY':lambda:{'courses':[]}})
+    entered=Event();read_done=Event();errors=[]
+    publish=lib._publish_native
+    def publishing(record,pages):
+        entered.set()
+        return publish(record,pages)
+    monkeypatch.setattr(lib,'_publish_native',publishing)
+    held=sqlite3.connect(database,isolation_level=None);held.execute('BEGIN IMMEDIATE')
+    worker=Thread(target=lib.run_pending)
+    reader=None
+    try:
+        worker.start();assert entered.wait(3)
+        def navigate():
+            try:
+                client=web.test_client()
+                assert client.get('/library/files').status_code==200
+                assert client.get('/library/files/'+doc['id']+'/original').data==b'Unique local evidence remains available.'
+            except Exception as error:errors.append(str(error))
+            finally:read_done.set()
+        reader=Thread(target=navigate);reader.start()
+        assert read_done.wait(2),'Canonical writer contention blocked unrelated Library navigation'
+        assert not errors
+    finally:
+        held.rollback();held.close();worker.join(8)
+        if reader is not None:reader.join(8)
+        lib.close()
+    assert not worker.is_alive()
+    assert lib.get(doc['id'])['tutor_state']=='ready'
+
+
+def test_disable_after_canonical_write_cannot_publish_late_native_generation(tmp_path,monkeypatch):
+    import sqlite3
+    from threading import Event,Thread
+    from personal_learning_assistant.repositories.sqlite.migration_runner import apply_migrations
+    from personal_learning_assistant.repositories.sqlite.retrieval_source_repository import SQLiteRetrievalSourceRepository
+    directory=tmp_path/'data';directory.mkdir()
+    database=directory/'learning_assistant.db';apply_migrations(database)
+    lib=NativeDocumentLibrary(directory/'native_library',autostart=False)
+    lib.configure_tutor(database,directory/'retrieval')
+    doc=lib.upload(BytesIO(b'Only the old generation contains Zirconium47.'),'fact.txt')
+    committed=Event();release=Event();publish=lib._publish_native;first=[True]
+    def pause_after_commit(record,pages):
+        source=publish(record,pages)
+        if first[0]:
+            first[0]=False;committed.set();assert release.wait(8)
+        return source
+    monkeypatch.setattr(lib,'_publish_native',pause_after_commit)
+    worker=Thread(target=lib.run_pending);worker.start()
+    try:
+        assert committed.wait(3)
+        lib.set_indexing(doc['id'],False)
+        with sqlite3.connect(database) as con:
+            assert not SQLiteRetrievalSourceRepository(con).active_records()
+    finally:
+        release.set();worker.join(8);lib.close()
+    assert not worker.is_alive()
+    with sqlite3.connect(database) as con:
+        assert not SQLiteRetrievalSourceRepository(con).active_records()
+    assert lib.get(doc['id'])['tutor_state']=='disabled'
+    assert lib.original(doc['id']).read_bytes()==b'Only the old generation contains Zirconium47.'
+
+
+def test_shutdown_during_extraction_keeps_a_durable_resumable_job(tmp_path,monkeypatch):
+    from threading import Event,Thread
+    from personal_learning_assistant.repositories.sqlite.migration_runner import apply_migrations
+    directory=tmp_path/'data';directory.mkdir()
+    database=directory/'learning_assistant.db';apply_migrations(database)
+    lib=NativeDocumentLibrary(directory/'native_library',autostart=False)
+    lib.configure_tutor(database,directory/'retrieval')
+    raw=b'Original restart evidence must survive unchanged.'
+    doc=lib.upload(BytesIO(raw),'restart.txt')
+    entered=Event();release=Event()
+    def interrupted(record):
+        entered.set();assert release.wait(8)
+        raise ValueError('Extraction interrupted by clean server shutdown')
+    monkeypatch.setattr(lib,'_extract',interrupted)
+    worker=Thread(target=lib.run_pending);worker.start()
+    try:
+        assert entered.wait(3)
+        lib._stop.set();release.set();worker.join(8)
+        assert not worker.is_alive()
+        assert lib.get(doc['id'])['status']=='stored'
+        with lib.connection() as con:
+            assert con.execute('SELECT state FROM processing_jobs WHERE document_id=?',(doc['id'],)).fetchone()[0]=='pending'
+        assert lib.original(doc['id']).read_bytes()==raw
+    finally:
+        release.set();worker.join(8);lib.close()
+    restarted=NativeDocumentLibrary(directory/'native_library',autostart=False)
+    try:
+        restarted.configure_tutor(database,directory/'retrieval')
+        restarted.run_pending()
+        assert restarted.get(doc['id'])['tutor_state']=='ready'
+        assert restarted.original(doc['id']).read_bytes()==raw
+    finally:restarted.close()

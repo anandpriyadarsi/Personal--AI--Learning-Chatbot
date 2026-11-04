@@ -75,7 +75,9 @@ def test_course_catalogue_service_normalizes_courses_topics_and_summary():
     assert first["topic_count"] == 3
     assert first["mastered_count"] == 1
     assert first["progress_percent"] == 33
-    assert first["topics"][0] == {
+    assert first["topics"][0]["id"].startswith("topic-")
+    assert first["topics"][0]["id"] == build_course_catalogue_from_result(_result_fixture())["courses"][0]["topics"][0]["id"]
+    assert {key:value for key,value in first["topics"][0].items() if key!="id"} == {
         "name": "LU Factorization",
         "status": "weak",
         "status_label": "Weak",

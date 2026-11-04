@@ -37,6 +37,10 @@ def test_normal_launcher_connects_trusted_owner_and_real_flask_overview(tmp_path
         state = publication.state()
         assert state.running and state.has_snapshot, state.error
 
+        # Quiesce the separately authorized startup indexing worker, so its
+        # derived-file writes cannot be attributed to the read under test.
+        library=app.extensions.get('native_document_library')
+        if library is not None:library.close()
         # Once owner publication has completed, the actual installed Flask
         # academic read must not use the live SQLite files.
         before = inventory(tmp_path)

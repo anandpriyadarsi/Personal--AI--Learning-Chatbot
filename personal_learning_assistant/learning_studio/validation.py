@@ -32,9 +32,9 @@ def shape(value, required, optional=()):
             'Missing or unsupported fields: ' + ', '.join(sorted(set(required) - value.keys() | value.keys() - set(required) - set(optional))))
 
 
-def text(value, limit=30000, *, empty=False):
+def text(value, limit=30000, *, empty=False, inert=False):
     require(isinstance(value, str) and len(value) <= limit and (empty or bool(value.strip())), 'Invalid or oversized text.')
-    require(not UNSAFE.search(value) and '\x00' not in value, 'Active markup or unsafe URL scheme is not supported.')
+    require((inert or not UNSAFE.search(value)) and '\x00' not in value, 'Active markup or unsafe URL scheme is not supported.')
     return value
 
 
@@ -80,7 +80,7 @@ def validate_mapping(mapping, catalogue):
 def validate_block(block, count, assets, *, schema=SCHEMA):
     if isinstance(block, dict) and isinstance(block.get("kind"), str) and block.get("kind") in {"graph", "activity"}:
         from .content_blocks import V2, validate_extension
-        require(schema == V2, "Graph/activity blocks require learning-module.v2.")
+        require(schema in {V2, 'anvaya.learning-module.v3'}, "Graph/activity blocks require learning-module.v2.")
         locators(block.get("pages"), count)
         validate_extension(block)
         return
@@ -97,7 +97,10 @@ def validate_block(block, count, assets, *, schema=SCHEMA):
     require(kind in allowed and set(block) == {'kind', 'pages'} | allowed[kind], 'Unsupported or malformed visual/content block.')
     for key in ('text', 'alt', 'caption', 'answer'):
         if key in block:
-            text(block[key], empty=key == 'caption')
+            # Verbatim V3 source excerpts are rendered with Jinja escaping,
+            # not as Markdown/HTML. Preserve inequalities and code literally.
+            text(block[key], empty=key == 'caption',
+                 inert=kind=='source' and key=='text' and schema=='anvaya.learning-module.v3')
     if kind in {'flowchart', 'mindmap'}:
         for node in items(block['nodes'], 40, nonempty=True): text(node, 500)
     if kind == 'table':
@@ -117,8 +120,8 @@ def validate_package(package, catalogue, source, assets=None):
     except (TypeError, ValueError, RecursionError) as error:
         raise PackageError('Package must be bounded JSON data.') from error
     require(len(encoded) <= MAX_JSON, 'Package JSON exceeds 2 MB.', 413)
-    shape(package, {'schema', 'module_id', 'module_revision', 'title', 'unit', 'source', 'mapping', 'pages', 'sections', 'revision', 'questions'})
-    require(isinstance(package['schema'], str) and package['schema'] in {SCHEMA, 'anvaya.learning-module.v2'}, 'Unsupported learning-module schema.')
+    shape(package, {'schema', 'module_id', 'module_revision', 'title', 'unit', 'source', 'mapping', 'pages', 'sections', 'revision', 'questions'}, {'lecture_sources','author_review'})
+    require(isinstance(package['schema'], str) and package['schema'] in {SCHEMA, 'anvaya.learning-module.v2', 'anvaya.learning-module.v3'}, 'Unsupported learning-module schema.')
     identity(package['module_id']); integer(package['module_revision'], 1, 1000000)
     text(package['title'], 500); text(package['unit'], 200)
     validate_mapping(package['mapping'], catalogue)
@@ -139,18 +142,23 @@ def validate_package(package, catalogue, source, assets=None):
         raise
     except Exception as error:
         raise PackageError('Original PDF cannot be validated.') from error
-    validate_assets(assets)
+    validate_assets(assets, originals=package['schema']=='anvaya.learning-module.v3')
     pages = items(package['pages'], count, nonempty=True)
     require([p.get('page') for p in pages if isinstance(p, dict)] == list(range(1, count + 1)), 'Every original page identity must appear exactly once in order.')
     for p in pages:
         shape(p, {'page', 'status', 'text', 'review_flags'}, {'preview'})
         require(isinstance(p['status'], str) and p['status'] in {'verified', 'needs_review', 'unavailable'}, 'Invalid semantic fidelity state.')
-        text(p['text'], empty=True)
+        text(p['text'], empty=True, inert=package['schema']=='anvaya.learning-module.v3')
         for flag in items(p['review_flags'], 30): text(flag, 1000)
         require(p['status'] == 'verified' or bool(p['review_flags']), 'Unverified pages need an explicit review reason.')
         if 'preview' in p:
             text(p['preview'], 240)
             require(p['preview'] in assets, 'Page preview is not an owned asset.')
+    if package['schema']=='anvaya.learning-module.v3':
+        from .multilecture_authoring import validate_lectures
+        validate_lectures(package,assets)
+    else:
+        require('lecture_sources' not in package and 'author_review' not in package,'Lecture manifests require V3.')
     section_ids = set()
     for section in items(package['sections'], 500, nonempty=True):
         shape(section, {'id', 'title', 'pages', 'blocks'})
@@ -174,11 +182,14 @@ def validate_package(package, catalogue, source, assets=None):
     return copy.deepcopy(package)
 
 
-def validate_assets(assets):
+def validate_assets(assets, *, originals=False):
     require(isinstance(assets, dict) and len(assets) <= 500, 'Invalid assets.')
     require(sum(len(v) for v in assets.values() if isinstance(v, bytes)) <= MAX_ASSETS, 'Assets exceed 20 MB.', 413)
     from PIL import Image
     for name, raw in assets.items():
+        if originals and isinstance(name,str) and re.fullmatch(r'originals/[1-8]\.(?:pdf|pptx|docx|txt|md|csv|py)',name):
+            require(isinstance(raw,bytes) and 0<len(raw)<=4_000_000,'Original lecture exceeds 4 MB.',413)
+            continue  # Exact hash/container/locator checks are in validate_lectures.
         require(isinstance(name, str) and re.fullmatch(r'assets/[A-Za-z0-9_.-]+\.(png|jpg|jpeg|webp)', name), 'Unsafe asset path/type.')
         require(isinstance(raw, bytes) and 0 < len(raw) <= 2_000_000, 'Image exceeds 2 MB.', 413)
         try:

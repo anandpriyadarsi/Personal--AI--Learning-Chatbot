@@ -5,6 +5,8 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
+from pathlib import Path
+from contextlib import closing
 from collections import defaultdict
 from typing import Dict, Iterable, Mapping, Optional, Sequence, Tuple
 
@@ -125,6 +127,35 @@ class SQLiteRetrievalSourceRepository:
 
         return resource_ids, course_ids, topic_ids, providers
 
+    def _native_placements(self):
+        # Never initialize the native service from a retrieval read. A missing,
+        # unsafe or unreadable owner fails closed for its evidence only.
+        database=self.connection.execute('PRAGMA database_list').fetchone()[2]
+        if not database: return {}
+        path=Path(database).absolute().parent/'native_library/library.sqlite3'
+        if not path.is_file() or any(p.is_symlink() for p in (path,*path.parents)): return {}
+        try:
+            with closing(sqlite3.connect(str(path),timeout=5)) as con:
+                con.row_factory=sqlite3.Row;con.execute('PRAGMA query_only=ON')
+                placements={r['id']:dict(r) for r in con.execute('SELECT id,sha256,generation,metadata_revision,subject_id,trashed_at,indexing_enabled,availability FROM documents')}
+                # These are explicit, once-pinned namespaced identity links.
+                # A reused course code cannot silently retarget old evidence.
+                aliases={}
+                if con.execute("SELECT 1 FROM sqlite_master WHERE name='canonical_course_scopes'").fetchone():
+                    bindings={r['course_id']:r['code'].strip().casefold() for r in con.execute('SELECT course_id,code FROM subject_bindings')}
+                    current={r['id']:r['code'].strip().casefold() for r in self.connection.execute('SELECT id,code FROM courses WHERE deleted_at IS NULL')}
+                    for row in con.execute("SELECT * FROM canonical_course_scopes WHERE authority='routed-course'"):
+                        target=row['canonical_course_id']
+                        expected=bindings.get(row['course_id'],row['code'].strip().casefold())
+                        aliases[row['course_id']]=target if target in current and current[target]==expected else None
+                    for doc in placements.values():
+                        if doc['subject_id'] in aliases:
+                            doc['routed_subject_id']=doc['subject_id']
+                            doc['scope_unavailable']=aliases[doc['subject_id']] is None
+                            doc['subject_id']=aliases[doc['subject_id']]
+                return placements
+        except sqlite3.Error: return {}
+
     def active_records(self):
         resource_ids, course_ids, topic_ids, providers = self._document_relations()
         rows = self.connection.execute(
@@ -141,8 +172,18 @@ class SQLiteRetrievalSourceRepository:
         ).fetchall()
 
         records = []
+        placements = self._native_placements()
         for row in rows:
             kind, locator = decode_chunk_type(str(row["chunk_type"]))
+            native_id=locator.get('native_document_id')
+            native=placements.get(native_id) if native_id else None
+            if native_id and (not native or native['trashed_at'] or not native['indexing_enabled']
+                or native['availability']!='available' or native.get('scope_unavailable') or native['sha256']!=str(row['content_hash'])
+                or native['generation']!=locator.get('native_generation')
+                or native['metadata_revision']!=locator.get('metadata_revision')):
+                continue
+            if native and native.get('routed_subject_id'):
+                locator={**locator,'routed_course_id':native['routed_subject_id'],'course_id':native['subject_id']}
             document_id = str(row["document_id"])
             local_topics = {
                 str(item)
@@ -166,7 +207,7 @@ class SQLiteRetrievalSourceRepository:
                     "extraction_version": str(row["extraction_version"]),
                     "text": str(row["chunk_text"]),
                     "resource_ids": tuple(sorted(resource_ids.get(document_id, set()))),
-                    "course_ids": tuple(sorted(course_ids.get(document_id, set()))),
+                    "course_ids": ((str(native["subject_id"]),) if native and native["subject_id"] else tuple(sorted(course_ids.get(document_id,set()))) if locator.get('preserve_legacy_scope') else ()) if native_id else tuple(sorted(course_ids.get(document_id, set()))),
                     "topic_ids": tuple(sorted(effective_topics)),
                     "providers": tuple(sorted(providers.get(document_id, set()))),
                 }
@@ -174,8 +215,12 @@ class SQLiteRetrievalSourceRepository:
         return tuple(records)
 
     def source_fingerprint(self):
+        return self.fingerprint_records(self.active_records())
+
+    @staticmethod
+    def fingerprint_records(records):
         compact = []
-        for item in self.active_records():
+        for item in records:
             compact.append(
                 {
                     "chunk_id": item["chunk_id"],

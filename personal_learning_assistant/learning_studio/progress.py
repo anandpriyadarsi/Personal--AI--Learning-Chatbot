@@ -19,6 +19,58 @@ class ProgressMixin:
             return {'current': dict(json.loads(current['payload_json']), timestamp=current['timestamp']) if current else None,
                     'prior_revision': prior['revision'] if prior else None, 'completed_sections':completed}
 
+    def resume_learning(self, course_id=None):
+        """Return the next unfinished lesson from *published, active* local reading events.
+
+        A read-only projection: it never marks learning complete, and it does not
+        reuse another revision's position or expose question answers.
+        """
+        with self.store.connection() as con:
+            if con is None or con.execute('PRAGMA user_version').fetchone()[0] == 1:
+                return None
+            clause = ''
+            args = ['local-owner']
+            if course_id == 'unmapped':
+                clause = ' AND m.course_id IS NULL'
+            elif course_id is not None:
+                clause = ' AND m.course_id=?'
+                args.append(course_id)
+            row = con.execute(
+                """SELECT m.module_id, m.revision, m.title
+                   FROM reading_events r
+                   JOIN active_modules a ON a.module_id=r.module_id
+                                        AND a.revision=r.revision
+                   JOIN modules m ON m.module_id=a.module_id
+                                 AND m.revision=a.revision
+                   WHERE r.owner=?""" + clause + """
+                   ORDER BY r.seq DESC LIMIT 1""", args).fetchone()
+        if row is None:
+            return None
+        module = self.module(row['module_id'], row['revision'])
+        state = self.reading_state(row['module_id'], row['revision'])
+        current = (state['current'] or {}).get('section_id')
+        sections = module['sections']
+        section_ids = [section['id'] for section in sections]
+        if current not in section_ids:
+            return None
+        completed = set(state['completed_sections']) & set(section_ids)
+        if current not in completed:
+            next_id = current
+        else:
+            current_index = section_ids.index(current)
+            next_id = next((sid for sid in section_ids[current_index + 1:]
+                            if sid not in completed), None)
+            if next_id is None:
+                next_id = next((sid for sid in section_ids if sid not in completed), None)
+        next_section = next((s for s in sections if s['id'] == next_id), None)
+        return {
+            'module_id': row['module_id'], 'revision': row['revision'],
+            'title': row['title'], 'next_section': next_id,
+            'next_title': next_section['title'] if next_section else None,
+            'completed_count': len(completed), 'total_lessons': len(sections),
+            'all_completed': next_id is None,
+        }
+
     def engagement_state(self,module_id,revision,section_id):
         module=self.module(module_id,revision)
         require(any(s['id']==section_id for s in module['sections']),'Unknown lesson section.')
@@ -58,9 +110,10 @@ class ProgressMixin:
         section = next((s for s in module['sections'] if s['id'] == payload['section_id']), None)
         require(section is not None, 'Unknown lesson section.')
         if table == 'reading_events':
-            fields = {'event_id','section_id','view','completed','text_size','question_id','practice_mode','page','budget'}
+            fields = {'event_id','section_id','view','completed','text_size','question_id','practice_mode','page','budget','assessment_feedback_consent'}
             require(not payload.keys()-fields and 'view' in payload, 'Invalid reader event fields.')
             require(isinstance(payload['view'], str) and payload['view'] in {'learn','visualise','practice','revision','source'}, 'Invalid reading view.')
+            if 'assessment_feedback_consent' in payload: require(type(payload['assessment_feedback_consent']) is bool,'Consent must be boolean.')
             if 'completed' in payload: require(type(payload['completed']) is bool, 'Completion is a user-reported boolean.')
             if 'page' in payload: integer(payload['page'],1,module['source']['page_count'])
             if 'budget' in payload: require(isinstance(payload['budget'],str) and payload['budget'] in {'5','15','full'},'Invalid revision budget.')

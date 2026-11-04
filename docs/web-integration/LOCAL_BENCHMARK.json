@@ -1,0 +1,31 @@
+{
+  "platform": "Linux-6.18.57-x86_64-with-glibc2.39",
+  "python": "3.12.14",
+  "documents": 1000,
+  "folders": 100,
+  "latency": {
+    "folder": {
+      "samples": 60,
+      "p50_ms": 5.685,
+      "p95_ms": 6.805
+    },
+    "metadata_search": {
+      "samples": 60,
+      "p50_ms": 3.569,
+      "p95_ms": 5.204
+    },
+    "visible_import_feedback": {
+      "samples": 20,
+      "p50_ms": 12.4,
+      "p95_ms": 13.4,
+      "measurement": "Trusted Chromium click event to next frame with import dialog open; 390x844"
+    }
+  },
+  "backup": {
+    "payload_bytes": 123207680,
+    "archive_bytes": 879097,
+    "peak_traced_python_bytes": 4705793,
+    "roundtrip_hash_equal": true
+  },
+  "limits": "Shared Linux executor; warm caches. Traced Python allocations exclude native-process RSS. No phone or Windows measurement."
+}

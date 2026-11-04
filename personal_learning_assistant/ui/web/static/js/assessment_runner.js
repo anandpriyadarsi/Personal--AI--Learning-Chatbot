@@ -4,6 +4,7 @@
   if (!root) return;
   const form = document.getElementById("assessment-response-form");
   const submitForm = document.getElementById("assessment-submit-form");
+  const submitControls = submitForm ? Array.from(submitForm.querySelectorAll('button[type="submit"], input[type="submit"]')) : [];
   const timer = document.getElementById("assessment-timer");
   const saveStatus = document.getElementById("assessment-save-status");
   const palette = document.getElementById("assessment-palette");
@@ -179,6 +180,10 @@
   const withAction = async (work, {flushFirst = true} = {}) => {
     if (actionBusy || terminal) return;
     actionBusy = true;
+    // A second click must not look available while the current save/navigation
+    // is pending. Keep final submission unavailable until that action completes.
+    const submitDisabled = submitControls.map(control => control.disabled);
+    submitControls.forEach(control => { control.disabled = true; });
     const fieldset = form && form.querySelector("fieldset");
     if (fieldset) fieldset.disabled = true;
     try {
@@ -194,6 +199,7 @@
       }
     } finally {
       actionBusy = false;
+      submitControls.forEach((control, index) => { control.disabled = submitDisabled[index]; });
       if (fieldset) fieldset.disabled = false;
     }
   };
