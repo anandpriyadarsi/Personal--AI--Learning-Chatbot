@@ -95,3 +95,33 @@ def test_formal_assessment_link_uses_reviewed_course_not_quick_question(studio):
     assert "Practise this lesson" in html
     assert "Take a formal subject assessment in Assessment Studio" in html
     assert "/assessments/tests?course_id=c0" in html
+
+
+def test_inline_lesson_mcq_keeps_grading_on_server(studio):
+    p = publish(studio, _two_lessons())
+    app = create_app({"TESTING": True, "LEARNING_STUDIO_SERVICE_FACTORY": lambda: studio})
+    client = app.test_client()
+    page = client.get("/learning/modules/synthetic/1?view=learn&section=lesson-1")
+    assert page.status_code == 200
+    html = page.get_data(as_text=True)
+    assert "Check your understanding here" in html
+    assert 'id="inline-question-q1"' in html
+    assert 'data-question-id="q1"' in html
+    assert 'name="mode" value="lesson"' in html
+    assert "This is separate from formal Assessment Studio tests." in html
+    # Correct answers and explanations are never included in the first-read markup.
+    assert "Compare the original source." not in html
+    token = app.extensions["learning_studio_csrf"]
+    result = client.post(
+        "/learning/modules/synthetic/1/attempts",
+        data={
+            "csrf_token": token, "event_id": "inline-fallback-1",
+            "module_revision": "1", "source_sha256": p["source"]["sha256"],
+            "question_id": "q1", "question_revision": "1",
+            "selection": "0", "section": "lesson-1", "mode": "lesson",
+        },
+        follow_redirects=False,
+    )
+    assert result.status_code == 303
+    assert "view=practice" in result.headers["Location"]
+    assert studio.practice_state("synthetic", 1)["q1"]["attempt_count"] == 1
