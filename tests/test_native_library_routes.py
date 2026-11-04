@@ -203,3 +203,37 @@ def test_disable_after_canonical_write_cannot_publish_late_native_generation(tmp
         assert not SQLiteRetrievalSourceRepository(con).active_records()
     assert lib.get(doc['id'])['tutor_state']=='disabled'
     assert lib.original(doc['id']).read_bytes()==b'Only the old generation contains Zirconium47.'
+
+
+def test_shutdown_during_extraction_keeps_a_durable_resumable_job(tmp_path,monkeypatch):
+    from threading import Event,Thread
+    from personal_learning_assistant.repositories.sqlite.migration_runner import apply_migrations
+    directory=tmp_path/'data';directory.mkdir()
+    database=directory/'learning_assistant.db';apply_migrations(database)
+    lib=NativeDocumentLibrary(directory/'native_library',autostart=False)
+    lib.configure_tutor(database,directory/'retrieval')
+    raw=b'Original restart evidence must survive unchanged.'
+    doc=lib.upload(BytesIO(raw),'restart.txt')
+    entered=Event();release=Event()
+    def interrupted(record):
+        entered.set();assert release.wait(8)
+        raise ValueError('Extraction interrupted by clean server shutdown')
+    monkeypatch.setattr(lib,'_extract',interrupted)
+    worker=Thread(target=lib.run_pending);worker.start()
+    try:
+        assert entered.wait(3)
+        lib._stop.set();release.set();worker.join(8)
+        assert not worker.is_alive()
+        assert lib.get(doc['id'])['status']=='stored'
+        with lib.connection() as con:
+            assert con.execute('SELECT state FROM processing_jobs WHERE document_id=?',(doc['id'],)).fetchone()[0]=='pending'
+        assert lib.original(doc['id']).read_bytes()==raw
+    finally:
+        release.set();worker.join(8);lib.close()
+    restarted=NativeDocumentLibrary(directory/'native_library',autostart=False)
+    try:
+        restarted.configure_tutor(database,directory/'retrieval')
+        restarted.run_pending()
+        assert restarted.get(doc['id'])['tutor_state']=='ready'
+        assert restarted.original(doc['id']).read_bytes()==raw
+    finally:restarted.close()
