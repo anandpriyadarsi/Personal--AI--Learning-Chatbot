@@ -37,6 +37,7 @@ public class MainActivity extends Activity {
     private final java.util.concurrent.atomic.AtomicBoolean mediaBusy=new java.util.concurrent.atomic.AtomicBoolean();
     private static final int EXTERNAL_MEDIA=44;
     private long downloadLimit=100L*1024*1024;
+    private long pickerFileLimit=512L*1024*1024, pickerBatchLimit=1024L*1024*1024;
 
     private FrameLayout workspaceRoot;
     private StartupSplashView splash;
@@ -251,6 +252,15 @@ public class MainActivity extends Activity {
                         }).show();
                     return true;
                 }
+                if (allowed.permits(req.getUrl().toString()) && req.isForMainFrame()
+                    && "/mobile/cache-clear".equals(req.getUrl().getPath())
+                    && req.getUrl().getQuery()==null && req.getUrl().getFragment()==null) {
+                    if(req.hasGesture()) {
+                        web.clearCache(true);
+                        Toast.makeText(MainActivity.this,"Interface asset cache cleared. Study files stay saved.",Toast.LENGTH_LONG).show();
+                    }
+                    return true;
+                }
                 String address=req.getUrl().toString();
                 if(req.isForMainFrame() && NativeDocumentRequest.parse(origin,address)!=null) {
                     if(req.hasGesture()) openNativeDocument(address);
@@ -268,7 +278,7 @@ public class MainActivity extends Activity {
             if (!allowed.permits(url)) return;
             if(openNativeDocument(url))return;
             DownloadSpec spec=DownloadSpec.fromDisposition(URLUtil.guessFileName(url,disposition,mime),disposition,mime);
-            downloadLimit=MediaRequest.isDownload(allowed,url) ? 512L*1024*1024 : 100L*1024*1024;
+            downloadLimit=Uri.parse(url).getPath().equals("/mobile/device/export") ? 4L*1024*1024*1024 : MediaRequest.isDownload(allowed,url) ? 512L*1024*1024 : 100L*1024*1024;
             downloadUrl=url; downloadCookie=CookieManager.getInstance().getCookie(url);
             Intent save=new Intent(Intent.ACTION_CREATE_DOCUMENT);
             save.addCategory(Intent.CATEGORY_OPENABLE);
@@ -292,6 +302,9 @@ public class MainActivity extends Activity {
                 // Honor the requested MIME for PDF and other explicit import forms.
                 // Every returned URI is still validated before handing it to WebView.
                 String[] types = params.getAcceptTypes();
+                boolean restoring=web.getUrl()!=null && (Uri.parse(web.getUrl()).getPath().equals("/mobile/device") || Uri.parse(web.getUrl()).getPath().equals("/mobile/settings"));
+                pickerFileLimit=restoring ? 4L*1024*1024*1024 : 512L*1024*1024;
+                pickerBatchLimit=restoring ? 4L*1024*1024*1024 : 1024L*1024*1024;
                 String mime = "*/*";
                 if (types != null && types.length == 1 && types[0] != null
                     && types[0].contains("/") && !types[0].contains(",")) {
@@ -380,6 +393,11 @@ public class MainActivity extends Activity {
                     DocumentIntents.Action action=request.share?DocumentIntents.Action.SHARE:
                         request.openWith?DocumentIntents.Action.OPEN_WITH:DocumentIntents.Action.VIEW;
                     DocumentIntents.Result result=DocumentIntents.launch(this::startActivity,uri,mime,action);
+                    if(result==DocumentIntents.Result.OPENED) new Thread(()->{
+                        try {Python.getInstance().getModule("personal_learning_assistant.services.native_document_library")
+                            .callAttr("record_android_open",getFilesDir().getCanonicalPath(),request.documentId);}
+                        catch(Exception ignored) { /* Recent is metadata; the opened original stays readable. */ }
+                    },"anvaya-recent-original").start();
                     if(result==DocumentIntents.Result.NO_COMPATIBLE_APP) noDocumentViewer(request);
                     else if(result==DocumentIntents.Result.FAILED) documentError();
                 });
@@ -464,9 +482,9 @@ public class MainActivity extends Activity {
                                 new String[]{android.provider.OpenableColumns.DISPLAY_NAME}, null, null, null)) {
                             if (cursor != null && cursor.moveToFirst() && !cursor.isNull(0)) name = cursor.getString(0);
                         }
-                        long remaining = 1024L * 1024 * 1024 - selectedUploadBytes - batchBytes;
+                        long remaining = pickerBatchLimit - selectedUploadBytes - batchBytes;
                         java.io.File copy = UploadSnapshot.copy(getContentResolver().openInputStream(sources[i]),
-                            uploadSelections, name, Math.min(512L * 1024 * 1024, remaining));
+                            uploadSelections, name, Math.min(pickerFileLimit, remaining));
                         copied.add(copy); batchBytes += copy.length();
                         stable[i] = androidx.core.content.FileProvider.getUriForFile(this, getPackageName()+".uploads", copy);
                     }

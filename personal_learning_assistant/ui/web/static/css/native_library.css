@@ -17,3 +17,36 @@
 [data-theme="light"] .native-files :is(.button:not(.secondary-button),button[type="submit"]){background:#12675e;color:#fff}
 /* Action sheets stay above the Android study dock, including their last action. */
 @media(max-width:700px){.native-files .file-menu[open]>div{position:fixed;left:12px;right:12px;top:auto;bottom:calc(82px + env(safe-area-inset-bottom));width:auto;max-height:65dvh;z-index:1000}}
+/* Library 2.0: compact rows with real 48px controls, scalable text and lazy folders. */
+.academic-files{max-width:1080px;margin:auto;padding-bottom:90px}
+.academic-files :is(button,summary,input:not([type=checkbox]),select,.files-shortcuts a,.files-breadcrumbs a){min-height:48px!important}
+.academic-files .file-menu summary{width:48px;min-width:48px;display:grid;place-items:center;cursor:pointer}
+.academic-files .file-menu>div :is(a,button){min-height:48px;display:flex;align-items:center;white-space:normal}
+.academic-files .file-row{min-height:72px;gap:8px;padding:8px 4px}
+.academic-files .file-main h2 a{display:flex;align-items:center;min-height:48px;overflow-wrap:anywhere}
+.academic-files .file-main p{margin:0;line-height:1.45}
+.academic-files .file-select{width:28px;height:48px;flex-shrink:0}
+.academic-files .file-main{flex:1;min-width:0}
+.academic-files .files-breadcrumbs{display:flex;flex-wrap:wrap;align-items:center;gap:4px;font-size:.9rem}
+.academic-files .files-shortcuts{display:flex;flex-wrap:wrap;gap:12px;margin:8px 0}
+.academic-files .files-shortcuts a{display:flex;align-items:center;padding:0 12px;border:1px solid #71858b60;border-radius:12px}
+.academic-files .files-search{display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;gap:8px}
+.academic-files .files-search>input[type=search]{grid-column:1!important;width:100%}
+.academic-files .files-search>button{grid-column:2!important}
+.academic-files .search-filters{grid-column:1/-1}
+.academic-files .search-filters>div{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(160px,100%),1fr));gap:12px}
+.academic-files .search-filters label{display:grid;gap:5px}
+.academic-files .files-toolbar{display:flex;flex-wrap:wrap;gap:6px}
+.academic-files :is(.files-toolbar,#selection-toolbar) button{width:auto!important;min-height:48px!important;padding:8px!important;font-size:.875rem!important}
+.academic-files #selection-toolbar:not([hidden]){display:flex;align-items:center;flex-wrap:wrap;gap:8px;position:sticky;top:0;background:var(--ws-surface,#161e25);z-index:2;padding:8px}
+.academic-files .files-folders a{min-height:64px;display:flex;align-items:center;overflow-wrap:anywhere}
+.academic-files dialog{max-width:94vw;max-height:85dvh}
+.academic-files dialog :is(button,a){min-height:48px;margin:4px;overflow-wrap:anywhere}
+.academic-files dialog input[type=checkbox]{width:24px;height:24px}
+.academic-files #destination-children{display:grid}
+.academic-files #destination-children button{text-align:left}
+.academic-files dl{display:grid;grid-template-columns:minmax(70px,1fr) minmax(0,2fr);gap:8px}
+.academic-files dd{margin:0;overflow-wrap:anywhere}
+.academic-files :focus-visible{outline:3px solid #4be3c3;outline-offset:3px}
+@media(max-width:450px){.academic-files .files-folders{grid-template-columns:1fr}.academic-files .file-glyph{min-width:32px;font-size:.6rem}.academic-files .file-main h2{font-size:.95rem}.academic-files .files-heading h1{font-size:1.35rem}.academic-files dialog{padding:14px}}
+@media(prefers-reduced-motion:reduce){.academic-files *{scroll-behavior:auto!important;animation:none!important;transition:none!important}}

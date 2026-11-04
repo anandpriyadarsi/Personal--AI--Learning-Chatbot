@@ -30,6 +30,20 @@ class SQLiteSearchMetadataRepository:
             self._display_titles = connection_titles(self.connection)
         return self._display_titles
 
+    def _native_title(self,document_id,content_hash):
+        from pathlib import Path
+        from contextlib import closing
+        database=self.connection.execute('PRAGMA database_list').fetchone()[2]
+        if not database:return None
+        path=Path(database).absolute().parent/'native_library/library.sqlite3'
+        if not path.is_file() or any(p.is_symlink() for p in (path,*path.parents)):return None
+        try:
+            with closing(sqlite3.connect(str(path),timeout=5)) as native:
+                native.execute('PRAGMA query_only=ON')
+                row=native.execute("SELECT d.display_name FROM documents d JOIN source_links l ON l.document_id=d.id WHERE l.namespace='canonical' AND l.source_id=? AND l.content_hash=? ORDER BY d.trashed_at IS NOT NULL,d.created_at LIMIT 1",(document_id,content_hash)).fetchone()
+                return row[0] if row else None
+        except sqlite3.Error:return None
+
     def document(self, document_id: str):
         row = self.connection.execute(
             "SELECT * FROM knowledge_documents WHERE id=?",
@@ -66,6 +80,8 @@ class SQLiteSearchMetadataRepository:
             if primary is not None and str(primary["title"]).strip()
             else str(row["path_key"] or row["canonical_uri"] or document_id)
         )
+        native_title=self._native_title(str(row['id']),str(row['content_hash']))
+        if native_title:title=native_title
         titles = self._titles()
         title = titles.get(('document',str(row['id'])),
             titles.get(('resource',str(primary['id'])),title) if primary else title)
@@ -248,7 +264,7 @@ class SQLiteSearchMetadataRepository:
 
     def evidence_locator(self, chunk_id: str):
         row = self.connection.execute(
-            "SELECT document_id,ordinal,page_number FROM knowledge_chunks WHERE id=?",
+            "SELECT document_id,ordinal,page_number,chunk_type FROM knowledge_chunks WHERE id=?",
             (str(chunk_id or "").strip(),),
         ).fetchone()
         if row is None:
@@ -256,7 +272,13 @@ class SQLiteSearchMetadataRepository:
         if row["page_number"] is not None:
             label = "Page {}".format(int(row["page_number"]))
         else:
-            label = "Chunk {}".format(int(row["ordinal"]) + 1)
+            from personal_learning_assistant.ingestion.chunking import decode_chunk_type
+            _,locator=decode_chunk_type(row['chunk_type'])
+            label="Chunk {}".format(int(row['ordinal'])+1)
+            for field,prefix in [('slide','Slide'),('line','Line'),('paragraph','Paragraph')]:
+                value=locator.get(field)
+                if isinstance(value,int) and value>0:
+                    label=prefix+' '+str(value);break
         return {
             "document_id": str(row["document_id"]),
             "locator_label": label,

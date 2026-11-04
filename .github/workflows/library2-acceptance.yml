@@ -1,0 +1,16 @@
+name: Library 2.0 installed acceptance
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+permissions:
+  contents: read
+concurrency:
+  group: library2-installed-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  android:
+    if: ${{ !github.event.pull_request.draft && startsWith(github.event.pull_request.head.ref, 'feature/library-2-') }}
+    uses: ./.github/workflows/verification-android.yml
+    with:
+      source_sha: ${{ github.event.pull_request.head.sha }}
+      level: release

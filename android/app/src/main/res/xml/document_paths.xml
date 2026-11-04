@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <files-path name="legacy_pdf_originals" path="data/documents/" />
     <files-path name="originals" path="data/native_library/blobs/" />
 </paths>

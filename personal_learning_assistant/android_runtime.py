@@ -55,7 +55,8 @@ class Runtime:
             # All navigation, downloads and writes retain the original lock.
             # Note-media routes use only atomic JSON/file storage, never cached
             # SQLite readers. Stream uploads without blocking academic navigation.
-            if not is_public_static_asset() and request.blueprint != 'notes_media':
+            if (not is_public_static_asset() and request.blueprint != 'notes_media'
+                and not (request.blueprint=='native_library' and request.endpoint not in ('native_library.home','native_library.learning'))):
                 request_lock.acquire()
                 g.native_request_lock = True
 

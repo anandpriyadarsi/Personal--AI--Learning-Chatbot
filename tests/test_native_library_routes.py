@@ -52,7 +52,7 @@ def test_disabled_searchable_status_and_metadata_only_search(app):
     assert not c.get('/library/files/search?q=Eigenvalues').json['matches']
     assert c.get('/library/files/search?q=Matrices').json['matches'][0]['id']==d['id']
     page=c.get('/library/files').get_data(as_text=True)
-    assert 'Matrices.pdf' in page and 'Content indexing off' in page
+    assert 'Matrices.pdf' in page and 'Tutor processing off' in page
 
 
 def test_hostile_names_unknown_subject_and_bad_queries(app):
@@ -104,9 +104,10 @@ def test_default_open_and_separate_menu_actions_preserve_bytes_and_current_name(
     assert metadata['filename']=='My lecture.pdf'
     html=c.get('/library/files').get_data(as_text=True)
     assert f'<a href="{metadata["open_url"]}">My lecture</a>' in html
-    for name in ['Open','Open with…','Rename','Move to Course','Share','Save / Export','Copy','Delete']:
+    for name in ['Open with…','Rename','Move','Favorite','Details','Export original','Copy','Move to Trash']:
         assert f'>{name}</' in html
-    assert 'name="indexing" checked' not in html
+    assert 'Prepare supported content for Tutor on this device' in html
+    assert 'no cloud service' in html
     response=c.get(base+'/original?native_action=view')
     assert response.data==raw and 'My lecture.pdf' in response.headers['Content-Disposition']
     assert lib.get(identity)['status']=='disabled'
@@ -116,3 +117,15 @@ def test_upload_requires_explicit_content_indexing(app):
     c=app.test_client()
     doc=c.post('/library/files/upload',data={'file':(BytesIO(pdf_bytes()),'Plain.pdf')},headers=token(app)).json['document']
     assert doc['indexing_enabled']==0 and doc['status']=='disabled'
+
+
+def test_future_configured_terms_and_type_filtered_search_use_actual_courses(app):
+    app.config['NATIVE_LIBRARY_CATALOGUE_FACTORY']=lambda:{'courses':[
+        {'id':'actual-term2-course','code':'CS201','name':'Algorithms','semester':'Semester 2 First Year'}]}
+    client=app.test_client();body=client.get('/library/files').get_data(as_text=True)
+    assert 'Semester 2' in body and '>Semester 1<' not in body
+    lib=app.config['NATIVE_LIBRARY_SERVICE']
+    lib.upload(BytesIO(b'lesson content'),'lesson.txt',indexing=False)
+    lib.upload(BytesIO(pdf_bytes()),'lesson.pdf',indexing=False)
+    body=client.get('/library/files?q=lesson&kind=txt').get_data(as_text=True)
+    assert 'lesson.txt' in body and 'lesson.pdf' not in body

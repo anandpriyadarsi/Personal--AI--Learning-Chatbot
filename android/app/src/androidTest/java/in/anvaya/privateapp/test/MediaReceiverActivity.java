@@ -17,6 +17,10 @@ public class MediaReceiverActivity extends Activity {
             while((count=in.read(bytes))!=-1) out.write(bytes,0,count);
             report.putExtra("payload",out.toByteArray());
             report.putExtra("mime",getContentResolver().getType(getIntent().getData()));
+            try(android.database.Cursor cursor=getContentResolver().query(getIntent().getData(),
+                    new String[]{android.provider.OpenableColumns.DISPLAY_NAME},null,null,null)) {
+                if(cursor!=null&&cursor.moveToFirst())report.putExtra("filename",cursor.getString(0));
+            }
             try {
                 getContentResolver().openFileDescriptor(getIntent().getData(),"rw").close();
                 report.putExtra("writeDenied",false);
