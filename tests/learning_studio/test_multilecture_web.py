@@ -239,3 +239,17 @@ def test_canonical_formal_schedule_completed_and_reading_states_are_distinct(tmp
     assert any(s['state']=='Completed formal attempt' for s in states)
     assert any(s['state']=='Scheduled: 2026-12-02' for s in states)
     assert path.read_bytes()==before
+
+
+def test_library_handoff_preselects_original_and_real_course_in_author_controls(group):
+    studio,lib,docs,token=group
+    app=create_app({'TESTING':True,'NATIVE_LIBRARY_SERVICE':lib,'LEARNING_STUDIO_SERVICE_FACTORY':lambda:studio})
+    client=app.test_client();document_id=docs[2]['id']
+    handoff=client.get('/library/files/'+document_id+'/learning')
+    assert handoff.status_code==200 and 'Create topic with this lecture' in handoff.text
+    assert 'PPTX' in handoff.text and 'require a separate PDF copy' not in handoff.text
+    author=client.get('/learning/author?selected='+document_id)
+    assert author.status_code==200
+    assert f'value="{document_id}" checked' in author.text
+    assert 'data-lecture-author' in author.text and 'learning_author.js' in author.text
+    assert client.get('/learning/author?selected=missing').status_code==404

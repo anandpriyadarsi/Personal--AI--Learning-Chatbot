@@ -499,8 +499,18 @@ def author():
     offset=int(request.args.get('offset',0));require(0<=offset<=100000,'Invalid file page.')
     with lib.connection() as con:
         selected_documents=[lib._doc(row) for row in con.execute("SELECT * FROM documents WHERE trashed_at IS NULL AND instr(library_normalize(display_name),library_normalize(?))>0 ORDER BY created_at DESC,id LIMIT 100 OFFSET ?",(query,offset))]
+    selected_id=request.args.get('selected','');selected_course=None
+    if selected_id:
+        from personal_learning_assistant.services.native_document_library import LibraryError
+        try:selected_document=lib.get(selected_id)
+        except LibraryError:
+            from personal_learning_assistant.learning_studio.validation import PackageError
+            raise PackageError('Selected original is unavailable.',404)
+        require(not selected_document['trashed_at'],'Restore this original from Trash before authoring.',409)
+        selected_course=selected_document['subject_id']
+        if all(d['id']!=selected_id for d in selected_documents):selected_documents.insert(0,selected_document)
     return render_template('learning_author.html',active_page='learning',
-        documents=selected_documents,catalogue=studio.catalogue_loader(),query=query,offset=offset,
+        documents=selected_documents,catalogue=studio.catalogue_loader(),query=query,offset=offset,selected_id=selected_id,selected_course=selected_course,
         csrf_token=current_app.extensions['learning_studio_csrf'])
 
 
