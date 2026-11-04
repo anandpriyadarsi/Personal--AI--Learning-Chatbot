@@ -56,10 +56,12 @@ register_errors()
 @learning_blueprint.get('/learning')
 def library():
     from personal_learning_assistant.learning_studio.course_views import subject_template
-    view = service().library()
+    studio = service()
+    view = studio.library()
     templates = {c['id']: subject_template(c) for c in view['courses']}
     return render_template('learning_library.html', active_page='learning', library=view,
         course=None, profile=None, templates=templates, search='', topic='', section='',
+        resume=studio.resume_learning(),
         chemistry_sections=(), selected_chemistry_section=None)
 
 
@@ -73,7 +75,8 @@ def course(course_id):
     search = request.args.get('q', '')
     topic = request.args.get('topic', '')
     section = request.args.get('section', '')
-    view = service().library(course_id=course_id, search=search, topic=topic, section=section, offset=offset)
+    studio = service()
+    view = studio.library(course_id=course_id, search=search, topic=topic, section=section, offset=offset)
     selected = next((c for c in view['courses'] if c['id'] == course_id), None)
     if course_id == 'unmapped':
         selected = {'id': 'unmapped', 'code': 'Unmapped', 'name': 'Needs mapping review', 'topics': []}
@@ -84,6 +87,7 @@ def course(course_id):
     profile = subject_template(selected)
     return render_template('learning_library.html', active_page='learning', library=view,
         course=selected, profile=profile, templates={}, search=search, topic=topic, section=section,
+        resume=studio.resume_learning(course_id),
         chemistry_sections=CHEMISTRY_SECTIONS if profile['chemistry'] else (),
         selected_chemistry_section=chemistry_section(section) if profile['chemistry'] else None)
 
