@@ -160,3 +160,82 @@ def test_consent_aware_feedback_uses_real_canonical_results_without_writes(group
     assert path.read_bytes()==before
     studio.record_progress(p['module_id'],1,{'event_id':'revoke-1','section_id':'lesson-1','view':'learn','assessment_feedback_consent':False})
     assert feedback(studio,package,loader)['topics']==[]
+
+
+def test_friendly_author_form_and_revision_receipts_preserve_source_identity(group):
+    from personal_learning_assistant.learning_studio.multilecture_authoring import edit_form
+    studio,lib,docs,token=group
+    p=reviewed(studio,token)
+    data={}
+    for i,s in enumerate(p['sections'],1):
+        data['order-'+s['id']]=str(5-i)
+        data['title-'+s['id']]='Edited '+s['title']
+    edited=edit_form(p,data)
+    assert edited['sections'][0]['id']=='lesson-4'
+    assert edited['lecture_sources']==p['lecture_sources']
+    receipt=stage_draft(studio,token,edited,RUBRIC)
+    assert receipt['revision']==1
+    assert stage_draft(studio,token,edited,RUBRIC)['revision']==1
+    studio.publish(p['module_id'],1)
+    edited['sections'][0]['blocks'][1]['text']+=' The original batch identity remains unchanged.'
+    revision=stage_draft(studio,token,edited,RUBRIC)
+    assert revision['revision']==2
+    studio.publish(p['module_id'],2)
+    assert studio.module(p['module_id'],1)['lecture_sources']==studio.module(p['module_id'],2)['lecture_sources']
+    assert studio.reading_state(p['module_id'],2)['completed_sections']==[]
+
+
+def test_reviewed_assessment_link_bridges_different_owner_ids_without_name_matching(group,tmp_path):
+    import sys
+    sys.path.insert(0,str(__import__('pathlib').Path(__file__).parents[1]))
+    from test_assessment_studio_phase_e import _database
+    from personal_learning_assistant.services.assessment_intelligence_service import AssessmentIntelligenceService
+    from personal_learning_assistant.learning_studio.assessment_bridge import feedback,reviewed_link
+    studio,lib,docs,token=group;p=publish_group(group)
+    # The routed topic ID is distinct from the Assessment topic ID. The
+    # explicit user review, not a display title, is the bridge authority.
+    cat=catalogue();cat['courses'][0]['code']='MA103N';studio.catalogue_loader=lambda:cat
+    path=_database(tmp_path);reports=AssessmentIntelligenceService(path);before=path.read_bytes()
+    app=create_app({'TESTING':True,'NATIVE_LIBRARY_SERVICE':lib,'LEARNING_STUDIO_SERVICE_FACTORY':lambda:studio,
+                   'ASSESSMENT_INTELLIGENCE_SERVICE_FACTORY':lambda:reports})
+    c=app.test_client();url=f'/learning/modules/{p["module_id"]}/1';csrf=app.extensions['learning_studio_csrf']
+    assert '/assessments/tests?course_id=course-ma' in c.get(url+'?view=learn').text
+    assert c.post(url+'/assessment-link',data={'csrf_token':csrf,'topic_id':'topic-lu'}).status_code==400
+    assert reviewed_link(studio,p['module_id'],1) is None
+    assert c.post(url+'/assessment-link',data={'csrf_token':csrf,'topic_id':'foreign-topic','reviewed':'true'}).status_code==400
+    assert c.post(url+'/assessment-link',data={'csrf_token':csrf,'topic_id':'topic-lu','reviewed':'true'}).status_code==303
+    c.post(url+'/assessment-consent',data={'csrf_token':csrf,'consent':'true'})
+    result=feedback(studio,studio.module(p['module_id'],1),reports.course_report,assessment_mapping=reviewed_link(studio,p['module_id'],1))
+    assert result['needs_revision'] and result['topics'][0]['topic_id']=='topic-lu'
+    assert path.read_bytes()==before
+
+
+def test_pptx_and_text_sources_keep_real_original_locators_in_a_four_lecture_group(group):
+    from tests.test_native_document_library import pptx_bytes
+    studio,lib,docs,token=group
+    deck=lib.upload(BytesIO(pptx_bytes()),'Lecture deck.pptx',subject_id='c0')
+    code=lib.upload(BytesIO(b'print("inert code")\n# Synthetic explanation'),'lab.py',subject_id='c0')
+    token=prepare(studio,lib,[docs[0]['id'],deck['id'],docs[1]['id'],code['id']],title='Four related teaching sources',course_id='c0',topic_id='t0')
+    p,assets,_=draft(studio,token)
+    slide_source=p['lecture_sources'][1]
+    assert slide_source['kind']=='pptx' and slide_source['positions']==[1,2]
+    assert assets[slide_source['asset']]==lib.original(deck['id']).read_bytes()
+    assert p['lecture_sources'][3]['kind']=='py'
+    assert p['lecture_sources'][3]['positions']==[1,2]
+
+
+def test_canonical_formal_schedule_completed_and_reading_states_are_distinct(tmp_path):
+    import sys
+    sys.path.insert(0,str(__import__('pathlib').Path(__file__).parents[1]))
+    from test_assessment_studio_phase_e import _database
+    from personal_learning_assistant.learning_studio.assessment_bridge import formal_states
+    path=_database(tmp_path)
+    with sqlite3.connect(path) as con:
+        con.execute("UPDATE assessments SET due_on='2026-12-01' WHERE id='a3'")
+        # Keep one genuine scheduled assessment without importing a score.
+        con.execute("INSERT INTO assessments(id,course_id,assessment_type,title,due_on,status,description,created_at,updated_at) VALUES('scheduled-only','course-ma','quiz','Upcoming canonical quiz','2026-12-02','pending','','now','now')")
+        con.execute("INSERT INTO assessment_runtime_specs(assessment_id,mode,duration_minutes,instructions_text,origin,package_id,package_revision,created_at,updated_at) VALUES('scheduled-only','exam',30,'','external_package','schedule',1,'now','now')")
+    before=path.read_bytes();states=formal_states(path,'course-ma')
+    assert any(s['state']=='Completed formal attempt' for s in states)
+    assert any(s['state']=='Scheduled: 2026-12-02' for s in states)
+    assert path.read_bytes()==before

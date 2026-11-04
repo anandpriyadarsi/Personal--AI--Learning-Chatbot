@@ -4,6 +4,7 @@ import hmac
 import io
 import os
 import uuid
+import sqlite3
 from flask import Blueprint, current_app, jsonify, redirect, render_template, request, send_file, url_for
 from werkzeug.exceptions import RequestEntityTooLarge
 
@@ -138,15 +139,22 @@ def module_view(module_id, revision, *, staged=False):
         module_id=module_id,revision=revision,view='learn',section=section['id']) for section in p['sections']}
     def reader_markdown(text, anchor_prefix=None):
         return markdown(text,anchor_prefix,section_targets=section_targets)
-    from personal_learning_assistant.learning_studio.assessment_bridge import feedback
+    from personal_learning_assistant.learning_studio.assessment_bridge import feedback,reviewed_link,formal_states
     from .routes import _assessment_intelligence_service
-    assessment_feedback=feedback(s,p,lambda course_id:_assessment_intelligence_service().course_report(course_id)) if not staged else None
+    assessment_choices=assessment_topic_choices(s,p) if not staged else None
+    selected_assessment_link=reviewed_link(s,module_id,revision) if not staged else None
+    assessment_feedback=feedback(s,p,lambda course_id:_assessment_intelligence_service().course_report(course_id),assessment_mapping=selected_assessment_link) if not staged else None
+    formal_assessments=[]
+    if assessment_feedback and assessment_feedback['consented'] and assessment_choices:
+        try:formal_assessments=formal_states(_assessment_intelligence_service().database_path,assessment_choices['course']['id'])
+        except (AttributeError,ValueError,OSError,sqlite3.Error):pass
     return render_template('learning_module.html', active_page='learning', module=p, view=view, staged=staged,
         course=course, mapping_current=mapping_current, markdown=reader_markdown, inline_markdown=inline_markdown, trusted_graph=trusted_graph, trusted_activity=trusted_activity, **reader,
         practice_state={} if staged else s.practice_state(module_id,revision), source_element=source_element,quality_questions=quality_questions,
         attempt_feedback=attempt_feedback, attempt_event_ids={q['id']: str(uuid.uuid4()) for q in reader['practice_questions']},
         inline_event_id=str(uuid.uuid4()), completion_event_id=str(uuid.uuid4()),
-        assessment_feedback=assessment_feedback,
+        assessment_feedback=assessment_feedback,assessment_choices=assessment_choices,formal_assessments=formal_assessments,
+        assessment_course_id=assessment_choices['course']['id'] if assessment_choices else (mapping or {}).get('course_id'),
         original_pages={page:{**source,'position':source['positions'][index]} for source in p.get('lecture_sources',[]) for index,page in enumerate(source['pages'])},
         pending_question=request.args.get('question') or (reader['practice_questions'][0]['id'] if view=='practice' and reader['practice_questions'] else None),
         reading_state=None if staged else s.reading_state(module_id,revision), weak=weak,
@@ -499,18 +507,19 @@ def author():
 @learning_blueprint.route('/learning/author/<token>',methods=['GET','POST'])
 def author_draft(token):
     import json
-    from personal_learning_assistant.learning_studio.multilecture_authoring import draft,stage_draft,RUBRIC,quality
+    from personal_learning_assistant.learning_studio.multilecture_authoring import draft,stage_draft,RUBRIC,quality,edit_form
     from personal_learning_assistant.learning_studio.archive import decode_json
     studio=service();package,assets,raw=draft(studio,token)
     if request.method=='POST':
-        edited=decode_json(request.form.get('package','').encode())
+        edited=(decode_json(request.form.get('package','').encode()) if request.form.get('advanced_json')=='true' else edit_form(package,request.form))
         result=stage_draft(studio,token,edited,request.form.getlist('review'))
         return redirect(url_for('learning.preview',module_id=result['module_id'],revision=result['revision']),code=303)
     from urllib.parse import urlsplit
     provider=author_provider()
     provider_label=(urlsplit(getattr(provider,'api_url','')).hostname or type(provider).__name__)+' · '+str(getattr(provider,'model','configured model'))
     return render_template('learning_author_draft.html',active_page='learning',package=package,
-        encoded=json.dumps(package,ensure_ascii=False,indent=2),rubric=RUBRIC,issues=quality(package),token=token,provider_label=provider_label,provider_configured=bool(getattr(provider,'configured',False)),
+        section_questions={section['id']:next((q for q in package['questions'] if set(q['pages'])&set(section['pages'])),None) for section in package['sections']},
+        encoded=json.dumps(package,ensure_ascii=False,indent=2),rubric=RUBRIC,issues=quality(package),token=token,provider_label=provider_label,provider_binding=author_provider_binding(provider),provider_configured=bool(getattr(provider,'configured',False)),
         csrf_token=current_app.extensions['learning_studio_csrf'])
 
 
@@ -575,8 +584,50 @@ def generate_author_draft(token):
     from personal_learning_assistant.learning_studio.validation import PackageError
     from personal_learning_assistant.tutor.provider import TutorProviderUnavailableError
     from personal_learning_assistant.tutor.http_provider import TutorProviderRequestError
+    provider=author_provider()
+    if not hmac.compare_digest(request.form.get('provider_binding',''),author_provider_binding(provider)):
+        raise PackageError('The provider configuration changed. Reload the draft and review the destination before consenting.',403)
     try:
-        next_token=generate(service(),token,author_provider(),consented=request.form.get('provider_consent')=='true')
+        next_token=generate(service(),token,provider,consented=request.form.get('provider_consent')=='true')
     except (TutorProviderUnavailableError,TutorProviderRequestError):
         raise PackageError('The configured provider could not generate this draft. Original files and local drafts are preserved; retry or author locally.',503)
     return redirect(url_for('learning.author_draft',token=next_token),code=303)
+
+
+def assessment_topic_choices(studio,package):
+    """Read canonical identities through the existing Assessment owner."""
+    from contextlib import closing
+    from pathlib import Path
+    import sqlite3
+    from .routes import _assessment_intelligence_service
+    mapping=package['mapping']
+    if not mapping:return None
+    course=next((c for c in studio.catalogue_loader().get('courses',[]) if c['id']==mapping['course_id']),None)
+    if not course:return None
+    try:
+        database=Path(_assessment_intelligence_service().database_path).absolute()
+        if not database.is_file() or any(p.is_symlink() for p in (database,*database.parents)):return None
+        with closing(sqlite3.connect(database.as_uri()+'?mode=ro',uri=True)) as con:
+            con.row_factory=sqlite3.Row;con.execute('PRAGMA query_only=ON')
+            courses=con.execute('SELECT id,code,name FROM courses WHERE lower(code)=lower(?) AND deleted_at IS NULL',(course['code'],)).fetchall()
+            if len(courses)!=1:return None
+            canonical=dict(courses[0]);topics=[dict(t) for t in con.execute('SELECT id,name FROM topics WHERE course_id=? AND deleted_at IS NULL ORDER BY position,id',(canonical['id'],))]
+        return {'course':canonical,'topics':topics}
+    except (AttributeError,sqlite3.Error,OSError):return None
+
+
+@learning_blueprint.post('/learning/modules/<module_id>/<int:revision>/assessment-link')
+def review_assessment_link(module_id,revision):
+    from personal_learning_assistant.learning_studio.validation import require
+    from personal_learning_assistant.learning_studio.assessment_bridge import save_reviewed_link
+    studio=service();p=studio.module(module_id,revision);choices=assessment_topic_choices(studio,p)
+    require(request.form.get('reviewed')=='true' and choices is not None,'Review a real Assessment topic for this course before linking.')
+    topic_id=request.form.get('topic_id','')
+    require(any(t['id']==topic_id for t in choices['topics']),'Select a canonical topic in this same course.')
+    save_reviewed_link(studio,module_id,revision,choices['course']['id'],topic_id)
+    return redirect(url_for('learning.module',module_id=module_id,revision=revision,view='learn'),code=303)
+
+
+def author_provider_binding(provider):
+    import hashlib
+    return hashlib.sha256((type(provider).__name__+'\0'+str(getattr(provider,'api_url',''))+'\0'+str(getattr(provider,'model',''))).encode()).hexdigest()

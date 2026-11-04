@@ -4282,7 +4282,8 @@ def knowledge_item(document_id):
     try:
         item = _knowledge_reader_service().view(document_id)
         native_original=None
-        if current_app.config.get('ANDROID_LOCAL_RUNTIME'):
+        originals_only=bool(current_app.config.get('ANDROID_LOCAL_RUNTIME') or current_app.config.get('WEB_ORIGINAL_LIBRARY'))
+        if originals_only:
             from .native_library import service,view_document
             lib=service()
             linked=lib.document_for_source(document_id,item['version_hash'])
@@ -4290,7 +4291,7 @@ def knowledge_item(document_id):
         return render_template(
             "knowledge_item.html", active_page="knowledge", item=item,
             native_original=native_original,
-            originals_only=current_app.config.get('ANDROID_LOCAL_RUNTIME',False),
+            originals_only=originals_only,
         )
     except KnowledgeReaderNotFoundError:
         return "Knowledge source was not found.", 404
@@ -4737,7 +4738,7 @@ def source_lesson_helpers():
 
 @web_blueprint.get("/library")
 def learning_library():
-    if not request.args and current_app.config.get('ANDROID_LOCAL_RUNTIME') and current_app.config.get('LEARNING_LIBRARY_ENABLED',True):
+    if not request.args and (current_app.config.get('ANDROID_LOCAL_RUNTIME') or current_app.config.get('WEB_ORIGINAL_LIBRARY')) and current_app.config.get('LEARNING_LIBRARY_ENABLED',True):
         return redirect(url_for('native_library.home'),code=302)
     from flask import abort
     from personal_learning_assistant.domain.learning_library_models import LibraryQuery

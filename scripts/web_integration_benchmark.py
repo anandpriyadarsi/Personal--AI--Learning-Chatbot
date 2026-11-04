@@ -17,7 +17,7 @@ from personal_learning_assistant.android_backup import export_backup_file,stage_
 
 
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('--output',required=True);args=parser.parse_args()
+    parser=argparse.ArgumentParser();parser.add_argument('--output',required=True);parser.add_argument('--browser',action='store_true');args=parser.parse_args()
     with tempfile.TemporaryDirectory(prefix='anvaya-web-benchmark-') as temporary:
         root=Path(temporary);lib=NativeDocumentLibrary(root/'data/native_library',autostart=False)
         try:
@@ -34,6 +34,32 @@ def main():
                     start=time.perf_counter();result=action();samples.append((time.perf_counter()-start)*1000)
                     if name=='folder':assert result.status_code==200
                 samples.sort();timings[name]={'samples':60,'p50_ms':round(statistics.median(samples),3),'p95_ms':round(samples[56],3)}
+            if args.browser:
+                from playwright.sync_api import sync_playwright
+                from threading import Thread
+                from werkzeug.serving import make_server
+                server=make_server('127.0.0.1',0,app,threaded=True)
+                thread=Thread(target=server.serve_forever,daemon=True);thread.start()
+                try:
+                    with sync_playwright() as pw:
+                        browser=pw.chromium.launch();page=browser.new_page(viewport={'width':390,'height':844})
+                        page.goto(f'http://127.0.0.1:{server.server_port}/library/files')
+                        page.evaluate("""() => {window.clickFeedback=[];document.addEventListener('click',event=>{
+                          if(!event.target.closest('[data-action=import]'))return;
+                          const start=performance.now();requestAnimationFrame(()=>{
+                            if(document.querySelector('#import-dialog').open)window.clickFeedback.push(performance.now()-start);
+                          });
+                        },true);} """)
+                        for i in range(20):
+                            page.get_by_label('Add files or folder').click()
+                            page.get_by_role('button',name='Import files',exact=True).first.click()
+                            page.wait_for_function('(count)=>window.clickFeedback.length===count',arg=i+1)
+                            page.locator('#import-dialog').evaluate('(dialog)=>dialog.close()')
+                        samples=sorted(page.evaluate('window.clickFeedback'))
+                        timings['visible_import_feedback']={'samples':20,'p50_ms':round(statistics.median(samples),3),
+                            'p95_ms':round(samples[18],3),'measurement':'Trusted Chromium click event to next frame with import dialog open; 390x844'}
+                        browser.close()
+                finally:server.shutdown();thread.join(5);server.server_close()
             # More than the old aggregate cap; no full-file allocation/read.
             large=root/'data/large-synthetic.bin';block=b'private synthetic lecture block\n'*8192
             with large.open('wb') as stream:

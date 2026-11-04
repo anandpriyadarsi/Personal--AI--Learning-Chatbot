@@ -174,3 +174,19 @@ def test_default_open_and_distinct_rename_course_actions_keep_original(server):
         assert info.value.suggested_filename=='Renamed visible lecture.pdf'
         assert open(info.value.path(),'rb').read()==raw
         context.close();browser.close()
+
+
+def test_library_dialog_keyboard_focus_escape_and_return(server):
+    from playwright.sync_api import sync_playwright,expect
+    base,_=server
+    with sync_playwright() as pw:
+        browser=pw.chromium.launch();page=browser.new_page(viewport={'width':390,'height':844})
+        page.goto(base+'/library/files')
+        opener=page.get_by_label('Add files or folder');opener.focus();page.keyboard.press('Enter')
+        button=page.get_by_role('button',name='Import files',exact=True).first;button.focus();page.keyboard.press('Enter')
+        expect(page.locator('#import-dialog')).to_be_visible()
+        assert page.evaluate('document.activeElement.closest("#import-dialog")!==null')
+        page.keyboard.press('Tab');assert page.evaluate('document.activeElement.closest("#import-dialog")!==null')
+        page.keyboard.press('Shift+Tab');assert page.evaluate('document.activeElement.closest("#import-dialog")!==null')
+        page.keyboard.press('Escape');expect(page.locator('#import-dialog')).not_to_be_visible();expect(opener).to_be_focused()
+        browser.close()

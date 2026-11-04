@@ -91,13 +91,16 @@ class NativeTutorBridge:
         with closing(sqlite3.connect(str(self._tutor_database),timeout=15)) as con:
             repo=SQLiteRetrievalSourceRepository(con)
             records=repo.active_records()
-            if records:
-                built=RetrievalIndexBuilder(repo,self._tutor_index).build(embedding_provider=None,acknowledge=False)
-                if repo.source_fingerprint()!=built.source_fingerprint: return
-                ready={(r['locator'].get('native_document_id'),r['locator'].get('native_generation')) for r in records}
-                with self.connection(write=True) as native:
-                    for identity,generation in ready:
-                        native.execute("UPDATE documents SET tutor_state='ready' WHERE id=? AND generation=? AND trashed_at IS NULL AND indexing_enabled=1",(identity,generation))
+            built=RetrievalIndexBuilder(repo,self._tutor_index).build(embedding_provider=None,acknowledge=False,allow_empty=True)
+            if repo.source_fingerprint()!=built.source_fingerprint: return
+            ready={(r['locator'].get('native_document_id'),r['locator'].get('native_generation')) for r in records}
+            identities={identity for identity,_ in ready if identity}
+            with self.connection(write=True) as native:
+                for row in native.execute("SELECT id FROM documents WHERE tutor_state IN ('ready','preparing') AND indexed_count>0 AND indexing_enabled=1 AND trashed_at IS NULL").fetchall():
+                    if row['id'] not in identities:
+                        native.execute("UPDATE documents SET tutor_state='attention' WHERE id=?",(row['id'],))
+                for identity,generation in ready:
+                    native.execute("UPDATE documents SET tutor_state='ready' WHERE id=? AND generation=? AND trashed_at IS NULL AND indexing_enabled=1",(identity,generation))
         if self._tutor_refresh: self._tutor_refresh()
 
     def run_pending(self):

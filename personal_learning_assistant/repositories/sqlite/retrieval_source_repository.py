@@ -137,7 +137,23 @@ class SQLiteRetrievalSourceRepository:
         try:
             with closing(sqlite3.connect(str(path),timeout=5)) as con:
                 con.row_factory=sqlite3.Row;con.execute('PRAGMA query_only=ON')
-                return {r['id']:dict(r) for r in con.execute('SELECT id,sha256,generation,metadata_revision,subject_id,trashed_at,indexing_enabled,availability FROM documents')}
+                placements={r['id']:dict(r) for r in con.execute('SELECT id,sha256,generation,metadata_revision,subject_id,trashed_at,indexing_enabled,availability FROM documents')}
+                # These are explicit, once-pinned namespaced identity links.
+                # A reused course code cannot silently retarget old evidence.
+                aliases={}
+                if con.execute("SELECT 1 FROM sqlite_master WHERE name='canonical_course_scopes'").fetchone():
+                    bindings={r['course_id']:r['code'].strip().casefold() for r in con.execute('SELECT course_id,code FROM subject_bindings')}
+                    current={r['id']:r['code'].strip().casefold() for r in self.connection.execute('SELECT id,code FROM courses WHERE deleted_at IS NULL')}
+                    for row in con.execute("SELECT * FROM canonical_course_scopes WHERE authority='routed-course'"):
+                        target=row['canonical_course_id']
+                        expected=bindings.get(row['course_id'],row['code'].strip().casefold())
+                        aliases[row['course_id']]=target if target in current and current[target]==expected else None
+                    for doc in placements.values():
+                        if doc['subject_id'] in aliases:
+                            doc['routed_subject_id']=doc['subject_id']
+                            doc['scope_unavailable']=aliases[doc['subject_id']] is None
+                            doc['subject_id']=aliases[doc['subject_id']]
+                return placements
         except sqlite3.Error: return {}
 
     def active_records(self):
@@ -162,10 +178,12 @@ class SQLiteRetrievalSourceRepository:
             native_id=locator.get('native_document_id')
             native=placements.get(native_id) if native_id else None
             if native_id and (not native or native['trashed_at'] or not native['indexing_enabled']
-                or native['availability']!='available' or native['sha256']!=str(row['content_hash'])
+                or native['availability']!='available' or native.get('scope_unavailable') or native['sha256']!=str(row['content_hash'])
                 or native['generation']!=locator.get('native_generation')
                 or native['metadata_revision']!=locator.get('metadata_revision')):
                 continue
+            if native and native.get('routed_subject_id'):
+                locator={**locator,'routed_course_id':native['routed_subject_id'],'course_id':native['subject_id']}
             document_id = str(row["document_id"])
             local_topics = {
                 str(item)

@@ -11,6 +11,11 @@ def root():
     return Path(current_app.config.get('LOCAL_DATA_ROOT',config.BASE_PATH))
 
 
+@settings.get('/library/upload')
+def legacy_upload():
+    return redirect('/library/files',code=302)
+
+
 @settings.get('/library/settings')
 def home():
     return render_template('library_settings.html',active_page='library',
@@ -55,7 +60,9 @@ def restore():
 @settings.post('/library/settings/refresh-courses')
 def refresh_courses():
     if not csrf():return 'Reload Library settings and retry.',403
-    synchronize_academic_folders(service(),catalogue().get('courses',[]))
+    courses=catalogue().get('courses',[])
+    lib=service();synchronize_academic_folders(lib,courses)
+    if getattr(lib,'_tutor_database',None):lib.synchronize_course_scopes(lib._tutor_database,courses)
     return redirect('/library/files',code=303)
 
 

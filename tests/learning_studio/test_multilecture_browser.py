@@ -44,7 +44,7 @@ def setup_journey(tmp_path):
     pack['questions']=[q]
     packages=AssessmentPackageService(database)
     batch=packages.stage_upload('quiz.json',json.dumps(pack).encode());approved=packages.approve(batch['id'])
-    aid=approved['assessment_id']
+    aid=approved
     runner=AssessmentRunnerService(database);evaluation=AssessmentEvaluationService(database);reports=AssessmentIntelligenceService(database)
     class Provider:
         configured=True
@@ -68,9 +68,10 @@ def test_originals_tutor_authoring_quickcheck_formal_results_resume(tmp_path,wid
     try:
         with sync_playwright() as pw:
             browser=pw.chromium.launch();context=browser.new_context(viewport={'width':width,'height':900},accept_downloads=True,reduced_motion='reduce')
-            page=context.new_page();errors=[];page.on('pageerror',lambda error:errors.append(str(error)))
-            # At 200% effective CSS viewport, Chromium uses half the physical width.
-            if zoom==2:page.set_viewport_size({'width':width//2,'height':900})
+            page=context.new_page();errors=[];external=[];page.on('request',lambda request:external.append(request.url) if not request.url.startswith(base+'/') else None);page.on('pageerror',lambda error:errors.append(str(error)))
+            # Exercise actual doubled rendering in addition to narrow viewports.
+            if zoom==2:
+                context.add_init_script("document.addEventListener('DOMContentLoaded',()=>{document.documentElement.style.zoom='2';});")
             page.goto(base+'/library/files?folder_id='+folder['id'])
             page.get_by_label('Add files or folder').click();page.get_by_role('button',name='Import files',exact=True).first.click()
             originals=[source_pdf(f'Lecture {i}: synthetic batch mean is {i}. Center observations by subtracting the batch mean.') for i in range(1,5)]
@@ -87,15 +88,16 @@ def test_originals_tutor_authoring_quickcheck_formal_results_resume(tmp_path,wid
             # Actual retrieval generation and grounded Tutor session; provider is synthetic.
             sid=tutor.create_session(course_id='c0',source_policy='source_only',title='Centering evidence')
             page.goto(base+'/agent/sessions/'+sid);page.locator('#agent-question').fill('What is the synthetic batch mean in Lecture 1?')
-            page.locator('#tutor-send').click() if page.locator('#tutor-send').count() else page.locator('#tutor-composer button[type=submit]').click()
-            expect(page.locator('#tutor-transcript')).to_contain_text('synthetic batch mean',timeout=20000)
+            page.get_by_role('button',name='Ask tutor',exact=True).click()
+            expect(page.locator('.tutor-transcript')).to_contain_text('synthetic batch mean',timeout=20000)
             assert tutor.session_view(sid)['turns'][-1]['evidence']
             page.goto(base+'/learning/author');page.locator('input[name=title]').fill('Mean centering across four lectures')
             page.locator('select[name=course_id]').select_option('c0');page.locator('select[name=topic_id]').select_option('t0')
             page.locator('input[name=order]').fill(','.join(d['id'] for d in docs))
             page.get_by_role('button',name='Prepare local source draft').click();page.wait_for_url('**/learning/author/*')
             token=page.url.rsplit('/',1)[1];p=reviewed(studio,token)
-            page.locator('#author-package').fill(json.dumps(p))
+            page.get_by_text('Advanced package editor',exact=True).click()
+            page.locator('input[name=advanced_json]').check();page.locator('#author-package').fill(json.dumps(p))
             for item in RUBRIC:page.locator(f'input[name=review][value={item}]').check()
             page.get_by_role('button',name='Validate and stage preview').click();page.wait_for_url('**/learning/staged/**')
             page.get_by_role('button',name='Publish',exact=False).click();page.wait_for_url('**/learning/modules/**')
@@ -104,8 +106,10 @@ def test_originals_tutor_authoring_quickcheck_formal_results_resume(tmp_path,wid
             assert 'correct_index' not in page.content()
             form=page.locator('.ls-inline-question');form.locator('input[type=radio]').first.check();form.locator('button[type=submit]').click()
             expect(form.locator('.ls-feedback')).to_contain_text('Correct',timeout=10000)
-            page.get_by_role('button',name='Mark completed and continue',exact=True).click();page.wait_for_url('**section=lesson-2')
-            context.close();context=browser.new_context(viewport={'width':width//zoom,'height':900});page=context.new_page()
+            page.get_by_role('button',name='Mark completed and continue',exact=True).click();page.wait_for_url(lambda value:'section=lesson-2' in value,wait_until='domcontentloaded')
+            context.close();context=browser.new_context(viewport={'width':width,'height':900})
+            if zoom==2:context.add_init_script("document.addEventListener('DOMContentLoaded',()=>{document.documentElement.style.zoom='2';});")
+            page=context.new_page()
             page.goto(base+'/learning');expect(page.get_by_role('link',name='Resume: Lecture-2.pdf')).to_be_visible()
             # A real canonical Assessment submission and evaluation, not an imported mark.
             page.goto(base+'/assessments/tests/'+aid);page.locator('input[name=confirmed]').check();page.get_by_role('button',name='Start CBT Test').click()
@@ -121,5 +125,6 @@ def test_originals_tutor_authoring_quickcheck_formal_results_resume(tmp_path,wid
             if output:
                 Path(output).mkdir(parents=True,exist_ok=True);page.screenshot(path=str(Path(output)/f'journey-{width}-scale-{zoom}.png'),full_page=True)
             assert not errors
+            assert not external
             browser.close()
     finally:server.shutdown();thread.join(5);server.server_close();lib.close()

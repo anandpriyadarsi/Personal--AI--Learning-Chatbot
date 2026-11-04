@@ -133,9 +133,9 @@ class RetrievalIndexBuilder:
         except (OSError, KeyError):
             return False
 
-    def build(self, *, embedding_provider=None, acknowledge=True):
+    def build(self, *, embedding_provider=None, acknowledge=True, allow_empty=False):
         records = self.source_repository.active_records()
-        if not records:
+        if not records and (not allow_empty or embedding_provider is not None):
             raise RetrievalIndexBuildError("no active knowledge chunks are available")
         fingerprint = self.source_repository.fingerprint_records(records)
         semantic_enabled = embedding_provider is not None

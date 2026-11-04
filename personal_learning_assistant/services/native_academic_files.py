@@ -32,8 +32,13 @@ class AcademicFiles:
                 term=con.execute('SELECT * FROM semesters WHERE id=?',(semester_id,)).fetchone()
             for index,course in enumerate(courses):
                 identity=label(str(course['id']),maximum=150)
-                if con.execute('SELECT 1 FROM subject_bindings WHERE semester_id=? AND authority=? AND course_id=?',
-                               (semester_id,namespace,identity)).fetchone(): continue
+                existing=con.execute('SELECT folder_id FROM subject_bindings WHERE semester_id=? AND authority=? AND course_id=?',
+                                     (semester_id,namespace,identity)).fetchone()
+                if existing:
+                    con.execute('UPDATE subject_bindings SET code=? WHERE semester_id=? AND authority=? AND course_id=?',
+                                (course['code'],semester_id,namespace,identity))
+                    con.execute('UPDATE folders SET name=? WHERE id=?',(label(course['code']+' — '+course['name']),existing['folder_id']))
+                    continue
                 binding_id=uuid.uuid4().hex; folder_id=uuid.uuid4().hex
                 con.execute("INSERT INTO folders(id,name,parent_id,binding_id,node_kind,sort_order) VALUES(?,?,?,?,'subject',?)",
                             (folder_id,label(course['code']+' — '+course['name']),term['folder_id'],binding_id,index))
@@ -281,3 +286,25 @@ class AcademicFiles:
         with self.connection() as con:
             row=con.execute("SELECT d.* FROM documents d JOIN source_links l ON l.document_id=d.id WHERE l.namespace='canonical' AND l.source_id=? AND l.content_hash=? ORDER BY d.trashed_at IS NOT NULL,d.created_at LIMIT 1",(source_id,content_hash)).fetchone()
             return self._doc(row) if row else None
+
+    def synchronize_course_scopes(self,database,courses):
+        """Pin routed→canonical identities once; never remap by a reused code."""
+        from contextlib import closing
+        import sqlite3
+        from pathlib import Path
+        from .native_document_library import _safe
+        source=_safe(Path(database).absolute())
+        with closing(sqlite3.connect(source.as_uri()+'?mode=ro',uri=True)) as academic:
+            academic.row_factory=sqlite3.Row;academic.execute('PRAGMA query_only=ON')
+            rows=[dict(r) for r in academic.execute('SELECT id,code FROM courses WHERE deleted_at IS NULL')]
+        with self.connection(write=True) as con:
+            con.execute('''CREATE TABLE IF NOT EXISTS canonical_course_scopes(
+                authority TEXT NOT NULL,course_id TEXT NOT NULL,canonical_course_id TEXT NOT NULL,
+                code TEXT NOT NULL,PRIMARY KEY(authority,course_id))''')
+            for course in courses:
+                matches=[r for r in rows if r['code'].strip().casefold()==course['code'].strip().casefold()]
+                if len(matches)!=1:continue
+                con.execute('INSERT OR IGNORE INTO canonical_course_scopes VALUES(?,?,?,?)',
+                            ('routed-course',course['id'],matches[0]['id'],course['code']))
+            con.execute("INSERT OR IGNORE INTO migration_ledger VALUES('course-scope-links-v1','complete',datetime('now'),'{}')")
+        self._needs_refresh=True;self._wake.set()

@@ -27,7 +27,7 @@
 
 {% if originals_only %}
 <p class="knowledge-provenance">Read the original file in a document viewer. Tutor processing stays private on this device.</p>
-{% if not native_original %}<p role="status">The original file is unavailable on this device. Its study history is preserved. Import the original again to repair the link.</p><a href="/library/files?collection=unsorted">Recover / Unsorted</a>{% endif %}
+{% if not native_original %}<a class="button" href="{{ url_for('native_library.registered_original',source_id=item.document_id) }}">Open registered original</a><p role="status">If its original location is unavailable, configure the registered source root or repair the identical original. Its study history is preserved.</p><a href="/library/files?collection=unsorted">Recover / Unsorted</a>{% endif %}
 <div class="knowledge-reader-layout">
 {% else %}
 <p class="knowledge-provenance">{{ item.source_label }} · {{ item.content|length }} passage{% if item.content|length != 1 %}s{% endif %} from this source. Saved questions and notes stay alongside your reading.</p>

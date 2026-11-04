@@ -117,6 +117,7 @@ def prepare(studio, library, document_ids, *, title, course_id, topic_id):
             refs=local_pages[:]
             sections.append({'id':f'lesson-{order}','title':doc['display_name'],'pages':refs,'blocks':[
                 {'kind':'objectives','pages':refs,'text':'AUTHOR: State prerequisites and measurable learning objectives.'},
+                {'kind':'definition','pages':refs,'text':'AUTHOR: Define the important terms and supported notation.'},
                 {'kind':'teaching','pages':refs,'text':'AUTHOR: Explain the concepts step by step, connecting this lecture to the previous lesson. Include supported definitions, formulas and derivations. Identify any gaps.'},
                 {'kind':'example','pages':refs,'text':'AUTHOR: Develop a correct worked example with steps and expected output where relevant.'},
                 {'kind':'misconception','pages':refs,'text':'AUTHOR: Explain a common misconception and a real application.'},
@@ -130,6 +131,8 @@ def prepare(studio, library, document_ids, *, title, course_id, topic_id):
         'mapping':{'course_id':course_id,'topic_id':topic_id,'topic_name':topic['name'],'reviewed':True,'confidence':1.0},
         'pages':pages,'sections':sections,'revision':[{'kind':'teaching','pages':list(range(1,len(pages)+1)),'text':'AUTHOR: Add a concise revision summary, formulas and exam recall.'}],
         'questions':[],'lecture_sources':sources,'author_review':{k:False for k in RUBRIC}}
+    from .validation import validate_package
+    package=validate_package(package,cat,pdf,assets)
     # Conservative cross-store pin first: an interruption can retain a source,
     # never produce a lesson pointing to deleted original bytes. Idempotent keys.
     for source in sources:library.pin_source(source['document_id'],'learning-authoring',module_id+':1')
@@ -166,6 +169,25 @@ def stage_draft(studio,token,edited,reviewed):
         require(edited.get(key)==frozen[key],'Original identity, order, scope and locators are frozen. Prepare a new group to change sources.',409)
     edited=copy.deepcopy(edited);edited['author_review']={k:k in reviewed for k in RUBRIC}
     quality(edited,publish=True)
+    # A repeated submission reuses its immutable receipt. An edited lesson
+    # creates a newer revision with independently versioned changed questions.
+    with studio.store.connection() as con:
+        latest=con.execute('SELECT package_json FROM modules WHERE module_id=? ORDER BY revision DESC LIMIT 1',(edited['module_id'],)).fetchone()
+    if latest:
+        previous=json.loads(latest['package_json'])
+        comparable=copy.deepcopy(edited);comparable['module_revision']=previous['module_revision']
+        old_questions={q['id']:q for q in previous['questions']}
+        for q in comparable['questions']:
+            if q['id'] in old_questions:q['revision']=old_questions[q['id']]['revision']
+        if comparable==previous:
+            edited=previous
+        else:
+            edited['module_revision']=previous['module_revision']+1
+            for q in edited['questions']:
+                old=old_questions.get(q['id'])
+                if old:
+                    normalized=dict(q,revision=old['revision'])
+                    q['revision']=old['revision']+(normalized!=old)
     return studio.stage(edited,assets,source_bytes=raw)
 
 
@@ -235,3 +257,34 @@ The author will inspect originals, review correctness and publish separately. Do
         con.execute('INSERT INTO authoring_drafts VALUES(?,?,?,?,?)',(next_token,'local-owner',canonical(package),old['assets_zip'],now()))
         con.execute('INSERT INTO authoring_journal VALUES(?,?,?,?,?)',('generate:'+next_token,'awaiting-human-review',package['module_id'],package['module_revision'],canonical({'parent':token,'provider':response.provider_name,'model':response.provider_model})))
     return next_token
+
+
+def edit_form(frozen,form):
+    """Ordinary author controls; immutable evidence is never accepted from a form."""
+    result=copy.deepcopy(frozen);ordered=[];used=set()
+    for index,section in enumerate(result['sections']):
+        sid=section['id'];section['title']=form.get('title-'+sid,section['title'])
+        rank=form.get('order-'+sid,str(index+1))
+        require(rank.isascii() and rank.isdecimal() and 1<=int(rank)<=len(result['sections']),'Choose a lesson order within this topic.')
+        require(int(rank) not in used,'Give each lesson a different order.');used.add(int(rank))
+        for i,block in enumerate(section['blocks']):
+            if block['kind']=='source':continue
+            if 'text' in block:block['text']=form.get(f'text-{sid}-{i}',block['text'])
+            if 'answer' in block:block['answer']=form.get(f'answer-{sid}-{i}',block['answer'])
+        q=next((q for q in result['questions'] if set(q['pages'])&set(section['pages'])),None)
+        prompt=form.get('question-'+sid,'').strip()
+        if prompt:
+            options=[value.strip() for value in form.get('options-'+sid,'').splitlines() if value.strip()]
+            correct=form.get('correct-'+sid,'')
+            require(correct in ('0','1','2','3') and int(correct)<len(options),'Choose the correct answer from the listed options.')
+            new={'id':q['id'] if q else 'check-'+sid,'revision':q['revision'] if q else 1,'kind':'mcq','prompt':prompt,
+                 'options':options,'correct_index':int(correct),'explanation':form.get('explanation-'+sid,''),
+                 'pages':section['pages'],'difficulty':'normal','low_stakes':True}
+            if q:result['questions'][result['questions'].index(q)]=new
+            else:result['questions'].append(new)
+        ordered.append((int(rank),section))
+    result['sections']=[s for _,s in sorted(ordered)]
+    for i,block in enumerate(result['revision']):
+        if 'text' in block:block['text']=form.get('revision-'+str(i),block['text'])
+        if 'answer' in block:block['answer']=form.get('revision-answer-'+str(i),block['answer'])
+    return result

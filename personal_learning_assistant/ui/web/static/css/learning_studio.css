@@ -406,3 +406,5 @@
 @media(max-width:540px){.ls-inline-quick-check{padding:.75rem}}
 
 .ls-author{max-width:960px;margin:auto;padding:1rem}.ls-author label{display:block;margin:.8rem 0}.ls-author textarea{width:100%;font:14px/1.5 monospace;min-height:30rem}.ls-author input:not([type=checkbox]),.ls-author select{width:100%;min-height:48px}.ls-author button,.ls-completion-form button,.ls-assessment-feedback button{min-height:48px}.ls-author small{overflow-wrap:anywhere}.ls-original-choice{padding:.6rem;border-bottom:1px solid #466}.ls-provenance-note,.ls-assessment-feedback{max-width:960px;margin:1rem auto;padding:.75rem;overflow-wrap:anywhere}.ls-workspace-hero{padding:1.1rem!important;min-height:0!important}.ls-workspace-journey,.ls-course-hero-stat{display:none!important}
+
+.ls-author{overflow-wrap:anywhere}

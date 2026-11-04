@@ -11,7 +11,9 @@
   let request=null,cancelImport=false,selection=false,destination=null,actionIds=[],destinationAction='move',detailsId=null,parentStack=[],destinationOffset=0;
   function remember(){try{sessionStorage.setItem('anvaya.files.state',JSON.stringify({url:location.href,scroll:scrollY}));}catch{}}
   const refresh=()=>{remember();location.reload();};
-  const show=id=>{document.querySelectorAll('.file-menu[open]').forEach(d=>d.open=false);document.getElementById(id).showModal();history.pushState({libraryOverlay:true},'');};
+  const dialogFocus=new WeakMap();
+  const show=id=>{const dialog=document.getElementById(id),active=document.activeElement;dialogFocus.set(dialog,active?.closest('.file-menu')?.querySelector('summary')||active);document.querySelectorAll('.file-menu[open]').forEach(d=>d.open=false);dialog.showModal();history.pushState({libraryOverlay:true},'');};
+  root.querySelectorAll('dialog').forEach(dialog=>dialog.addEventListener('close',()=>{const target=dialogFocus.get(dialog);if(!root.querySelector('dialog[open]')&&target?.isConnected)target.focus();}));
   async function api(url,method='GET',body){
     const response=await fetch(url,{method,credentials:'same-origin',headers:body===undefined?{}:{'Content-Type':'application/json','X-Library-CSRF':csrf},body:body===undefined?undefined:JSON.stringify(body)});
     const data=await response.json();if(!response.ok){const error=new Error(data.error||'File action failed.');error.status=response.status;throw error;}return data;

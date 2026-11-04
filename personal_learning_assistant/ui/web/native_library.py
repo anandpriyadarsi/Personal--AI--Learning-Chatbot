@@ -13,7 +13,7 @@ from personal_learning_assistant.services.native_document_extraction import ocr_
 
 files = Blueprint('native_library', __name__)
 _creation_lock = Lock()
-TUTOR_STATUS={'ready':'Ready for Tutor','preparing':'Preparing for Tutor','stored_only':'Stored only','disabled':'Saved · Tutor processing off','attention':'Needs attention'}
+TUTOR_STATUS={'partly_readable':'Partly readable · Ready for Tutor','ready':'Ready for Tutor','preparing':'Preparing for Tutor','stored_only':'Stored only','disabled':'Saved · Tutor processing off','attention':'Needs attention'}
 STATUS = {'stored':'Stored — waiting to index', 'indexing':'Indexing', 'ready':'Search Ready',
           'partial':'Partly searchable — OCR optional', 'ocr_required':'Scanned / blank PDF — OCR Required',
           'conversion_required':'Legacy PPT — Conversion Required', 'failed':'Indexing Failed — Retry',
@@ -74,6 +74,8 @@ def payload(allowed):
 
 
 def view_document(doc):
+    if doc.get('status')=='partial' and doc.get('tutor_state')=='ready':
+        doc=dict(doc);doc['tutor_state']='partly_readable'
     return {**{k:v for k,v in doc.items() if k!='managed_original'},'status_label':TUTOR_STATUS.get(doc.get('tutor_state'),STATUS.get(doc['status'],'Saved')), 'filename':document_filename(doc),
         'open_url':url_for('native_library.original',document_id=doc['id'],native_action='view'),
         'open_with_url':url_for('native_library.original',document_id=doc['id'],native_action='open_with'),
@@ -261,8 +263,10 @@ def preview(document_id,position):
 @protect
 def learning(document_id):
     lib=service();doc=view_document(lib.get(document_id))
-    if doc['kind']=='pdf' and doc['size']<=20*1024*1024 and getattr(lib,'_tutor_database',None):
-        doc['canonical_source_id']=lib.ensure_canonical_identity(document_id)
+    if doc['kind']=='pdf' and doc['size']<=20*1024*1024:
+        with lib.connection() as con:
+            linked=con.execute("SELECT source_id FROM source_links WHERE document_id=? AND namespace='canonical' AND content_hash=?",(document_id,doc['sha256'])).fetchone()
+        if linked:doc['canonical_source_id']=linked['source_id']
     return render_template('native_learning_handoff.html',active_page='library',doc=doc)
 
 
@@ -361,11 +365,32 @@ def initialize_library(app):
         if database.is_file():
             lib.migrate_legacy_sources(database)
             publisher=app.extensions.get('academic_wal_publisher')
-            lib.configure_tutor(database,app.config.get('TUTOR_INDEX_ROOT',root.parent/'tutor_retrieval' if app.config.get('ANDROID_LOCAL_RUNTIME') else '.phase5_retrieval'),refresh=publisher.request_refresh if publisher else None)
-        with app.app_context(): synchronize_academic_folders(lib,catalogue().get('courses',[]))
+            lib.configure_tutor(database,app.config.get('TUTOR_INDEX_ROOT',root.parent/'tutor_retrieval'),refresh=publisher.request_refresh if publisher else None)
+        with app.app_context():
+            courses=catalogue().get('courses',[])
+            synchronize_academic_folders(lib,courses)
+            lib.synchronize_course_scopes(database,courses)
         app.extensions['native_document_library']=lib
         lib.start_worker()
         return lib
     except BaseException:
         lib.close()
         raise
+
+
+@files.get('/library/registered/<source_id>/original')
+@protect
+def registered_original(source_id):
+    """Read-only compatibility resolver for explicitly configured legacy roots."""
+    from io import BytesIO
+    from personal_learning_assistant.learning_studio.sources import RegisteredSources
+    from personal_learning_assistant.learning_studio.validation import PackageError
+    import config
+    loader=RegisteredSources(current_app.config.get('LEARNING_STUDIO_SOURCE_DATABASE',config.DATABASE_PATH),
+                             current_app.config.get('LEARNING_STUDIO_SOURCE_ROOTS',{}))
+    try:raw=loader(source_id)
+    except (PackageError,ValueError,OSError,sqlite3.Error):
+        raise LibraryError('Registered original is unavailable or its hash changed. Configure its existing source root or repair the exact original; study history is preserved.',409)
+    response=send_file(BytesIO(raw),mimetype='application/pdf',as_attachment=request.args.get('download')=='1',download_name='registered-original.pdf')
+    response.headers['Content-Security-Policy']='sandbox'
+    return response

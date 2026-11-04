@@ -1,0 +1,155 @@
+[
+  {
+    "number": 68,
+    "sha": "3c08caa455c486beea3e355736e2450c9ee21d2a",
+    "head": "feature/learning-studio-continue-finish-2026-11-04",
+    "title": "Learning Studio: Continue Learning, inline MCQs and Assessment handoff",
+    "ancestor_of_main": false,
+    "unique_commits": "13",
+    "changed_files": 7
+  },
+  {
+    "number": 65,
+    "sha": "3a33cafaaf17f39aa36ffce77ece3c0de3e99ac8",
+    "head": "feature/tutor-home-history-rename-responsive-2026-10-31",
+    "title": "Tutor web: full-width stacked layout, ANVAYA branding and inline chat rename",
+    "ancestor_of_main": false,
+    "unique_commits": "12",
+    "changed_files": 8
+  },
+  {
+    "number": 61,
+    "sha": "594931a35a0ade96d8d5a1e5d18440ab7c419933",
+    "head": "feature/library-2-academic-file-manager-2026-10-30",
+    "title": "Library 2.0: academic originals, safe migration and automatic local Tutor indexing",
+    "ancestor_of_main": false,
+    "unique_commits": "7",
+    "changed_files": 54
+  },
+  {
+    "number": 57,
+    "sha": "ffec4e16b451d445af0c84054e3d4e49a4229802",
+    "head": "fix/focus-reading-read-only-notes-media-2026-10-25",
+    "title": "Focus Reading: show complete notes and read-only media only",
+    "ancestor_of_main": true,
+    "unique_commits": "0",
+    "changed_files": 0
+  },
+  {
+    "number": 55,
+    "sha": "315fd7943da34fa46a1f36a30dd0d29c08d95ae4",
+    "head": "feature/smart-nested-notes-obsidian-splash-2026-10-25",
+    "title": "Smart Notes: nested sections, universal attachments, optional Obsidian and light Android startup",
+    "ancestor_of_main": true,
+    "unique_commits": "0",
+    "changed_files": 0
+  },
+  {
+    "number": 52,
+    "sha": "1e8ce5c24ed0de6f8f4a4a551bb3f5b07102862b",
+    "head": "feature/android-cbt-review-analysis-standalone-questions-2026-10-25",
+    "title": "Android CBT: post-test review, answer feedback and standalone question quality gate",
+    "ancestor_of_main": true,
+    "unique_commits": "0",
+    "changed_files": 0
+  },
+  {
+    "number": 51,
+    "sha": "7dde02b0a7bd1afaa3e4519bfc4abb0b03ea5b2e",
+    "head": "feat/android-native-document-library",
+    "title": "Android candidate: original-document Library, safe sharing and PDF match-page reader",
+    "ancestor_of_main": true,
+    "unique_commits": "0",
+    "changed_files": 0
+  },
+  {
+    "number": 49,
+    "sha": "5d0de892c4060900693d8d3b5ca7ceb4cabdd962",
+    "head": "fix/android-performance-reader-library-rename-2026-10-24",
+    "title": "Android V1.1.3 test: fast reader navigation, mobile fullscreen and Library rename",
+    "ancestor_of_main": true,
+    "unique_commits": "0",
+    "changed_files": 0
+  },
+  {
+    "number": 44,
+    "sha": "fddda9184227660407e3af19eedec2763447a232",
+    "head": "fix/android-navigation-asset-performance-2026-10-24",
+    "title": "Android: speed up offline page navigation with private asset caching and parallel static loads",
+    "ancestor_of_main": true,
+    "unique_commits": "0",
+    "changed_files": 0
+  },
+  {
+    "number": 43,
+    "sha": "5e59b189ed3b97a3b97fefc74b13e9845b95d44e",
+    "head": "fix/android-assessment-catalogue-vedic-import-2026-10-24",
+    "title": "Android: restore Assessment subject options and import source-bound UC103N Vedic Work ZIP",
+    "ancestor_of_main": true,
+    "unique_commits": "0",
+    "changed_files": 0
+  },
+  {
+    "number": 41,
+    "sha": "7cbed22cbd90ff14dc3e606c45e637c03234e40a",
+    "head": "feature/mobile-v1-1-unified-library-ui-2026-10-23",
+    "title": "Android V1.1: same unified Library / Knowledge interface (no data migration)",
+    "ancestor_of_main": true,
+    "unique_commits": "0",
+    "changed_files": 0
+  },
+  {
+    "number": 39,
+    "sha": "0dce9ada2c0826788e6d372234988ec2de74fa9c",
+    "head": "feature/mobile-assessment-two-modes-2026-10",
+    "title": "Mobile Assessment: clear CBT and handwritten modes, safe pause and rubric review",
+    "ancestor_of_main": true,
+    "unique_commits": "0",
+    "changed_files": 0
+  },
+  {
+    "number": 35,
+    "sha": "d11df19307cc8098f0fefbb8eec9f3cd2cd88286",
+    "head": "feature/mobile-v1-1-private-android-runtime-2026-10",
+    "title": "Mobile V1.1: standalone private Android test APK and offline academic persistence",
+    "ancestor_of_main": true,
+    "unique_commits": "0",
+    "changed_files": 0
+  },
+  {
+    "number": 29,
+    "sha": "dbea698951a1069adab92d0eedc52c7404b0c483",
+    "head": "integration/architecture-v2-2-library-v2-2026-10",
+    "title": "Integration preview: Architecture V2.2 + Library and Resources V2",
+    "ancestor_of_main": false,
+    "unique_commits": "31",
+    "changed_files": 56
+  },
+  {
+    "number": 27,
+    "sha": "400729982f3d6e56ff735a746c263bb7a6d982ee",
+    "head": "feature/architecture-v2-2-iks-fixture-authority-2026-10",
+    "title": "Architecture V2.2: private pilot validation and academic safety corrections",
+    "ancestor_of_main": false,
+    "unique_commits": "3",
+    "changed_files": 37
+  },
+  {
+    "number": 13,
+    "sha": "36be698c999feaecfb14c93b44e9d63aebcf3a75",
+    "head": "fix/b3-namespaced-evaluation-bridge-2026-10-16",
+    "title": "B3 read-only identity inspector: accept exact namespaced assessment evaluation refs",
+    "ancestor_of_main": true,
+    "unique_commits": "0",
+    "changed_files": 0
+  },
+  {
+    "number": 9,
+    "sha": "5048dd3c852cfd0f2007afeb4dd2a8a59f46acd3",
+    "head": "anvaya/gate-c0-synthetic-recovery",
+    "title": "Gate C0: conservative read-only recovery-policy simulation with adversarial tests",
+    "ancestor_of_main": true,
+    "unique_commits": "0",
+    "changed_files": 0
+  }
+]

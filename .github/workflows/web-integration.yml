@@ -1,0 +1,70 @@
+name: ANVAYA web integration acceptance
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: web-integration-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  web:
+    name: Web integration (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    timeout-minutes: 30
+    env:
+      ANVAYA_BROWSER_TESTS: '1'
+      PYTHONUTF8: '1'
+      PYTHONIOENCODING: utf-8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements-learning-studio.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: python -m pip install -r requirements-learning-studio.txt
+      - run: python scripts/architecture_checkout_eol.py --repo .
+      - run: python -m playwright install --with-deps chromium
+      - name: Record exact source and evidence paths
+        shell: python
+        run: |
+          import os,pathlib,subprocess,json
+          out=pathlib.Path(os.environ['RUNNER_TEMP'])/'anvaya-web'
+          out.mkdir(parents=True,exist_ok=True)
+          (out/'source.json').write_text(json.dumps({'sha':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),'platform':os.name}))
+          with open(os.environ['GITHUB_ENV'],'a',encoding='utf-8') as stream:
+              for key in ('ANVAYA_WEB_ARTIFACTS','ANVAYA_NATIVE_LIBRARY_ARTIFACTS'):
+                  stream.write(key+'='+str(out/'screenshots')+'\n')
+              stream.write('ANVAYA_WEB_RESULTS='+str(out)+'\n')
+      - name: Data safety, original viewer and integrated browser gates
+        shell: python
+        run: |
+          import os,pathlib,subprocess,sys,xml.etree.ElementTree as ET
+          out=pathlib.Path(os.environ['ANVAYA_WEB_RESULTS'])
+          suites=['tests/test_library2_file_manager.py','tests/test_library2_formats.py','tests/test_library2_legacy_migration.py','tests/test_library2_backup_streaming.py','tests/test_library2_tutor_bridge.py','tests/test_native_document_library.py','tests/test_native_library_routes.py','tests/test_native_library_browser.py','tests/test_tutor_ui_v3.py','tests/test_tutor_ui_v3_browser.py','tests/test_planning_v21_wal_installed_launcher.py','tests/learning_studio/test_continue_learning.py','tests/learning_studio/test_multilecture_web.py','tests/learning_studio/test_multilecture_browser.py','tests/learning_studio/test_self_contained_bundle.py','tests/learning_studio/test_course_topic_linking_portable.py','tests/test_web_library_lifecycle.py']
+          subprocess.run([sys.executable,'-m','pytest','-q',*suites,'--junitxml='+str(out/'web.xml')],check=True)
+          cases=ET.parse(out/'web.xml').findall('.//testcase')
+          assert cases and not any(c.find('skipped') is not None for c in cases),'Every focused web case must execute'
+          for path in pathlib.Path('personal_learning_assistant/ui/web/static/js').glob('*.js'):
+              subprocess.run(['node','--check',str(path)],check=True)
+          subprocess.run(['git','diff','--check'],check=True)
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: anvaya-web-${{ matrix.os }}-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/anvaya-web
