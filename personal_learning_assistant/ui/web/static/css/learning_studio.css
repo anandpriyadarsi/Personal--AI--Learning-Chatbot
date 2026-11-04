@@ -396,3 +396,11 @@
 .ls-continue-reading p{margin:.25rem 0;line-height:1.55}
 .ls-continue-reading .ls-workspace-primary{max-width:100%;overflow-wrap:anywhere}
 @media(max-width:540px){.ls-continue-reading{padding:.85rem}.ls-continue-reading .ls-workspace-primary{width:100%;text-align:center}}
+
+/* In-lesson questions share the existing server-graded practice form. */
+.ls-inline-quick-check{margin:1.1rem 0;padding:1rem;min-width:0;border:1px solid var(--border-subtle,#334155);border-radius:.75rem;background:var(--surface-panel,#161e2a)}
+.ls-inline-quick-check h3{font-size:1.15rem;margin:.2rem 0}
+.ls-inline-quick-check .ls-question{margin:.6rem 0 0;padding:0;background:transparent}
+.ls-inline-quick-check fieldset{min-width:0}
+.ls-inline-quick-check .ls-feedback{white-space:normal;overflow-wrap:anywhere}
+@media(max-width:540px){.ls-inline-quick-check{padding:.75rem}}
