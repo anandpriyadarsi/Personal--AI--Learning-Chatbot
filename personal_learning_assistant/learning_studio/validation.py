@@ -32,9 +32,9 @@ def shape(value, required, optional=()):
             'Missing or unsupported fields: ' + ', '.join(sorted(set(required) - value.keys() | value.keys() - set(required) - set(optional))))
 
 
-def text(value, limit=30000, *, empty=False):
+def text(value, limit=30000, *, empty=False, inert=False):
     require(isinstance(value, str) and len(value) <= limit and (empty or bool(value.strip())), 'Invalid or oversized text.')
-    require(not UNSAFE.search(value) and '\x00' not in value, 'Active markup or unsafe URL scheme is not supported.')
+    require((inert or not UNSAFE.search(value)) and '\x00' not in value, 'Active markup or unsafe URL scheme is not supported.')
     return value
 
 
@@ -97,7 +97,10 @@ def validate_block(block, count, assets, *, schema=SCHEMA):
     require(kind in allowed and set(block) == {'kind', 'pages'} | allowed[kind], 'Unsupported or malformed visual/content block.')
     for key in ('text', 'alt', 'caption', 'answer'):
         if key in block:
-            text(block[key], empty=key == 'caption')
+            # Verbatim V3 source excerpts are rendered with Jinja escaping,
+            # not as Markdown/HTML. Preserve inequalities and code literally.
+            text(block[key], empty=key == 'caption',
+                 inert=kind=='source' and key=='text' and schema=='anvaya.learning-module.v3')
     if kind in {'flowchart', 'mindmap'}:
         for node in items(block['nodes'], 40, nonempty=True): text(node, 500)
     if kind == 'table':
@@ -145,7 +148,7 @@ def validate_package(package, catalogue, source, assets=None):
     for p in pages:
         shape(p, {'page', 'status', 'text', 'review_flags'}, {'preview'})
         require(isinstance(p['status'], str) and p['status'] in {'verified', 'needs_review', 'unavailable'}, 'Invalid semantic fidelity state.')
-        text(p['text'], empty=True)
+        text(p['text'], empty=True, inert=package['schema']=='anvaya.learning-module.v3')
         for flag in items(p['review_flags'], 30): text(flag, 1000)
         require(p['status'] == 'verified' or bool(p['review_flags']), 'Unverified pages need an explicit review reason.')
         if 'preview' in p:

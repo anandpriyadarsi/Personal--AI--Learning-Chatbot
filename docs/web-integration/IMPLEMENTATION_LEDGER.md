@@ -58,3 +58,9 @@ A source review found canonical SQLite publication occurring while the native me
 The local execution environment became unavailable after the initial source publication. This follow-up and the final Library→Studio handoff are verified by exact-head GitHub Ubuntu/Windows web/canonical checks, not claimed as a new local pass.
 
 Clean server shutdown during extraction now keeps the job pending with its durable checkpoint, instead of treating cancellation as a permanent parser failure. A restart regression verifies the same ID/bytes become Tutor-ready after reopening.
+
+### Final CI follow-ups
+
+- V3 source excerpts accept literal comparisons and code as escaped inert text; teaching/question and legacy package markup guards stay strict. New tests preserve original bytes and prove script-like literals remain escaped in the reader.
+- The A–K browser contract measures the compact composer's available row width after Tools/Send and requires the transcript to end above it. This replaces the superseded full-form textarea-width assumption without changing the selected layout.
+- Final local execution is unavailable; these final changes require current-source GitHub checks. Earlier cancelled runs do not constitute acceptance.

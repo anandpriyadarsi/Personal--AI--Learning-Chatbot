@@ -253,3 +253,28 @@ def test_library_handoff_preselects_original_and_real_course_in_author_controls(
     assert f'value="{document_id}" checked' in author.text
     assert 'data-lecture-author' in author.text and 'learning_author.js' in author.text
     assert client.get('/learning/author?selected=missing').status_code==404
+
+
+def test_v3_verbatim_math_and_code_are_preserved_and_rendered_inertly(group):
+    studio,lib,docs,_=group
+    raw=b'if x < y:\n    print("<script>literal</script>")'
+    code=lib.upload(BytesIO(raw),'comparison.py',subject_id='c0',indexing=False)
+    token=prepare(studio,lib,[docs[0]['id'],code['id']],title='Literal comparison evidence',course_id='c0',topic_id='t0')
+    p,assets,pdf=draft(studio,token)
+    assert 'x < y' in p['pages'][1]['text']
+    assert assets[p['lecture_sources'][1]['asset']]==raw
+    staged=studio.stage(p,assets,source_bytes=pdf)
+    app=create_app({'TESTING':True,'NATIVE_LIBRARY_SERVICE':lib,'LEARNING_STUDIO_SERVICE_FACTORY':lambda:studio})
+    page=app.test_client().get('/learning/staged/'+staged['module_id']+'/1?view=learn&section=lesson-2')
+    assert page.status_code==200
+    assert '<script>literal</script>' not in page.text
+    assert '&lt;script&gt;literal&lt;/script&gt;' in page.text
+    assert 'x &lt; y' in page.text
+
+
+def test_legacy_package_active_markup_validation_remains_strict():
+    from .helpers import package,source_pdf
+    from personal_learning_assistant.learning_studio.validation import validate_package
+    raw=source_pdf();p=package(raw)
+    p['pages'][0]['text']='<script>unsafe</script>'
+    with pytest.raises(PackageError):validate_package(p,catalogue(),raw)

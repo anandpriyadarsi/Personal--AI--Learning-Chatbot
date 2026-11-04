@@ -128,13 +128,22 @@ class Journey:
         else:
             assert self.page.locator(".tutor-pending-question").count() == 0
         assert self.page.evaluate("document.documentElement.scrollWidth <= innerWidth + 1")
-        # Visual acceptance: never ship a tiny 150px Tutor input in a wide form.
-        # Inspect actual layout after Chromium paints, not just source CSS.
+        # The selected compact composer shares one row with Tools and Send.
+        # Require the textarea to fill the remaining row and keep answers clear.
         assert self.page.locator("#agent-question").evaluate(
-            "(el) => { const form = el.closest('form');"
-            " const width = el.getBoundingClientRect().width;"
-            " const available = form.getBoundingClientRect().width;"
-            " return width >= 0.85 * available && width <= available + 1; }"
+            "(el) => { const row = el.closest('.tutor-input-row');"
+            " const rect = el.getBoundingClientRect(); const bounds = row.getBoundingClientRect();"
+            " const style = getComputedStyle(row);"
+            " const controls = [...row.children].filter(x => x !== el);"
+            " const used = controls.reduce((n,x) => n + x.getBoundingClientRect().width, 0);"
+            " const available = row.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)"
+            " - used - parseFloat(style.columnGap) * controls.length;"
+            " const content = document.querySelector('.app-main > .content').getBoundingClientRect();"
+            " const composer = el.closest('.tutor-composer').getBoundingClientRect();"
+            " return rect.width >= available - 2 && rect.width <= available + 2"
+            " && rect.width >= Math.min(160, bounds.width * 0.5)"
+            " && rect.left >= bounds.left && rect.right <= bounds.right"
+            " && content.bottom <= composer.top + 1; }"
         )
         return state
 
