@@ -110,9 +110,10 @@ class ProgressMixin:
         section = next((s for s in module['sections'] if s['id'] == payload['section_id']), None)
         require(section is not None, 'Unknown lesson section.')
         if table == 'reading_events':
-            fields = {'event_id','section_id','view','completed','text_size','question_id','practice_mode','page','budget'}
+            fields = {'event_id','section_id','view','completed','text_size','question_id','practice_mode','page','budget','assessment_feedback_consent'}
             require(not payload.keys()-fields and 'view' in payload, 'Invalid reader event fields.')
             require(isinstance(payload['view'], str) and payload['view'] in {'learn','visualise','practice','revision','source'}, 'Invalid reading view.')
+            if 'assessment_feedback_consent' in payload: require(type(payload['assessment_feedback_consent']) is bool,'Consent must be boolean.')
             if 'completed' in payload: require(type(payload['completed']) is bool, 'Completion is a user-reported boolean.')
             if 'page' in payload: integer(payload['page'],1,module['source']['page_count'])
             if 'budget' in payload: require(isinstance(payload['budget'],str) and payload['budget'] in {'5','15','full'},'Invalid revision budget.')

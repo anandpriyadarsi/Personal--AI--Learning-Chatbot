@@ -335,7 +335,7 @@ def test_tutor_home_uses_screen_and_chat_rename_is_accessible(browser, real_tuto
         assert chat_link.count() == 1
         assert chat_link.evaluate('(el) => getComputedStyle(el).textDecorationLine') == 'none'
         page.get_by_label('Rename My original chat').click()
-        rename = page.get_by_label('Rename chat')
+        rename = page.locator('.tutor-rename-form:not([hidden])').get_by_label('Rename chat')
         expect(rename).to_have_value('My original chat')
         editor = page.locator('.tutor-rename-form:visible')
         assert editor.count() == 1

@@ -50,3 +50,5 @@
 .academic-files :focus-visible{outline:3px solid #4be3c3;outline-offset:3px}
 @media(max-width:450px){.academic-files .files-folders{grid-template-columns:1fr}.academic-files .file-glyph{min-width:32px;font-size:.6rem}.academic-files .file-main h2{font-size:.95rem}.academic-files .files-heading h1{font-size:1.35rem}.academic-files dialog{padding:14px}}
 @media(prefers-reduced-motion:reduce){.academic-files *{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
+
+.original-image{max-width:100%;height:auto;display:block}.inert-original{white-space:pre-wrap;overflow-wrap:anywhere;padding:1rem;max-width:100%}.academic-files button,.academic-files summary,.academic-files a.button{min-height:48px}.academic-files dialog{max-width:min(92vw,650px)}

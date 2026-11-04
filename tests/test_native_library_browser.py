@@ -20,6 +20,8 @@ def server(app):
     live=NativeDocumentLibrary(directory/'native_library',autostart=False)
     live.configure_tutor(directory/'learning_assistant.db',directory/'tutor_retrieval')
     live.start_worker()
+    from personal_learning_assistant.ui.web.native_library import synchronize_academic_folders
+    synchronize_academic_folders(live,app.config['NATIVE_LIBRARY_CATALOGUE_FACTORY']()['courses'])
     app.config['NATIVE_LIBRARY_SERVICE']=live
     server=make_server('127.0.0.1',0,app,threaded=True)
     thread=Thread(target=server.serve_forever,daemon=True); thread.start()
@@ -140,10 +142,12 @@ def test_default_open_and_distinct_rename_course_actions_keep_original(server):
     with sync_playwright() as pw:
         browser=pw.chromium.launch();context=browser.new_context(viewport={'width':390,'height':844},accept_downloads=True)
         page=context.new_page();page.goto(base+'/library/files');row=page.locator('.file-row')
-        assert row.locator('.file-main h2 a').get_attribute('href')==f"/library/files/{doc['id']}/original?native_action=view"
-        with page.expect_response(lambda response:response.url.endswith('/original?native_action=view')) as opened:
+        assert row.locator('.file-main h2 a').get_attribute('href')==f"/library/files/{doc['id']}/open?position=1"
+        with page.expect_response(lambda response:response.url.endswith('/open?position=1')) as opened:
             row.locator('.file-main h2 a').click()
-        assert opened.value.headers['content-type']=='application/pdf'
+        assert opened.value.headers['content-type'].startswith('text/html')
+        expect(page.locator('#pdf-page')).to_be_visible()
+        assert page.request.get(base+f"/library/files/{doc['id']}/original").body()==raw
         assert lib.get(doc['id'])['status']=='disabled'
         page.goto(base+'/library/files');row=page.locator('.file-row');row.locator('summary').click()
         assert row.get_by_role('link',name='Open with…',exact=True).get_attribute('href').endswith('native_action=open_with')

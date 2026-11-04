@@ -1,0 +1,12 @@
+{% extends 'base.html' %}{% block title %}Author a topic · ANVAYA{% endblock %}
+{% block page_scripts %}<link rel="stylesheet" href="{{ url_for('static',filename='css/learning_studio.css') }}">{% endblock %}
+{% block content %}<main class="ls-author"><h1>Author a topic from your lectures</h1>
+<p>Choose 3–4 related originals in teaching order (2–8 supported, up to 4 MB each / 20 MB total / 120 pages or slides). Processing stays local. The draft contains source evidence and author prompts; review and teach the material before publishing.</p>
+<form method="get"><label>Find lecture originals<input name="q" value="{{ query }}" maxlength="200"></label><button>Search files</button></form>
+<form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+<label>Topic title<input name="title" required maxlength="500"></label>
+<label>Course<select name="course_id" required>{% for c in catalogue.courses %}<option value="{{ c.id }}">{{ c.code }} · {{ c.name }}</option>{% endfor %}</select></label>
+<label>Canonical topic<select name="topic_id" required>{% for c in catalogue.courses %}{% for t in c.topics %}<option value="{{ t.id }}">{{ c.code }} · {{ t.name }}</option>{% endfor %}{% endfor %}</select></label>
+<fieldset><legend>Select originals in this displayed order</legend>{% for d in documents %}<label class="ls-original-choice"><input type="checkbox" name="documents" value="{{ d.id }}"> {{ d.display_name }} ({{ d.kind|upper }}) <small>{{ d.id }}</small></label>{% endfor %}</fieldset>{% if documents|length==100 %}<p><a href="{{ url_for('learning.author',q=query,offset=offset+100) }}">More files</a></p>{% endif %}
+<label>Optional lecture order: comma-separated selected IDs<input name="order" placeholder="First lecture ID, second lecture ID, …"></label>
+<p>Change lecture grouping or order by preparing a new draft. Filenames are display metadata; source IDs and hashes bind the evidence. Use Library search to locate older files.</p><button type="submit">Prepare local source draft</button></form></main>{% endblock %}

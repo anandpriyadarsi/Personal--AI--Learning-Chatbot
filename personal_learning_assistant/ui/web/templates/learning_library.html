@@ -3,6 +3,7 @@
 {% block body_class %}learning-page ls-course-workspace{% endblock %}
 {% block page_scripts %}<link rel="stylesheet" href="{{ url_for('static',filename='css/learning_studio.css') }}">{% endblock %}
 {% block content %}
+<p class="ls-author-action"><a href="{{ url_for('learning.author') }}">Create a topic from related lectures</a></p>
 <nav class="ls-workspace-crumb" aria-label="Learning navigation">
   <a href="{{ url_for('learning.library') }}">Learning Studio</a>
   {% if course %}<span aria-hidden="true">/</span><span aria-current="page">{{ profile.title }}</span>{% endif %}

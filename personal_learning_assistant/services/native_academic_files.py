@@ -14,18 +14,21 @@ TEMPLATES = {
 
 
 class AcademicFiles:
-    def bootstrap_academics(self, courses, *, namespace='routed-course', number=1):
+    def bootstrap_academics(self, courses, *, namespace='routed-course', number=1, year=None, program=None):
         from .native_document_library import label, LibraryError
         if not isinstance(number,int) or not 1<=number<=8: raise LibraryError('Choose semester 1–8.')
         namespace=label(namespace,maximum=150)
-        semester_id=uuid.uuid5(uuid.NAMESPACE_URL,'anvaya:semester:'+str(number)).hex
+        year=label(str(year),maximum=100) if year else None
+        program=label(str(program),maximum=100) if program else None
+        term_key='anvaya:semester:'+str(number)+((':year:'+year) if year else '')+((':program:'+program) if program else '')
+        semester_id=uuid.uuid5(uuid.NAMESPACE_URL,term_key).hex
         with self.connection(write=True) as con:
             term=con.execute('SELECT * FROM semesters WHERE id=?',(semester_id,)).fetchone()
             if term is None:
                 root=uuid.uuid4().hex
-                con.execute("INSERT INTO folders(id,name,parent_id,node_kind) VALUES(?,?,NULL,'semester')",(root,'Semester '+str(number)))
-                con.execute('INSERT INTO semesters(id,number,label,folder_id,sort_order) VALUES(?,?,?,?,?)',
-                            (semester_id,number,'Semester '+str(number),root,number))
+                con.execute("INSERT INTO folders(id,name,parent_id,node_kind) VALUES(?,?,NULL,'semester')",(root,'Semester '+str(number)+((' · '+year) if year else '')))
+                con.execute('INSERT INTO semesters(id,number,label,folder_id,sort_order,year,program) VALUES(?,?,?,?,?,?,?)',
+                            (semester_id,number,'Semester '+str(number),root,number,year,program))
                 term=con.execute('SELECT * FROM semesters WHERE id=?',(semester_id,)).fetchone()
             for index,course in enumerate(courses):
                 identity=label(str(course['id']),maximum=150)

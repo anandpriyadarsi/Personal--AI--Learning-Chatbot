@@ -9,7 +9,7 @@ from test_native_document_library import pdf_bytes, pptx_bytes
 def app(tmp_path):
     lib = NativeDocumentLibrary(tmp_path/'library', autostart=False)
     return create_app({'TESTING':True, 'NATIVE_LIBRARY_SERVICE':lib,
-        'NATIVE_LIBRARY_CATALOGUE_FACTORY':lambda:{'available':True,'courses':[{'id':'ma103','code':'MA103N','name':'Linear Algebra','topics':[{'name':'Eigenvalues'}]}]}})
+        'NATIVE_LIBRARY_CATALOGUE_FACTORY':lambda:{'available':True,'courses':[{'id':'ma103','code':'MA103N','name':'Linear Algebra','semester':'Semester 1','topics':[{'name':'Eigenvalues'}]}]}})
 
 
 def token(app):
@@ -103,7 +103,7 @@ def test_default_open_and_separate_menu_actions_preserve_bytes_and_current_name(
     assert metadata['open_with_url']==base+'/original?native_action=open_with'
     assert metadata['filename']=='My lecture.pdf'
     html=c.get('/library/files').get_data(as_text=True)
-    assert f'<a href="{metadata["open_url"]}">My lecture</a>' in html
+    assert f'<a href="/library/files/{identity}/open?position=1">My lecture</a>' in html
     for name in ['Open with…','Rename','Move','Favorite','Details','Export original','Copy','Move to Trash']:
         assert f'>{name}</' in html
     assert 'Prepare supported content for Tutor on this device' in html
@@ -122,6 +122,8 @@ def test_upload_requires_explicit_content_indexing(app):
 def test_future_configured_terms_and_type_filtered_search_use_actual_courses(app):
     app.config['NATIVE_LIBRARY_CATALOGUE_FACTORY']=lambda:{'courses':[
         {'id':'actual-term2-course','code':'CS201','name':'Algorithms','semester':'Semester 2 First Year'}]}
+    from personal_learning_assistant.ui.web.native_library import synchronize_academic_folders
+    synchronize_academic_folders(app.config['NATIVE_LIBRARY_SERVICE'],app.config['NATIVE_LIBRARY_CATALOGUE_FACTORY']()['courses'])
     client=app.test_client();body=client.get('/library/files').get_data(as_text=True)
     assert 'Semester 2' in body and '>Semester 1<' not in body
     lib=app.config['NATIVE_LIBRARY_SERVICE']

@@ -138,11 +138,16 @@ def module_view(module_id, revision, *, staged=False):
         module_id=module_id,revision=revision,view='learn',section=section['id']) for section in p['sections']}
     def reader_markdown(text, anchor_prefix=None):
         return markdown(text,anchor_prefix,section_targets=section_targets)
+    from personal_learning_assistant.learning_studio.assessment_bridge import feedback
+    from .routes import _assessment_intelligence_service
+    assessment_feedback=feedback(s,p,lambda course_id:_assessment_intelligence_service().course_report(course_id)) if not staged else None
     return render_template('learning_module.html', active_page='learning', module=p, view=view, staged=staged,
         course=course, mapping_current=mapping_current, markdown=reader_markdown, inline_markdown=inline_markdown, trusted_graph=trusted_graph, trusted_activity=trusted_activity, **reader,
         practice_state={} if staged else s.practice_state(module_id,revision), source_element=source_element,quality_questions=quality_questions,
         attempt_feedback=attempt_feedback, attempt_event_ids={q['id']: str(uuid.uuid4()) for q in reader['practice_questions']},
-        inline_event_id=str(uuid.uuid4()),
+        inline_event_id=str(uuid.uuid4()), completion_event_id=str(uuid.uuid4()),
+        assessment_feedback=assessment_feedback,
+        original_pages={page:{**source,'position':source['positions'][index]} for source in p.get('lecture_sources',[]) for index,page in enumerate(source['pages'])},
         pending_question=request.args.get('question') or (reader['practice_questions'][0]['id'] if view=='practice' and reader['practice_questions'] else None),
         reading_state=None if staged else s.reading_state(module_id,revision), weak=weak,
         csrf_token=current_app.extensions['learning_studio_csrf'],
@@ -466,3 +471,112 @@ def mapping_review(module_id,revision):
         result=s.confirm_mapping(module_id,revision,request.get_json(silent=True))
         return jsonify(result)
     return render_template('learning_mapping.html',active_page='learning',review=s.mapping_candidates(module_id,revision),csrf_token=current_app.extensions['learning_studio_csrf'])
+
+# Multi-lecture authoring extends the existing immutable Studio engine.
+@learning_blueprint.route('/learning/author',methods=['GET','POST'])
+def author():
+    from .native_library import service as original_library
+    from personal_learning_assistant.learning_studio.multilecture_authoring import prepare
+    from personal_learning_assistant.learning_studio.validation import require
+    studio=service();lib=original_library()
+    if request.method=='POST':
+        ordered=request.form.get('order','').strip()
+        identities=[s.strip() for s in ordered.split(',') if s.strip()] if ordered else request.form.getlist('documents')
+        token=prepare(studio,lib,identities,title=request.form.get('title',''),
+            course_id=request.form.get('course_id',''),topic_id=request.form.get('topic_id',''))
+        return redirect(url_for('learning.author_draft',token=token),code=303)
+    query=request.args.get('q','').strip()
+    from personal_learning_assistant.learning_studio.validation import require
+    require(len(query)<=200,'Search is limited to 200 characters.')
+    offset=int(request.args.get('offset',0));require(0<=offset<=100000,'Invalid file page.')
+    with lib.connection() as con:
+        selected_documents=[lib._doc(row) for row in con.execute("SELECT * FROM documents WHERE trashed_at IS NULL AND instr(library_normalize(display_name),library_normalize(?))>0 ORDER BY created_at DESC,id LIMIT 100 OFFSET ?",(query,offset))]
+    return render_template('learning_author.html',active_page='learning',
+        documents=selected_documents,catalogue=studio.catalogue_loader(),query=query,offset=offset,
+        csrf_token=current_app.extensions['learning_studio_csrf'])
+
+
+@learning_blueprint.route('/learning/author/<token>',methods=['GET','POST'])
+def author_draft(token):
+    import json
+    from personal_learning_assistant.learning_studio.multilecture_authoring import draft,stage_draft,RUBRIC,quality
+    from personal_learning_assistant.learning_studio.archive import decode_json
+    studio=service();package,assets,raw=draft(studio,token)
+    if request.method=='POST':
+        edited=decode_json(request.form.get('package','').encode())
+        result=stage_draft(studio,token,edited,request.form.getlist('review'))
+        return redirect(url_for('learning.preview',module_id=result['module_id'],revision=result['revision']),code=303)
+    from urllib.parse import urlsplit
+    provider=author_provider()
+    provider_label=(urlsplit(getattr(provider,'api_url','')).hostname or type(provider).__name__)+' · '+str(getattr(provider,'model','configured model'))
+    return render_template('learning_author_draft.html',active_page='learning',package=package,
+        encoded=json.dumps(package,ensure_ascii=False,indent=2),rubric=RUBRIC,issues=quality(package),token=token,provider_label=provider_label,provider_configured=bool(getattr(provider,'configured',False)),
+        csrf_token=current_app.extensions['learning_studio_csrf'])
+
+
+@learning_blueprint.get('/learning/modules/<module_id>/<int:revision>/lectures/<int:order>/original')
+def lecture_original(module_id,revision,order):
+    import hashlib
+    from personal_learning_assistant.learning_studio.validation import require
+    from personal_learning_assistant.services.native_document_formats import MIMES
+    studio=service();staged=request.args.get('preview')=='1'
+    p=studio.module(module_id,revision,staged=staged)
+    source=next((s for s in p.get('lecture_sources',[]) if s['order']==order),None)
+    require(source is not None,'Lecture not found.',404)
+    raw=studio.asset(module_id,revision,source['asset'],staged=staged)
+    require(hashlib.sha256(raw).hexdigest()==source['sha256'],'Lecture original integrity failure.',409)
+    response=send_file(io.BytesIO(raw),mimetype=MIMES[source['kind']],as_attachment=source['kind']!='pdf',download_name=source['filename'])
+    response.headers.update({'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Content-Security-Policy':'sandbox'})
+    return response
+
+
+@learning_blueprint.get('/learning/modules/<module_id>/<int:revision>/bundle.zip')
+def lecture_bundle(module_id,revision):
+    from personal_learning_assistant.learning_studio.multilecture_authoring import export_bundle
+    return send_file(io.BytesIO(export_bundle(service(),module_id,revision)),mimetype='application/zip',as_attachment=True,download_name='ANVAYA-topic.zip')
+
+
+@learning_blueprint.post('/learning/modules/<module_id>/<int:revision>/completion')
+def completion(module_id,revision):
+    from personal_learning_assistant.learning_studio.validation import require
+    studio=service();section=request.form.get('section','')
+    completed=request.form.get('completed')
+    require(completed in ('true','false'),'Choose completed or incomplete.')
+    studio.record_progress(module_id,revision,{'event_id':request.form.get('event_id',''),'section_id':section,'view':'learn','completed':completed=='true'})
+    p=studio.module(module_id,revision)
+    ids=[s['id'] for s in p['sections']];i=ids.index(section)
+    # A failed write raises before constructing any navigation to another lesson.
+    target=ids[i+1] if completed=='true' and i+1<len(ids) else section
+    return redirect(url_for('learning.module',module_id=module_id,revision=revision,view='learn',section=target),code=303)
+
+
+@learning_blueprint.post('/learning/modules/<module_id>/<int:revision>/assessment-consent')
+def assessment_consent(module_id,revision):
+    from personal_learning_assistant.learning_studio.validation import require
+    consent=request.form.get('consent')
+    require(consent in ('true','false'),'Choose whether to show assessment feedback.')
+    studio=service();p=studio.module(module_id,revision)
+    prior=studio.reading_state(module_id,revision).get('current') or {}
+    studio.record_progress(module_id,revision,{'event_id':str(uuid.uuid4()),'section_id':prior.get('section_id',p['sections'][0]['id']),
+        'view':'learn','assessment_feedback_consent':consent=='true'})
+    return redirect(url_for('learning.module',module_id=module_id,revision=revision,view='learn'),code=303)
+
+
+def author_provider():
+    factory=current_app.config.get('LEARNING_AUTHOR_PROVIDER_FACTORY')
+    if factory:return factory()
+    from personal_learning_assistant.tutor.http_provider import OpenAICompatibleTutorProvider
+    return OpenAICompatibleTutorProvider()
+
+
+@learning_blueprint.post('/learning/author/<token>/generate')
+def generate_author_draft(token):
+    from personal_learning_assistant.learning_studio.multilecture_authoring import generate
+    from personal_learning_assistant.learning_studio.validation import PackageError
+    from personal_learning_assistant.tutor.provider import TutorProviderUnavailableError
+    from personal_learning_assistant.tutor.http_provider import TutorProviderRequestError
+    try:
+        next_token=generate(service(),token,author_provider(),consented=request.form.get('provider_consent')=='true')
+    except (TutorProviderUnavailableError,TutorProviderRequestError):
+        raise PackageError('The configured provider could not generate this draft. Original files and local drafts are preserved; retry or author locally.',503)
+    return redirect(url_for('learning.author_draft',token=next_token),code=303)

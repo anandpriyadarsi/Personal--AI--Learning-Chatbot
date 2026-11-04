@@ -106,7 +106,7 @@ def test_tutor_rename_is_csrf_protected_and_preserves_history(ui):
     assert 'name="title"' in html
     assert 'tutor-history-link' in html
     assert 'class="dashboard-list"' not in html
-    assert 'tutor-history-actions' in html
+    assert 'tutor-rename-toggle' in html
 
 
 def test_rename_validation_not_found_and_safe_redirect(ui):
@@ -114,7 +114,7 @@ def test_rename_validation_not_found_and_safe_redirect(ui):
     sid = service.create_session(course_id=course['id'], title='Original')
     token = app.extensions['tutor_action_csrf']
     client = app.test_client()
-    for rejected in ('', '  ', 'x' * 161, 'line\\nbreak', 'tab\\tname', '\\x7f'):
+    for rejected in ('', '  ', 'x' * 161, 'line\nbreak', 'tab\tname', '\x7f'):
         response = client.post('/agent/sessions/' + sid + '/rename',
                                data={'csrf_token': token, 'title': rejected})
         assert response.status_code == 400

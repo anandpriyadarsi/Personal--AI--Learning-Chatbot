@@ -25,16 +25,9 @@ def service():
         supplied = current_app.config.get('NATIVE_LIBRARY_SERVICE')
         if supplied is not None: return supplied
         if 'native_document_library' not in current_app.extensions:
-            import config
-            root = current_app.config.get('NATIVE_LIBRARY_ROOT') or Path(config.DATA_PATH)/'native_library'
-            lib = NativeDocumentLibrary(root,autostart=False)
-            database=Path(config.DATABASE_PATH)
-            if database.is_file():
-                publisher=current_app.extensions.get('academic_wal_publisher')
-                lib.migrate_legacy_sources(database)
-                lib.configure_tutor(database,Path(root).parent/'tutor_retrieval',refresh=publisher.request_refresh if publisher else None)
-            lib.start_worker()
-            current_app.extensions['native_document_library'] = lib
+            if not current_app.config.get('ANDROID_LOCAL_RUNTIME'):
+                raise LibraryError('Start the local website with python phase7_web.py to prepare Library safely.',503)
+            initialize_library(current_app._get_current_object())
         return current_app.extensions['native_document_library']
 
 
@@ -101,14 +94,6 @@ def private(response):
 def home():
     lib=service(); folder=request.args.get('folder_id') or None
     courses=catalogue().get('courses',[])
-    # Group only authoritative configured terms; never fabricate eight cards.
-    terms={}
-    for c in courses:
-        value=str(c.get('semester','')).strip().casefold()
-        match=re.match(r'(?:semester\s*|sem\s*)?([1-8])(?:\s|$)',value)
-        number=int(match[1]) if match else 1 if value in ('','first semester') else None
-        if number is not None:terms.setdefault(number,[]).append(c)
-    for number,configured in sorted(terms.items()):lib.bootstrap_academics(configured,number=number)
     crumbs=lib.breadcrumbs(folder) if folder else []
     children=lib.children(folder,offset=int(request.args.get('folder_offset',0)))
     folders=children['items']
@@ -145,7 +130,7 @@ def search():
     matches=service().search(request.args.get('q',''),folder_id=request.args.get('folder_id') or None,
         subject_id=request.args.get('subject_id') or None,document_id=request.args.get('document_id') or None,
         offset=int(request.args.get('offset',0)),limit=int(request.args.get('limit',50)))
-    return jsonify(matches=[{**view_document(d),'open_url':url_for('native_library.original',document_id=d['id'],native_action='view')} for d in matches])
+    return jsonify(matches=[{**view_document(d),'open_url':url_for('native_library.open_document',document_id=d['id'],position=d['position'] or 1)} for d in matches])
 
 
 @files.get('/library/files/status')
@@ -241,7 +226,12 @@ def open_document(document_id):
     if not 1<=position<=2500: raise LibraryError('Choose a valid page or slide.')
     query=request.args.get('q','')
     if len(query)>500: raise LibraryError('Search is limited to 500 characters.')
-    return render_template('native_document.html',active_page='library',doc=d,position=position,query=query,
+    text_preview=None
+    if d['kind'] in ('txt','md','csv','py'):
+        with service().original(document_id).open('rb') as stream:
+            text_preview=stream.read(256_001)
+        text_preview=text_preview[:256_000].decode('utf-8',errors='replace') + ('\n[Preview limited to 256 KB. Download original for the full file.]' if len(text_preview)>256_000 else '')
+    return render_template('native_document.html',active_page='library',doc=d,position=position,query=query,text_preview=text_preview,
         csrf_token=current_app.extensions['native_library_csrf'])
 
 
@@ -339,3 +329,43 @@ def repair(document_id):
     chosen=request.files.get('file')
     if chosen is None or len(request.files.getlist('file'))!=1:raise LibraryError('Choose one original to repair.')
     return jsonify(document=view_document(service().repair_original(document_id,chosen.stream)))
+
+
+def synchronize_academic_folders(lib, courses):
+    terms={}
+    for course in courses:
+        value=str(course.get('semester','')).strip().casefold()
+        match=re.match(r'(?:semester\s*|sem\s*)?([1-8])(?:\s|$)',value)
+        number=int(match[1]) if match else 1 if value=='first semester' else None
+        year=str(course.get('academic_year','')).strip()
+        if year.casefold() in ('academic year unspecified','unspecified'):year=''
+        if number is not None: terms.setdefault((number,year),[]).append(course)
+    for (number,year),configured in sorted(terms.items()): lib.bootstrap_academics(configured,number=number,year=year or None)
+
+
+def initialize_library(app):
+    """Explicit startup owner: migration and folder projection never run on GET."""
+    import config
+    supplied=app.config.get('NATIVE_LIBRARY_SERVICE')
+    if supplied is not None: return supplied
+    database=Path(app.config.get('ACADEMIC_DATABASE_PATH') or config.DATABASE_PATH)
+    # Do not initialize/migrate beside an absent or foreign academic owner.
+    # The normal launcher explicitly activates its canonical schema first.
+    if not database.is_file(): return None
+    from contextlib import closing
+    with closing(sqlite3.connect(database.absolute().as_uri()+'?mode=ro',uri=True)) as academic:
+        if not academic.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='knowledge_documents'").fetchone(): return None
+    root=Path(app.config.get('NATIVE_LIBRARY_ROOT') or Path(config.DATA_PATH)/'native_library')
+    lib=NativeDocumentLibrary(root,autostart=False)
+    try:
+        if database.is_file():
+            lib.migrate_legacy_sources(database)
+            publisher=app.extensions.get('academic_wal_publisher')
+            lib.configure_tutor(database,app.config.get('TUTOR_INDEX_ROOT',root.parent/'tutor_retrieval' if app.config.get('ANDROID_LOCAL_RUNTIME') else '.phase5_retrieval'),refresh=publisher.request_refresh if publisher else None)
+        with app.app_context(): synchronize_academic_folders(lib,catalogue().get('courses',[]))
+        app.extensions['native_document_library']=lib
+        lib.start_worker()
+        return lib
+    except BaseException:
+        lib.close()
+        raise

@@ -22,7 +22,7 @@ def test_static_assets_are_privately_cacheable_but_every_page_is_no_store(tmp_pa
         assert c.head('/static/js/app.js', base_url=r.origin).status_code == 200
         assert c.get('/static/js/does-not-exist.js', base_url=r.origin).headers['Cache-Control'] == 'no-store'
         for path in ('/', '/notes', '/learning', '/assessments', '/library', '/mobile/device'):
-            response = c.get(path, base_url=r.origin)
+            response = c.get(path, base_url=r.origin,follow_redirects=True)
             assert response.status_code == 200, path
             assert response.headers['Cache-Control'] == 'no-store', path
         # A cached CSS or JS URL still requires the private capability on the server.
