@@ -56,3 +56,5 @@ Optional OCR/Office conversion and live paid-provider correctness remain depende
 A source review found canonical SQLite publication occurring while the native metadata transaction was held. Publication now commits a durable extracted checkpoint, releases the native lock before waiting on the canonical owner, and rechecks lease/hash/generation/metadata revision before completing the native receipt. Retrieval independently excludes stale generations throughout. Added real Flask/SQLite contention and disable-after-canonical-commit regressions.
 
 The local execution environment became unavailable after the initial source publication. This follow-up and the final Library→Studio handoff are verified by exact-head GitHub Ubuntu/Windows web/canonical checks, not claimed as a new local pass.
+
+Clean server shutdown during extraction now keeps the job pending with its durable checkpoint, instead of treating cancellation as a permanent parser failure. A restart regression verifies the same ID/bytes become Tutor-ready after reopening.
