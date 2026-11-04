@@ -103,6 +103,16 @@ class NativeTutorBridge:
                     native.execute("UPDATE documents SET tutor_state='ready' WHERE id=? AND generation=? AND trashed_at IS NULL AND indexing_enabled=1",(identity,generation))
         if self._tutor_refresh: self._tutor_refresh()
 
+    @staticmethod
+    def _publication_is_current(con,doc,job,token):
+        current=con.execute('SELECT * FROM documents WHERE id=?',(doc['id'],)).fetchone()
+        lease=con.execute('SELECT * FROM processing_jobs WHERE id=?',(job,)).fetchone()
+        return bool(current is not None and lease is not None
+                    and current['generation']==doc['generation']
+                    and current['metadata_revision']==doc['metadata_revision']
+                    and current['sha256']==doc['sha256']
+                    and lease['lease_owner']==token and lease['state']=='running')
+
     def run_pending(self):
         if not self._worker_lock.acquire(blocking=False): return
         changed=False
@@ -124,9 +134,7 @@ class NativeTutorBridge:
                     else:
                         pages,status,detail=self._extract(doc)
                     with self.connection(write=True) as con:
-                        current=con.execute('SELECT * FROM documents WHERE id=?',(doc['id'],)).fetchone()
-                        lease=con.execute('SELECT * FROM processing_jobs WHERE id=?',(job,)).fetchone()
-                        if (current is None or current['generation']!=doc['generation'] or lease['lease_owner']!=token or lease['state']!='running'):
+                        if not self._publication_is_current(con,doc,job,token):
                             con.execute("UPDATE processing_jobs SET state='cancelled' WHERE id=? AND lease_owner=?",(job,token));continue
                         self._remove_index(con,doc['id'])
                         indexed=0
@@ -137,9 +145,17 @@ class NativeTutorBridge:
                             indexed+=1
                             cursor=con.execute('INSERT INTO pages(document_id,position,text) VALUES(?,?,?)',(doc['id'],position,text))
                             con.execute('INSERT INTO page_fts(rowid,document_id,position,text) VALUES(?,?,?,?)',(cursor.lastrowid,doc['id'],position,normalized))
-                        # Publish only a still-current generation. The lock is
-                        # held for owner transactions, never extraction or build.
-                        source=self._publish_native(doc,pages if active else [])
+                        con.execute("UPDATE processing_jobs SET checkpoint='extracted' WHERE id=? AND lease_owner=?",(job,token))
+                    # The canonical owner may be busy with an Assessment write.
+                    # Never wait for that SQLite writer while holding the native
+                    # metadata lock. Durable checkpoints make replay idempotent;
+                    # live retrieval additionally validates the native generation.
+                    source=self._publish_native(doc,pages if active else [])
+                    with self.connection(write=True) as con:
+                        if not self._publication_is_current(con,doc,job,token):
+                            con.execute("UPDATE processing_jobs SET state='cancelled' WHERE id=? AND lease_owner=?",(job,token))
+                            changed=True
+                            continue
                         tutor='attention' if doc['availability']!='available' else 'preparing' if source and indexed and active else ('stored_only' if active else 'disabled')
                         con.execute('UPDATE documents SET status=?,status_detail=?,position_count=?,indexed_count=?,tutor_state=? WHERE id=?',
                                     (status,detail,len(pages),indexed,tutor,doc['id']))

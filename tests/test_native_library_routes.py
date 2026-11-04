@@ -131,3 +131,75 @@ def test_future_configured_terms_and_type_filtered_search_use_actual_courses(app
     lib.upload(BytesIO(pdf_bytes()),'lesson.pdf',indexing=False)
     body=client.get('/library/files?q=lesson&kind=txt').get_data(as_text=True)
     assert 'lesson.txt' in body and 'lesson.pdf' not in body
+
+
+def test_canonical_writer_contention_does_not_block_web_library_navigation(tmp_path,monkeypatch):
+    import sqlite3
+    from threading import Event,Thread
+    from personal_learning_assistant.repositories.sqlite.migration_runner import apply_migrations
+    directory=tmp_path/'data';directory.mkdir()
+    database=directory/'learning_assistant.db';apply_migrations(database)
+    lib=NativeDocumentLibrary(directory/'native_library',autostart=False)
+    lib.configure_tutor(database,directory/'retrieval')
+    doc=lib.upload(BytesIO(b'Unique local evidence remains available.'),'fact.txt')
+    web=create_app({'TESTING':True,'NATIVE_LIBRARY_SERVICE':lib,
+                    'NATIVE_LIBRARY_CATALOGUE_FACTORY':lambda:{'courses':[]}})
+    entered=Event();read_done=Event();errors=[]
+    publish=lib._publish_native
+    def publishing(record,pages):
+        entered.set()
+        return publish(record,pages)
+    monkeypatch.setattr(lib,'_publish_native',publishing)
+    held=sqlite3.connect(database,isolation_level=None);held.execute('BEGIN IMMEDIATE')
+    worker=Thread(target=lib.run_pending)
+    reader=None
+    try:
+        worker.start();assert entered.wait(3)
+        def navigate():
+            try:
+                client=web.test_client()
+                assert client.get('/library/files').status_code==200
+                assert client.get('/library/files/'+doc['id']+'/original').data==b'Unique local evidence remains available.'
+            except Exception as error:errors.append(str(error))
+            finally:read_done.set()
+        reader=Thread(target=navigate);reader.start()
+        assert read_done.wait(2),'Canonical writer contention blocked unrelated Library navigation'
+        assert not errors
+    finally:
+        held.rollback();held.close();worker.join(8)
+        if reader is not None:reader.join(8)
+        lib.close()
+    assert not worker.is_alive()
+    assert lib.get(doc['id'])['tutor_state']=='ready'
+
+
+def test_disable_after_canonical_write_cannot_publish_late_native_generation(tmp_path,monkeypatch):
+    import sqlite3
+    from threading import Event,Thread
+    from personal_learning_assistant.repositories.sqlite.migration_runner import apply_migrations
+    from personal_learning_assistant.repositories.sqlite.retrieval_source_repository import SQLiteRetrievalSourceRepository
+    directory=tmp_path/'data';directory.mkdir()
+    database=directory/'learning_assistant.db';apply_migrations(database)
+    lib=NativeDocumentLibrary(directory/'native_library',autostart=False)
+    lib.configure_tutor(database,directory/'retrieval')
+    doc=lib.upload(BytesIO(b'Only the old generation contains Zirconium47.'),'fact.txt')
+    committed=Event();release=Event();publish=lib._publish_native;first=[True]
+    def pause_after_commit(record,pages):
+        source=publish(record,pages)
+        if first[0]:
+            first[0]=False;committed.set();assert release.wait(8)
+        return source
+    monkeypatch.setattr(lib,'_publish_native',pause_after_commit)
+    worker=Thread(target=lib.run_pending);worker.start()
+    try:
+        assert committed.wait(3)
+        lib.set_indexing(doc['id'],False)
+        with sqlite3.connect(database) as con:
+            assert not SQLiteRetrievalSourceRepository(con).active_records()
+    finally:
+        release.set();worker.join(8);lib.close()
+    assert not worker.is_alive()
+    with sqlite3.connect(database) as con:
+        assert not SQLiteRetrievalSourceRepository(con).active_records()
+    assert lib.get(doc['id'])['tutor_state']=='disabled'
+    assert lib.original(doc['id']).read_bytes()==b'Only the old generation contains Zirconium47.'

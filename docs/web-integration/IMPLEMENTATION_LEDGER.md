@@ -49,3 +49,10 @@ A **123,207,680-byte** synthetic payload (>100 MiB) streamed through verified ex
 The canonical full gate covers existing Notes/nesting/focus/media, Obsidian, Planning, Assessments and Tutor. No academic authority promotion, hidden planner write, Android emulator, Java/Gradle modification, APK release or public hosting is part of this task.
 
 Optional OCR/Office conversion and live paid-provider correctness remain dependency/manual boundaries; the app truthfully retains originals and offers local manual authoring. Source snapshots in a portable package are bounded separately from Library's 100 MiB per-file cap. Existing external source roots and unavailable phone records require their actual user-owned assets. No assertion claims those private records were migrated.
+
+
+## Final contention follow-up
+
+A source review found canonical SQLite publication occurring while the native metadata transaction was held. Publication now commits a durable extracted checkpoint, releases the native lock before waiting on the canonical owner, and rechecks lease/hash/generation/metadata revision before completing the native receipt. Retrieval independently excludes stale generations throughout. Added real Flask/SQLite contention and disable-after-canonical-commit regressions.
+
+The local execution environment became unavailable after the initial source publication. This follow-up and the final Library→Studio handoff are verified by exact-head GitHub Ubuntu/Windows web/canonical checks, not claimed as a new local pass.
