@@ -84,3 +84,14 @@ def test_saved_resume_link_renders_on_learning_and_subject_page(studio):
         assert "lesson-2" in text
         assert "1 of 2 lessons marked completed" in text
         assert "not assessment mastery" in text
+
+
+def test_formal_assessment_link_uses_reviewed_course_not_quick_question(studio):
+    publish(studio, _two_lessons())
+    app = create_app({"TESTING": True, "LEARNING_STUDIO_SERVICE_FACTORY": lambda: studio})
+    page = app.test_client().get("/learning/modules/synthetic/1?view=learn")
+    assert page.status_code == 200
+    html = page.get_data(as_text=True)
+    assert "Practise this lesson" in html
+    assert "Take a formal subject assessment in Assessment Studio" in html
+    assert "/assessments/tests?course_id=c0" in html
