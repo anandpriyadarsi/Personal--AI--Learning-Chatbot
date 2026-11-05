@@ -113,7 +113,7 @@ def test_long_math_reader_and_help_keyboard_containment(browser,completion_live,
         assert writing.wait(10),'The reader did not start its position save.'
         evidence=base+'/academic-evidence/learning/uc100n-demo/2'
         assert page.request.get(evidence).status==503
-        page.get_by_role('link',name='Review evidence and source-grounded help',exact=True).click(no_wait_after=True)
+        page.get_by_role('link',name='Review evidence and source-grounded help',exact=True).click()
         assert '/learning/modules/uc100n-demo/2' in page.url
         release.set()
         page.wait_for_url(evidence+'#signals-title',wait_until='domcontentloaded')
