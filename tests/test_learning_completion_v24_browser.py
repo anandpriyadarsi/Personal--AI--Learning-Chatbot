@@ -1,6 +1,6 @@
 """Actual no-JS practice, approved metadata and separate reviewed publication."""
 from contextlib import closing,contextmanager
-from threading import Thread
+from threading import Event, Thread
 from copy import deepcopy
 import os
 import sqlite3
@@ -88,15 +88,35 @@ def test_native_practice_metadata_review_stage_publish_and_discovery(browser,com
     finally:context.close()
 
 
-def test_long_math_reader_and_help_keyboard_containment(browser,completion_live):
+def test_long_math_reader_and_help_keyboard_containment(browser,completion_live,monkeypatch):
     base,owners=completion_live;studio=owners[1];p=deepcopy(owners[2]);p['module_revision']=2
     p['sections'][0]['blocks'].append({'kind':'definition','text':'Long authored expression: \\('+'+'.join(['x']*80)+'\\).','pages':[2]})
     studio.stage(p,{'assets/cases.png':studio.asset('uc100n-demo',1,'assets/cases.png')});studio.publish('uc100n-demo',2)
     studio.attempt('uc100n-demo',{'event_id':'long-math-mistake','module_revision':2,'source_sha256':p['source']['sha256'],'question_id':'mean-score','question_revision':1,'selection':0})
+    # Hold the reader's initial position write with its real DELETE journal open.
+    # Direct page.goto() to a cross-owner view bypasses save-before-navigation
+    # and correctly receives 503 while that journal exists. Use the real link
+    # and prove it waits for the write instead of racing the evidence snapshot.
+    writing=Event();release=Event();connection=studio.store.connection
+    @contextmanager
+    def held_connection(*,write=False):
+        with connection(write=write) as con:
+            yield con
+            if write and not release.is_set():
+                writing.set()
+                assert release.wait(30),'The test did not release the synthetic reading write.'
+    monkeypatch.setattr(studio.store,'connection',held_connection)
     context=browser.new_context(viewport={'width':390,'height':1000});page=context.new_page()
     try:
         page.goto(base+'/learning/modules/uc100n-demo/2?view=learn')
         math=page.locator('math').first;expect(math).to_have_attribute('tabindex','0');math.focus();expect(math).to_be_focused();fits(page);shot(page,'v24-long-math-reader-390.png')
-        page.goto(base+'/academic-evidence/learning/uc100n-demo/2');page.get_by_role('button',name='Get a source-grounded hint').click();page.get_by_role('button',name='Concept',exact=True).click()
+        assert writing.wait(10),'The reader did not start its position save.'
+        evidence=base+'/academic-evidence/learning/uc100n-demo/2'
+        assert page.request.get(evidence).status==503
+        page.get_by_role('link',name='Review evidence and source-grounded help',exact=True).click()
+        assert '/learning/modules/uc100n-demo/2' in page.url
+        release.set()
+        page.wait_for_url(evidence+'#signals-title',wait_until='domcontentloaded')
+        page.get_by_role('button',name='Get a source-grounded hint').click();page.get_by_role('button',name='Concept',exact=True).click()
         math=page.locator('math').first;math.focus();expect(math).to_be_focused();fits(page);shot(page,'v24-long-math-help-390.png')
-    finally:context.close()
+    finally:release.set();context.close()
