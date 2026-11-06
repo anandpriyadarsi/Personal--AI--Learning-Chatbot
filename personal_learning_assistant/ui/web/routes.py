@@ -4458,6 +4458,13 @@ def academic_agent_create_session():
     service = _academic_agent_service()
     try:
         topic_scope = {}
+        selected_workspace = request.form.get("workspace", "academic")
+        if selected_workspace not in {"academic", "coding"}:
+            raise AcademicAgentWebValidationError("Choose Academic or Coding.")
+        if selected_workspace == "coding":
+            if current_app.config.get("TUTOR_CODING_ENABLED") is not True:
+                raise AcademicAgentWebValidationError("Coding Studio is disabled. Activate it before creating a Coding conversation.")
+            topic_scope["workspace"] = selected_workspace
         if request.form.get("topic_id", "").strip():
             topic_scope["topic_id"] = request.form["topic_id"]
         session_id = service.create_session(

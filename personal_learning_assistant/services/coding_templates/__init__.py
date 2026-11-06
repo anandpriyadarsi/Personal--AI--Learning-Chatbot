@@ -1,0 +1,53 @@
+"""Reviewed synthetic Python exercises. Strings are exported, never executed here."""
+TEMPLATES = {
+ 'python-collections': {
+  'title':'Python · collections', 'objective':'Transform a list of lab scores into a dictionary of passing scores (at least 50).',
+  'prerequisites':'Lists, dictionaries, iteration, comparisons',
+  'imports':'import sys\nprint("Python", sys.version.split()[0])',
+  'data':'scores = [("Asha", 42), ("Dev", 68), ("Mira", 91), ("Ravi", 50)]',
+  'task':'Predict the keys and values before writing a loop or comprehension. Create a dictionary named passing.',
+  'starter':'# TODO: build passing from scores\npassing = {}',
+  'check':'assert isinstance(passing, dict)\nassert set(passing) == {name for name, score in scores if score >= 50}\nassert all(passing[name] == score for name, score in scores if score >= 50)\nprint("Public self-check passed for this synthetic example; this is not a grade.")',
+  'reflection':'Why use a dictionary here? What changes if the threshold is 60?',
+  'variant':'Try a fresh list with a repeated name. Explain which value your chosen method keeps.'},
+ 'numpy-shapes': {
+  'title':'NumPy · shape and axis', 'objective':'Reshape six values into two rows and compute each row total.',
+  'prerequisites':'Arrays, shape, reshape, reduction axes',
+  'imports':'import sys\nimport numpy as np\nprint("Python", sys.version.split()[0], "NumPy", np.__version__)',
+  'data':'values = np.arange(1, 7)\nprint("Input shape:", values.shape)',
+  'task':'Predict the matrix shape and the row_totals shape. Explain why axis=0 and axis=1 differ.',
+  'starter':'# TODO: reshape values and compute row totals\nmatrix = None\nrow_totals = None',
+  'check':'assert isinstance(matrix, np.ndarray) and matrix.shape == (2, 3)\nassert np.array_equal(matrix.ravel(), values)\nassert np.shape(row_totals) == (2,)\nassert np.allclose(row_totals, [sum(values[:3]), sum(values[3:])])\nprint("Public shape/total checks passed; this is not a grade.")',
+  'reflection':'Which axis disappears during the row reduction, and why?',
+  'variant':'Reshape the same values into three rows and two columns. Predict the new totals shape before running.'},
+ 'pandas-indexing': {
+  'title':'Pandas · loc, iloc and groupby', 'objective':'Select a labelled row, a positional row and calculate mean score by group.',
+  'prerequisites':'DataFrame, labelled index, positional index, grouped aggregation',
+  'imports':'import sys\nimport numpy as np\nimport pandas as pd\nprint("Python", sys.version.split()[0], "Pandas", pd.__version__)',
+  'data':'df = pd.DataFrame({"group": ["A", "B", "A", "B"], "score": [10, 20, 30, 40]}, index=[101, 103, 105, 107])\ndf',
+  'task':'Predict which index each selection returns: label 103 versus position 2. Compute group means in a Series named means.',
+  'starter':'# TODO: choose the correct loc/iloc expressions\nlabelled = None\npositional = None\nmeans = None',
+  'check':'assert labelled.name == 103 and labelled["score"] == 20\nassert positional.name == 105 and positional["score"] == 30\nassert set(means.index) == {"A", "B"}\nassert np.isclose(means.loc["A"], 20) and np.isclose(means.loc["B"], 30)\nprint("Public indexing/grouping checks passed; this is not a grade.")',
+  'reflection':'Why can loc[2] fail even though a DataFrame has four rows?',
+  'variant':'Change the index to strings and add a third group. Predict whether your positional selection still works.'},
+ 'missing-values': {
+  'title':'Data cleaning · missing values', 'objective':'Inspect missingness and compare removing incomplete rows with median filling.',
+  'prerequisites':'NaN, isna, dropna, fillna, median and sampling bias',
+  'imports':'import sys\nimport numpy as np\nimport pandas as pd\nprint("Python", sys.version.split()[0], "Pandas", pd.__version__)',
+  'data':'df = pd.DataFrame({"age": [18., np.nan, 22., 24.], "score": [60., 70., np.nan, 90.]})\ndf',
+  'task':'Predict missing counts and surviving rows. Keep df unchanged. Create missing, dropped and filled; fill each numeric column with its median. Justify which strategy you would use.',
+  'starter':'# TODO: inspect, then create two candidate cleaned copies\nmissing = None\ndropped = None\nfilled = None',
+  'check':'assert missing.to_dict() == {"age": 1, "score": 1}\nassert dropped.index.tolist() == [0, 3]\nassert filled.shape == df.shape and not filled.isna().any().any()\nassert np.isclose(filled.loc[1, "age"], df["age"].median())\nassert np.isclose(filled.loc[2, "score"], df["score"].median())\nassert df.isna().sum().sum() == 2\nprint("Public cleaning checks passed; explain your assumptions. This is not a grade.")',
+  'reflection':'When might deleting incomplete records create bias? Why is median filling not always justified?',
+  'variant':'Make an entire column missing. Explain what median filling can and cannot recover.'},
+ 'histogram': {
+  'title':'Matplotlib · histogram', 'objective':'Choose a histogram to describe a numeric distribution and explain its bins.',
+  'prerequisites':'Numeric observations, frequency, bin boundaries and plot choice',
+  'imports':'import sys\nimport numpy as np\nimport matplotlib\nimport matplotlib.pyplot as plt\nprint("Python", sys.version.split()[0], "Matplotlib", matplotlib.__version__)',
+  'data':'rng = np.random.default_rng(2026)\nvalues = rng.normal(50, 8, size=120)\nbins = np.linspace(values.min() - 1, values.max() + 1, 9)',
+  'task':'Predict what frequency means. Create fig, ax and call ax.hist; keep its returned counts, edges and patches. Add meaningful axis labels.',
+  'starter':'fig, ax = plt.subplots()\n# TODO: draw the histogram and keep its return values\ncounts, edges, patches = None, None, None\nplt.show()',
+  'check':'assert len(counts) == 8 and len(edges) == 9\nassert np.isclose(np.sum(counts), len(values))\nassert np.allclose(counts, np.histogram(values, bins=bins)[0])\nassert len(patches) == 8 and ax.get_xlabel() and ax.get_ylabel()\nprint("Public count/bin checks passed; this is not a grade.")',
+  'reflection':'Why choose a histogram rather than a bar chart of categories? How do bin widths affect your interpretation?',
+  'variant':'Compare four bins with sixteen bins on the same values. Which apparent features remain stable?'}
+}

@@ -1,0 +1,60 @@
+{% set coding_state = session.metadata.get('coding_workspace_v1', {}) %}
+<div id="coding-studio" data-session="{{ session.session_id }}" data-workspace="{{ coding_state.get('workspace', 'academic') }}" data-selected-task="{{ coding_state.get('selected_task_id', '') }}" data-consent="{{ coding_state.get('consent_revision', 0) }}" data-csrf="{{ tutor_action_csrf }}">
+  <div class="coding-toolbar">
+    <label for="coding-action" class="visually-hidden">Coding action</label>
+    <select id="coding-action" aria-label="Coding action">
+      <optgroup label="Learn and practise">
+        <option value="concept">Explain concept</option><option value="explain_code">Explain my code</option>
+        <option value="debug">Debug with me</option><option value="predict">Predict output</option><option value="hint">Progressive hint</option>
+      </optgroup>
+      <optgroup label="More teaching tools">
+        <option value="operation">Choose an operation</option><option value="compare">Compare operations</option>
+        <option value="viva">One-question viva</option><option value="check">Check understanding</option>
+        <option value="rebuild">Rebuild from blank</option><option value="pseudocode">Pseudocode</option><option value="memory">Memory card</option>
+      </optgroup>
+    </select>
+    <button id="coding-tools-toggle" type="button" aria-expanded="false" aria-controls="coding-tools">Code &amp; tools</button>
+    <span id="coding-task-label" class="microcopy">Save a task to begin</span>
+  </div>
+  <section id="coding-tools" class="coding-tools" hidden aria-label="Coding task and tools">
+    <div class="coding-sheet-heading"><strong>Python practice</strong><button type="button" id="coding-tools-close" aria-label="Close coding tools">Close</button></div>
+    <p class="microcopy">Saved tasks and sent code stay in this conversation. Archive hides a task; it does not erase sent code. Review and redact private paths, keys or data before sending to your configured AI provider.</p>
+    <label for="coding-task">Saved task</label>
+    <select id="coding-task"><option value="">New task…</option>{% for task in session.coding_tasks %}<option value="{{ task.id }}">{{ task.title }}</option>{% endfor %}</select>
+    <label for="coding-title">Task title</label><input id="coding-title" maxlength="160" placeholder="e.g. Understand NumPy axes">
+    <label for="coding-template">Practice template</label>
+    <select id="coding-template"><option value="">Student-defined Python task</option><option value="python-collections">Python collections</option><option value="numpy-shapes">NumPy shape and axis</option><option value="pandas-indexing">Pandas loc/iloc and groupby</option><option value="missing-values">Missing-value cleaning</option><option value="histogram">Matplotlib histogram</option></select>
+    <label for="coding-objective">Objective</label><textarea id="coding-objective" rows="2" maxlength="2000" placeholder="What would you like to understand?"></textarea>
+    <label for="coding-topic">Topic for this request</label><input id="coding-topic" maxlength="200" placeholder="e.g. Pandas groupby">
+    <label for="coding-code">Your code · sent exactly as reviewed</label><textarea id="coding-code" class="coding-code" rows="4" maxlength="12000" spellcheck="false" placeholder="Paste Python code here"></textarea>
+    <label for="coding-error">Output / error · student-provided, unverified</label><textarea id="coding-error" class="coding-code" rows="2" maxlength="3000" placeholder="Paste only the output or traceback you want to share"></textarea>
+    <label for="coding-attempt">Your attempt / prediction</label><textarea id="coding-attempt" rows="2" maxlength="2000" placeholder="What did you expect, and what have you tried?"></textarea>
+    <div class="coding-options">
+      <label>Hint level <select id="coding-hint"><option value="1">1 · Concept</option><option value="2">2 · Operation</option><option value="3">3 · Next step</option></select></label>
+      <label>Explanation <select id="coding-depth"><option value="overview">Overview</option><option value="line_by_line">Line by line</option><option value="operations">Operations</option><option value="data_flow">Data flow</option></select></label>
+    </div>
+    <label id="coding-solution-label" hidden><input id="coding-solution" type="checkbox"> Give a full practice solution for this request</label>
+    <div class="coding-button-row"><button type="button" id="coding-save">Save task locally</button><button type="button" id="coding-new">New / rebuild task</button><button type="button" id="coding-archive" disabled>Archive task</button></div>
+    <details class="coding-reference"><summary>Offline operation cards (82)</summary>
+      <label for="coding-card-search">Find an operation</label><input id="coding-card-search" type="search" placeholder="shape, loc, groupby…">
+      <div id="coding-cards"></div>
+    </details>
+    <details id="coding-source-review"><summary>Sources and provider consent</summary>
+      <p class="microcopy">Source policy: {{ session.source_policy|replace('_',' ')|title }}. Student code is task context, not professor evidence. Each Send shares only the reviewed code/output/attempt plus the approved source scope and bounded task history.</p>
+      <button type="button" id="coding-preview">Review source selection</button>
+      <div id="coding-source-list" class="microcopy" aria-live="polite"></div>
+      <button type="button" id="coding-consent" disabled>Approve displayed scope and provider</button>
+    </details>
+    <details><summary>Notebook and Colab</summary>
+      <label><input type="checkbox" id="coding-include-code"> Include saved student code in the notebook</label>
+      <button type="button" id="coding-download" disabled>Download practice notebook</button>
+      <a href="https://colab.research.google.com/" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">Open Colab</a>
+      <p class="microcopy">Download your notebook, then choose File → Upload notebook in Colab. ANVAYA cannot see that tab. Paste code/output/error here when you want feedback. Save your code before exporting. Uploading transfers the notebook to Google.</p>
+    </details>
+    <p class="microcopy">Code is never run on the ANVAYA server. Notebook outputs start empty. AI feedback and pasted outputs are unverified.</p>
+  </section>
+  <p id="coding-status" class="microcopy" role="status" aria-live="polite"></p>
+  <button type="button" id="coding-stop" hidden>Stop waiting</button>
+  <script type="application/json" id="coding-tasks-data">{{ session.coding_tasks|tojson }}</script>
+  <script type="application/json" id="coding-cards-data">{{ coding_operation_cards|tojson }}</script>
+</div>

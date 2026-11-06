@@ -268,7 +268,9 @@ class GroundedTutorService:
         if request_id and not re.fullmatch(r"[A-Za-z0-9_-]{16,80}", request_id):
             raise GroundedTutorError("Tutor request identity is invalid")
         repository = self.tutor_session_service.repository
-        with self.tutor_session_service.repository.atomic_exchange(session_id):
+        from personal_learning_assistant.services.tutor_coding_service import session_gate
+        database = repository.connection.execute('PRAGMA database_list').fetchone()[2]
+        with session_gate(database, session_id), repository.atomic_exchange(session_id):
             digest = hashlib.sha256(str(question or "").strip().encode('utf-8')).hexdigest()
             receipts = dict(repository.get_session(session_id).metadata.get("tutor_request_receipts") or {})
             if request_id and request_id in receipts:
@@ -285,7 +287,12 @@ class GroundedTutorService:
                     retrieved_chunk_ids=tuple(item.chunk_id for item in assistant.evidence),
                     provider_request_id="",
                 )
+            from personal_learning_assistant.tutor.source_freshness import source_snapshot, TutorSourceChangedError
+            bound_session = repository.get_session(session_id)
+            bound_snapshot = source_snapshot(repository.connection, bound_session)
             result = self._answer(session_id, question, top_k=top_k, max_chars=max_chars)
+            if source_snapshot(repository.connection, bound_session) != bound_snapshot:
+                raise TutorSourceChangedError("Source changed during the response. Review and reselect it.")
             if request_id:
                 metadata = dict(repository.get_session(session_id).metadata)
                 receipts[request_id] = {
@@ -300,11 +307,53 @@ class GroundedTutorService:
                 self.tutor_session_service.update_session_metadata(session_id, metadata)
             return result
 
+    def answer_coding(self, session_id, data, *, history, task_context, validate_sources, persist_context):
+        """Compose the shared teaching core into existing grounding/persistence.
+
+        The adapter owns the outer atomic_exchange, replay receipt and in-flight
+        gate. No math repair or adaptive correctness writes are applied to code.
+        """
+        from personal_learning_assistant.services.coding_teaching import coding_provider_request
+        from personal_learning_assistant.domain.coding_models import CodingError
+        from personal_learning_assistant.tutor.adaptive_state import load_adaptive_state
+        session = self.tutor_session_service.repository.get_session(session_id)
+        query = (data['topic'] + ' ' + data['message']).strip() or data['action']
+        plan = self.planner.plan(session, query, transcript=(), top_k=3, max_chars=8000)
+        source_ids = tuple(item.document_id for item in plan.evidence)
+        before = validate_sources(source_ids)
+        if not plan.evidence and session.source_policy == 'source_only':
+            raise CodingError('sources_required', 'No matching source is available in this scope. Review sources or create a Source First practice conversation.', 409)
+        state = load_adaptive_state(session.metadata)
+        advisory = {key: str(state.get(key) or '')[:300] for key in ('last_misconception', 'current_topic')}
+        request = coding_provider_request(session, data, context_text=plan.context_text,
+            evidence_labels=[e.citation_label for e in plan.evidence], history=history, advisory=advisory, task_context=task_context)
+        response = self.provider.complete(request)
+        if not isinstance(response.content, str) or not response.content.strip() or len(response.content) > 16000:
+            raise CodingError('provider_unavailable', 'Tutor did not return a usable answer. Your draft is retained.', 503)
+        content = response.content.strip()
+        if validate_sources(source_ids) != before:
+            raise CodingError('stale_source', 'Sources changed during the reply. Review and retry.', 409)
+        citations = tuple(dict.fromkeys(_CITATION.findall(content)))
+        available = {e.citation_label for e in plan.evidence}
+        if set(citations) - available or (session.source_policy == 'source_only' and not citations):
+            raise CodingError('invalid_citations', 'Tutor returned unsupported source references. Review and retry.', 503)
+        if validate_sources(source_ids) != before:
+            raise CodingError('stale_source', 'Sources changed during the reply. Review and retry.', 409)
+        # Code/tracebacks are displayed as literal fields, never Markdown.
+        user = self.tutor_session_service.add_user_turn(session_id, data['message'].strip() or data['topic'].strip() or data['action'])
+        assistant = self.tutor_session_service.add_assistant_turn(session_id, content,
+            support_level='grounded' if session.source_policy == 'source_only' else 'mixed',
+            evidence=plan.evidence, provider_name=response.provider_name, provider_model=response.provider_model)
+        persist_context(before, user, assistant)
+        return {'user_turn_id':user.turn_id, 'assistant_turn_id':assistant.turn_id, 'replayed':False}
+
     def _answer(self, session_id, question, *, top_k=None, max_chars=None):
         session = self.tutor_session_service.repository.get_session(session_id)
         if session.status != "active":
             raise GroundedTutorError("tutor session is not active")
 
+        from personal_learning_assistant.tutor.source_freshness import source_snapshot
+        bound_sources = source_snapshot(self.tutor_session_service.repository.connection, session)
         transcript = self.tutor_session_service.transcript(session_id)
         plan = self.planner.plan(
             session,
@@ -498,6 +547,9 @@ class GroundedTutorService:
             transcript=transcript,
         )
         response = self.provider.complete(request)
+        from personal_learning_assistant.tutor.source_freshness import TutorSourceChangedError
+        if source_snapshot(self.tutor_session_service.repository.connection, session) != bound_sources:
+            raise TutorSourceChangedError("Source changed during the response. Review and reselect it.")
         correctness_repaired = False
         raw_original = str(response.content or "").strip()
         raw_content, had_provider_meta = _strip_provider_meta(raw_original)

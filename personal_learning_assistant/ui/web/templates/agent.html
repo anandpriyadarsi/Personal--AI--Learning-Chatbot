@@ -53,6 +53,11 @@
       <button type="button" data-tutor-mode="revision">Revisit a mistake</button>
     </div>
     <form class="tutor-start-form" method="post" action="{{ url_for('web.academic_agent_create_session') }}">
+        {% if config.get('TUTOR_CODING_ENABLED') %}
+        <label for="session-workspace">Workspace</label>
+        <select id="session-workspace" name="workspace"><option value="academic">Academic</option><option value="coding">Coding Studio · Python</option></select>
+        {% endif %}
+
       <input type="hidden" name="csrf_token" value="{{ tutor_action_csrf }}">
       <p>
         <label for="session-course">Course</label><br>

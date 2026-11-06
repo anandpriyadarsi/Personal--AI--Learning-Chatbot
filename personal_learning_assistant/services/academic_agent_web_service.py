@@ -369,7 +369,10 @@ class AcademicAgentWebService:
         mode="concept",
         source_policy="source_only",
         title="",
+        workspace="academic",
     ):
+        if workspace not in {"academic", "coding"}:
+            raise AcademicAgentWebValidationError("Choose Academic or Coding workspace.")
         selected_course = str(course_id or "").strip()
         selected_topic = str(topic_id or "").strip()
         selected_mode = str(mode or "concept").strip().casefold()
@@ -426,7 +429,7 @@ class AcademicAgentWebService:
                 course_id=canonical_course,
                 topic_id=selected_topic or None,
                 title=str(title or "").strip(),
-                metadata={"origin": "phase7.5.9_web"},
+                metadata={"origin": "phase7.5.9_web", "coding_workspace_v1": {"version":1,"workspace":workspace}},
             )
             try:
                 session = sessions.create_session(spec)
@@ -621,6 +624,13 @@ class AcademicAgentWebService:
                         metadata["source_label"] if metadata is not None else "Source"
                     )
                     evidence["locator_label"] = locator["locator_label"]
+            from personal_learning_assistant.repositories.sqlite.tutor_coding_repository import SQLiteTutorCodingRepository
+            coding_repo = SQLiteTutorCodingRepository(repository)
+            view["coding_schema_available"] = coding_repo.available()
+            view["coding_tasks"] = coding_repo.tasks(clean_session_id) if coding_repo.available() else []
+            coding_context = coding_repo.turn_context(clean_session_id)
+            for turn in view["turns"]:
+                turn["coding"] = coding_context.get(turn["turn_id"])
             return view
         finally:
             connection.close()
@@ -844,6 +854,8 @@ class AcademicAgentWebService:
                     "Tutor session is not active."
                 )
 
+            from personal_learning_assistant.tutor.source_freshness import TutorSourceChangedError
+            from personal_learning_assistant.domain.coding_models import CodingError
             try:
                 retrieval, store = self._retrieval()
                 provider = self._provider()
@@ -853,6 +865,8 @@ class AcademicAgentWebService:
                     provider=provider,
                 )
                 engine.answer(session.session_id, clean_question, request_id=request_id)
+            except (TutorSourceChangedError, CodingError) as error:
+                raise AcademicAgentWebValidationError(str(error)) from error
             except runtime_module.UnifiedSearchStaleIndexError as error:
                 raise AcademicAgentWebUnavailableError(
                     "Learning material changed. Rebuild the knowledge index before asking ANVAYA."

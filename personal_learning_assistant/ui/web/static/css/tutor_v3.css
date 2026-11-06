@@ -245,3 +245,53 @@ body.tutor-home-page .tutor-history-empty {
 @media(prefers-reduced-motion:reduce) {
   body.tutor-home-page .tutor-history-item {transition:none}
 }
+
+/* Coding uses the same transcript and in-flow composer. Tools scroll within a
+   bounded sheet so short screens always retain a readable conversation. */
+.coding-workspace-switch {display:flex;flex-wrap:wrap;gap:4px;padding:3px;border:1px solid var(--border-color, #344051);border-radius:12px}
+.coding-workspace-switch button {padding:6px 10px;border:0;border-radius:9px;background:transparent;font-size:.78rem;white-space:nowrap}
+.coding-workspace-switch [aria-pressed="true"] {background:rgba(112,155,220,.19);color:var(--text-primary, #e0eaff)}
+#coding-studio {display:none;min-width:0}
+.tutor-coding-active #coding-studio {display:block}
+.tutor-coding-active #tutor-tools-toggle {display:none}
+.coding-toolbar {display:flex;align-items:center;gap:6px;min-width:0;margin-bottom:6px}
+.coding-toolbar select {width:auto;max-width:48%;min-width:0;padding:6px 8px;font-size:.8rem}
+.coding-toolbar button {padding:6px 8px;font-size:.78rem;white-space:nowrap}
+.coding-toolbar #coding-task-label {overflow:hidden;white-space:nowrap;text-overflow:ellipsis;flex:1}
+.coding-tools {max-height:min(32vh,300px);overflow:auto;overscroll-behavior:contain;padding:12px;border:1px solid var(--border-color,#344051);border-radius:12px;background:var(--panel-bg,#151d29);margin-bottom:8px;min-width:0}
+.coding-tools[hidden] {display:none}
+.coding-tools label {display:block;font-size:.8rem;margin:8px 0 4px}
+.coding-tools input:not([type="checkbox"]),.coding-tools textarea,.coding-tools select {width:100%;max-width:100%;min-width:0;box-sizing:border-box;margin:0}
+.coding-tools textarea {resize:vertical;max-height:180px}
+.coding-code,.coding-saved-context pre {font-family:ui-monospace,SFMono-Regular,Consolas,monospace;tab-size:4}
+.coding-sheet-heading,.coding-button-row,.coding-options {display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+.coding-sheet-heading {justify-content:space-between}
+.coding-options label {flex:1;min-width:100px}
+.coding-tools details {margin-top:10px}
+.coding-tools button {font-size:.8rem;padding:7px 10px}
+.coding-tools input[type="checkbox"] {width:auto;display:inline-block}
+#coding-status:empty {display:none}
+#coding-status {margin:4px 0;max-height:48px;overflow:auto}
+#coding-source-list {white-space:pre-wrap;overflow-wrap:anywhere}
+#coding-cards article {padding:12px 0;border-bottom:1px solid var(--border-color,#344051)}
+#coding-cards pre,.coding-saved-context pre,.tutor-transcript pre {max-width:100%;overflow:auto;white-space:pre;box-sizing:border-box}
+.coding-saved-context {min-width:0}
+.coding-saved-context details {margin-top:8px}
+.coding-copy {display:block;margin-top:8px;padding:4px 8px;font:12px system-ui}
+.tutor-transcript[data-rebuild="true"] .agent-turn {display:none}
+@media(max-width:500px){
+ .tutor-session-heading .coding-workspace-switch {flex-basis:auto}
+ .coding-toolbar #coding-task-label {display:none}
+ .coding-toolbar select {max-width:none;flex:1}
+}
+@media(max-height:560px){
+ .coding-tools {max-height:28vh}
+ .coding-toolbar {margin-bottom:2px}
+ #coding-status {font-size:.7rem;max-height:26px}
+}
+.coding-toolbar button,.coding-tools button {background:var(--surface-muted);color:var(--text);border:1px solid var(--border);border-radius:10px;cursor:pointer}
+.coding-toolbar button:hover,.coding-tools button:hover {border-color:var(--accent)}
+#coding-save,#coding-consent {background:var(--accent-soft);color:var(--accent)}
+.coding-workspace-switch {border-color:var(--border)}
+.coding-workspace-switch [aria-pressed="true"] {background:var(--accent-soft);color:var(--accent)}
+.coding-tools {background:var(--surface);border-color:var(--border)}
