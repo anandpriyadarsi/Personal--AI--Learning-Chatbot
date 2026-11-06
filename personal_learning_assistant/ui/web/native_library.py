@@ -1,5 +1,6 @@
 """Local original-file manager. All writes explicit and same-origin protected."""
 from __future__ import annotations
+from collections import OrderedDict
 from functools import wraps
 from pathlib import Path
 from secrets import token_urlsafe
@@ -270,8 +271,53 @@ def learning(document_id):
     return render_template('native_learning_handoff.html',active_page='library',doc=doc)
 
 
+@files.get('/library/files/<document_id>/thumbnail.png')
+@protect
+def thumbnail(document_id):
+    """Small, local first-page render; no conversion during the folder GET.
+
+    The per-app LRU holds at most 64 PNGs in RAM, keyed by original hash so
+    copies share a render. Responses remain no-store and nothing is published.
+    """
+    lib = service()
+    doc = lib.get(document_id)
+    if doc['kind'] != 'pdf':
+        raise LibraryError('Slide preview unavailable; use the file-type icon.', 409)
+    # Recheck existence and integrity even for a cached render, including copies.
+    original_path = lib.original(document_id)
+    try:
+        import fitz
+    except ImportError:
+        raise LibraryError('PDF preview unavailable; use the file-type icon.', 409)
+    from io import BytesIO
+    cache = current_app.extensions['native_library_thumbnails']
+    # Serialize small renders: PyMuPDF must not render concurrently here.
+    with cache['lock']:
+        images = cache['images']
+        raw = images.get(doc['sha256'])
+        if raw is None:
+            try:
+                with fitz.open(original_path) as pdf:
+                    if pdf.is_encrypted or not len(pdf):
+                        raise LibraryError('First page unavailable; use the file-type icon.', 409)
+                    page = pdf[0]
+                    extent = max(page.rect.width, page.rect.height)
+                    if extent <= 0:
+                        raise LibraryError('First page unavailable; use the file-type icon.', 409)
+                    scale = min(1.0, 240 / extent)
+                    raw = page.get_pixmap(matrix=fitz.Matrix(scale, scale), alpha=False).tobytes('png')
+            except (RuntimeError, ValueError) as error:
+                raise LibraryError('PDF preview unavailable; use the file-type icon.', 409) from error
+            images[doc['sha256']] = raw
+            while len(images) > 64:
+                images.popitem(last=False)
+        images.move_to_end(doc['sha256'])
+    return send_file(BytesIO(raw), mimetype='image/png')
+
+
 def register_native_library(app):
     app.extensions['native_library_csrf']=token_urlsafe(32)
+    app.extensions['native_library_thumbnails']={'images':OrderedDict(), 'lock':Lock()}
     app.register_blueprint(files)
 
 

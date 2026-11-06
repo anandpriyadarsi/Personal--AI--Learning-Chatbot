@@ -8,6 +8,24 @@
   const message=document.getElementById('files-message'), selected=new Set();
   const say=text=>{message.textContent=text;};
   const path=id=>'/library/files/'+encodeURIComponent(id);
+  // Only visible PDF cards request a small local render; at most two at once.
+  const thumbnails=[...root.querySelectorAll('img[data-thumbnail-src]')], queue=[];
+  let activeThumbnails=0;
+  function loadThumbnails(){
+    while(activeThumbnails<2&&queue.length){
+      const image=queue.shift(),frame=image.closest('.file-thumbnail');activeThumbnails++;
+      const done=()=>{activeThumbnails--;loadThumbnails();};
+      image.addEventListener('load',()=>{image.hidden=false;frame.querySelector('.file-fallback').hidden=true;done();},{once:true});
+      image.addEventListener('error',()=>{frame.setAttribute('aria-label','PDF file icon; first-page preview unavailable');image.remove();done();},{once:true});
+      image.loading='eager';image.src=image.dataset.thumbnailSrc;
+    }
+  }
+  if('IntersectionObserver' in window){
+    // Observe the fixed-size frame, since unloaded images are initially hidden.
+    const frames=new IntersectionObserver(entries=>{for(const entry of entries){if(entry.isIntersecting){frames.unobserve(entry.target);queue.push(entry.target.querySelector('img'));}}loadThumbnails();},{rootMargin:'80px'});
+    thumbnails.forEach(image=>frames.observe(image.closest('.file-thumbnail')));
+  }else{queue.push(...thumbnails);loadThumbnails();}
+  function updateViewButton(grid){const button=root.querySelector('[data-action="toggle-view"]');button.setAttribute('aria-pressed',String(grid));button.setAttribute('aria-label',grid?'Show list view':'Show grid view');}
   let request=null,cancelImport=false,selection=false,destination=null,actionIds=[],destinationAction='move',detailsId=null,parentStack=[],destinationOffset=0;
   function remember(){try{sessionStorage.setItem('anvaya.files.state',JSON.stringify({url:location.href,scroll:scrollY}));}catch{}}
   const refresh=()=>{remember();location.reload();};
@@ -38,7 +56,7 @@
       if(action==='select-mode')selectMode(!selection);
       if(action==='cancel-selection')selectMode(false);
       if(action==='select-one')selectId(id);
-      if(action==='toggle-view'){const enabled=document.getElementById('file-list').classList.toggle('grid');button.setAttribute('aria-pressed',String(enabled));try{localStorage.setItem('anvaya.files.grid',String(enabled));}catch{}}
+      if(action==='toggle-view'){const enabled=document.getElementById('file-list').classList.toggle('grid');updateViewButton(enabled);try{localStorage.setItem('anvaya.files.grid',String(enabled));}catch{}}
       if(action==='storage')show('storage-dialog');
       if(action==='rename'){const d=(await api(path(id))).document;const form=document.getElementById('rename-form');form.elements.id.value=id;form.elements.display_name.value=d.display_name;show('rename-dialog');}
       if(action==='favorite'){await api(path(id)+'/lifecycle','POST',{action:'favorite',enabled:button.dataset.enabled==='true'});refresh();}
@@ -69,6 +87,7 @@
   addEventListener('popstate',()=>{root.querySelectorAll('dialog[open]').forEach(d=>d.close());if(selection)selectMode(false);});
   addEventListener('pagehide',remember);
   try{const state=JSON.parse(sessionStorage.getItem('anvaya.files.state')||'null');if(state?.url===location.href)requestAnimationFrame(()=>scrollTo(0,state.scroll));if(localStorage.getItem('anvaya.files.grid')==='true')document.getElementById('file-list').classList.add('grid');}catch{}
+  updateViewButton(document.getElementById('file-list').classList.contains('grid'));
   try{const undo=JSON.parse(sessionStorage.getItem('anvaya.files.undo')||'null');if(undo?.ids?.length&&Date.now()-undo.time<30000){const button=document.createElement('button');button.type='button';button.textContent='Undo move to Trash';button.addEventListener('click',async()=>{try{await bulk('restore',undo.ids);sessionStorage.removeItem('anvaya.files.undo');refresh();}catch(error){say(error.message);}});message.append(button);}}catch{}
   const rows=[...root.querySelectorAll('[data-document-id]')];
   if(rows.length){const timer=setInterval(async()=>{if(document.hidden)return;try{for(let start=0;start<rows.length;start+=30){const data=await api('/library/files/status?ids='+rows.slice(start,start+30).map(r=>r.dataset.documentId).join(','));for(const d of data.documents){const row=rows.find(r=>r.dataset.documentId===d.id);row.querySelector('[data-status]').textContent=d.status_label;}}}catch{clearInterval(timer);}},5000);addEventListener('pagehide',()=>clearInterval(timer));}

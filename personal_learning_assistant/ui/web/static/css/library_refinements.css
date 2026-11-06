@@ -1,0 +1,96 @@
+/* File-manager refinements only: readers and other workspace pages keep their styles. */
+.workspace-v2 .academic-files {
+  --files-line:var(--ws-line,#2b3744);
+  --files-muted:var(--ws-muted,#a5b1bf);
+  --folder-start:#1c2b35;
+  --folder-end:#141d27;
+  --folder-gold:#dfbc79;
+  font-size:14px;
+  padding:4px 0 48px;
+}
+.workspace-v2 .academic-files a {text-decoration:none;color:inherit;}
+.workspace-v2 .academic-files a:hover {color:var(--ws-accent,#71ddd0);}
+.workspace-v2 .academic-files :focus-visible {outline:2px solid var(--ws-accent,#71ddd0);outline-offset:4px;}
+.workspace-v2 .academic-files .files-heading {gap:8px;margin-bottom:8px;}
+.workspace-v2 .academic-files .files-heading h1 {margin:4px 0;font-size:clamp(24px,3vw,32px);}
+.workspace-v2 .academic-files .files-heading .eyebrow {font-size:10px;opacity:1;}
+.workspace-v2 .academic-files .files-breadcrumbs {gap:6px;color:var(--files-muted);font-size:12px;}
+.workspace-v2 .academic-files .files-breadcrumbs a {display:inline-flex;align-items:center;padding:0 4px;min-height:44px!important;border-radius:7px;}
+.workspace-v2 .academic-files .files-breadcrumbs [aria-current] {color:var(--ws-ink);}
+.workspace-v2 .academic-files .files-shortcuts {gap:8px;margin:4px 0 14px;}
+.workspace-v2 .academic-files .files-shortcuts a {min-height:44px!important;padding:0 14px;border-color:var(--files-line);border-radius:10px;background:var(--ws-surface);font-size:13px;transition:background .16s,border-color .16s;}
+.workspace-v2 .academic-files .files-shortcuts a:hover {background:var(--ws-raised);border-color:var(--ws-accent);}
+.workspace-v2 .academic-files .files-search {gap:8px;margin:12px 0 14px;}
+.workspace-v2 .academic-files :is(.files-search input[type=search],.files-search select,.files-search>button) {min-height:44px!important;height:44px;font-size:13px;line-height:1.4;}
+.workspace-v2 .academic-files .files-search>button {padding:0 18px;background:var(--ws-accent);border-color:transparent;color:var(--ws-canvas);font-weight:600;}
+.workspace-v2 .academic-files .search-filters {border-bottom:1px solid var(--files-line);}
+.workspace-v2 .academic-files .search-filters>summary {display:list-item;min-height:44px!important;padding:11px 2px;cursor:pointer;color:var(--files-muted);font-size:12px;}
+.workspace-v2 .academic-files .search-filters>div {grid-template-columns:minmax(180px,1.2fr) minmax(180px,1.25fr) minmax(120px,.8fr) minmax(135px,.9fr);gap:12px;padding:2px 0 14px;align-items:end;}
+.workspace-v2 .academic-files .search-filters label {margin:0;min-width:0;gap:6px;font-size:12px;color:var(--files-muted);}
+.workspace-v2 .academic-files .search-filters select {padding:0 10px;color:var(--ws-ink);background:var(--ws-surface);border-color:var(--files-line);}
+.workspace-v2 .academic-files .search-filters .files-content-search {display:flex;align-items:center;gap:9px;min-height:44px;cursor:pointer;line-height:1.45;padding:0 2px;}
+/* The shell gives every input a minimum height. Keep native checkbox semantics. */
+.workspace-v2 .academic-files input[type=checkbox] {appearance:auto;accent-color:var(--ws-accent,#71ddd0);width:20px!important;min-width:20px;max-width:20px;height:20px!important;min-height:20px!important;padding:0;margin:0;flex:0 0 20px;border-radius:4px;vertical-align:middle;}
+.workspace-v2 .academic-files .files-toolbar {justify-content:flex-start;gap:8px;margin:0 0 14px;}
+.workspace-v2 .academic-files .files-toolbar [data-action=toggle-view] {margin-left:auto;}
+.workspace-v2 .academic-files .files-toolbar button {min-height:44px!important;border-color:var(--files-line);border-radius:9px;padding:8px 12px!important;font-size:12px!important;}
+.workspace-v2 .academic-files :is(.files-toolbar button,.file-menu summary):hover {background:var(--ws-raised);}
+.workspace-v2 .academic-files [aria-pressed=true] {background:var(--ws-raised)!important;border-color:var(--ws-accent)!important;}
+.workspace-v2 .academic-files .files-folders {grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:12px;margin:0 0 20px;}
+.workspace-v2 .academic-files .folder-card {position:relative;display:flex;align-items:center;gap:14px;min-height:112px;padding:18px;border:1px solid var(--files-line);border-radius:14px;background:linear-gradient(135deg,var(--folder-start),var(--folder-end) 80%);box-shadow:0 3px 10px #00000014,inset 0 1px 0 #ffffff04;transition:background .18s,border-color .18s,box-shadow .18s;overflow-wrap:normal;}
+.workspace-v2 .academic-files .folder-card:hover {border-color:#668582;box-shadow:0 5px 18px #00000026;background:linear-gradient(135deg,var(--ws-raised),var(--folder-start));}
+.workspace-v2 .academic-files .folder-icon {display:grid;place-items:center;flex:0 0 44px;width:44px;height:48px;color:var(--folder-gold);filter:drop-shadow(0 3px 4px #0002);}
+.workspace-v2 .academic-files .folder-icon svg {width:42px;height:36px;}
+.workspace-v2 .academic-files .folder-label {display:flex;flex:1;flex-direction:column;gap:5px;min-width:0;}
+.workspace-v2 .academic-files .folder-code {color:var(--files-muted);font-size:10px;letter-spacing:.09em;font-weight:700;white-space:nowrap;}
+.workspace-v2 .academic-files .folder-name {color:var(--ws-ink);font-size:13px;font-weight:600;line-height:1.5;overflow-wrap:break-word;text-wrap:pretty;}
+.workspace-v2 .academic-files .folder-caption {font-size:11px;color:var(--files-muted);}
+.workspace-v2 .academic-files .folder-chevron {color:var(--files-muted);font-size:20px;align-self:center;}
+.workspace-v2 .academic-files .files-list {gap:10px;}
+.workspace-v2 .academic-files .files-list.grid {grid-template-columns:repeat(auto-fill,minmax(280px,1fr));}
+.workspace-v2 .academic-files .file-row {align-items:center;gap:12px;min-height:110px;padding:12px;border-color:var(--files-line);border-radius:13px;background-color:var(--ws-surface);transition:border-color .16s,box-shadow .16s;}
+.workspace-v2 .academic-files .file-row:hover {border-color:#526773;box-shadow:0 3px 12px #00000018;}
+.workspace-v2 .academic-files .file-main h2 {font-size:14px;margin:0 0 5px;line-height:1.5;letter-spacing:0;}
+.workspace-v2 .academic-files .file-main h2 a {display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:0;overflow-wrap:anywhere;}
+.workspace-v2 .academic-files .file-main p {font-size:11px;line-height:1.65;color:var(--files-muted);opacity:1;}
+.workspace-v2 .academic-files .file-thumbnail {position:relative;display:grid;place-items:center;flex:0 0 64px;width:64px;height:84px;border:1px solid var(--files-line);border-radius:8px;overflow:hidden;background:var(--ws-raised);color:#a8c5d2;}
+.workspace-v2 .academic-files .file-thumbnail.pdf {color:#e5a4a1;}
+.workspace-v2 .academic-files .file-thumbnail:is(.ppt,.pptx) {color:#e8b383;}
+.workspace-v2 .academic-files .file-fallback {display:grid;justify-items:center;gap:3px;font-size:9px;letter-spacing:.05em;font-weight:700;}
+.workspace-v2 .academic-files .file-fallback svg {width:28px;height:36px;}
+.workspace-v2 .academic-files .file-thumbnail img {width:100%;height:100%;object-fit:contain;background:#fff;}
+.workspace-v2 .academic-files .file-thumbnail [hidden] {display:none!important;}
+.workspace-v2 .academic-files .file-row>.file-menu {align-self:flex-start;margin-top:-4px;margin-right:-6px;}
+.workspace-v2 .academic-files .file-menu>summary {width:44px;min-width:44px;height:44px;min-height:44px!important;border-radius:9px;}
+.workspace-v2 .academic-files .file-menu>summary::-webkit-details-marker {display:none;}
+.workspace-v2 .academic-files .file-menu>div {top:44px;background:var(--ws-surface);border-color:var(--files-line);box-shadow:0 12px 35px #0006;}
+.workspace-v2 .academic-files .file-select[hidden] {display:none!important;}
+.workspace-v2 .academic-files dialog form>label:has(input[type=checkbox]) {display:flex;align-items:center;gap:10px;min-height:44px;}
+[data-theme=light] .workspace-v2 .academic-files {--folder-start:#f0f6f6;--folder-end:#e3edef;--folder-gold:#a17a32;}
+@media(max-width:1100px) {
+  .workspace-v2 .academic-files .search-filters>div {grid-template-columns:repeat(2,minmax(0,1fr));}
+}
+@media(max-width:600px) {
+  .workspace-v2 .academic-files {padding:0 0 28px;}
+  .workspace-v2 .academic-files .files-folders {grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
+  .workspace-v2 .academic-files .folder-card {flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:8px;padding:14px;min-height:132px;}
+  .workspace-v2 .academic-files .folder-card-semester {grid-column:1/-1;flex-direction:row;align-items:center;min-height:88px;}
+  .workspace-v2 .academic-files .folder-label {flex:0 0 auto;}
+  .workspace-v2 .academic-files .folder-name {font-size:12px;line-height:1.45;}
+  .workspace-v2 .academic-files .folder-code {font-size:10px;}
+  .workspace-v2 .academic-files .folder-icon {height:32px;flex-basis:32px;}
+  .workspace-v2 .academic-files .folder-icon svg {width:36px;height:30px;}
+  .workspace-v2 .academic-files .folder-chevron {display:none;}
+  .workspace-v2 .academic-files .files-list.grid {grid-template-columns:minmax(0,1fr);}
+  .workspace-v2 .academic-files .file-row {gap:10px;padding:10px;}
+  .workspace-v2 .academic-files .file-thumbnail {flex-basis:54px;width:54px;height:72px;}
+  .workspace-v2 .academic-files .file-main h2 {font-size:13px;}
+  .workspace-v2 .academic-files .search-filters>div {gap:10px;}
+  .workspace-v2 .academic-files .files-content-search {grid-column:1/-1;grid-row:2;}
+  .workspace-v2 .academic-files .search-filters label:first-child {grid-column:1/-1;}
+  .workspace-v2 .academic-files .files-search select {font-size:13px!important;}
+}
+@media(max-width:350px) {
+  .workspace-v2 .academic-files .files-folders {grid-template-columns:1fr;}
+  .workspace-v2 .academic-files .folder-card {flex-direction:row;align-items:center;min-height:96px;}
+}
