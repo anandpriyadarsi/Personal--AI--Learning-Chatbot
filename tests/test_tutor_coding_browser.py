@@ -158,3 +158,28 @@ def test_safe_code_copy_and_200_percent_keyboard_layout(browser,coding_live):
         expect(page.locator('.tutor-markdown .coding-copy').first).to_have_text('Select code and copy manually')
         assert page.locator('.tutor-markdown code').first.inner_text()=='α = [1, 2]\nprint(α)\n'
     finally:page.close()
+
+
+def test_loading_acknowledges_before_provider_returns(browser,coding_live):
+    base,coding=coding_live;sid=coding[-1]
+    with use(coding) as svc:task=make_task(svc,sid);approve(svc,sid)
+    page=browser.new_page(viewport={'width':390,'height':844})
+    try:
+        page.goto(base+'/agent/sessions/'+sid)
+        page.evaluate('''() => {
+          window.ackStart=0;window.ackLatency=null;
+          document.querySelector('#tutor-ask-form').addEventListener('submit',()=>{window.ackStart=performance.now();},true);
+          new MutationObserver(()=>{
+            if(document.querySelector('#coding-status').textContent.includes('Waiting for AI'))window.ackLatency=performance.now()-window.ackStart;
+          }).observe(document.querySelector('#coding-status'),{subtree:true,childList:true,characterData:true});
+        }''')
+        page.locator('#agent-question').fill('Explain an axis')
+        page.get_by_role('button',name='Ask tutor',exact=True).click()
+        expect(page.locator('#coding-status')).to_contain_text('AI feedback saved',timeout=15000)
+        latency=page.evaluate('window.ackLatency')
+        assert latency is not None and latency<100
+        folder=os.environ.get('ANVAYA_WEB_RESULTS')
+        if folder:
+            Path(folder).mkdir(parents=True,exist_ok=True)
+            (Path(folder)/'coding-ui-ack.json').write_text(json.dumps({'latency_ms':latency,'provider':'synthetic','viewport':[390,844]}),encoding='utf-8')
+    finally:page.close()

@@ -96,7 +96,10 @@
       status('Fresh task. Earlier answers are hidden until you reopen the conversation.');
       $('title').focus();
     });
-    $('action').addEventListener('change',() => { $('solution').checked=false; controls(); });
+    $('action').addEventListener('change',() => {
+      $('solution').checked=false; controls();
+      if($('action').value==='rebuild') $('new').click();
+    });
     const draftFields = ['title','objective','topic','code','error','attempt','template'];
     draftFields.forEach(id => $(id).addEventListener('input',() => { dirty=true; }));
     question.addEventListener('input',() => { if(form.dataset.workspace==='coding') dirty=true; });

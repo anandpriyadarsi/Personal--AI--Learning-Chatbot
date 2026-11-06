@@ -335,10 +335,8 @@ class GroundedTutorService:
             raise CodingError('stale_source', 'Sources changed during the reply. Review and retry.', 409)
         citations = tuple(dict.fromkeys(_CITATION.findall(content)))
         available = {e.citation_label for e in plan.evidence}
-        if set(citations) - available or (session.source_policy == 'source_only' and not citations):
+        if set(citations) - available or (session.source_policy == 'source_only' and (not citations or 'General explanation (not from project sources)' in content)):
             raise CodingError('invalid_citations', 'Tutor returned unsupported source references. Review and retry.', 503)
-        if validate_sources(source_ids) != before:
-            raise CodingError('stale_source', 'Sources changed during the reply. Review and retry.', 409)
         # Code/tracebacks are displayed as literal fields, never Markdown.
         user = self.tutor_session_service.add_user_turn(session_id, data['message'].strip() or data['topic'].strip() or data['action'])
         assistant = self.tutor_session_service.add_assistant_turn(session_id, content,

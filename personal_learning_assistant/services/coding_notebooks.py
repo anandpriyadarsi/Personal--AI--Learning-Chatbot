@@ -7,7 +7,7 @@ from personal_learning_assistant.services.coding_templates import TEMPLATES
 def export_notebook(task, *, template_id='', include_student_code=False):
     if type(include_student_code) is not bool:
         raise CodingError('invalid_field','Choose whether to include saved student code.')
-    if template_id and template_id not in TEMPLATES:
+    if not isinstance(template_id,str) or (template_id and template_id not in TEMPLATES):
         raise CodingError('invalid_template','Choose a reviewed practice template.')
     # Arbitrary snippets must never inherit assertions from an unrelated template.
     if template_id != (task.get('template_id') or ''):

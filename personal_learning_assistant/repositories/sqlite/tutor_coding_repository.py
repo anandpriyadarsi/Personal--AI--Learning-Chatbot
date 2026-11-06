@@ -98,7 +98,8 @@ class SQLiteTutorCodingRepository:
             if row['full_solution'] and not allow_solution:
                 omitted = True
                 continue
-            pair = {'student': row['user_content'], 'tutor': row['assistant_content']}
+            request = json.loads(row['request_json'])
+            pair = {'student': {key:request[key] for key in ('action','topic','message','code','error','attempt')}, 'tutor': row['assistant_content']}
             cost = len(canonical(pair))
             if size + cost > 7900:
                 omitted = True

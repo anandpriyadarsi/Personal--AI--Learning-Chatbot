@@ -97,7 +97,14 @@ def coding_provider_request(session, data, *, context_text, evidence_labels, his
         system += ' SOURCE POLICY: source_only. Only supplied project evidence supports factual claims; cite [S#]. Explain missing evidence instead of inventing it.'
     else:
         system += " SOURCE POLICY: source_first. Cite project claims with [S#]. Label general knowledge 'General explanation (not from project sources)'."
+    # Trim the oldest projected exchange first if escaping/protocol overhead
+    # consumes the final composed budget. Never shorten current code.
     encoded = json.dumps(payload, ensure_ascii=False, allow_nan=False)
+    exchanges = list(history.get('exchanges', []))
+    while exchanges and (len(encoded) + len(system) > 40000 or len((encoded + system).encode('utf-8')) > 120000):
+        exchanges.pop(0)
+        payload['previous_exchanges'] = dict(history, exchanges=exchanges, older_context_omitted=True)
+        encoded = json.dumps(payload, ensure_ascii=False, allow_nan=False)
     # Includes protocol/system overhead. UTF-8 is bounded separately.
     if len(encoded) + len(system) > 40000 or len((encoded + system).encode('utf-8')) > 120000:
         from personal_learning_assistant.domain.coding_models import CodingError

@@ -43,6 +43,7 @@ class TutorCodingService:
             metadata = dict(session.metadata)
             state = dict(metadata.get(WORKSPACE_KEY) or {})
             if selected_task_id is not None:
+                text(selected_task_id,'selected task',80,required=True)
                 self.coding.task(sid,selected_task_id)
                 state['selected_task_id'] = selected_task_id
             state.update(version=1,workspace=value)
@@ -64,6 +65,9 @@ class TutorCodingService:
                 'template_id':template, 'snapshot':{
                     'objective':text(payload.get('objective',''),'objective',2000),
                     'code':text(payload.get('code',''),'code',12000)}}
+        if template:
+            spec = TEMPLATES[template]
+            data['snapshot']['public_spec'] = {key:spec[key] for key in ('objective','data','task')}
         canonical(data['snapshot'])
         with self.repository.atomic_exchange(sid):
             task, created = self.coding.create(sid,data,digest(data))
@@ -110,6 +114,11 @@ class TutorCodingService:
             self.sessions.update_session_metadata(sid,metadata)
         return state
 
+    def provider_identity(self):
+        provider = self.web._provider()
+        return digest({'provider':type(provider).__name__, 'model':str(getattr(provider,'model','')),
+                       'url':str(getattr(provider,'api_url',''))})
+
     def source_preview(self, sid, *, topic='', message=''):
         session = self.repository.get_session(sid)
         # Server-owned current scope; no filename/hash-based authority or client IDs.
@@ -118,10 +127,8 @@ class TutorCodingService:
         try:
             plan = TutorGroundingPlanner(retrieval,self.sessions).plan(session,(topic + ' ' + message).strip() or 'Python NumPy Pandas coding practice', transcript=(),top_k=3,max_chars=8000)
             sources = self._sources(session,[e.document_id for e in plan.evidence])
-            provider = self.web._provider()
-            # Configuration identity excludes credentials. Changing a key alone does not expand source scope.
-            identity = digest({'provider':type(provider).__name__, 'model':str(getattr(provider,'model','')),
-                               'url':str(getattr(provider,'api_url',''))})
+            # Configuration identity excludes credentials.
+            identity = self.provider_identity()
             result = {'sources':sources, 'provider_identity':identity,'source_policy':session.source_policy}
             result['review_token'] = digest(result)
             return result
@@ -162,6 +169,8 @@ class TutorCodingService:
                 def persist(sources, user, assistant):
                     # First turn acquired the optimistic session write lock; task CAS
                     # is checked inside that same transaction as a durable backstop.
+                    if self.provider_identity() != state.get('provider_identity'):
+                        raise CodingError('consent_required','Provider changed during generation. Review your consent.',409)
                     current = self.coding.task(sid,tid)
                     if current['revision'] != task['revision']:
                         raise CodingError('stale_task','The task changed during generation. Review and retry.',409)
@@ -177,7 +186,8 @@ class TutorCodingService:
                     history = {} if data['action']=='rebuild' else self.coding.history(tid,allow_solution=data['full_solution'])
                     return engine.answer_coding(sid,data,history=history,
                         task_context={'title':task['title'],'objective':task['snapshot']['objective'],
-                                      'language':task['language'],'template_id':task['template_id']},
+                                      'language':task['language'],'template_id':task['template_id'],
+                                      'public_spec':task['snapshot'].get('public_spec',{})},
                         validate_sources=validate_sources,persist_context=persist)
                 finally:
                     if store is not None:

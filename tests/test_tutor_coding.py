@@ -365,3 +365,16 @@ def test_bounded_history_200_turns_and_performance_samples(coding):
         Path(folder).mkdir(parents=True,exist_ok=True)
         (Path(folder)/'coding-performance.json').write_text(json.dumps(report,indent=2),encoding='utf-8')
     print(json.dumps(report))
+
+
+def test_provider_identity_change_during_generation_requires_review(coding):
+    sid=coding[-1];provider=coding[4];original=provider.complete
+    def changed(request):
+        provider.model='changed-provider-model'
+        return original(request)
+    with use(coding) as svc:
+        task=make_task(svc,sid);revision=approve(svc,sid)
+        provider.complete=changed
+        with pytest.raises(CodingError) as error:svc.ask(sid,task['id'],ask_data(task,revision))
+        assert error.value.status==409
+    assert coding[1].session_view(sid)['turns']==[]
