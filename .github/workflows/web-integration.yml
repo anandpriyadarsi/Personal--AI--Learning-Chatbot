@@ -48,7 +48,7 @@ jobs:
           out.mkdir(parents=True,exist_ok=True)
           (out/'source.json').write_text(json.dumps({'sha':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),'platform':os.name}))
           with open(os.environ['GITHUB_ENV'],'a',encoding='utf-8') as stream:
-              for key in ('ANVAYA_WEB_ARTIFACTS','ANVAYA_NATIVE_LIBRARY_ARTIFACTS'):
+              for key in ('ANVAYA_WEB_ARTIFACTS','ANVAYA_NATIVE_LIBRARY_ARTIFACTS','ANVAYA_TUTOR_UI_ARTIFACTS'):
                   stream.write(key+'='+str(out/'screenshots')+'\n')
               stream.write('ANVAYA_WEB_RESULTS='+str(out)+'\n')
       - name: Data safety, original viewer and integrated browser gates
@@ -57,11 +57,13 @@ jobs:
           import os,pathlib,subprocess,sys,xml.etree.ElementTree as ET
           out=pathlib.Path(os.environ['ANVAYA_WEB_RESULTS'])
           suites=['tests/test_library2_file_manager.py','tests/test_library2_formats.py','tests/test_library2_legacy_migration.py','tests/test_library2_backup_streaming.py','tests/test_library2_tutor_bridge.py','tests/test_native_document_library.py','tests/test_native_library_routes.py','tests/test_native_library_browser.py','tests/test_tutor_ui_v3.py','tests/test_tutor_ui_v3_browser.py','tests/test_planning_v21_wal_installed_launcher.py','tests/learning_studio/test_continue_learning.py','tests/test_learning_completion_v24_browser.py','tests/learning_studio/test_multilecture_web.py','tests/learning_studio/test_multilecture_browser.py','tests/learning_studio/test_self_contained_bundle.py','tests/learning_studio/test_course_topic_linking_portable.py','tests/test_web_library_lifecycle.py']
+          suites += ['tests/test_assessment_coding_helper.py','tests/test_assessment_coding_helper_2.py','tests/test_assessment_live_browser.py','tests/test_phase6_tutor_foundation.py','tests/test_phase6_grounded_tutor_engine.py','tests/test_tutor_topic_scope_web.py','tests/test_tutor_grounding_v24.py','tests/test_learning_tutor_session_v24.py','tests/learning_studio/test_v12_tutor_bridge.py','tests/test_coding_teaching.py','tests/test_tutor_coding.py','tests/test_coding_notebooks.py','tests/test_tutor_coding_browser.py']
           subprocess.run([sys.executable,'-m','pytest','-q',*suites,'--junitxml='+str(out/'web.xml')],check=True)
           cases=ET.parse(out/'web.xml').findall('.//testcase')
           assert cases and not any(c.find('skipped') is not None for c in cases),'Every focused web case must execute'
           for path in pathlib.Path('personal_learning_assistant/ui/web/static/js').glob('*.js'):
               subprocess.run(['node','--check',str(path)],check=True)
+          subprocess.run(['node','--test','tests/js/assessment_coding_helper.test.cjs','tests/js/tutor_coding.test.cjs'],check=True)
           subprocess.run(['git','diff','--check'],check=True)
       - uses: actions/upload-artifact@v4
         if: always()

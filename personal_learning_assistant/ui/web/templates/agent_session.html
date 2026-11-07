@@ -7,6 +7,7 @@
 {% block page_scripts %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/tutor_readability.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/tutor_v3.css') }}">
+<script defer src="{{ url_for('static', filename='js/tutor_coding.js') }}"></script>
 <script defer src="{{ url_for('static', filename='js/tutor_chat.js') }}"></script>
 <script defer src="{{ url_for('static', filename='js/assessment_math.js') }}"></script>
 {% endblock %}
@@ -16,6 +17,12 @@
   <a class="tutor-back" href="{{ url_for('web.academic_agent') }}" aria-label="Back to Academic Agent">← Tutor</a>
   <h1 id="agent-session-title">{% if session %}{{ session.title or 'A little clearer, every turn' }}{% else %}Tutor session{% endif %}</h1>
   {% include "tutor_provider_state.html" %}
+  {% if session and config.get('TUTOR_CODING_ENABLED') and session.coding_schema_available %}
+  <div class="coding-workspace-switch" role="group" aria-label="Tutor workspace">
+    <button type="button" data-coding-workspace="academic" aria-pressed="{{ 'true' if session.metadata.get('coding_workspace_v1', {}).get('workspace', 'academic') == 'academic' else 'false' }}">Academic</button>
+    <button type="button" data-coding-workspace="coding" aria-pressed="{{ 'true' if session.metadata.get('coding_workspace_v1', {}).get('workspace') == 'coding' else 'false' }}">Coding Studio</button>
+  </div>
+  {% endif %}
 </header>
 {% if error_message %}
 <section class="error-panel" aria-live="polite">
@@ -54,12 +61,21 @@
           <p class="eyebrow">{% if turn.role == 'assistant' %}Alex <span class="tutor-role-note">· Tutor</span>{% else %}You{% endif %}</p>
           <span class="microcopy">Turn {{ turn.ordinal }} · {{ turn.created_at }}</span>
         </div>
+        {% if turn.coding and turn.role == 'assistant' %}<span class="tag">AI feedback · not executed{% if turn.coding.full_solution %} · solution requested{% endif %}</span>{% endif %}
         {% if turn.role == 'assistant' %}<span class="tag">Support: {{ turn.support_level|replace('_', ' ')|title }}</span>{% endif %}
       </div>
       {% if turn.role == 'assistant' %}
       <div class="agent-message tutor-markdown">{{ turn.content|tutor_markdown }}</div>
       {% else %}
       <div class="agent-message">{{ turn.content }}</div>
+      {% if turn.coding %}
+      <div class="coding-saved-context">
+        <p class="microcopy">{{ turn.coding.action|replace('_',' ')|title }} · student-provided context · not executed</p>
+        {% for field, label in [('topic','Topic'),('code','Code'),('error','Output / error · unverified'),('attempt','Attempt / prediction')] %}
+        {% if turn.coding.request.get(field) %}<details><summary>{{ label }}</summary><pre><code>{{ turn.coding.request[field] }}</code></pre></details>{% endif %}
+        {% endfor %}
+      </div>
+      {% endif %}
       {% endif %}
       {% if turn.role == 'assistant' %}
         {% if not turn.cited_labels and turn.support_level == 'mixed' %}<p class="microcopy">General explanation · no project source was cited.</p>{% endif %}
@@ -228,6 +244,11 @@
 {% if session and session.status == 'active' %}
 <section class="tutor-composer" id="tutor-composer" aria-labelledby="ask-tutor-title">
   <h3 id="ask-tutor-title" class="visually-hidden">Ask grounded tutor</h3>
+  {% if config.get('TUTOR_CODING_ENABLED') and session.coding_schema_available %}
+  {% include '_tutor_coding_tools.html' %}
+  {% elif config.get('TUTOR_CODING_ENABLED') %}
+  <p class="microcopy">Coding Studio needs activation. Stop the server and run python -m personal_learning_assistant.services.coding_activation --database data/learning_assistant.db</p>
+  {% endif %}
   <form id="tutor-ask-form" method="post" action="{{ url_for('web.academic_agent_ask', session_id=session.session_id) }}">
     <input type="hidden" name="csrf_token" value="{{ tutor_action_csrf }}">
     <input type="hidden" name="request_id" value="{{ retry_request_id|default(tutor_request_id, true) }}">

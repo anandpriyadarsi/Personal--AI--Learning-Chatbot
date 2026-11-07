@@ -28,6 +28,7 @@ def create_app(config: Mapping[str, Any] | None = None) -> Flask:
         LEARNING_LIBRARY_DATABASE_PATH=os.environ.get("ANVAYA_LIBRARY_DATABASE_PATH") or None,
         ACADEMIC_EVIDENCE_ENABLED=os.environ.get('ANVAYA_EVIDENCE_ENABLED','true').strip().lower()=='true',
         # Explicit opt-in: candidate actions require owner-applied optional 0016.
+        TUTOR_CODING_ENABLED=os.environ.get("ANVAYA_TUTOR_CODING_ENABLED", "false").strip().lower() == "true",
         TUTOR_MEMORY_ENABLED=os.environ.get("ANVAYA_TUTOR_MEMORY_ENABLED", "false").strip().lower() == "true",
         JSON_SORT_KEYS=False,
         ASSESSMENT_COLAB_URL=os.environ.get("ANVAYA_COLAB_URL", ""),
@@ -46,6 +47,8 @@ def create_app(config: Mapping[str, Any] | None = None) -> Flask:
     from personal_learning_assistant.services.coding_helper_context import context_signer
     app.extensions["coding_helper_signer"] = context_signer(token_bytes(32))
     app.register_blueprint(web_blueprint)
+    from .tutor_coding import coding_blueprint
+    app.register_blueprint(coding_blueprint)
     from .assessment_tools import assessment_tools_blueprint
     app.register_blueprint(assessment_tools_blueprint)
     from secrets import token_urlsafe
@@ -56,7 +59,8 @@ def create_app(config: Mapping[str, Any] | None = None) -> Flask:
     def _tutor_action_context():
         # Never expose an application secret as a reusable browser CSRF token.
         # This is a process-local random token for explicit local-only actions.
-        return {"tutor_action_csrf": app.extensions["tutor_action_csrf"],
+        from personal_learning_assistant.services.coding_operations import OPERATION_CARDS
+        return {"coding_operation_cards": OPERATION_CARDS, "tutor_action_csrf": app.extensions["tutor_action_csrf"],
                 "tutor_request_id": token_urlsafe(24)}
     from .learning_studio import learning_blueprint
     app.register_blueprint(learning_blueprint)

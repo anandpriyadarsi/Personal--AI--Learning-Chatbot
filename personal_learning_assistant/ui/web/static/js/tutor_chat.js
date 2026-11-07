@@ -128,6 +128,7 @@
     const status = document.getElementById('tutor-submit-status');
     let submitting = false;
     form?.addEventListener('submit', event => {
+      if (form.dataset.workspace === 'coding') return;
       if (submitting) { event.preventDefault(); return; }
       submitting = true;
       form.setAttribute('aria-busy', 'true');
