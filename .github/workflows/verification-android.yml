@@ -74,6 +74,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
+          retention-days: 7
           name: shared-android-jvm-${{ inputs.source_sha }}-${{ github.run_id }}
           path: android/app/build/test-results/**
           if-no-files-found: error
@@ -129,6 +130,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
+          retention-days: 7
           name: shared-android-installed-${{ matrix.api }}-${{ inputs.source_sha }}-${{ github.run_id }}
           path: android-evidence/**
           if-no-files-found: error

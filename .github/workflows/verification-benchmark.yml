@@ -9,14 +9,16 @@ on:
       - '.github/workflows/verification-benchmark.yml'
       - 'docs/verification/**'
   workflow_dispatch:
-  workflow_run:
-    workflows: ['ANVAYA synthetic architecture validation']
-    types: [completed]
+    inputs:
+      architecture_run_id:
+        description: 'Optional architecture run ID to benchmark manually (no automatic follower)'
+        required: false
+        type: string
 permissions:
   contents: read
   actions: read
 concurrency:
-  group: verification-benchmark-${{ github.event.workflow_run.id || github.event.pull_request.number || github.ref }}
+  group: verification-benchmark-${{ inputs.architecture_run_id || github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 jobs:
   benchmark-tests:
@@ -77,6 +79,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
+          retention-days: 3
           name: measured-historical-ci-${{ github.event.pull_request.head.sha || github.sha }}
           path: |
             architecture-benchmark.*
@@ -94,13 +97,13 @@ jobs:
   post-acceptance-benchmark:
     # Runs using the audited default-branch script, NOT code from an untrusted PR.
     # All API reads are read-only and contain only GitHub Actions timing metadata.
-    if: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_repository.full_name == github.repository }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.architecture_run_id != '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
       GH_TOKEN: ${{ github.token }}
       REPO: ${{ github.repository }}
-      RUN_ID: ${{ github.event.workflow_run.id }}
+      RUN_ID: ${{ inputs.architecture_run_id }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -108,6 +111,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Validate manually supplied architecture run ID
+        shell: bash
+        run: |
+          [[ "$RUN_ID" =~ ^[0-9]+$ ]]
       - name: Fetch exact GitHub Actions job metadata
         shell: bash
         run: |
@@ -140,7 +147,7 @@ jobs:
             candidate-run.json
             verification-benchmark.json
             verification-benchmark.md
-          retention-days: 30
+          retention-days: 7
           if-no-files-found: warn
 
   equivalent-fast-scheduling:
@@ -176,6 +183,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
+          retention-days: 3
           name: equivalent-fast-${{ matrix.workers }}-${{ github.event.pull_request.head.sha || github.sha }}
           path: |
             scheduling.json
