@@ -48,5 +48,6 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
+          retention-days: 3
           name: reader-rename-${{ matrix.os }}-${{ github.event.pull_request.head.sha || github.sha }}
           path: reader-rename-evidence/

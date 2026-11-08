@@ -2,6 +2,16 @@ name: Mobile V1.1 standalone Android
 on:
   pull_request:
     branches: [fix/android-navigation-asset-performance-2026-10-24, feature/mobile-v1-private-pwa-2026-10, feature/mobile-v1-1-private-android-runtime-2026-10, integration/android-unified-apk-2026-10-24, main]
+    # Android-only legacy matrix must not run for routine web PRs.
+    paths:
+      - 'android/**'
+      - 'requirements-mobile.txt'
+      - 'scripts/android_*'
+      - 'tests/test_android*.py'
+      - 'tests/test_native*.py'
+      - 'tests/test_mobile*.py'
+      - '.github/workflows/mobile-v1-1-android.yml'
+      - '.github/workflows/verification-android.yml'
   push:
     branches: [fix/android-assessment-catalogue-vedic-import-2026-10-24, feature/handwritten-media-external-player-2026-10-24, feature/smart-nested-notes-obsidian-splash-2026-10-25, fix/android-performance-reader-library-rename-2026-10-24, feat/android-native-document-library]
   workflow_dispatch:
@@ -44,6 +54,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
+          retention-days: 3
           name: anvaya-android-test-${{ github.event.pull_request.head.sha || github.sha }}
           path: |
             android/app/build/outputs/apk/debug/*.apk
@@ -93,6 +104,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
+          retention-days: 3
           name: android-regression-${{ matrix.os }}-${{ github.event.pull_request.head.sha || github.sha }}
           path: |
             android-regression.xml
@@ -142,5 +154,6 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
+          retention-days: 3
           name: android-emulator-api${{ matrix.api }}-${{ github.event.pull_request.head.sha || github.sha }}
           path: android-evidence/**

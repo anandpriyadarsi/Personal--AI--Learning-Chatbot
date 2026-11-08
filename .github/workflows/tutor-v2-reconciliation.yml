@@ -111,6 +111,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
+          retention-days: 3
           name: tutor-v2-reconciliation-${{ matrix.os }}-${{ github.event.pull_request.head.sha || github.sha }}
           if-no-files-found: ignore
           path: |
@@ -176,6 +177,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
+          retention-days: 3
           name: tutor-real-openrouter-${{ github.event.pull_request.head.sha }}
           if-no-files-found: ignore
           path: |
