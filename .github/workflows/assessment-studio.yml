@@ -5,6 +5,16 @@ on:
     branches: ['feature/assessment-pause-paper-**']
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
+    # Assessment acceptance runs only when Assessment contracts can change.
+    paths:
+      - 'personal_learning_assistant/assessment/**'
+      - 'personal_learning_assistant/ui/web/**'
+      - 'personal_learning_assistant/services/*assessment*'
+      - 'personal_learning_assistant/domain/*assessment*'
+      - 'tests/test_*assessment*.py'
+      - 'tests/js/*assessment*.test.cjs'
+      - 'requirements-assessment-browser.txt'
+      - '.github/workflows/assessment-studio.yml'
   workflow_dispatch:
 
 permissions:
@@ -92,6 +102,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
+          retention-days: 3
           name: assessment-synthetic-${{ matrix.os }}-${{ github.sha }}
           if-no-files-found: warn
           path: |
@@ -126,5 +137,6 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
+          retention-days: 3
           name: assessment-isolated-acceptance-${{ github.sha }}
           path: ASSESSMENT_ACCEPTANCE.json
