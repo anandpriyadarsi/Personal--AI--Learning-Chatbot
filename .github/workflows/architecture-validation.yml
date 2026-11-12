@@ -106,21 +106,30 @@ jobs:
           assert identity['closed_schema_copy']['reason_code'] == 'writers_not_attested'
           assert identity['GATE_A_LOCAL_PRODUCTION_AUTHORITY'] == 'BLOCKED'
           (Path(os.environ['RUNNER_TEMP']) / 'B3_POLICY_ACCEPTANCE.json').write_text(json.dumps({'source_sha':os.environ['B3_SOURCE_SHA'], 'process_policy':'Restricted', 'persistent_policies_unchanged':True, 'default_no_db_access':True, 'status':'PASS'}, indent=2), encoding='utf-8')
-      - name: Preserve results, XML, logs, manifests and screenshots
+      - name: Preserve compact development reports on every run
         if: always()
         uses: actions/upload-artifact@v4
         with:
+          retention-days: 7
           name: architecture-${{ matrix.os }}-${{ inputs.source_sha || github.event.pull_request.head.sha || github.sha }}
           if-no-files-found: error
           path: |
             ${{ env.ANVAYA_VALIDATION_OUTPUT }}/run-*/VALIDATION_SUMMARY.*
             ${{ env.ANVAYA_VALIDATION_OUTPUT }}/run-*/*.xml
-            ${{ env.ANVAYA_VALIDATION_OUTPUT }}/run-*/*.log
             ${{ env.ANVAYA_VALIDATION_OUTPUT }}/run-*/source-manifest.json
             ${{ env.ANVAYA_VALIDATION_OUTPUT }}/run-*/fixtures/manifest.json
-            ${{ env.ANVAYA_VALIDATION_OUTPUT }}/run-*/screenshots/*
             ${{ runner.temp }}/B3_DEFAULT_IDENTITY.json
             ${{ runner.temp }}/B3_POLICY_ACCEPTANCE.json
+      - name: Preserve large browser screenshots and logs only on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: architecture-debug-${{ matrix.os }}-${{ inputs.source_sha || github.event.pull_request.head.sha || github.sha }}
+          retention-days: 3
+          if-no-files-found: ignore
+          path: |
+            ${{ env.ANVAYA_VALIDATION_OUTPUT }}/run-*/*.log
+            ${{ env.ANVAYA_VALIDATION_OUTPUT }}/run-*/screenshots/*
 
   acceptance:
     name: Cross-platform development acceptance
@@ -142,6 +151,7 @@ jobs:
           Path('CROSS_PLATFORM_ACCEPTANCE.md').write_text(f"Source: {report['source_sha']}\n\nUbuntu + Windows synthetic regression: {result}\n\nOriginal external IKS: BLOCKED (separate private certification, not passed)\n\nLocal production authority: BLOCKED\n", encoding='utf-8')
       - uses: actions/upload-artifact@v4
         with:
+          retention-days: 7
           name: cross-platform-acceptance-${{ inputs.source_sha || github.event.pull_request.head.sha || github.sha }}
           path: CROSS_PLATFORM_ACCEPTANCE.*
       - name: Require both platform jobs

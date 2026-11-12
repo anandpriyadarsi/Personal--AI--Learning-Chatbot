@@ -3,6 +3,17 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]
+    # Full V2.4 tests are feature-specific; canonical web and architecture gates remain global.
+    paths:
+      - 'personal_learning_assistant/services/**'
+      - 'personal_learning_assistant/tutor/**'
+      - 'personal_learning_assistant/ui/web/**'
+      - 'personal_learning_assistant/repositories/**'
+      - 'personal_learning_assistant/domain/**'
+      - 'tests/*v24*'
+      - 'tests/*v23*'
+      - 'tests/learning_studio/**'
+      - '.github/workflows/architecture-v24-intelligence.yml'
   workflow_dispatch:
 permissions:
   contents: read
@@ -113,6 +124,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
+          retention-days: 3
           name: learning-intelligence-v24-${{ matrix.os }}-${{ env.V24_SOURCE_SHA }}
           path: ${{ env.ANVAYA_V24_RESULTS }}/**
           if-no-files-found: warn

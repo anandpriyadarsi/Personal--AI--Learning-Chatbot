@@ -48,6 +48,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
+          retention-days: 3
           name: source-investigation-${{ matrix.os }}-${{ github.sha }}
           path: ${{ env.SOURCE_DIAG }}/**
           if-no-files-found: warn

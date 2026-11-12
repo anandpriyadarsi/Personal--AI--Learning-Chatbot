@@ -2,6 +2,19 @@ name: Mobile V1 private PWA acceptance
 on:
   pull_request:
     branches: [main]
+    # PWA-specific legacy acceptance; web/architecture checks remain universal.
+    # Run this manually when changing general responsive UI outside these paths.
+    paths:
+      - 'mobile_web.py'
+      - 'android/**'
+      - 'requirements-mobile.txt'
+      - 'personal_learning_assistant/ui/web/*mobile*'
+      - 'personal_learning_assistant/ui/web/static/*mobile*'
+      - 'personal_learning_assistant/ui/web/static/css/*mobile*'
+      - 'personal_learning_assistant/ui/web/templates/*mobile*'
+      - 'tests/test_mobile*.py'
+      - 'tests/learning_studio/test_mobile*'
+      - '.github/workflows/mobile-v1-private.yml'
   workflow_dispatch:
 permissions:
   contents: read
@@ -60,6 +73,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
+          retention-days: 3
           name: mobile-v1-${{ matrix.os }}-${{ github.event.pull_request.head.sha || github.sha }}
           path: ${{ env.MOBILE_RESULTS }}/**
           if-no-files-found: error

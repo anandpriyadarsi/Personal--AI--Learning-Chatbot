@@ -38,6 +38,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
+          retention-days: 3
           name: live-integration-manifest-${{ github.event.pull_request.head.sha || github.sha }}
           path: integration-manifest.json
           if-no-files-found: error

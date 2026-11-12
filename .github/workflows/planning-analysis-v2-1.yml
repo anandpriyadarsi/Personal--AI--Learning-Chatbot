@@ -64,5 +64,6 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
+          retention-days: 3
           name: planning-v21-${{ matrix.os }}-${{ github.sha }}
           path: ${{ runner.temp }}/anvaya-v21/

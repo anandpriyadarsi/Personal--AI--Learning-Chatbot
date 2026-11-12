@@ -94,5 +94,6 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
+          retention-days: 3
           name: ui-v2-${{ matrix.os }}-${{ github.sha }}
           path: ${{ env.ANVAYA_UI_V2_OUTPUT }}/**

@@ -104,6 +104,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
+          retention-days: 3
           name: academic-evidence-v23-${{ matrix.os }}-${{ github.sha }}
           path: ${{ env.ANVAYA_V23_RESULTS }}/**
           if-no-files-found: warn

@@ -145,5 +145,13 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
+          retention-days: 7
           name: unified-release-provenance-${{ needs.source.outputs.sha }}
-          path: release-assets/*
+          # The signed APK and screenshots are already published as GitHub Release assets.
+          # Avoid duplicating the APK in Actions storage.
+          path: |
+            release-assets/BUILD.json
+            release-assets/SHA256SUMS.txt
+            release-assets/SIGNATURE.txt
+            release-assets/APK-METADATA.txt
+            release-assets/TEST-REPORT.md
