@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hmac
+import sqlite3
 
 from flask import (
     abort,
