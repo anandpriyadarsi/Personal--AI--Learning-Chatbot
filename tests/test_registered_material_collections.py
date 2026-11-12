@@ -109,11 +109,10 @@ def test_mit_registered_lectures_appear_inside_learning_studio_folder(library_db
         c = app.test_client()
         html = c.get("/learning/materials?collection=mit").get_data(as_text=True)
         assert "MIT 18.06 L03" in html and "Problem Set.txt" in html
-        assert "/library?view=registered&amp;collection=mit" not in html or "registered" in html
         resource_page = c.get("/library?view=registered&collection=mit")
         assert resource_page.status_code == 200
         assert "MIT 18.06 L03" in resource_page.get_data(as_text=True)
-        assert "Unlinked documents" not in resource_page.get_data(as_text=True)
+        assert "data-library-title=\"document:d0\"" not in resource_page.get_data(as_text=True)
         assert native.get(doc["id"])["folder_id"] == folder["id"]
         assert c.get("/library?view=registered&collection=unknown").status_code == 400
     finally:
