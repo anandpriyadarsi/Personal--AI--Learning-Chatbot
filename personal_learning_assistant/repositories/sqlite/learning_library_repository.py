@@ -6,6 +6,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 import sqlite3
 import os
+import re
 import stat
 from urllib.parse import urlsplit
 from personal_learning_assistant.services.academic_wal_snapshot import AcademicSnapshotUnavailable
@@ -29,7 +30,14 @@ def document_title(path_key):
         except ValueError:
             return 'Registered document'
     value = value.rstrip('/')
-    return value.rsplit('/', 1)[-1] or 'Registered document'
+    name = value.rsplit('/', 1)[-1] or 'Registered document'
+    # Content-addressed storage uses an internal digest as the basename.
+    # Keep the identifier as a stable backend key, never a user-facing title.
+    match = re.fullmatch(r'[0-9a-fA-F]{32}(?:[0-9a-fA-F]{32})?(?:\.([a-zA-Z0-9]{1,8}))?', name)
+    if match:
+        kind = match.group(1).upper() if match.group(1) else 'document'
+        return f'Unnamed {kind} — rename to identify'
+    return name
 
 
 # Validate the complete read contract even for an empty database/result.
