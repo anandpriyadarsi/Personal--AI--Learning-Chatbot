@@ -67,6 +67,7 @@ class LearningLibraryService:
                 extraction_summary=_extraction_summary([d['extraction_status'] for d in documents]
                                                        if is_resource else [row['extraction_status']]),
                 open_target='/library/resources/' + quote(row['id'], safe='') if is_resource else _source_target(row['id']),
+                content_hash=row.get('content_hash', '') if not is_resource else '',
             ))
         state = 'ready' if items else ('empty' if total_all == 0 else 'no_matches')
         return LibraryPage(tuple(items), query, _labels(courses), total,
