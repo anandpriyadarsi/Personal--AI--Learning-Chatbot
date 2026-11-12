@@ -50,7 +50,7 @@
   {% if materials.available %}
     {% if materials.mit_folder %}
       <a class="ls-mit-feature" href="{{ url_for('learning.materials',folder_id=materials.mit_folder.id) }}">
-        <span class="ls-material-icon" aria-hidden="true">▣</span>
+        <span class="ls-material-icon" aria-hidden="true">📁</span>
         <span><strong>MIT Course Materials</strong><small>All files you place in this Library folder appear here automatically.</small></span>
         <span aria-hidden="true">→</span>
       </a>
@@ -66,10 +66,12 @@
     {% if materials.folders %}
       <div class="ls-folder-grid">
         {% for folder in materials.folders %}
+        {% if not materials.mit_folder or folder.id != materials.mit_folder.id %}
         <a class="ls-folder-tile" href="{{ url_for('learning.materials',folder_id=folder.id) }}">
-          <span class="ls-material-icon" aria-hidden="true">▣</span>
+          <span class="ls-material-icon" aria-hidden="true">📁</span>
           <span><strong>{{ folder.name }}</strong><small>{{ 'Subject' if folder.node_kind == 'subject' else 'Semester' if folder.node_kind == 'semester' else 'Folder' }}</small></span>
         </a>
+        {% endif %}
         {% endfor %}
       </div>
     {% endif %}
