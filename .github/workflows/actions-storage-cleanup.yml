@@ -2,10 +2,10 @@ name: Emergency ANVAYA Actions storage cleanup
 
 # Automatically execute once when installed on main; manual re-runs remain available.
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/actions-storage-cleanup.yml'
+  # Temporary follow-up passes. The worker disables this workflow when done,
+  # and no later than November 17, 2026 (UTC).
+  schedule:
+    - cron: '17 */2 * * *'
   workflow_dispatch:
     inputs:
       dry_run:

@@ -81,10 +81,19 @@ def summary(msg: str) -> None:
         with open(path, "a", encoding="utf-8") as out:
             out.write(msg + "\n")
 
+def disable_cleanup_workflow(reason: str) -> None:
+    """Stop further scheduled cleanup after completion or safety deadline."""
+    summary("- Disabling scheduled cleanup: " + reason)
+    api(f"/repos/{REPO}/actions/workflows/actions-storage-cleanup.yml/disable", method="PUT")
+
+
 def main() -> int:
     if os.environ.get("GITHUB_REPOSITORY") != REPO:
         raise RuntimeError("Repository guard failed: not ANVAYA")
     dry_run = os.environ.get("DRY_RUN", "false").strip().lower() == "true"
+    if os.environ.get("GITHUB_EVENT_NAME") == "schedule" and datetime.now(timezone.utc) >= datetime(2026, 11, 17, tzinfo=timezone.utc):
+        disable_cleanup_workflow("safety cutoff date reached")
+        return 0
     cutoff = datetime.now(timezone.utc) - timedelta(days=MIN_AGE_DAYS)
     all_artifacts = fetch_artifacts()
     eligible = [a for a in all_artifacts if candidate(a, cutoff)]
@@ -104,6 +113,9 @@ def main() -> int:
         summary(f"  - {artifact['name']}: {int(artifact.get('size_in_bytes') or 0) / 1024**2:.1f} MiB")
     if dry_run:
         summary("No changes made in dry-run mode.")
+        return 0
+    if not selected:
+        disable_cleanup_workflow("no eligible old routine artifacts remain")
         return 0
     deleted = 0
     freed_bytes = 0
@@ -129,6 +141,8 @@ def main() -> int:
     if errors:
         summary(f"- Deletion errors: {errors} (see job logs)")
         return 1
+    if len(eligible) <= deleted:
+        disable_cleanup_workflow("all eligible old routine artifacts were deleted")
     return 0
 
 if __name__ == "__main__":
