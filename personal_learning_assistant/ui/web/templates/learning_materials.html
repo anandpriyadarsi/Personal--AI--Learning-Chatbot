@@ -33,7 +33,7 @@
       <a href="{{ url_for('learning.library') }}">Back to lessons</a>
     </div>
   </div>
-  <div class="ls-course-hero-stat"><strong>{{ materials.total }}</strong><span>Original {{ 'file' if materials.total == 1 else 'files' }}</span><small>Read-only view</small></div>
+  <div class="ls-course-hero-stat"><strong>{{ materials.total + (registered_mit.total if registered_mit and materials.collection == 'mit' else 0) }}</strong><span>{{ 'Registered resources and original files' if materials.collection == 'mit' else ('Original file' if materials.total == 1 else 'Original files') }}</span><small>Linked views · no copies</small></div>
 </section>
 
 {% if materials.folders %}
