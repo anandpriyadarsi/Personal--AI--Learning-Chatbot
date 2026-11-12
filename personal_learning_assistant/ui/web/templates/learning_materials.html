@@ -52,6 +52,34 @@
 </section>
 {% endif %}
 
+{% if materials.collection == 'mit' %}
+<section class="ls-workspace-section" aria-labelledby="ls-mit-lectures">
+  <div class="ls-section-heading"><div>
+    <p class="ls-workspace-overline">Registered academic resources · MIT OpenCourseWare</p>
+    <h2 id="ls-mit-lectures">MIT lectures and course resources</h2>
+  </div><span>{{ registered_mit.total if registered_mit else 'Unavailable' }}</span></div>
+  <div class="ls-material-document-list">
+    {% if registered_mit %}
+      {% for item in registered_mit.items %}
+      <article class="ls-card ls-material-document">
+        <span class="ls-material-filetype" aria-hidden="true">MIT</span>
+        <div class="ls-material-document-info">
+          <h3><a href="{{ item.open_target }}">{{ item.title }}</a></h3>
+          <p>{{ item.provider }} · {{ item.document_count }} linked {{ 'document' if item.document_count == 1 else 'documents' }}</p>
+        </div>
+        <div class="ls-material-document-actions"><a href="{{ item.open_target }}">View resource</a></div>
+      </article>
+      {% else %}<p class="ls-material-note">No registered MIT lectures were found.</p>{% endfor %}
+      {% if registered_mit.total > registered_mit.query.page_size %}
+        <a class="ls-workspace-primary" href="{{ url_for('web.learning_library',view='registered',collection='mit') }}">Browse all {{ registered_mit.total }} MIT resources →</a>
+      {% endif %}
+    {% else %}
+      <p class="ls-material-note">Registered MIT lectures are currently unavailable. Your original files below remain separate and unchanged.</p>
+    {% endif %}
+  </div>
+</section>
+{% endif %}
+
 <section class="ls-workspace-section" aria-labelledby="ls-material-documents">
   <div class="ls-section-heading"><div><p class="ls-workspace-overline">Original source documents</p><h2 id="ls-material-documents">Available files</h2></div><span>{{ materials.total }} in this view</span></div>
   <div class="ls-material-document-list">
