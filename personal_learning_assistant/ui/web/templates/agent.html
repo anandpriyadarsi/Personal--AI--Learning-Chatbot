@@ -94,7 +94,7 @@
         </select>
       </p>
       <details class="tutor-session-options"><summary>Session title &amp; scope</summary><p>
-        <label for="session-title">Optional title</label><br>
+        <label for="session-title">Optional name (otherwise titled from your first question)</label><br>
         <input id="session-title" name="title" type="text" maxlength="160" placeholder="e.g. LU Factorization Doubts">
       </p>
       </details>
@@ -112,7 +112,7 @@
     <div>
       <p class="eyebrow">Your conversations</p>
       <h3 id="recent-sessions-title">Recent chats</h3>
-      <p class="tutor-history-subtitle">Continue a discussion, or give a chat a better name.</p>
+      <p class="tutor-history-subtitle">Chats get a name from your questions. Use ⋯ to rename any conversation.</p>
     </div>
     <span class="tutor-history-count" aria-label="{{ workspace.sessions|length }} recent chats">{{ workspace.sessions|length }}</span>
   </div>
@@ -149,7 +149,7 @@
     {% endfor %}
   </ul>
   {% else %}
-    <p class="tutor-history-empty">No conversations yet. Your saved Tutor chats will appear here.</p>
+    <p class="tutor-history-empty">No saved conversations yet. Send a message in a new session to see it here.</p>
   {% endif %}
 </section>
 </div>
