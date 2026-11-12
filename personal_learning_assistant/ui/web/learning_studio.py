@@ -101,8 +101,20 @@ def materials():
     except LibraryError as error:
         return render_template('learning_error.html', active_page='learning',
                                message=str(error)), error.status
+    registered_mit = None
+    if collection == 'mit':
+        # MIT lecture *resources* live in the canonical academic catalogue,
+        # not necessarily in the original-file manager. Link both surfaces.
+        from .routes import _learning_library_service
+        from personal_learning_assistant.domain.learning_library_models import LibraryQuery
+        from personal_learning_assistant.services.learning_library_service import LibraryUnavailableError
+        try:
+            registered_mit = _learning_library_service().list_items(
+                LibraryQuery(collection='mit', item_kind='resource', page_size=30))
+        except LibraryUnavailableError:
+            pass  # The independent original-file collection remains available.
     return render_template('learning_materials.html', active_page='learning',
-                           materials=result, course=course)
+                           materials=result, course=course, registered_mit=registered_mit)
 
 
 @learning_blueprint.get('/learning/courses/<course_id>')
