@@ -246,6 +246,16 @@ class LearningLibraryRepository:
                     (document['id'],document_title(document['path_key']))).fetchone()[0]
             return dict(row), relations
 
+    def document_identity(self, item_id):
+        """Read the exact canonical source identity for an optional native name."""
+        with self._read() as con:
+            row = con.execute(
+                'SELECT id,path_key,content_hash FROM knowledge_documents WHERE id=?',
+                (item_id,)).fetchone()
+            if row is None:
+                raise LibraryNotFoundError('Material was not found')
+            return dict(row)
+
     def original_title(self, kind, item_id):
         with self._read() as con:
             if kind == 'document':
