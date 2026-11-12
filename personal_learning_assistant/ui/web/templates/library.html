@@ -38,54 +38,104 @@
   {% elif library_view == 'saved' %}
     {% include "_library_saved_resources.html" %}
   {% else %}
-  <div class="materials-context-strip"><span class="materials-context-dot" aria-hidden="true"></span><span>Read-only registered material</span><span class="materials-context-divider">/</span><span>Extraction status is shown; retrieval availability is not checked on this page</span></div>
+  <div class="materials-context-strip"><span class="materials-context-dot" aria-hidden="true"></span><span>Registered academic sources</span><span class="materials-context-divider">/</span><span>Originals and learning records are preserved · retrieval availability is not checked on this page</span></div>
   {% if error_message %}
-    <section class="notice-panel materials-empty" role="alert"><h2>{{ error_message }}</h2><p>Existing Notes, Knowledge and Resources remain available. The Library did not create or change any academic records.</p></section>
+    <section class="notice-panel materials-empty" role="alert"><h2>{{ error_message }}</h2><p>Existing Notes, Knowledge and Resources remain available. No academic records were changed.</p></section>
   {% elif library %}
-    <section class="dashboard-panel materials-toolbar library-filter-panel" aria-label="Filter Library">
-      <div class="materials-section-title"><div><p class="eyebrow">Explore your sources</p><h2>Browse registered material</h2></div><span class="materials-result-count">{{ library.total }} matching</span></div>
+    <section class="library-source-collections" aria-labelledby="registered-collections-title">
+      <div class="materials-section-title"><div><p class="eyebrow">Browse like folders</p><h2 id="registered-collections-title">Collections</h2></div><a class="materials-subtle-link" href="{{ url_for('native_library.home') }}">Open file manager</a></div>
+      <div class="library-source-folder-grid">
+        <a class="library-source-folder{% if library.query.collection == 'mit' %} is-active{% endif %}" href="{{ url_for('learning.materials',collection='mit') }}">
+          <span class="library-source-folder-icon" aria-hidden="true">📁</span>
+          <span><strong>MIT Course Materials</strong><small>MIT OpenCourseWare lectures and saved originals</small></span>
+          <span aria-hidden="true">→</span>
+        </a>
+        <a class="library-source-folder{% if library.query.collection == 'unlinked' %} is-active{% endif %}" href="{{ url_for('web.learning_library',view='registered',collection='unlinked') }}">
+          <span class="library-source-folder-icon" aria-hidden="true">📂</span>
+          <span><strong>Documents to organize</strong><small>Unlinked original sources · rename when identifiable</small></span>
+          <span aria-hidden="true">→</span>
+        </a>
+      </div>
+      {% if library.courses %}
+      <div class="library-course-shortcuts" aria-label="Registered subject folders">
+        <span>Subjects</span>
+        {% for c in library.courses %}
+          <a href="{{ url_for('web.learning_library',view='registered',course_id=c.id) }}"{% if library.query.course_id == c.id %} aria-current="page"{% endif %}>{{ c.label }}</a>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </section>
+    <section class="dashboard-panel materials-toolbar library-filter-panel" aria-label="Filter registered sources">
       <form class="library-filters materials-filter-grid" method="get" action="{{ url_for('web.learning_library') }}">
-        <label class="form-field"><span>Search material</span><input type="search" name="q" value="{{ library.query.search }}" maxlength="200" placeholder="Title, provider or type…" autocomplete="off"></label>
-        <label class="form-field"><span>Course</span><select name="course_id">
+        <input type="hidden" name="view" value="registered">
+        {% if library.query.collection %}<input type="hidden" name="collection" value="{{ library.query.collection }}">{% endif %}
+        <label class="form-field"><span>Find a lecture or document</span><input type="search" name="q" value="{{ library.query.search }}" maxlength="200" placeholder="e.g. LU, Matrix, lecture 04…" autocomplete="off"></label>
+        <label class="form-field"><span>Subject</span><select name="course_id">
           <option value="">All courses</option>
           {% if library.query.course_id and library.query.course_id not in library.courses|map(attribute='id')|list %}<option value="{{ library.query.course_id }}" selected>Selected course (unavailable)</option>{% endif %}
           {% for course in library.courses %}<option value="{{ course.id }}"{% if library.query.course_id == course.id %} selected{% endif %}>{{ course.label }}</option>{% endfor %}
         </select></label>
-        <label class="form-field"><span>Material kind</span><select name="item_kind">
-          {% for value, label in [('all','All material'),('resource','Resources'),('document','Ungrouped documents')] %}<option value="{{ value }}"{% if library.query.item_kind == value %} selected{% endif %}>{{ label }}</option>{% endfor %}
+        <label class="form-field"><span>Type</span><select name="item_kind">
+          {% for value, label in [('all','All sources'),('resource','Lectures / resources'),('document','Unlinked documents')] %}<option value="{{ value }}"{% if library.query.item_kind == value %} selected{% endif %}>{{ label }}</option>{% endfor %}
         </select></label>
         <input type="hidden" name="page_size" value="{{ library.query.page_size }}">
-        <div class="form-actions"><button class="button" type="submit">Apply filters</button><a class="button secondary-button" href="{{ url_for('web.learning_library') }}">Clear</a></div>
+        <div class="form-actions"><button class="button" type="submit">Filter</button><a class="button secondary-button" href="{{ url_for('web.learning_library',view='registered') }}">Reset</a></div>
       </form>
     </section>
-    <section class="materials-results" aria-label="Registered library material">
-      <div class="materials-section-title"><div><p class="eyebrow">Verified identities, recorded metadata</p><h2>Available material</h2></div><span class="materials-result-count">{% if library.total_pages %}Page {{ library.query.page }} of {{ library.total_pages }}{% else %}0 items{% endif %}</span></div>
+    {% macro material_row(item) %}
+    <article class="library-source-row">
+      <div class="library-source-type-icon" aria-hidden="true">{{ '↗' if item.reference.kind == 'resource' else '▤' }}</div>
+      <div class="library-source-main">
+        <h3>{% if item.reference.kind == 'resource' or source_reader_available %}<a href="{{ item.open_target }}" data-library-title="{{ item.key }}">{{ item.title }}</a>{% else %}<span data-library-title="{{ item.key }}">{{ item.title }}</span>{% endif %}</h3>
+        <p class="library-source-subtitle">
+          <span>{{ 'Lecture / resource' if item.reference.kind == 'resource' else 'Original document' }}</span>
+          {% if item.provider %}<span class="library-source-dot" aria-hidden="true">·</span><span>{{ item.provider|replace('_',' ') }}</span>{% endif %}
+          {% for c in item.courses %}<span class="library-source-chip">{{ c.label }}</span>{% endfor %}
+          {% if item.reference.kind == 'resource' %}<span class="library-source-dot" aria-hidden="true">·</span><span>{{ item.document_count }} linked {{ 'file' if item.document_count == 1 else 'files' }}</span>{% endif %}
+        </p>
+      </div>
+      <div class="library-source-row-actions">
+        <button type="button" class="library-rename-action" data-library-rename="{{ url_for('library_rename.rename',kind=item.reference.kind,item_id=item.reference.id) }}" data-key="{{ item.key }}" aria-label="Rename {{ item.title }}">Rename</button>
+        {% if item.reference.kind == 'resource' or source_reader_available %}
+          <a class="library-source-open" href="{{ item.open_target }}">{{ 'View resource' if item.reference.kind == 'resource' else 'View source' }} <span aria-hidden="true">↗</span></a>
+        {% else %}<span class="materials-muted">Viewer unavailable</span>{% endif %}
+      </div>
+    </article>
+    {% endmacro %}
+    <section class="materials-results library-registered-results" aria-label="Registered library material">
+      <div class="materials-section-title">
+        <div><p class="eyebrow">Saved source records</p><h2>{{ 'MIT lectures and resources' if library.query.collection == 'mit' else 'Unlinked documents' if library.query.collection == 'unlinked' else 'Available material' }}</h2></div>
+        <span class="materials-result-count">{{ library.total }} matching · {% if library.total_pages %}Page {{ library.query.page }} of {{ library.total_pages }}{% else %}0 items{% endif %}</span>
+      </div>
+      {% if library.query.collection == 'mit' %}
+      <p class="materials-section-note">MIT OpenCourseWare lectures are grouped by their recorded names and provider. <a href="{{ url_for('learning.materials',collection='mit') }}">View the combined MIT folder in Learning Studio</a>.</p>
+      {% endif %}
       {% if library.state == 'empty' %}
-        <div class="dashboard-panel materials-empty"><h3>No registered material yet</h3><p>Once sources are registered in canonical Resources 2 or Knowledge, they can appear here.</p><a class="button secondary-button" href="{{ url_for('web.learning_library', view='saved') }}">View saved references</a></div>
+        <div class="dashboard-panel materials-empty"><h3>No registered material yet</h3><p>Registered resources will appear here when available in the academic catalogue.</p><a class="button secondary-button" href="{{ url_for('native_library.home') }}">Open original files</a></div>
       {% elif library.state == 'no_matches' %}
-        <div class="dashboard-panel materials-empty"><h3>No matching material</h3><p>No registered sources match your search and filters.</p><a class="button secondary-button" href="{{ url_for('web.learning_library') }}">Clear filters</a></div>
+        <div class="dashboard-panel materials-empty"><h3>No matching material</h3><p>Try another title or subject. Existing records remain unchanged.</p><a class="button secondary-button" href="{{ url_for('web.learning_library',view='registered') }}">Clear filters</a></div>
       {% else %}
-        <div class="library-items">
-          {% for item in library.items %}
-          <article class="dashboard-panel library-card materials-resource-card">
-            <div class="materials-resource-glyph" aria-hidden="true">{{ 'R' if item.reference.kind == 'resource' else 'D' }}</div>
-            <div class="library-card-main">
-              <div class="materials-resource-meta"><span class="materials-type">{{ 'Resource' if item.reference.kind == 'resource' else 'Ungrouped document' }}</span><span class="materials-separator">·</span><span>{{ item.item_type }}</span>{% if item.provider %}<span class="materials-separator">·</span><span>{{ item.provider }}</span>{% endif %}</div>
-              <h3>{% if item.reference.kind == 'resource' or source_reader_available %}<a href="{{ item.open_target }}" data-library-title="{{ item.key }}">{{ item.title }}</a>{% else %}<span data-library-title="{{ item.key }}">{{ item.title }}</span>{% endif %}</h3>
-              <button type="button" class="library-rename-action" data-library-rename="{{ url_for('library_rename.rename',kind=item.reference.kind,item_id=item.reference.id) }}" data-key="{{ item.key }}">Rename</button>
-              <div class="library-labels">{% for course in item.courses %}<span class="library-label">{{ course.label }}</span>{% endfor %}</div>
-              <p class="library-extraction">{{ item.extraction_summary }}{% if item.learning_status %}<span aria-hidden="true"> · </span>{{ item.learning_status|replace('_', ' ')|capitalize }} · {{ item.document_count }} document{{ '' if item.document_count == 1 else 's' }}{% endif %}</p>
-            </div>
-            {% if item.reference.kind == 'resource' or source_reader_available %}<a class="button secondary-button library-view" href="{{ item.open_target }}">{{ 'View resource' if item.reference.kind == 'resource' else 'View source' }} <span aria-hidden="true">↗</span></a>{% else %}<span class="materials-muted library-view">Source reader unavailable</span>{% endif %}
-          </article>
-          {% endfor %}
+        {% set resource_rows = library.items|selectattr('reference.kind','equalto','resource')|list %}
+        {% set document_rows = library.items|selectattr('reference.kind','equalto','document')|list %}
+        {% if resource_rows %}
+        <div class="library-items library-compact-list" aria-label="Lectures and resources">
+          {% for item in resource_rows %}{{ material_row(item) }}{% endfor %}
         </div>
+        {% endif %}
+        {% if document_rows %}
+        <details class="library-unlinked-details"{% if library.query.collection == 'unlinked' or library.query.item_kind == 'document' or library.query.search %} open{% endif %}>
+          <summary><span class="library-source-type-icon" aria-hidden="true">▤</span><span><strong>Unlinked documents</strong><small>{{ document_rows|length }} on this page · Read a source to identify it, then use Rename</small></span><span class="library-unlinked-chevron" aria-hidden="true">⌄</span></summary>
+          <div class="library-items library-compact-list">
+            {% for item in document_rows %}{{ material_row(item) }}{% endfor %}
+          </div>
+        </details>
+        {% endif %}
       {% endif %}
     </section>
     {% if library.total_pages > 1 %}
-      <nav class="library-pagination" aria-label="Library pages">
-      {% if library.query.page > 1 %}<a class="button secondary-button" href="{{ url_for('web.learning_library', q=library.query.search, course_id=library.query.course_id or '', item_kind=library.query.item_kind, page=library.query.page-1, page_size=library.query.page_size) }}">Previous</a>{% endif %}
-      {% if library.query.page < library.total_pages %}<a class="button secondary-button" href="{{ url_for('web.learning_library', q=library.query.search, course_id=library.query.course_id or '', item_kind=library.query.item_kind, page=library.query.page+1, page_size=library.query.page_size) }}">Next</a>{% endif %}
+      <nav class="library-pagination" aria-label="Registered source pages">
+      {% if library.query.page > 1 %}<a class="button secondary-button" href="{{ url_for('web.learning_library',view='registered',collection=library.query.collection or '',q=library.query.search,course_id=library.query.course_id or '',item_kind=library.query.item_kind,page=library.query.page-1,page_size=library.query.page_size) }}">Previous</a>{% endif %}
+      {% if library.query.page < library.total_pages %}<a class="button secondary-button" href="{{ url_for('web.learning_library',view='registered',collection=library.query.collection or '',q=library.query.search,course_id=library.query.course_id or '',item_kind=library.query.item_kind,page=library.query.page+1,page_size=library.query.page_size) }}">Next</a>{% endif %}
       </nav>
     {% endif %}
   {% endif %}
