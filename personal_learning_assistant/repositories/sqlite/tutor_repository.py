@@ -354,16 +354,55 @@ class SQLiteTutorRepository:
                 raise TutorRepositoryError("tutor session not found: {}".format(session_id))
         return self.get_session(session_id)
 
-    def list_sessions(self, limit: int = 20):
+    def list_sessions(self, limit: int = 20, *, with_turns_only: bool = False):
         limit = int(limit)
         if limit < 1 or limit > 100:
             raise ValueError("session limit must be between 1 and 100")
+        filter_sql = (
+            "WHERE EXISTS (SELECT 1 FROM tutor_turns "
+            "WHERE tutor_turns.session_id=tutor_sessions.id) "
+            if with_turns_only else ""
+        )
         rows = self.connection.execute(
-            "SELECT id FROM tutor_sessions "
+            "SELECT id FROM tutor_sessions " + filter_sql +
             "ORDER BY updated_at DESC, created_at DESC, id DESC LIMIT ?",
             (limit,),
         ).fetchall()
         return tuple(self.get_session(str(row[0])) for row in rows)
+
+    def user_messages(self, session_id: str, *, limit: int = 10):
+        """Read a small bounded transcript slice for legacy untitled sessions."""
+        rows = self.connection.execute(
+            "SELECT content FROM tutor_turns WHERE session_id=? AND role='user' "
+            "ORDER BY ordinal ASC LIMIT ?", (session_id, limit),
+        ).fetchall()
+        return tuple(str(row[0]) for row in rows)
+
+    def prune_stale_empty_sessions(self, *, older_than: str):
+        """Delete only inactive, no-turn session shells (never actual chats).
+
+        This is an explicit write-side housekeeping operation, not a GET.
+        Protect optional coding tasks even when no Tutor turns exist yet.
+        """
+        coding_tasks = self.connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' "
+            "AND name='tutor_coding_tasks'"
+        ).fetchone() is not None
+        tasks_guard = (
+            "AND NOT EXISTS (SELECT 1 FROM tutor_coding_tasks "
+            "WHERE tutor_coding_tasks.session_id=tutor_sessions.id) "
+            if coding_tasks else ""
+        )
+        with self._write_transaction():
+            cursor = self.connection.execute(
+                "DELETE FROM tutor_sessions "
+                "WHERE datetime(created_at) < datetime(?) "
+                "AND NOT EXISTS (SELECT 1 FROM tutor_turns "
+                "WHERE tutor_turns.session_id=tutor_sessions.id) "
+                + tasks_guard,
+                (older_than,),
+            )
+        return cursor.rowcount
 
     def _next_ordinal(self, session_id: str) -> int:
         row = self.connection.execute(
@@ -384,6 +423,7 @@ class SQLiteTutorRepository:
         provider_model,
         created_at,
         evidence: Sequence[TutorEvidence] = (),
+        suggested_title: str = "",
     ) -> TutorTurn:
         with self._write_transaction():
             session = self.connection.execute(
@@ -440,6 +480,14 @@ class SQLiteTutorRepository:
                     ),
                 )
 
+            # Generate the title only after a real user turn has been persisted.
+            # Existing custom titles are never overwritten.
+            if role == "user" and suggested_title:
+                self.connection.execute(
+                    "UPDATE tutor_sessions SET title=? "
+                    "WHERE id=? AND trim(title)=''",
+                    (suggested_title, session_id),
+                )
             self.connection.execute(
                 "UPDATE tutor_sessions SET updated_at=? WHERE id=?",
                 (created_at, session_id),
