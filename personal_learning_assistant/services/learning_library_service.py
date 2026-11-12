@@ -116,6 +116,14 @@ class LearningLibraryService:
             LibraryDisplayRepository, validate_title)
         title = validate_title(title)  # Validate before opening any writable store.
         original = self.repository.original_title(kind, item_id)
+        if kind == 'document' and self.native_title_lookup is not None:
+            identity = self.repository.document_identity(item_id)
+            names = self._linked_names([{
+                'id': item_id, 'content_hash': identity['content_hash'],
+                'path_key': identity['path_key'],
+                'title': document_title(identity['path_key']),
+            }])
+            original = names.get((item_id, identity['content_hash']), original)
         duplicate = self.repository.title_exists(title,kind=kind,item_id=item_id)
         result = LibraryDisplayRepository(self.repository.database_path).rename(
             kind,item_id,title,expected_title=expected_title,original_title=original)
