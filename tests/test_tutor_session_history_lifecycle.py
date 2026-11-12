@@ -64,8 +64,16 @@ def test_history_excludes_empty_shells_and_derives_legacy_names_read_only(tmp_pa
     assert next(item for item in view["sessions"] if item["session_id"] == populated)["title"] == (
         "How does Gaussian elimination find matrix rank"
     )
-    # Projection does not write the derived label into stored sessions on GET.
-    assert service.session_view(populated)["title"] == ""
+    # History and transcript show the same label; GET never persists it.
+    assert service.session_view(populated)["title"] == "How does Gaussian elimination find matrix rank"
+    connection = open_database(path)
+    try:
+        stored = connection.execute(
+            "SELECT title FROM tutor_sessions WHERE id=?", (populated,)
+        ).fetchone()[0]
+        assert stored == ""
+    finally:
+        connection.close()
     assert provider.calls == 0
 
 
