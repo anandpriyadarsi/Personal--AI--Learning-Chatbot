@@ -156,7 +156,7 @@ class LearningLibraryRepository:
                 lambda kind, ident, fallback: titles.get((kind,ident),fallback), deterministic=True)
             con.create_function('library_casefold', 1, lambda value: str(value or '').casefold(), deterministic=True)
             # Exact MIT word/provider marker, not a substring of e.g. 'limits'.
-            mit_pattern = re.compile(r'(?<![A-Za-z])MIT(?![A-Za-z])|Massachusetts\\s+Institute\\s+of\\s+Technology|ocw\\.mit\\.edu', re.IGNORECASE)
+            mit_pattern = re.compile(r'(?<![A-Za-z])MIT(?![A-Za-z])|Massachusetts\s+Institute\s+of\s+Technology|ocw\.mit\.edu', re.IGNORECASE)
             con.create_function('library_is_mit', 1,
                 lambda value: bool(mit_pattern.search(str(value or ''))), deterministic=True)
             con.execute('PRAGMA query_only=ON')
