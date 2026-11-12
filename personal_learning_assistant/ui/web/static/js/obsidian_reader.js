@@ -40,7 +40,7 @@
     function sameOriginJson(url, payload, extraOptions) {
       return fetch(url, {
         method: "POST",
-        headers: {"Content-Type": "application/json"},
+        headers: {"Content-Type": "application/json", "X-PAO-Token": document.querySelector('meta[name="pao-reading-token"]').content},
         credentials: "same-origin",
         body: JSON.stringify(payload),
         ...(extraOptions || {}),
@@ -153,7 +153,7 @@
     }
 
     function finalTransport(payload) {
-      const body = JSON.stringify(payload);
+      const body = JSON.stringify({...payload, pao_token: document.querySelector('meta[name="pao-reading-token"]').content});
       if (typeof navigator.sendBeacon === "function") {
         const blob = new Blob([body], {type: "application/json"});
         if (navigator.sendBeacon(endUrl, blob)) {

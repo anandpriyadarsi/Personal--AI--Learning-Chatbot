@@ -88,7 +88,19 @@ class SQLitePlannerTaskRepository:
         )
         c = self._connect(writable=False)
         try:
-            return tuple(dict(r) for r in c.execute(sql, tuple(params)).fetchall())
+            tasks = tuple(dict(r) for r in c.execute(sql, tuple(params)).fetchall())
+            if c.execute("SELECT 1 FROM sqlite_master WHERE name='planner_work_logs'").fetchone():
+                for task in tasks:
+                    logs = tuple(dict(r) for r in c.execute(
+                        'SELECT l.*,EXISTS(SELECT 1 FROM planner_work_logs n WHERE n.supersedes_id=l.id) AS superseded FROM planner_work_logs l WHERE task_id=? ORDER BY occurred_at,id', (task['id'],)))
+                    for log in logs:
+                        log['superseded'] = bool(log['superseded'])
+                    task['work_logs'] = logs
+                    task['recorded_minutes'] = sum(row['actual_minutes'] for row in logs if not row['superseded']) if logs else None
+            if c.execute("SELECT 1 FROM sqlite_master WHERE name='planner_task_sources'").fetchone():
+                for task in tasks:
+                    task['sources'] = tuple(dict(r) for r in c.execute('SELECT * FROM planner_task_sources WHERE task_id=?', (task['id'],)))
+            return tasks
         finally:
             c.close()
 
@@ -116,10 +128,50 @@ class SQLitePlannerTaskRepository:
         finally:
             c.close()
 
-    def create_task(self, row, *, study_context=None):
+    def capture_catalogue(self):
+        """Read exact, active academic identities without answer/scoring data."""
+        c = self._connect(writable=False)
+        try:
+            courses = tuple(dict(r) for r in c.execute(
+                "SELECT id,code,name FROM courses WHERE deleted_at IS NULL AND status='active' ORDER BY code,id"))
+            topics = tuple(dict(r) for r in c.execute(
+                "SELECT t.id,t.course_id,t.name FROM topics t JOIN courses c ON c.id=t.course_id "
+                "WHERE t.deleted_at IS NULL AND c.deleted_at IS NULL AND c.status='active' ORDER BY c.code,t.name,t.id"))
+            assessments = tuple(dict(r) for r in c.execute(
+                "SELECT a.id,a.course_id,a.title,a.assessment_type,a.due_on FROM assessments a JOIN courses c ON c.id=a.course_id "
+                "WHERE a.deleted_at IS NULL AND c.deleted_at IS NULL AND c.status='active' ORDER BY COALESCE(a.due_on,'9999'),a.id"))
+            return {'courses':courses,'topics':topics,'assessments':assessments}
+        except sqlite3.Error as error:
+            raise PlannerTaskRepositoryError('Academic catalogue is unavailable.') from error
+        finally:
+            c.close()
+
+    @staticmethod
+    def _validate_capture_references(c, row):
+        course_id = row.get('course_id')
+        if not course_id:
+            if row.get('topic_id') or row.get('assessment_id'):
+                raise PlannerTaskRepositoryConflictError('Choose a course for the selected topic or assessment.')
+            return
+        if c.execute("SELECT 1 FROM courses WHERE id=? AND deleted_at IS NULL AND status='active'", (course_id,)).fetchone() is None:
+            raise PlannerTaskRepositoryConflictError('Choose an active course from the catalogue.')
+        for field, table in (('topic_id','topics'),('assessment_id','assessments')):
+            if row.get(field) and c.execute(
+                    "SELECT 1 FROM " + table + " WHERE id=? AND course_id=? AND deleted_at IS NULL",
+                    (row[field],course_id)).fetchone() is None:
+                raise PlannerTaskRepositoryConflictError('Selected topic or assessment does not belong to this active course.')
+
+    def create_task(self, row, *, study_context=None, source_refs=()):
         c = self._connect(writable=True)
         try:
             with transaction(c, immediate=True):
+                self._validate_capture_references(c, row)
+                if source_refs:
+                    prior = c.execute('SELECT * FROM planner_tasks WHERE id=?', (row['id'],)).fetchone()
+                    if prior is not None:
+                        if any(prior[k] != row.get(k) for k in ('title','description','course_id','topic_id','estimated_minutes','priority','due_on')):
+                            raise PlannerTaskRepositoryConflictError('This source study intent has a different saved choice.')
+                        return dict(prior)
                 if study_context is not None:
                     if (row.get('course_id') != study_context['course_id'] or
                             row.get('topic_id') != study_context['topic_id']):
@@ -133,7 +185,7 @@ class SQLitePlannerTaskRepository:
                         raise PlannerTaskRepositoryConflictError('Course/topic context changed. Preview again.')
                     existing = c.execute('SELECT * FROM planner_tasks WHERE id=?',(row['id'],)).fetchone()
                     if existing is not None:
-                        keys=('title','description','course_id','topic_id','estimated_minutes','priority')
+                        keys=('title','description','course_id','topic_id','estimated_minutes','priority','due_on')
                         if any(existing[k]!=row.get(k) for k in keys):
                             raise PlannerTaskRepositoryConflictError('This study intent has a different saved context.')
                         return dict(existing)
@@ -155,13 +207,19 @@ class SQLitePlannerTaskRepository:
                         row.get("completed_at"), row.get("archived_at"),
                     ),
                 )
+                if source_refs and c.execute("SELECT 1 FROM sqlite_master WHERE name='planner_task_sources'").fetchone():
+                    for ref in source_refs:
+                        if ref.get('owner') not in {'academic','learning','native_note','obsidian','library','tutor'}:
+                            raise PlannerTaskRepositoryConflictError('Unknown source owner.')
+                        c.execute('INSERT INTO planner_task_sources(task_id,owner,kind,identifier,revision_key,sha256,mapping_status) VALUES(?,?,?,?,?,?,?)',
+                                  (row['id'],ref['owner'],ref['kind'],ref['identifier'],str(ref.get('revision_key','')),ref.get('sha256'),ref.get('mapping_status','unreviewed')))
         except sqlite3.Error as error:
             raise PlannerTaskRepositoryError("The task could not be saved.") from error
         finally:
             c.close()
         return self.get_task(row["id"])
 
-    def update_task(self, task_id, fields, *, mark_manual=True):
+    def update_task(self, task_id, fields, *, mark_manual=True, expected=None):
         allowed = {
             "title", "description", "priority", "course_id", "topic_id",
             "assessment_id", "estimated_minutes", "due_on", "preferred_day",
@@ -179,6 +237,13 @@ class SQLitePlannerTaskRepository:
         c = self._connect(writable=True)
         try:
             with transaction(c, immediate=True):
+                current = c.execute('SELECT * FROM planner_tasks WHERE id=?', (task_id,)).fetchone()
+                if current is None:
+                    raise PlannerTaskRepositoryNotFoundError('Planner task was not found.')
+                if expected is not None and any(current[k] != expected[k] for k in ('status','manual_revision','updated_at')):
+                    raise PlannerTaskRepositoryConflictError('Task changed. Refresh before editing.')
+                if 'revision' in current.keys():
+                    assignments.append('revision=revision+1')
                 cur = c.execute(
                     "UPDATE planner_tasks SET {} WHERE id=?".format(", ".join(assignments)),
                     tuple(params),
@@ -231,7 +296,8 @@ class SQLitePlannerTaskRepository:
                             row.get("topic_id"), row.get("assessment_id"),
                             row.get("estimated_minutes"), row.get("due_on"),
                             row.get("preferred_day"), row.get("preferred_window"),
-                            row.get("rollover_policy",""), row.get("status","backlog"),
+                            row.get("rollover_policy",""),
+                            existing["status"] if existing["status"] in ('completed','archived','in_progress','skipped') else row.get("status","backlog"),
                             row["updated_at"], row["id"],
                         ),
                     )

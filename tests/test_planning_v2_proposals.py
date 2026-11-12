@@ -11,12 +11,24 @@ from test_phase7_5_daily_agenda import _service
 @pytest.fixture
 def proposal_app(tmp_path):
     _, path = _service(tmp_path)
+    from scripts.pao_migrate import migrate
+    migrate(path, apply=True, backup_path=tmp_path / 'before-pao.db')
     factory = lambda: build_operational_planner_web_service(path)
-    app = create_app({'TESTING': True, 'OPERATIONAL_PLANNER_WEB_SERVICE_FACTORY': factory,
+    app = create_app({'TESTING': True, 'PAO_V3_ENABLED': True, 'OPERATIONAL_PLANNER_WEB_SERVICE_FACTORY': factory,
                       'PLANNING_LOCAL_TIMEZONE': 'UTC', 'PLANNING_NOW': lambda: '2026-10-12T07:00:00Z'})
     from personal_learning_assistant.ui.web.planning_proposals import register_planning_proposals
     if 'planning_proposals' not in app.blueprints:
         register_planning_proposals(app, factory)
+    from flask.testing import FlaskClient
+    from personal_learning_assistant.ui.web.pao_commands import command_token
+    class AuthorizedPlannerClient(FlaskClient):
+        def open(self, *args, **kwargs):
+            with app.app_context():
+                token = command_token('planning')
+            headers = dict(kwargs.pop('headers', {}))
+            headers.setdefault('X-PAO-Token', token)
+            return super().open(*args, headers=headers, **kwargs)
+    app.test_client_class = AuthorizedPlannerClient
     return app, path
 
 
@@ -38,7 +50,7 @@ def test_native_preview_save_draft_then_existing_approve(proposal_app):
     with sqlite3.connect(path) as conn:
         assert conn.execute('SELECT status FROM daily_agendas').fetchone()[0] == 'draft'
         assert conn.execute("SELECT starts_at FROM daily_agenda_items WHERE source_id='p0'").fetchone()[0] == '2026-10-12T10:10:00'
-    assert client.post('/planning/proposal/2026-10-12', data={'proposal_token': token}).status_code == 409
+    assert client.post('/planning/proposal/2026-10-12', data={'proposal_token': token}).status_code == 303
     saved_page = client.get('/planning/day/2026-10-12')
     approval_token = re.search(r'name="approval_token" value="([^"]+)"', saved_page.text).group(1)
     assert client.post('/planning/day/2026-10-12/approve', data={'approval_token': approval_token}).status_code == 303

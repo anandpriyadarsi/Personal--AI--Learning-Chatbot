@@ -6,6 +6,7 @@ here writes back to Obsidian or represents a synchronization relationship.
 from __future__ import annotations
 
 import io
+import uuid
 import re
 import shutil
 import stat
@@ -59,10 +60,14 @@ class ObsidianConnectionService:
             "mode": "snapshot" if snapshot else "folder",
             "name": str(config.get("snapshot_name") or Path(path).name) if snapshot else Path(path).name,
             "imported_at": str(config.get("snapshot_imported_at") or "") if snapshot else "",
+            "connection_id": config.get('connection_id'),
+            "manifest_revision": (config.get("source_manifest") or {}).get("revision"),
+            "manifest_observed_at": (config.get("source_manifest") or {}).get("observed_at", ""),
+            "exclusions": config.get("snapshot_exclusions", []),
             "state": "Connected" if config.get("enabled") and valid else ("Unavailable" if path else "Not connected"),
         }
 
-    def import_snapshot(self, raw):
+    def import_snapshot(self, raw, *, refresh=False):
         if not raw or len(raw) > MAX_ARCHIVE_BYTES:
             _invalid("Choose a vault ZIP snapshot of 25 MB or smaller.")
         try:
@@ -94,6 +99,7 @@ class ObsidianConnectionService:
                     _invalid("Include one vault and its hidden .obsidian folder in the ZIP.")
                 prefix = next(iter(markers))
                 markdown = []
+                exclusions = []
                 total = 0
                 for item, parts in paths:
                     if parts[:len(prefix)] != prefix:
@@ -102,6 +108,7 @@ class ObsidianConnectionService:
                     if not relative or item.is_dir() or any(part in _EXCLUDED for part in relative):
                         continue
                     if not relative[-1].lower().endswith(".md"):
+                        exclusions.append("/".join(relative))
                         continue
                     if item.file_size > MAX_NOTE_BYTES:
                         _invalid("Each Markdown note must be 500 KB or smaller.")
@@ -137,11 +144,25 @@ class ObsidianConnectionService:
                           snapshot_id=folder.name,
                           snapshot_name=prefix[-1] if prefix else "Vault snapshot",
                           snapshot_imported_at=datetime.now(timezone.utc).isoformat(timespec="seconds"))
+            if refresh and not config.get("connection_id"):
+                _invalid("Refresh requires a connection with an existing source manifest. Import as a new connection first.")
+            if not refresh:
+                config["connection_id"] = str(uuid.uuid4())
+                config.pop("source_manifest", None)
+            from .obsidian_manifest_service import build_manifest
+            from personal_learning_assistant.repositories.filesystem.obsidian_workspace_reader import ObsidianWorkspaceReader
+            config["source_manifest"] = build_manifest(ObsidianWorkspaceReader(folder).scan(), config.get("source_manifest"), connection_id=config["connection_id"])
+            config["snapshot_exclusions"] = exclusions
             self.config_api.save_config(config)
+            self.workspace._scan_cache = None
         except Exception:
             shutil.rmtree(folder)
             raise
-        return {"markdown_files": len(markdown)}
+        manifest = config["source_manifest"]
+        return {"markdown_files": len(markdown), "excluded_assets": exclusions,
+                "manifest_revision": manifest["revision"],
+                "missing_sources": sum(row.get("state") == "missing" for row in manifest["items"]),
+                "conflicting_sources": sum(row.get("state") == "conflict" for row in manifest["items"])}
 
     def connect_folder(self, path):
         return self.workspace.connect_vault(path)
@@ -150,10 +171,15 @@ class ObsidianConnectionService:
         config = dict(self.config_api.load_config())
         for key in ("connection_mode", "snapshot_id", "snapshot_name", "snapshot_imported_at"):
             config.pop(key, None)
+        # Keep metadata/history available in the saved configuration; next
+        # explicit connection receives a new UUID and cannot adopt it silently.
         config.update(vault_path="", enabled=False)
         self.config_api.save_config(config)
 
-    def copy_notes(self, paths):
+    def preview_copy(self, paths):
+        return [dict(self.workspace.note_preview(path)) for path in paths]
+
+    def copy_notes(self, paths, *, expected_versions=None):
         selected = list(dict.fromkeys(paths))
         if not selected or len(selected) > MAX_COPY_NOTES:
             _invalid("Select between 1 and 20 Markdown notes to copy.")
@@ -167,8 +193,19 @@ class ObsidianConnectionService:
             if len(source["text"]) > MAX_NOTE_BYTES:
                 _invalid("Each note must contain 500,000 characters or fewer to copy.")
             sources.append(source)
+        # Revalidate every selected version immediately before the atomic batch.
+        for source in sources:
+            expected = (expected_versions or {}).get(source["relative_path"], source["source_hash"])
+            if expected != source["source_hash"]:
+                _invalid("A selected source changed after preview. Refresh the vault before copying; no Notes were created.")
+            self.workspace.validate_note_version(source["relative_path"], expected)
         return self.notes.create_typed_notes([
-            {"title": source["title"], "body": source["text"]} for source in sources
+            {"title": source["title"], "body": source["text"], "copied_from": {
+                "owner": "obsidian", "connection_id": source.get("connection_id"),
+                "source_item_id": source.get("source_item_id"), "relative_path": source["relative_path"],
+                "sha256": source["source_hash"], "imported_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                "exclusions": ["Attachments and Obsidian links are not transferred or synchronized."],
+            }} for source in sources
         ])
 
 

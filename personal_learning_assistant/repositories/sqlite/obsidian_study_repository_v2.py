@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import sqlite3
+import hashlib
 from urllib.parse import quote
 
 from personal_learning_assistant.domain.study_item_models import StudyItemIdentity
@@ -45,7 +46,11 @@ def _open_database(path, *, writable):
         ) from error
 
 
-def _identity(note_identity, source_hash=None):
+def _identity(note_identity, source_hash=None, vault_identity=""):
+    # Direct adapter callers must also be isolated. Canonical source UUIDs and
+    # path digests already include ownership; bare legacy hints do not.
+    if str(note_identity).startswith("assistant:"):
+        note_identity = "scoped:" + hashlib.sha256((str(vault_identity) + "\0" + str(note_identity)).encode()).hexdigest()
     return StudyItemIdentity(
         kind="obsidian_note",
         item_id=str(note_identity),
@@ -113,11 +118,10 @@ class SQLiteObsidianStudyRepositoryV2:
             raise
 
     def reading_history(self, *, vault_identity, note_identity, recent_limit=5):
-        del vault_identity
         con, repo = self._repo(writable=False)
         try:
             return repo.reading_history(
-                _identity(note_identity), recent_limit=recent_limit
+                _identity(note_identity, vault_identity=vault_identity), recent_limit=recent_limit
             )
         except StudyInteractionRepositoryError as error:
             raise _translate(error) from error
@@ -128,13 +132,12 @@ class SQLiteObsidianStudyRepositoryV2:
         self, *, session_id, vault_identity, note_identity, relative_path,
         source_hash, now
     ):
-        del vault_identity
         con, repo = self._repo(writable=True)
         try:
             row = repo.create_session(
                 session_id=session_id,
-                identity=_identity(note_identity, source_hash),
-                locator={"relative_path": relative_path},
+                identity=_identity(note_identity, source_hash, vault_identity),
+                locator={"relative_path": relative_path, "vault_identity": vault_identity},
                 now=now,
             )
             return _session_view(row)
@@ -147,13 +150,12 @@ class SQLiteObsidianStudyRepositoryV2:
         self, *, session_id, vault_identity, note_identity, source_hash,
         sequence, delta_seconds, scroll_bps, now
     ):
-        del vault_identity
         con, repo = self._repo(writable=True)
         try:
             return _session_view(
                 repo.heartbeat(
                     session_id=session_id,
-                    identity=_identity(note_identity, source_hash),
+                    identity=_identity(note_identity, source_hash, vault_identity),
                     sequence=sequence,
                     delta_seconds=delta_seconds,
                     scroll_bps=scroll_bps,
@@ -169,13 +171,12 @@ class SQLiteObsidianStudyRepositoryV2:
         self, *, session_id, vault_identity, note_identity, source_hash,
         sequence, delta_seconds, scroll_bps, now, replayed_delta_seconds=None
     ):
-        del vault_identity
         con, repo = self._repo(writable=True)
         try:
             return _session_view(
                 repo.end_session(
                     session_id=session_id,
-                    identity=_identity(note_identity, source_hash),
+                    identity=_identity(note_identity, source_hash, vault_identity),
                     sequence=sequence,
                     delta_seconds=delta_seconds,
                     scroll_bps=scroll_bps,
@@ -193,10 +194,9 @@ class SQLiteObsidianStudyRepositoryV2:
             con.close()
 
     def list_entries(self, *, vault_identity, note_identity):
-        del vault_identity
         con, repo = self._repo(writable=False)
         try:
-            return repo.list_entries(_identity(note_identity))
+            return repo.list_entries(_identity(note_identity, vault_identity=vault_identity))
         except StudyInteractionRepositoryError as error:
             raise _translate(error) from error
         finally:
@@ -206,15 +206,14 @@ class SQLiteObsidianStudyRepositoryV2:
         self, *, entry_id, vault_identity, note_identity, relative_path,
         entry_type, entry_text, now, source_hash=None
     ):
-        del vault_identity
         con, repo = self._repo(writable=True)
         try:
             return repo.add_entry(
                 entry_id=entry_id,
-                identity=_identity(note_identity, source_hash),
+                identity=_identity(note_identity, source_hash, vault_identity),
                 entry_type=entry_type,
                 entry_text=entry_text,
-                locator={"relative_path": relative_path},
+                locator={"relative_path": relative_path, "vault_identity": vault_identity},
                 now=now,
             )
         except StudyInteractionRepositoryError as error:
@@ -225,12 +224,11 @@ class SQLiteObsidianStudyRepositoryV2:
     def archive_entry(
         self, *, entry_id, vault_identity, note_identity, now
     ):
-        del vault_identity
         con, repo = self._repo(writable=True)
         try:
             return repo.archive_entry(
                 entry_id=entry_id,
-                identity=_identity(note_identity),
+                identity=_identity(note_identity, vault_identity=vault_identity),
                 now=now,
             )
         except StudyInteractionRepositoryError as error:

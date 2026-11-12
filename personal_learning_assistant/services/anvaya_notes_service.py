@@ -694,6 +694,13 @@ class AnvayaNotesService:
         for payload in payloads:
             record = self._base_record(payload, note_kind="typed")
             record["body"] = _resolve_upload_directives(_body(payload.get("body")), ())
+            provenance = payload.get("copied_from")
+            if provenance is not None:
+                # Source provenance is captured at copy creation, never refreshed
+                # by later edits to this independent native note.
+                if not isinstance(provenance, dict) or provenance.get("owner") != "obsidian" or not re.fullmatch(r"[0-9a-f]{64}", str(provenance.get("sha256") or "")):
+                    raise AnvayaNotesValidationError("A valid source version is required for a copied note.")
+                record["copied_from"] = {key: provenance[key] for key in ("owner", "connection_id", "source_item_id", "relative_path", "sha256", "imported_at", "exclusions") if key in provenance}
             records.append(record)
         try:
             stored = self.repository.create_notes(records)

@@ -2522,7 +2522,10 @@ def planning_tasks():
 def planning_tasks_create():
     service = _operational_planner_service()
     try:
-        service.create_task(
+        created = service.create_task(
+            course_id=request.form.get("course_id") or None,
+            topic_id=request.form.get("topic_id") or None,
+            assessment_id=request.form.get("assessment_id") or None,
             title=request.form.get("title", ""),
             description=request.form.get("description", ""),
             priority=request.form.get("priority", "P1"),
@@ -2532,7 +2535,18 @@ def planning_tasks_create():
             preferred_window=request.form.get("preferred_window", ""),
             rollover_policy=request.form.get("rollover_policy", ""),
         )
-        return redirect(url_for("web.planning_tasks", created="1"), code=303)
+        selected_status = request.form.get('filter_status', '')
+        selected_course = request.form.get('filter_course_id', '')
+        selected_priority = request.form.get('filter_priority', '')
+        if selected_status not in ('', 'all', 'backlog'):
+            selected_status = 'all'
+        if selected_course and selected_course != created.get('course_id'):
+            selected_course = ''
+        if selected_priority and selected_priority != created.get('priority'):
+            selected_priority = ''
+        return redirect(url_for("web.planning_tasks", created="1", status=selected_status,
+                                priority=selected_priority, course_id=selected_course,
+                                _anchor='task-'+created['id']), code=303)
     except (
         OperationalPlannerWebValidationError,
         OperationalPlannerWebNotFoundError,
@@ -2566,6 +2580,7 @@ def planning_task_update(task_id):
     try:
         _operational_planner_service().update_task(
             task_id,
+            **({'expected_revision': request.form.get('expected_revision', '')} if current_app.config.get('PAO_V3_ENABLED') else {}),
             title=request.form.get("title", ""),
             description=request.form.get("description", ""),
             priority=request.form.get("priority", "P1"),
@@ -2575,7 +2590,8 @@ def planning_task_update(task_id):
             preferred_window=request.form.get("preferred_window", ""),
             rollover_policy=request.form.get("rollover_policy", ""),
         )
-        return redirect(url_for("web.planning_tasks", updated="1"), code=303)
+        return redirect(url_for("web.planning_tasks", updated="1", status=request.form.get('filter_status',''),
+                            priority=request.form.get('filter_priority',''),course_id=request.form.get('filter_course_id',''),_anchor='task-'+task_id), code=303)
     except (
         OperationalPlannerWebValidationError,
         OperationalPlannerWebNotFoundError,
@@ -2588,17 +2604,54 @@ def planning_task_update(task_id):
 @web_blueprint.post("/planning/tasks/<task_id>/status")
 def planning_task_transition(task_id):
     try:
-        _operational_planner_service().transition_task(
-            task_id, request.form.get("status", "")
-        )
-        return redirect(url_for("web.planning_tasks", updated="1"), code=303)
+        if current_app.config.get('PAO_V3_ENABLED'):
+            _pao_execution().command(task_id, expected_revision=request.form.get('expected_revision'),
+                command_id=request.form.get('command_id'), status=request.form.get('status', ''))
+        else:
+            _operational_planner_service().transition_task(task_id, request.form.get("status", ""))
+        return redirect(url_for("web.planning_tasks", updated="1", status=request.form.get('filter_status',''),
+                            priority=request.form.get('filter_priority',''),course_id=request.form.get('filter_course_id',''),_anchor='task-'+task_id), code=303)
     except (
-        OperationalPlannerWebValidationError,
-        OperationalPlannerWebNotFoundError,
-        OperationalPlannerWebConflictError,
-        OperationalPlannerWebUnavailableError,
+        OperationalPlannerWebValidationError, OperationalPlannerWebNotFoundError,
+        OperationalPlannerWebConflictError, OperationalPlannerWebUnavailableError,
     ) as error:
         return str(error), _planner_error_status(error)
+    except Exception as error:
+        return _pao_execution_error(error)
+
+
+def _pao_execution():
+    from personal_learning_assistant.services.planner_execution_service import PlannerExecutionService
+    service = _operational_planner_service()
+    return PlannerExecutionService(service.tasks.repository.database_path)
+
+
+def _pao_execution_error(error):
+    from personal_learning_assistant.services.operational_task_service import (
+        OperationalTaskConflictError, OperationalTaskValidationError, OperationalTaskNotFoundError,
+    )
+    if isinstance(error, OperationalTaskConflictError):
+        return str(error), 409
+    if isinstance(error, OperationalTaskValidationError):
+        return str(error), 400
+    if isinstance(error, OperationalTaskNotFoundError):
+        return str(error), 404
+    current_app.logger.warning('PAO execution unavailable (%s).', type(error).__name__)
+    return 'PAO work recording is unavailable. Check activation and refresh.', 503
+
+
+@web_blueprint.post('/planning/tasks/<task_id>/progress')
+def planning_task_progress(task_id):
+    if not current_app.config.get('PAO_V3_ENABLED'):
+        return 'Activate PAO before recording partial work.', 409
+    try:
+        _pao_execution().command(task_id, expected_revision=request.form.get('expected_revision'),
+            command_id=request.form.get('command_id'), occurred_at=request.form.get('occurred_at'),
+            actual_minutes=request.form.get('actual_minutes'), note=request.form.get('note', ''),
+            supersedes_id=request.form.get('supersedes_id') or None, agenda_item_id=request.form.get('agenda_item_id') or None)
+        return redirect(url_for('web.planning_tasks', status=request.form.get('filter_status',''), priority=request.form.get('filter_priority',''),course_id=request.form.get('filter_course_id',''), _anchor='task-'+task_id), code=303)
+    except Exception as error:
+        return _pao_execution_error(error)
 
 
 @web_blueprint.get("/planning/month-plan")
@@ -2752,12 +2805,20 @@ def planning_day_approve(agenda_date):
 @web_blueprint.post("/planning/day/<agenda_date>/items/<item_id>")
 def planning_day_item_update(agenda_date, item_id):
     try:
-        _operational_planner_service().update_day_item(
-            agenda_date,
-            item_id,
-            status=request.form.get("status", ""),
-            actual_minutes=request.form.get("actual_minutes", ""),
-        )
+        service = _operational_planner_service()
+        handled = False
+        if current_app.config.get('PAO_V3_ENABLED'):
+            agenda = service.daily.agendas.get_agenda(agenda_date)
+            item = next((i for i in agenda['items'] if i['id'] == item_id), None) if agenda else None
+            if item and item['source_type'] == 'planner_task' and request.form.get('status') in {'completed', 'in_progress'}:
+                _pao_execution().command(item['source_id'], expected_revision=request.form.get('expected_revision'),
+                    command_id=request.form.get('command_id'), occurred_at=request.form.get('occurred_at'),
+                    status='completed' if request.form.get('status') == 'completed' else None,
+                    agenda_item_id=item_id, actual_minutes=request.form.get('actual_minutes'))
+                handled = True
+        if not handled:
+            service.update_day_item(agenda_date, item_id, status=request.form.get("status", ""),
+                                    actual_minutes=request.form.get("actual_minutes", ""))
         return redirect(url_for("web.planning_day", agenda_date=agenda_date), code=303)
     except (
         OperationalPlannerWebValidationError,
@@ -2766,6 +2827,8 @@ def planning_day_item_update(agenda_date, item_id):
         OperationalPlannerWebUnavailableError,
     ) as error:
         return str(error), _planner_error_status(error)
+    except Exception as error:
+        return _pao_execution_error(error)
 
 
 @web_blueprint.post("/planning/day/<agenda_date>/close")
@@ -2820,6 +2883,8 @@ def planning_weekly_review(anchor_date):
 def planning_weekly_review_save(anchor_date):
     try:
         payload = {
+            "evidence_fingerprint": request.form.get("evidence_fingerprint", ""),
+            "expected_revision": request.form.get("expected_revision", ""),
             "what_worked": request.form.get("what_worked", ""),
             "what_failed": request.form.get("what_failed", ""),
             "remove_next_week": request.form.get("remove_next_week", ""),

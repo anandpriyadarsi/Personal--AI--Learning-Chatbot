@@ -157,12 +157,13 @@ class UnifiedSearchService:
     def _obsidian_results(self, query, interaction, *, limit):
         results = []
         try:
-            workspace = self._obsidian().workspace(query)
+            obsidian = self._obsidian()
+            workspace = obsidian.workspace(query)
             for row in tuple(workspace.get("notes", ()) or ())[: int(limit)]:
                 path = str(row.get("relative_path") or "").strip()
                 if not path:
                     continue
-                note = self._obsidian().note_preview(path)
+                note = obsidian.validate_note_version(path) if hasattr(obsidian, "validate_note_version") else obsidian.note_preview(path)
                 identity = obsidian_identity(note)
                 history = interaction.history(identity)
                 excerpt = (

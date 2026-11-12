@@ -150,24 +150,15 @@ def get_obsidian_markdown_files():
     if not vault_path:
         return []
 
-    markdown_files = []
-
-    for root, dirs, files in os.walk(vault_path):
-        dirs[:] = [
-            folder
-            for folder in dirs
-            if folder not in DEFAULT_EXCLUDED_FOLDERS
-        ]
-
-        for file_name in files:
-            if not file_name.lower().endswith(".md"):
-                continue
-
-            markdown_files.append(
-                os.path.join(root, file_name)
-            )
-
-    return sorted(markdown_files)
+    # Reuse the safe scanner: ingestion cannot follow a linked source that the
+    # interactive reader refuses. Scanner enforces file/count/byte budgets.
+    from personal_learning_assistant.repositories.filesystem.obsidian_workspace_reader import ObsidianWorkspaceReader
+    try:
+        reader = ObsidianWorkspaceReader(vault_path)
+        scan = reader.scan()
+        return sorted(str(reader._resolve_markdown(note.relative_path)[0]) for note in scan.notes)
+    except (OSError, RuntimeError, ValueError):
+        return []
 
 
 def get_vault_stats():

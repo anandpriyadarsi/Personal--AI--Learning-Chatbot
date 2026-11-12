@@ -15,7 +15,9 @@ def _service(tmp_path):
 
     path = tmp_path / "weekly.db"
     apply_migrations(path)
+    from pathlib import Path
     c = sqlite3.connect(path)
+    c.executescript(Path('personal_learning_assistant/repositories/sqlite/optional_migrations/0018_pao_execution.sql').read_text())
     c.execute(
         "INSERT INTO daily_agendas "
         "(id,agenda_date,day_mode,status,generated_at,created_at,updated_at) "
@@ -26,6 +28,8 @@ def _service(tmp_path):
         "(id,agenda_id,ordinal,item_kind,source_type,title,priority,planned_minutes,actual_minutes,status,created_at,updated_at) "
         "VALUES ('i1','d1',1,'task','planner_task','Task','P0',60,50,'completed','x','x')"
     )
+    c.execute("UPDATE daily_agendas SET approved_at='2026-10-11T12:00:00Z'")
+    c.execute("UPDATE daily_agenda_items SET starts_at='2026-10-12T09:00:00Z',ends_at='2026-10-12T10:00:00Z'")
     c.commit()
     c.close()
     return WeeklyReviewService(SQLiteWeeklyReviewRepository(path)), path

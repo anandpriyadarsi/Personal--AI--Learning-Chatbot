@@ -352,7 +352,8 @@ class SQLiteMonthPlanImportRepository:
                         "course_id=excluded.course_id,estimated_minutes=excluded.estimated_minutes,"
                         "due_on=excluded.due_on,preferred_day=excluded.preferred_day,"
                         "preferred_window=excluded.preferred_window,"
-                        "rollover_policy=excluded.rollover_policy,status=excluded.status,"
+                        "rollover_policy=excluded.rollover_policy,"
+                        "status=CASE WHEN planner_tasks.status IN ('completed','archived','in_progress','skipped') OR planner_tasks.completed_at IS NOT NULL OR planner_tasks.archived_at IS NOT NULL THEN planner_tasks.status ELSE excluded.status END,"
                         "updated_at=excluded.updated_at",
                         (
                             item["id"], import_row["id"], item["external_id"], item["title"],

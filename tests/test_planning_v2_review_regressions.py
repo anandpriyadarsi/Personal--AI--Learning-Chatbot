@@ -41,7 +41,7 @@ def test_approval_requires_signed_same_origin_intent(proposal_app):
     assert client.post('/planning/day/2026-10-12/approve').status_code==400
     page = client.get('/planning/day/2026-10-12').text
     token = re.search(r'name="approval_token" value="([^"]+)"',page).group(1)
-    assert client.post('/planning/day/2026-10-12/approve',data={'approval_token':token},headers={'Origin':'https://other.example'}).status_code==400
+    assert client.post('/planning/day/2026-10-12/approve',data={'approval_token':token},headers={'Origin':'https://other.example'}).status_code==403
     assert client.post('/planning/day/2026-10-13/approve',data={'approval_token':token}).status_code==400
     assert client.post('/planning/day/2026-10-12/approve',data={'approval_token':token}).status_code==303
 
@@ -56,7 +56,11 @@ def test_completed_day_displays_recorded_actual_effort(proposal_app):
     import sqlite3
     with sqlite3.connect(path) as c:
         ident=c.execute("SELECT id FROM daily_agenda_items WHERE item_kind='task'").fetchone()[0]
-    client.post(f'/planning/day/2026-10-12/items/{ident}',data={'status':'completed','actual_minutes':'35'})
+    page=client.get('/planning/day/2026-10-12').text
+    form=re.search(r'<form[^>]+action="/planning/day/2026-10-12/items/'+ident+r'"[^>]*>(.*?)</form>', page, re.S).group(1)
+    command=dict(re.findall(r'name="([^"]+)" value="([^"]*)"', form))
+    command.update(status='completed',actual_minutes='35')
+    assert client.post(f'/planning/day/2026-10-12/items/{ident}',data=command).status_code==303
     html=client.get('/planning/day/2026-10-12').text
     assert 'recorded 35 min' in html
-    assert 'aria-label="Actual minutes for ' in html
+    assert 'aria-label="Minutes in this session for ' in html

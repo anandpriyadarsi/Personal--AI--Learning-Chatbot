@@ -145,22 +145,36 @@ def register_academic_evidence(app):
 
     @bp.post('/academic-evidence/learning/<module_id>/<int:revision>/study-intent')
     def study_intent(module_id,revision):
-        require(set(request.form)=={'intent_token'} and len(request.form.getlist('intent_token'))==1,'Unsupported study intent.')
+        allowed={'intent_token','title','estimated_minutes','due_on'}
+        require('intent_token' in request.form and set(request.form)<=allowed and
+            all(len(request.form.getlist(k))==1 for k in request.form),'Unsupported study intent.')
         payload=verified(request.form['intent_token'],module_id,revision,'study')
         _,view,preview,_,_=context(module_id,revision)
         require(view.manual_task_allowed and payload.get('fingerprint')==view.fingerprint,
             'Academic context changed. Preview the study choice again.',409)
+        title=str(request.form.get('title', 'Manual practice: '+view.module_title)).strip()
+        require(1<=len(title)<=300,'Choose a task title of 1–300 characters.')
+        try: minutes=int(request.form.get('estimated_minutes',payload['minutes']))
+        except (ValueError,TypeError) as error:raise PackageError('Choose 1–180 practice minutes.') from error
+        integer(minutes,1,180)
+        due_on=str(request.form.get('due_on','')).strip()
+        if due_on:
+            from datetime import date
+            try: require(date.fromisoformat(due_on).isoformat()==due_on,'Choose an exact due date.')
+            except ValueError as error:raise PackageError('Choose an exact due date.') from error
         from personal_learning_assistant.services.operational_task_service import OperationalTaskConflictError, OperationalTaskValidationError, OperationalTaskUnavailableError
         from .routes import _operational_planner_service
         try:
             owner=_operational_planner_service().tasks
             mapping=preview['mapping']
             owner.create_manual_study_task(intent_id=payload['intent_id'],
-                title=('Manual practice: '+view.module_title)[:300],
+                title=title,
                 description='Student-selected low-stakes practice. Module '+module_id+' revision '+str(revision)+
                     '; source SHA256 '+view.source_sha256+'. Independence and mastery remain unknown.',
                 course_id=view.course_id,topic_id=view.topic_id,topic_name=mapping['topic_name'],
-                estimated_minutes=payload['minutes'])
+                estimated_minutes=minutes, due_on=due_on or None,
+                source_refs=({'owner':'learning','kind':'module','identifier':module_id,'revision_key':str(revision),
+                              'sha256':view.source_sha256,'mapping_status':'confirmed'},))
         except OperationalTaskConflictError as error:raise PackageError(str(error),409) from error
         except OperationalTaskValidationError as error:raise PackageError(str(error),400) from error
         except (OperationalTaskUnavailableError,ZoneInfoNotFoundError) as error:

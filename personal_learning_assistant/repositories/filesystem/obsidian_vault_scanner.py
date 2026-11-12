@@ -23,6 +23,10 @@ from personal_learning_assistant.domain.obsidian_vault_models import (
 )
 
 
+MAX_NOTE_BYTES = 500_000
+MAX_VAULT_NOTES = 10_000
+MAX_VAULT_BYTES = 100 * 1024 * 1024
+
 PathLike = Union[str, os.PathLike]
 DEFAULT_EXCLUDED_FOLDERS = {
     ".obsidian",
@@ -203,25 +207,8 @@ def _metadata_strings(value) -> Tuple[str, ...]:
 
 
 def _mask_inline_code(line: str) -> str:
-    result = list(line)
-    active = False
-    tick_start = None
-    index = 0
-    while index < len(line):
-        if line[index] == "`":
-            if not active:
-                active = True
-                tick_start = index
-            else:
-                for pos in range(tick_start, index + 1):
-                    result[pos] = " "
-                active = False
-                tick_start = None
-        index += 1
-    if active and tick_start is not None:
-        for pos in range(tick_start, len(result)):
-            result[pos] = " "
-    return "".join(result)
+    # CommonMark code delimiters must have matching backtick-run lengths.
+    return re.sub(r"(?<!`)(`+)([^\r\n]+?)\1(?!`)", lambda match: " " * len(match.group(0)), line)
 
 
 def _split_wiki_target(raw_target: str):
@@ -431,7 +418,7 @@ class ObsidianVaultScanner:
         if not key or "/" in key or "\\" in key:
             raise ValueError("vault_key must be one non-empty logical key")
         self.vault_key = key
-        self.vault_root = Path(vault_root).resolve(strict=False)
+        self.vault_root = Path(vault_root).absolute()
         self.vault_name = str(vault_name or self.vault_root.name or key).strip()
         self.excluded_folders = set(str(item) for item in excluded_folders)
 
@@ -452,6 +439,8 @@ class ObsidianVaultScanner:
         ignored_symlinks = 0
         path_keys = {}
         assistant_ids = {}
+        total_bytes = 0
+        visited_notes = 0
 
         for current_root, dir_names, file_names in os.walk(
             str(self.vault_root), topdown=True, followlinks=False
@@ -477,8 +466,21 @@ class ObsidianVaultScanner:
                     continue
                 try:
                     before = path.stat()
-                    raw = path.read_bytes()
-                    after = path.stat()
+                    visited_notes += 1
+                    if visited_notes > MAX_VAULT_NOTES:
+                        raise ObsidianVaultScannerError("Vault exceeds the 10,000 note scan limit; choose a smaller folder.")
+                    if before.st_size > MAX_NOTE_BYTES or total_bytes + before.st_size > MAX_VAULT_BYTES:
+                        issues.append(VaultScanIssue("blocking", "source_read_budget", path.relative_to(self.vault_root).as_posix(), "Markdown exceeds the configured safe read budget"))
+                        continue
+                    descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+                    with os.fdopen(descriptor, "rb") as stream:
+                        before = os.fstat(stream.fileno())
+                        raw = stream.read(MAX_NOTE_BYTES + 1)
+                        after = os.fstat(stream.fileno())
+                    total_bytes += len(raw)
+                    if len(raw) > MAX_NOTE_BYTES or total_bytes > MAX_VAULT_BYTES:
+                        issues.append(VaultScanIssue("blocking", "source_read_budget", path.relative_to(self.vault_root).as_posix(), "Markdown exceeds the configured safe read budget"))
+                        continue
                 except OSError as error:
                     relative = "<unavailable>"
                     try:

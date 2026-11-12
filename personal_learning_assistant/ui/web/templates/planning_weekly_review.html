@@ -7,13 +7,22 @@
 {% if error_message %}<section class="notice-panel" role="alert"><p>{{ error_message }}</p></section>{% endif %}
 <section class="metric-grid">
   <article class="metric-card"><span class="metric-label">Completed</span><strong>{{ workspace.evidence.completed_items }}/{{ workspace.evidence.planned_items }}</strong></article>
-  <article class="metric-card"><span class="metric-label">Focus</span><strong>{{ workspace.evidence.actual_focus_minutes }}/{{ workspace.evidence.planned_focus_minutes }} min</strong></article>
+  <article class="metric-card"><span class="metric-label">Focus</span><strong>{{ workspace.evidence.actual_focus_minutes if workspace.evidence.actual_focus_minutes is not none else 'Not recorded' }}/{{ workspace.evidence.planned_focus_minutes }} min</strong></article>
   <article class="metric-card"><span class="metric-label">Carry-forward</span><strong>{{ workspace.evidence.carry_forward_count }}</strong></article>
   <article class="metric-card"><span class="metric-label">Missed deadlines</span><strong>{{ workspace.evidence.missed_deadline_count }}</strong></article>
 </section>
+<p>Approved, allocated task and study occurrences only. Time is self-reported effort, not mastery.</p>
+{% if workspace.evidence.legacy_snapshot %}<p role="status">Legacy snapshot · coverage unavailable.</p>{% else %}
+<p>Logging coverage: {{ workspace.evidence.recorded_items }}/{{ workspace.evidence.planned_items }}{% if not workspace.evidence.planned_items %} · No eligible sessions{% endif %}. As of {{ workspace.evidence.as_of }} · {{ workspace.evidence.scope.timezone }} · {{ workspace.evidence.policy_version }}.</p>
+<details><summary>Evidence definitions and sources</summary><p>Unallocated estimates: {{ workspace.evidence.unallocated_estimate_minutes }} min. Deadline outcomes include due tasks even when no agenda exists.</p>{% for name, metric in workspace.evidence.metrics.items() %}<p>{{ name|replace('_',' ') }} · {{ metric.status }} · {{ metric.source_refs|join(', ') }}</p>{% endfor %}</details>
+{% endif %}
+{% if workspace.evidence.revision_queue %}<section class="dashboard-panel"><h3>Source-linked study commitments</h3><p>Dates you entered; check the source version when you open it.</p><ul>{% for item in workspace.evidence.revision_queue %}<li><a href="{{ url_for('web.planning_tasks',status='all',_anchor='task-'+item.task_id) }}">{{ item.title }}</a> · {{ item.next_review_on }}</li>{% endfor %}</ul></section>{% endif %}
+{% if workspace.evidence.metrics is defined and workspace.evidence.metrics.weekly_comparison.value %}<p>Compared with the previous closed week: {{ workspace.evidence.metrics.weekly_comparison.value.scheduled_minutes_delta }} scheduled minutes and {{ workspace.evidence.metrics.weekly_comparison.value.actual_minutes_delta }} self-reported minutes. Same policy and complete recording coverage.</p>{% endif %}
 {% set review = workspace.review or {} %}
 <section class="dashboard-panel">
-<form method="post" action="{{ url_for('web.planning_weekly_review_save', anchor_date=workspace.week_end) }}" class="planner-form">
+<form method="post" action="{{ url_for('web.planning_weekly_review_save', anchor_date=workspace.week_end) }}" class="planner-form"><input type="hidden" name="pao_token" value="{{ pao_command_token('planning') }}">
+  <input type="hidden" name="expected_revision" value="{{ review.revision or 0 }}">
+  <input type="hidden" name="evidence_fingerprint" value="{{ workspace.evidence_fingerprint }}">
   <label class="planner-span-2">What worked?<textarea name="what_worked" rows="3">{{ review.what_worked or '' }}</textarea></label>
   <label class="planner-span-2">What failed?<textarea name="what_failed" rows="3">{{ review.what_failed or '' }}</textarea></label>
   <label class="planner-span-2">What should be removed?<textarea name="remove_next_week" rows="2">{{ review.remove_next_week or '' }}</textarea></label>

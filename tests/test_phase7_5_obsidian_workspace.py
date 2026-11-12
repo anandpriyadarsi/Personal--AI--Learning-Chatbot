@@ -579,7 +579,9 @@ def test_obsidian_preview_route_escapes_untrusted_markdown_and_maps_errors():
 
 def test_obsidian_configuration_posts_use_303_prg():
     service = FakeWebService()
-    client = _app_with_service(service).test_client()
+    app = _app_with_service(service)
+    client = app.test_client()
+    client.environ_base["HTTP_X_PAO_TOKEN"] = app.extensions["pao_command_signer"].dumps({"scope": "obsidian"})
 
     response = client.post("/obsidian/connect", data={"vault_path": "C:/Vault"})
     assert response.status_code == 303
@@ -595,7 +597,9 @@ def test_obsidian_configuration_posts_use_303_prg():
 
 def test_obsidian_configuration_validation_error_is_safe_400():
     service = FakeWebService()
-    client = _app_with_service(service).test_client()
+    app = _app_with_service(service)
+    client = app.test_client()
+    client.environ_base["HTTP_X_PAO_TOKEN"] = app.extensions["pao_command_signer"].dumps({"scope": "obsidian"})
     response = client.post("/obsidian/connect", data={"vault_path": ""})
     assert response.status_code == 400
     assert "SECRET" not in response.get_data(as_text=True)

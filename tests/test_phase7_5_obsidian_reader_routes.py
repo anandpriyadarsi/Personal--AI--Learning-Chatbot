@@ -155,7 +155,9 @@ def _client(service):
             "OBSIDIAN_STUDY_SERVICE_FACTORY": lambda: service,
         }
     )
-    return app.test_client()
+    client = app.test_client()
+    client.environ_base["HTTP_X_PAO_TOKEN"] = app.extensions["pao_command_signer"].dumps({"scope": "obsidian"})
+    return client
 
 
 def _client_with_study_factory(factory):
@@ -165,7 +167,9 @@ def _client_with_study_factory(factory):
             "OBSIDIAN_STUDY_SERVICE_FACTORY": factory,
         }
     )
-    return app.test_client()
+    client = app.test_client()
+    client.environ_base["HTTP_X_PAO_TOKEN"] = app.extensions["pao_command_signer"].dumps({"scope": "obsidian"})
+    return client
 
 
 def test_reader_get_renders_markdown_by_default_and_escaped_collapsed_source():
@@ -553,7 +557,9 @@ def _real_client(tmp_path, markdown):
             "OBSIDIAN_STUDY_SERVICE_FACTORY": lambda: study,
         }
     )
-    return app.test_client(), note_path, database_path, config
+    client = app.test_client()
+    client.environ_base["HTTP_X_PAO_TOKEN"] = app.extensions["pao_command_signer"].dumps({"scope": "obsidian"})
+    return client, note_path, database_path, config
 
 
 def test_real_reader_get_is_pure_and_xss_safe(tmp_path):
@@ -747,6 +753,7 @@ def test_reader_script_final_flush_includes_time_accrued_during_in_flight_heartb
           };
           const document = {
             readyState: "complete",
+            querySelector: () => ({content: "test-scoped-command-token"}),
             visibilityState: "visible",
             hasFocus: () => true,
             getElementById: (id) => id === "obsidian-reader-data" ? data : null,

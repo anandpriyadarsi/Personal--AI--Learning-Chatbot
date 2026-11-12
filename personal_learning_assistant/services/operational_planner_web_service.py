@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 import hashlib
 import json
 from zoneinfo import ZoneInfoNotFoundError
@@ -32,6 +32,7 @@ from personal_learning_assistant.services.operational_calendar_service import (
 )
 from personal_learning_assistant.services.operational_task_service import (
     OperationalTaskError,
+    OperationalTaskConflictError,
     OperationalTaskNotFoundError,
     OperationalTaskValidationError,
     build_operational_task_service,
@@ -85,6 +86,7 @@ def _translate(error):
         error,
         (
             MonthPlanImportConflictError,
+            OperationalTaskConflictError,
             OperationalCalendarConflictError,
             DailyAgendaConflictError,
             WeeklyReviewConflictError,
@@ -174,9 +176,9 @@ class OperationalPlannerWebService:
 
     def day_view(self, agenda_date):
         try:
-            fingerprint=self.daily.agendas.planning_fingerprint()
+            fingerprint=self.daily.agendas.planning_fingerprint(agenda_date)
             day=self.daily.day_view(agenda_date)
-            if fingerprint!=self.daily.agendas.planning_fingerprint():
+            if fingerprint!=self.daily.agendas.planning_fingerprint(agenda_date):
                 raise OperationalPlannerWebConflictError("Planner changed during review. Open the day again.")
             return {**day,'planning_fingerprint':fingerprint}
         except DailyAgendaError as error:
@@ -184,37 +186,57 @@ class OperationalPlannerWebService:
         except DailyAgendaRepositoryError as error:
             raise OperationalPlannerWebUnavailableError("Planner review storage is unavailable.") from error
 
-    def _proposal_daily(self, agenda_date, start, end, *, local_timezone="Asia/Kolkata", now=None, break_minutes=10):
+    def _proposal_daily(self, agenda_date, start, end, *, windows=None, local_timezone="Asia/Kolkata", now=None, break_minutes=10):
         try:
-            datetime.strptime(agenda_date, "%Y-%m-%d")
-            left = datetime.strptime(start, "%H:%M")
-            right = datetime.strptime(end, "%H:%M")
-            if left >= right or left.strftime("%H:%M") != start or right.strftime("%H:%M") != end:
-                raise ValueError("Invalid availability")
-            return DailyAgendaService(
+            target = datetime.strptime(agenda_date, "%Y-%m-%d").date()
+            windows = list(windows) if windows is not None else [(start, end)]
+            if not windows or len(windows) > 12:
+                raise ValueError('Choose between one and twelve windows')
+            parsed = []
+            for left_text, right_text in windows:
+                left, right = datetime.strptime(left_text, '%H:%M'), datetime.strptime(right_text, '%H:%M')
+                if left >= right or left.strftime('%H:%M') != left_text or right.strftime('%H:%M') != right_text:
+                    raise ValueError('Invalid availability')
+                parsed.append((left_text, right_text))
+            parsed.sort()
+            if any(a[1] > b[0] for a, b in zip(parsed, parsed[1:])):
+                raise ValueError('Overlapping windows')
+            daily = DailyAgendaService(
                 self.daily.agendas, self.daily.tasks, self.daily.calendar_repository, self.daily.calendar,
-                now=now or self.daily._now, free_windows={agenda_date: [(start, end)]},
+                now=now or self.daily._now, free_windows={agenda_date: parsed},
                 local_timezone=local_timezone, break_minutes=break_minutes,
             )
+            clock = datetime.fromisoformat(str(daily._now()).replace('Z', '+00:00'))
+            if clock.tzinfo is None:
+                raise ValueError('Clock requires timezone')
+            clock = clock.astimezone(daily.local_timezone)
+            if target < clock.date() or (target == clock.date() and any(end <= clock.strftime('%H:%M') for _, end in parsed)):
+                raise ValueError('Availability has elapsed')
+            # Slots have no fold/offset column; reject daylight-saving transitions.
+            from datetime import timedelta
+            midnight = datetime.combine(target, datetime.min.time(), daily.local_timezone)
+            if midnight.utcoffset() != (midnight + timedelta(days=1)).utcoffset():
+                raise ValueError('Ambiguous local day')
+            return daily
         except (TypeError, ValueError, ZoneInfoNotFoundError, DailyAgendaValidationError) as error:
-            raise OperationalPlannerWebValidationError("Enter a valid date and availability window (start before end).") from error
+            raise OperationalPlannerWebValidationError("Enter valid, non-overlapping availability windows that have not elapsed.") from error
 
     @staticmethod
     def _proposal_hash(preview):
         # Creation timestamps are not scheduling decisions; all other fields bind the preview.
-        semantic = {key: value for key, value in preview.items() if key not in {"items", "tasks", "study", "fixed"}}
+        semantic = {key: value for key, value in preview.items() if key not in {"items", "tasks", "study", "fixed", "review_needed"}}
         semantic["items"] = [
             {key: value for key, value in item.items() if key not in {"created_at", "updated_at"}}
             for item in preview["items"]
         ]
         return hashlib.sha256(json.dumps(semantic, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
-    def preview_proposal(self, agenda_date, start, end, *, local_timezone="Asia/Kolkata", now=None, break_minutes=10):
-        daily = self._proposal_daily(agenda_date, start, end, local_timezone=local_timezone, now=now, break_minutes=break_minutes)
+    def preview_proposal(self, agenda_date, start, end, *, windows=None, local_timezone="Asia/Kolkata", now=None, break_minutes=10):
+        daily = self._proposal_daily(agenda_date, start, end, windows=windows, local_timezone=local_timezone, now=now, break_minutes=break_minutes)
         try:
-            fingerprint = daily.agendas.planning_fingerprint()
+            fingerprint = daily.agendas.planning_fingerprint(agenda_date)
             preview = daily.preview_day(agenda_date)
-            if fingerprint != daily.agendas.planning_fingerprint():
+            if fingerprint != daily.agendas.planning_fingerprint(agenda_date):
                 raise OperationalPlannerWebConflictError("Planner changed during preview. Try again.")
             if preview["existing"] and preview["existing"]["status"] != "draft":
                 raise OperationalPlannerWebConflictError("Only an absent or draft agenda can receive a proposal.")
@@ -224,13 +246,37 @@ class OperationalPlannerWebService:
         except DailyAgendaRepositoryError as error:
             raise OperationalPlannerWebUnavailableError("Planner preview storage is unavailable.") from error
 
-    def save_proposal(self, agenda_date, start, end, *, fingerprint, semantic_hash, local_timezone="Asia/Kolkata", now=None, break_minutes=10):
-        current = self.preview_proposal(agenda_date, start, end, local_timezone=local_timezone, now=now, break_minutes=break_minutes)
+    def save_proposal(self, agenda_date, start, end, *, fingerprint, semantic_hash, windows=None, proposal_context=None, local_timezone="Asia/Kolkata", now=None, break_minutes=10):
+        if proposal_context is not None:
+            from personal_learning_assistant.repositories.sqlite.planner_proposal_repository import SQLitePlannerProposalRepository
+            store = SQLitePlannerProposalRepository(self.daily.agendas.database_path)
+            try:
+                prior = store.by_command(proposal_context['command_id'])
+            except DailyAgendaRepositoryError as error:
+                raise OperationalPlannerWebUnavailableError('Proposal persistence requires the PAO migration.') from error
+            if prior is not None:
+                if prior['date'] != agenda_date or prior['semantic_hash'] != semantic_hash:
+                    raise OperationalPlannerWebConflictError('Proposal command conflicts with its saved result.')
+                return self.daily.agendas.get_agenda(agenda_date)
+        current = self.preview_proposal(agenda_date, start, end, windows=windows, local_timezone=local_timezone, now=now, break_minutes=break_minutes)
         if current["fingerprint"] != fingerprint or current["semantic_hash"] != semantic_hash:
             raise OperationalPlannerWebConflictError("Planner changed since preview. Preview again before saving.")
-        daily = self._proposal_daily(agenda_date, start, end, local_timezone=local_timezone, now=now, break_minutes=break_minutes)
+        daily = self._proposal_daily(agenda_date, start, end, windows=windows, local_timezone=local_timezone, now=now, break_minutes=break_minutes)
+        if proposal_context is not None:
+            proposal_context = {**proposal_context,
+                'policy_version': 'explicit-availability-v1',
+                'candidate_refs': [{'kind': row['source_type'], 'id': row['source_id']}
+                                   for row in (*current['day']['items'], *current['day'].get('review_needed', ()))],
+                'review_needed': list(current['day'].get('review_needed', ())),
+                'explanation_codes': {row['source_type'] + ':' + str(row['source_id']): row.get('reason_code', 'fixed_commitment')
+                                      for row in (*current['day']['items'], *current['day'].get('review_needed', ()))},
+                'source_versions': {'planning_fingerprint': fingerprint},
+                'window_instants': [{'start': datetime.fromisoformat(agenda_date + 'T' + left).replace(tzinfo=daily.local_timezone).astimezone(timezone.utc).isoformat(),
+                                     'end': datetime.fromisoformat(agenda_date + 'T' + right).replace(tzinfo=daily.local_timezone).astimezone(timezone.utc).isoformat()}
+                                    for left, right in daily.free_windows[agenda_date]],
+            }
         try:
-            return daily.generate_day(agenda_date, expected_fingerprint=fingerprint, preview=current["day"])
+            return daily.generate_day(agenda_date, expected_fingerprint=fingerprint, preview=current["day"], proposal_context=proposal_context)
         except DailyAgendaError as error:
             raise _translate(error)
 
@@ -248,10 +294,10 @@ class OperationalPlannerWebService:
                         or proposal_context.get('timezone') != local_timezone
                         or proposal_context.get('break_minutes') != break_minutes
                         or proposal_context.get('policy') != 'explicit-availability-v1'
-                        or proposal_context.get('saved_fingerprint') != self.daily.agendas.planning_fingerprint()):
+                        or proposal_context.get('saved_fingerprint') != self.daily.agendas.planning_fingerprint(agenda_date)):
                     raise OperationalPlannerWebConflictError("Planner or availability context changed. Preview and save a fresh draft.")
                 daily = self._proposal_daily(
-                    agenda_date, proposal_context['start'], proposal_context['end'],
+                    agenda_date, proposal_context['start'], proposal_context['end'], windows=proposal_context.get('windows'),
                     local_timezone=local_timezone, now=now, break_minutes=break_minutes,
                 )
                 return daily.approve_day(agenda_date, expected_fingerprint=proposal_context['saved_fingerprint'])

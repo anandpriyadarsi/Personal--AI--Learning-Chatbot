@@ -32,6 +32,9 @@
 {% if note.open_in_obsidian_url and (not obsidian_connection or obsidian_connection.mode != "snapshot") %}<p class="microcopy">Open in Obsidian requires the app and this vault on your device. If it does not open, continue reading here.</p>{% endif %}
 {% if obsidian_connection and obsidian_connection.mode == "snapshot" %}<p class="microcopy">Reading an imported Markdown snapshot. It does not sync with Obsidian.</p>{% endif %}
 
+{% if note.identity_conflict %}<section class="notice-panel" role="alert">Duplicate assistant IDs were found. Reading is available; annotations and tracking are disabled. Resolve the conflict in your vault, then refresh the connection manifest.</section>{% endif %}
+{% if config.get('PAO_V3_ENABLED') and note.source_item_id and not note.identity_conflict %}<p><a class="button secondary-button" href="{{ url_for('pao_sources.preview',path=note.relative_path) }}">Plan a study step</a></p>{% endif %}
+<p class="microcopy">{% if note.manifest_revision %}Manifest {{ note.manifest_revision }} · {{ note.manifest_observed_at }}. {% endif %}Source SHA-256: <code>{{ note.source_hash }}</code>. <a href="{{ url_for('obsidian_connections.export_markdown', path=note.relative_path, sha256=note.source_hash) }}">Download original Markdown</a>. Download excludes attachments, plugins and companion history.</p>
 <section class="dashboard-panel obsidian-note-meta" aria-label="Note metadata">
   <div class="tag-row">
     <span class="tag">{{ note.note_type }}</span>
@@ -136,7 +139,7 @@
         {% for entry in note.companion.key_points %}
         <li>
           <p>{{ entry.entry_text }}</p>
-          <form method="post" action="{{ url_for('web.obsidian_companion_archive', entry_id=entry.id) }}">
+          <form method="post" action="{{ url_for('web.obsidian_companion_archive', entry_id=entry.id) }}"><input type="hidden" name="pao_token" value="{{ pao_command_token('obsidian') }}">
             <input type="hidden" name="path" value="{{ note.relative_path }}">
             <input type="hidden" name="source_hash" value="{{ note.source_hash }}">
             <input type="hidden" name="study_tab" value="saved">
@@ -148,7 +151,7 @@
       {% else %}
       <p class="empty-state">No saved key points yet.</p>
       {% endif %}
-      <form class="obsidian-companion-form" method="post" action="{{ url_for('web.obsidian_companion_key_point') }}">
+      <form class="obsidian-companion-form" method="post" action="{{ url_for('web.obsidian_companion_key_point') }}"><input type="hidden" name="pao_token" value="{{ pao_command_token('obsidian') }}">
         <input type="hidden" name="path" value="{{ note.relative_path }}">
         <input type="hidden" name="source_hash" value="{{ note.source_hash }}">
         <label class="form-field">
@@ -167,7 +170,7 @@
         {% for entry in note.companion.doubts %}
         <li>
           <p>{{ entry.entry_text }}</p>
-          <form method="post" action="{{ url_for('web.obsidian_companion_archive', entry_id=entry.id) }}">
+          <form method="post" action="{{ url_for('web.obsidian_companion_archive', entry_id=entry.id) }}"><input type="hidden" name="pao_token" value="{{ pao_command_token('obsidian') }}">
             <input type="hidden" name="path" value="{{ note.relative_path }}">
             <input type="hidden" name="source_hash" value="{{ note.source_hash }}">
             <input type="hidden" name="study_tab" value="doubts">
@@ -179,7 +182,7 @@
       {% else %}
       <p class="empty-state">No saved doubts yet.</p>
       {% endif %}
-      <form class="obsidian-companion-form" method="post" action="{{ url_for('web.obsidian_companion_doubt') }}">
+      <form class="obsidian-companion-form" method="post" action="{{ url_for('web.obsidian_companion_doubt') }}"><input type="hidden" name="pao_token" value="{{ pao_command_token('obsidian') }}">
         <input type="hidden" name="path" value="{{ note.relative_path }}">
         <input type="hidden" name="source_hash" value="{{ note.source_hash }}">
         <label class="form-field">
@@ -212,6 +215,7 @@
   <p class="notice-panel compact-notice">Reading-time tracking requires JavaScript. The note and Companion forms remain usable without it.</p>
 </noscript>
 
+{% if note.companion.available %}
 <div
   id="obsidian-reader-data"
   hidden
@@ -222,4 +226,6 @@
   data-end-url="{{ url_for('web.obsidian_reading_end') }}"
 ></div>
 {% endif %}
+{% endif %}
+{% if note and note.legacy_reference %}<details class="dashboard-panel"><summary>Earlier history from this source path</summary><p>Read-only records from the original qualified path. Current annotations use this source's stable identity.</p><p>{{ note.legacy_history.times_opened }} earlier opens · {{ note.legacy_history.total_active_seconds }} recorded seconds.</p>{% for entry in note.legacy_companion.key_points %}<p>Key point · {{ entry.entry_text }}</p>{% endfor %}{% for entry in note.legacy_companion.doubts %}<p>Doubt · {{ entry.entry_text }}</p>{% endfor %}</details>{% endif %}
 {% endblock %}

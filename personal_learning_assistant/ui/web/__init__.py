@@ -21,6 +21,8 @@ def create_app(config: Mapping[str, Any] | None = None) -> Flask:
     )
     app.config.from_mapping(
         TESTING=False,
+        PAO_V3_ENABLED=os.environ.get('ANVAYA_PAO_V3_ENABLED', 'false').lower() == 'true',
+        OBSIDIAN_IDENTITY_V3_ENABLED=os.environ.get('ANVAYA_OBSIDIAN_IDENTITY_V3_ENABLED', 'false').lower() == 'true',
         PRIVATE_MOBILE_MODE=os.environ.get("ANVAYA_PRIVATE_MOBILE", "false").lower() == "true",
         MOBILE_ALLOW_CLOUD_AI=os.environ.get("ANVAYA_MOBILE_ALLOW_CLOUD_AI", "false").lower() == "true",
         MOBILE_AI_DATA_ACK=os.environ.get("ANVAYA_MOBILE_AI_DATA_ACK", ""),
@@ -103,6 +105,10 @@ def create_app(config: Mapping[str, Any] | None = None) -> Flask:
     register_native_library(app)
     from .library_settings import register_library_settings
     register_library_settings(app)
+    from .pao_commands import register_pao_commands
+    register_pao_commands(app)
+    from .pao_sources import register_pao_sources
+    register_pao_sources(app)
     register_error_handlers(app)
     from .library_rename import register_library_rename
     register_library_rename(app)
