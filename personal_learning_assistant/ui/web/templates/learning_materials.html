@@ -28,7 +28,7 @@
     {% if not materials.folder_id %}
       {% if materials.mit_folder %}
         <a class="ls-mit-feature" href="{{ url_for('learning.materials',folder_id=materials.mit_folder.id) }}">
-          <span class="ls-material-icon" aria-hidden="true">▣</span>
+          <span class="ls-material-icon" aria-hidden="true">📁</span>
           <span><strong>MIT Course Materials</strong><small>Shared collection · uses the actual Library folder</small></span>
           <span aria-hidden="true">→</span>
         </a>
@@ -47,10 +47,12 @@
         <h2>Folders</h2>
         <div class="ls-folder-grid">
           {% for folder in materials.folders %}
+          {% if not materials.mit_folder or materials.folder_id or folder.id != materials.mit_folder.id %}
           <a class="ls-folder-tile" href="{{ url_for('learning.materials',folder_id=folder.id) }}">
-            <span class="ls-material-icon" aria-hidden="true">▣</span>
+            <span class="ls-material-icon" aria-hidden="true">📁</span>
             <span><strong>{{ folder.name }}</strong><small>{{ 'Subject' if folder.node_kind == 'subject' else 'Semester' if folder.node_kind == 'semester' else 'Folder' }}</small></span>
           </a>
+          {% endif %}
           {% endfor %}
         </div>
       </section>
