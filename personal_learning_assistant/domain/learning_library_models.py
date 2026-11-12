@@ -69,6 +69,7 @@ class LibraryItem:
     extraction_summary: str
     open_target: str
     content_hash: str = ''  # Identity cross-check only; never shown as a title.
+    rename_expected_title: str | None = None
 
 
 @dataclass(frozen=True)
