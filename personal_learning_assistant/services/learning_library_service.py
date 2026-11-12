@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from collections import Counter
+import sqlite3
 from urllib.parse import parse_qsl, quote, urlsplit
 
 from personal_learning_assistant.domain.learning_library_models import (
@@ -47,11 +48,29 @@ def _extraction_summary(statuses):
 
 
 class LearningLibraryService:
-    def __init__(self, *, database_path='data/learning_assistant.db', wal_snapshot_provider=None):
+    def __init__(self, *, database_path='data/learning_assistant.db', wal_snapshot_provider=None,
+                 native_title_lookup=None):
         self.repository = LearningLibraryRepository(database_path, wal_snapshot_provider=wal_snapshot_provider)
+        self.native_title_lookup = native_title_lookup
+
+    def _linked_names(self, rows):
+        # Respect explicit canonical display-title overrides first. A native
+        # name only replaces a fallback derived from an opaque source path.
+        if self.native_title_lookup is None:
+            return {}
+        identities = [(r['id'], r['content_hash']) for r in rows
+                      if r.get('content_hash') and r.get('title') == document_title(r.get('path_key'))]
+        if not identities:
+            return {}
+        try:
+            return self.native_title_lookup(identities) or {}
+        except (sqlite3.Error, OSError, ValueError):
+            # Never take down the canonical read model for an optional sidecar.
+            return {}
 
     def list_items(self, query: LibraryQuery) -> LibraryPage:
         rows, relations, courses, total, total_all = self.repository.list_items(query)
+        names = self._linked_names(rows)
         items = []
         for row in rows:
             is_resource = row['kind'] == 'resource'
@@ -59,7 +78,8 @@ class LearningLibraryService:
             documents = rel.get('documents', ())
             items.append(LibraryItem(
                 key=row['kind'] + ':' + row['id'],
-                reference=LibraryItemRef(row['kind'], row['id']), title=row['title'],
+                reference=LibraryItemRef(row['kind'], row['id']),
+                title=names.get((row['id'], row['content_hash']), row['title']),
                 item_type=row['item_type'], provider=row['provider'],
                 courses=_labels(rel.get('courses', ())), topics=_labels(rel.get('topics', ())),
                 learning_status=row['learning_status'], document_count=len(documents) if is_resource else 1,
@@ -74,8 +94,15 @@ class LearningLibraryService:
 
     def resource_detail(self, resource_id: str) -> LibraryResourceDetail:
         row, rel = self.repository.resource_detail(resource_id)
+        names = self._linked_names([
+            {'id': d['id'], 'content_hash': d['content_hash'], 'path_key': d['path_key'],
+             'title': d.get('display_title', document_title(d['path_key']))}
+            for d in rel['documents']
+        ])
         documents = tuple(LibraryDocumentView(
-            d['id'], d.get('display_title', document_title(d['path_key'])), d['kind'], d['mime_type'],
+            d['id'], names.get((d['id'], d['content_hash']),
+                               d.get('display_title', document_title(d['path_key']))),
+            d['kind'], d['mime_type'],
             d['content_hash'], d['extraction_status'], _source_target(d['id']),
         ) for d in rel['documents'])
         return LibraryResourceDetail(
