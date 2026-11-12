@@ -98,6 +98,17 @@ def _session_summary(session):
     }
 
 
+def _visible_session_title(repository, session, suggest_title):
+    """Derive a legacy display label without changing source-of-truth rows."""
+    if session.title.strip():
+        return session.title
+    for question in repository.user_messages(session.session_id):
+        title = suggest_title(question)
+        if title:
+            return title
+    return ""
+
+
 def _evidence_view(evidence):
     return {
         "citation_label": evidence.citation_label,
@@ -309,11 +320,9 @@ class AcademicAgentWebService:
             sessions = []
             for item in repository.list_sessions(limit=20, with_turns_only=True):
                 summary = _session_summary(item)
-                if not summary["title"].strip():
-                    for question in repository.user_messages(item.session_id):
-                        summary["title"] = session_service_module.suggest_tutor_session_title(question)
-                        if summary["title"]:
-                            break
+                summary["title"] = _visible_session_title(
+                    repository, item, session_service_module.suggest_tutor_session_title
+                )
                 sessions.append(summary)
 
             mentor = None
@@ -601,6 +610,9 @@ class AcademicAgentWebService:
                     "Tutor session history is temporarily unavailable."
                 ) from error
             view = _session_view(session, turns)
+            view["title"] = _visible_session_title(
+                repository, session, service_module.suggest_tutor_session_title
+            )
             view["course"] = repository.course_identity(session.course_id)
             view["topic"] = repository.topic_identity(session.topic_id, session.course_id)
             # Existing academic memory and progress are projected as read-only,
