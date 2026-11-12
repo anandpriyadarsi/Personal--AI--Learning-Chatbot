@@ -4891,7 +4891,7 @@ def learning_library():
                     names = {}
                 if names:
                     page = replace(page, items=tuple(
-                        replace(item, title=names[item.reference.id])
+                        replace(item, title=names[item.reference.id], rename_expected_title=item.title)
                         if item.reference.kind == 'document' and item.reference.id in names
                         else item for item in page.items))
     except LibraryUnavailableError:
