@@ -7,7 +7,7 @@ existing tutor session, turn, and evidence rows.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from importlib import import_module
 from pathlib import Path
 import sqlite3
@@ -72,6 +72,17 @@ def _open_database(path, *, writable):
     connection.row_factory = sqlite3.Row
     connection.execute ("PRAGMA foreign_keys=ON")
     return connection
+
+
+def _prune_stale_empty_sessions(repository):
+    """Write-side housekeeping only: GET /agent must remain read-only."""
+    cutoff = datetime.now(timezone.utc) - timedelta(minutes=30)
+    try:
+        repository.prune_stale_empty_sessions(older_than=cutoff.isoformat())
+    except sqlite3.Error:
+        # Never interrupt a new study session if an optional FK protects a
+        # no-turn shell or local storage is temporarily busy.
+        pass
 
 
 def _session_summary(session):
@@ -289,10 +300,21 @@ class AcademicAgentWebService:
                 for course in courses
                 for topic in repository.list_course_topics(str(course.get("id", "")))
             ]
-            sessions = [
-                _session_summary(item)
-                for item in repository.list_sessions(limit=20)
-            ]
+            # Empty drafts do not belong in conversation history. Existing
+            # untitled conversations get a read-only derived label until their
+            # next persisted question, which will save a permanent title.
+            session_service_module = import_module(
+                "personal_learning_assistant.services.tutor_session_service"
+            )
+            sessions = []
+            for item in repository.list_sessions(limit=20, with_turns_only=True):
+                summary = _session_summary(item)
+                if not summary["title"].strip():
+                    for question in repository.user_messages(item.session_id):
+                        summary["title"] = session_service_module.suggest_tutor_session_title(question)
+                        if summary["title"]:
+                            break
+                sessions.append(summary)
 
             mentor = None
             message = ""
@@ -433,6 +455,7 @@ class AcademicAgentWebService:
             )
             try:
                 session = sessions.create_session(spec)
+                _prune_stale_empty_sessions(repository)
             except (
                 ValueError,
                 service_module.TutorSessionError,
@@ -499,7 +522,9 @@ class AcademicAgentWebService:
                 },
             )
             try:
-                return sessions.create_session(spec).session_id
+                session = sessions.create_session(spec)
+                _prune_stale_empty_sessions(repository)
+                return session.session_id
             except (
                 ValueError,
                 service_module.TutorSessionError,
@@ -865,6 +890,7 @@ class AcademicAgentWebService:
                     provider=provider,
                 )
                 engine.answer(session.session_id, clean_question, request_id=request_id)
+                _prune_stale_empty_sessions(repository)
             except (TutorSourceChangedError, CodingError) as error:
                 raise AcademicAgentWebValidationError(str(error)) from error
             except runtime_module.UnifiedSearchStaleIndexError as error:
