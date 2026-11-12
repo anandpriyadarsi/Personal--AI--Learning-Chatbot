@@ -4810,15 +4810,21 @@ def source_lesson_helpers():
 
 @web_blueprint.get("/library")
 def learning_library():
-    if not request.args and (current_app.config.get('ANDROID_LOCAL_RUNTIME') or current_app.config.get('WEB_ORIGINAL_LIBRARY')) and current_app.config.get('LEARNING_LIBRARY_ENABLED',True):
-        return redirect(url_for('native_library.home'),code=302)
+    # The installed local website uses the original-file manager as its
+    # canonical folder view, including when an old link says ?view=browse.
+    # Keep an explicit registered-source projection for legacy resources.
+    if ((current_app.config.get('ANDROID_LOCAL_RUNTIME') or current_app.config.get('WEB_ORIGINAL_LIBRARY'))
+            and current_app.config.get('LEARNING_LIBRARY_ENABLED', True)
+            and request.args.get('view', 'browse') == 'browse'
+            and not any(key in request.args for key in ('q', 'course_id', 'item_kind', 'page', 'page_size'))):
+        return redirect(url_for('native_library.home'), code=302)
     from flask import abort
     from personal_learning_assistant.domain.learning_library_models import LibraryQuery
     from personal_learning_assistant.services.learning_library_service import LibraryUnavailableError
     if not current_app.config.get("LEARNING_LIBRARY_ENABLED", True):
         abort(404)
     view = request.args.get("view", "browse", type=str)
-    if view not in ("browse", "search", "saved") or len(request.args.getlist("view")) > 1:
+    if view not in ("browse", "registered", "search", "saved") or len(request.args.getlist("view")) > 1:
         return render_template("library.html", active_page="library", library=None,
                                library_view="browse",
                                error_message="Choose a valid Library view."), 400
@@ -4872,6 +4878,7 @@ def learning_library():
         return render_template("library.html", active_page="library", library=None,
                                error_message="Library is temporarily unavailable"), 503
     return render_template("library.html", active_page="library", library=page,
+                           library_view=view,
                            source_reader_available=_library_source_reader_available(service))
 
 
