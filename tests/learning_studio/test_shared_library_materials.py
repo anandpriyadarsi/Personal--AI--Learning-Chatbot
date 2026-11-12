@@ -125,3 +125,33 @@ def test_source_id_and_hash_both_required_to_recover_native_name(workspace):
             ("other-document", saved["sha256"]),
             ("academic-doc-id", "b" * 64),
         ]) == {}
+
+
+
+def test_registered_rename_uses_same_verified_title_as_screen(monkeypatch):
+    from personal_learning_assistant.repositories.sqlite.library_display_repository import LibraryDisplayRepository
+
+    digest = "a" * 64
+    source_id = "legacy-document-id"
+    service = LearningLibraryService(
+        native_title_lookup=lambda pairs: {(source_id, digest): "Lecture 03.pdf"}
+    )
+    monkeypatch.setattr(service.repository, "original_title",
+                        lambda kind, ident: "Unnamed PDF document")
+    monkeypatch.setattr(service.repository, "document_identity",
+                        lambda ident: {"id": source_id, "content_hash": digest,
+                                       "path_key": "documents/" + digest + ".pdf"})
+    monkeypatch.setattr(service.repository, "title_exists",
+                        lambda title, *, kind, item_id: False)
+    seen = {}
+
+    def fake_rename(self, kind, item_id, title, *, expected_title, original_title):
+        seen.update(kind=kind, item_id=item_id, title=title,
+                    expected_title=expected_title, original_title=original_title)
+        return {"title": title, "duplicate": False}
+
+    monkeypatch.setattr(LibraryDisplayRepository, "rename", fake_rename)
+    result = service.rename("document", source_id, "Readable title",
+                            expected_title="Lecture 03.pdf")
+    assert result["title"] == "Readable title"
+    assert seen["original_title"] == seen["expected_title"] == "Lecture 03.pdf"
