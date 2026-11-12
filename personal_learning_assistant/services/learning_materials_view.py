@@ -101,3 +101,47 @@ def browse_materials(library, *, folder_id=None, subject_id=None,
                 breadcrumbs=crumbs, documents=stored["items"],
                 total=stored["total"], page=number, page_size=PAGE_SIZE,
                 folder_id=folder_id, subject_id=None)
+
+
+
+def recover_registered_titles(native_library, items):
+    """Use existing native display names only for verified canonical source links.
+
+    An explicit registered rename takes precedence over this fallback. If no
+    trustworthy name exists, the UI must still ask the owner to identify it.
+    This is a read-only metadata crosswalk; never guess from file contents.
+    """
+    wanted = {
+        item.reference.id: item.content_hash
+        for item in items
+        if item.reference.kind == 'document'
+        and item.title.startswith('Unnamed ')
+        and re.fullmatch(r'[0-9a-fA-F]{64}', item.content_hash or '')
+    }
+    if not wanted:
+        return {}
+    placeholders = ','.join('?' for _ in wanted)
+    with native_library.connection() as con:
+        rows = con.execute(
+            """SELECT l.source_id, l.content_hash, d.display_name, d.original_name
+               FROM source_links l JOIN documents d ON d.id=l.document_id
+               WHERE l.namespace='canonical' AND l.source_id IN ("""
+            + placeholders +
+            """) AND d.sha256=l.content_hash AND d.trashed_at IS NULL
+               ORDER BY d.updated_at DESC, d.id""",
+            tuple(wanted),
+        ).fetchall()
+    found = {}
+    for row in rows:
+        if row['source_id'] in found or wanted.get(row['source_id']) != row['content_hash']:
+            continue
+        name = str(row['display_name'] or '').strip()
+        if not name or len(name) > 255:
+            continue
+        # Migration-specific names contain only an abbreviated internal ID.
+        if re.fullmatch(r'Imported PDF [0-9a-fA-F]{8}\.pdf', name):
+            continue
+        if re.fullmatch(r'[0-9a-fA-F]{32}(?:[0-9a-fA-F]{32})?(?:\.[A-Za-z0-9]+)?', name):
+            continue
+        found[row['source_id']] = name
+    return found
