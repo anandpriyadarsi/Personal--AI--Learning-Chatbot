@@ -4815,6 +4815,7 @@ def learning_library():
     # Keep an explicit registered-source projection for legacy resources.
     if ((current_app.config.get('ANDROID_LOCAL_RUNTIME') or current_app.config.get('WEB_ORIGINAL_LIBRARY'))
             and current_app.config.get('LEARNING_LIBRARY_ENABLED', True)
+            and len(request.args.getlist('view')) <= 1
             and request.args.get('view', 'browse') == 'browse'
             and not any(key in request.args for key in ('q', 'course_id', 'item_kind', 'page', 'page_size'))):
         return redirect(url_for('native_library.home'), code=302)
