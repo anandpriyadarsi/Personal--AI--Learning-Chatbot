@@ -66,6 +66,45 @@ def library():
         chemistry_sections=(), selected_chemistry_section=None)
 
 
+@learning_blueprint.get('/learning/materials')
+def materials():
+    """Browse the Library's original files without creating Learning modules."""
+    from personal_learning_assistant.learning_studio.validation import PackageError
+    from personal_learning_assistant.services.learning_materials_view import browse_materials
+    from personal_learning_assistant.services.native_document_library import LibraryError
+    from .native_library import catalogue as native_catalogue
+    from .native_library import service as native_library_service, view_document
+
+    if (any(len(request.args.getlist(key)) > 1 for key in request.args)
+            or set(request.args) - {'folder_id', 'subject_id', 'collection', 'page'}):
+        raise PackageError('Choose valid material filters.', 400)
+    folder_id = request.args.get('folder_id') or None
+    subject_id = request.args.get('subject_id') or None
+    collection = request.args.get('collection') or None
+    try:
+        number = int(request.args.get('page', '1'))
+    except (TypeError, ValueError) as error:
+        raise PackageError('Choose a valid material page.', 400) from error
+    course = None
+    if subject_id:
+        course = next((c for c in native_catalogue().get('courses', [])
+                       if c['id'] == subject_id), None)
+        if course is None:
+            raise PackageError('Course not registered.', 404)
+    try:
+        result = browse_materials(native_library_service(), folder_id=folder_id,
+                                  subject_id=subject_id, collection=collection,
+                                  page=number)
+        result['documents'] = [view_document(doc) for doc in result['documents']]
+    except ValueError as error:
+        raise PackageError(str(error), 400) from error
+    except LibraryError as error:
+        return render_template('learning_error.html', active_page='learning',
+                               message=str(error)), error.status
+    return render_template('learning_materials.html', active_page='learning',
+                           materials=result, course=course)
+
+
 @learning_blueprint.get('/learning/courses/<course_id>')
 def course(course_id):
     from personal_learning_assistant.learning_studio.validation import PackageError
