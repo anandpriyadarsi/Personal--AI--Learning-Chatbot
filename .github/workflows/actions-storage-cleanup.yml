@@ -1,0 +1,41 @@
+name: Emergency ANVAYA Actions storage cleanup
+
+# Automatically execute once when installed on main; manual re-runs remain available.
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/actions-storage-cleanup.yml'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Preview without deleting artifacts'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: anvaya-actions-artifact-cleanup
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    if: github.repository == 'anandpriyadarsi/Personal--AI--Learning-Chatbot'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Delete old non-release Actions artifacts (bounded)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && 'true' || 'false' }}
+        run: python scripts/prune_actions_artifacts.py
