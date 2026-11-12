@@ -1,0 +1,30 @@
+{
+  "system": "Linux-6.18.57-x86_64-with-glibc2.41",
+  "machine": "x86_64",
+  "logical_cpus": 9,
+  "repetitions": 20,
+  "config": "JSON reloaded per validation; synthetic tiny Markdown; warm local scratch filesystem",
+  "results": [
+    {
+      "notes": 100,
+      "refresh_seconds": 0.017,
+      "validation_p50_ms": 0.437,
+      "validation_p95_ms": 0.544,
+      "source_opens_per_validation": 1.0
+    },
+    {
+      "notes": 1000,
+      "refresh_seconds": 0.186,
+      "validation_p50_ms": 3.796,
+      "validation_p95_ms": 4.504,
+      "source_opens_per_validation": 1.0
+    },
+    {
+      "notes": 10000,
+      "refresh_seconds": 1.525,
+      "validation_p50_ms": 54.087,
+      "validation_p95_ms": 72.435,
+      "source_opens_per_validation": 1.0
+    }
+  ]
+}

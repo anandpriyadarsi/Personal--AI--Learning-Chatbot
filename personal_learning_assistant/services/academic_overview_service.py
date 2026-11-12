@@ -230,7 +230,8 @@ class AcademicOverviewService:
             # SQLite julianday treats an offset-free canonical UTC value as UTC.
             return (value if value.tzinfo else value.replace(tzinfo=timezone.utc)).timestamp()
         selected.sort(key=lambda row: (-timestamp(row), row['id']))
-        selected = [row for row in selected[:LIMIT] if view['filters']['evidence'] in ('all',row['category'])]
+        selected = [row for row in selected if view['filters']['evidence'] in ('all',row['category'])][:LIMIT]
+        view['assessment_scope'] = 'Sample of latest 100 sessions per source, filtered by evidence category; counts describe displayed sample.'
         view['assessments'] = selected
         for category in ('evaluated','self_reported','pending'):
             view['summary'][category+'_sessions'] = sum(r['category']==category for r in selected)
@@ -245,28 +246,35 @@ class AcademicOverviewService:
         if rows is None: return
         view['tasks'] = rows[:LIMIT]
         if len(rows)>LIMIT: view['limits'].append('Task inbox limited to 100; use the full task workspace for remaining items.')
-        view['summary']['open_tasks'] = len(view['tasks'])
-        view['summary']['overdue_tasks'] = sum(bool(r['due_on'] and r['due_on']<view['date']) for r in view['tasks'])
+        counts = con.execute("""SELECT COUNT(*),SUM(CASE WHEN t.due_on<? THEN 1 ELSE 0 END)
+            FROM planner_tasks t LEFT JOIN courses c ON c.id=t.course_id
+            WHERE t.status NOT IN ('completed','archived') AND (?='' OR c.code=? COLLATE NOCASE)""",
+            (view['date'],view['filters']['course'],view['filters']['course'])).fetchone()
+        view['summary']['open_tasks'] = counts[0]
+        view['summary']['overdue_tasks'] = counts[1] or 0
+        from .study_action_service import suggest_actions
+        view['actions'] = suggest_actions(view)
 
     def _effort(self, con, view, start):
-        # Course-scoped attribution is safe for linked planner tasks and canonical study plan items.
-        rows = self._read(con, view, 'effort', '''SELECT SUM(i.planned_minutes) planned_minutes,
-            SUM(i.actual_minutes) actual_minutes,COUNT(i.actual_minutes) recorded_items,
-            COUNT(*) total_items,SUM(CASE WHEN i.status='completed' THEN 1 ELSE 0 END) completed_items
-            FROM daily_agenda_items i JOIN daily_agendas a ON a.id=i.agenda_id
-            LEFT JOIN planner_tasks t ON i.source_type='planner_task' AND t.id=i.source_id
-            LEFT JOIN study_plan_items sp ON i.source_type='study_plan_item' AND sp.id=i.source_id
-            LEFT JOIN courses c ON c.id=COALESCE(t.course_id,sp.course_id)
-            WHERE a.status IN ('approved','active','closed') AND a.agenda_date BETWEEN ? AND ?
-            AND i.item_kind IN ('task','study','manual') AND (?='' OR c.code=? COLLATE NOCASE)''',
-            (start,view['date'],view['filters']['course'],view['filters']['course']))
-        if rows:
-            row = rows[0]
-            row['planned_minutes'] = row['planned_minutes'] or 0
-            row['completed_items'] = row['completed_items'] or 0
-            view['effort'] = row
-        if view['filters']['course']:
-            view['limits'].append('Course effort includes canonically linked planner tasks and dated study plan items; unlinked manual sessions remain excluded.')
+        from .weekly_evidence_service import aggregate_connection
+        try:
+            course_id = ''
+            if view['filters']['course']:
+                row = con.execute('SELECT id FROM courses WHERE code=? COLLATE NOCASE', (view['filters']['course'],)).fetchone()
+                if row is None:
+                    view['source_status']['effort'] = 'unavailable'
+                    return
+                course_id = row[0]
+            evidence = aggregate_connection(con, start, view['date'], as_of=view['as_of'],
+                course_id=course_id, local_timezone=str(self.zone))
+            view['weekly_evidence'] = evidence
+            view['effort'] = dict(planned_minutes=evidence['planned_focus_minutes'],
+                actual_minutes=evidence['actual_focus_minutes'], recorded_items=evidence['recorded_items'],
+                total_items=evidence['planned_items'], completed_items=evidence['completed_items'])
+            view['source_status']['effort'] = 'available'
+        except sqlite3.Error:
+            view['source_status']['effort'] = 'unavailable'
+            view['limits'].append('Planner effort unavailable in this schema.')
 
     def _topics(self, con, view, lower, upper):
         session_ids = {r['id'] for r in view['assessments'] if r['category']=='evaluated'}

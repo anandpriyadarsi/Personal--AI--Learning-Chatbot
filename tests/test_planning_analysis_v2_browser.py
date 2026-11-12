@@ -23,6 +23,8 @@ def chromium():
 def live_hub(tmp_path, monkeypatch, request):
     monkeypatch.chdir(tmp_path)
     path = _database(tmp_path)
+    from scripts.pao_migrate import migrate
+    migrate(path, apply=True)
     with sqlite3.connect(path) as con:
         if request.param == 'empty':
             con.execute('DELETE FROM assessment_response_evaluations')
@@ -31,7 +33,7 @@ def live_hub(tmp_path, monkeypatch, request):
         else:
             con.execute("INSERT INTO planner_tasks(id,title,priority,course_id,estimated_minutes,due_on,preferred_day,created_at,updated_at) VALUES('browser-task','Review matrix factorization and prepare questions for the next class','P1','course-ma',40,'2026-09-28','2026-09-28','2026-09-27','2026-09-27')")
             con.execute("INSERT INTO academic_events(id,course_id,event_kind,title,starts_at,ends_at,created_at,updated_at) VALUES('browser-event','course-ma','class','Linear algebra class','2026-09-28T10:00:00','2026-09-28T11:00:00','2026-09-27','2026-09-27')")
-    app = create_app({'TESTING':True, 'PLANNING_NOW': lambda: NOW.isoformat(),
+    app = create_app({'TESTING':True, 'PAO_V3_ENABLED':True, 'PLANNING_NOW': lambda: NOW.isoformat(),
         'ACADEMIC_OVERVIEW_SERVICE_FACTORY':lambda: service(path),
         'OPERATIONAL_PLANNER_WEB_SERVICE_FACTORY':lambda: build_operational_planner_web_service(path),
         'HOME_DASHBOARD_PROVIDER':unavailable_home_dashboard,
@@ -97,8 +99,8 @@ def test_analysis_to_saved_approved_completed_day_and_review(chromium, live_hub,
     page.goto(base+'/analysis')
     page.get_by_role('link',name='Plan your next session').click()
     page.get_by_role('link',name='Review agenda',exact=False).click()
-    page.locator('input[name=start]').fill('18:00')
-    page.locator('input[name=end]').fill('20:00')
+    page.locator('input[name=start]').first.fill('18:00')
+    page.locator('input[name=end]').first.fill('20:00')
     page.get_by_role('button',name='Preview available time').click()
     expect(page.get_by_role('button',name='Save proposal as draft')).to_be_visible()
     assert page.get_by_role('button',name='Complete',exact=True).count()==0

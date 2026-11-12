@@ -41,7 +41,8 @@ def test_saved_schedule_requires_original_context_and_current_sources(proposal_a
     elif change == 'break_policy':
         app.config['PLANNING_BREAK_MINUTES'] = 30
     elif change == 'context_missing':
-        app.extensions['planning_proposal_contexts'].clear()
+        with sqlite3.connect(path) as db:
+            db.execute('DELETE FROM planner_proposals')
     else:
         with sqlite3.connect(path) as db:
             if change == 'source':
@@ -60,7 +61,8 @@ def test_lost_original_context_is_visible_when_saved_day_reopens(proposal_app):
     app, path = proposal_app
     client = app.test_client()
     save(client)
-    app.extensions['planning_proposal_contexts'].clear()
+    with sqlite3.connect(path) as db:
+        db.execute('DELETE FROM planner_proposals')
     before = logical_state(path)
     page = client.get('/planning/day/2026-10-12')
     assert page.status_code == 200
@@ -104,13 +106,13 @@ def test_source_race_between_context_check_and_approval_is_rejected(proposal_app
     service = build_operational_planner_web_service(path)
     original = service.daily.agendas.planning_fingerprint
     calls = 0
-    def raced():
+    def raced(*args, **kwargs):
         nonlocal calls
         calls += 1
         if calls == 2:
             with sqlite3.connect(path) as db:
                 db.execute("UPDATE planner_tasks SET description='Changed while approving' WHERE id='p2'")
-        return original()
+        return original(*args, **kwargs)
     monkeypatch.setattr(service.daily.agendas, 'planning_fingerprint', raced)
     app.config['OPERATIONAL_PLANNER_WEB_SERVICE_FACTORY'] = lambda: service
     response = client.post('/planning/day/2026-10-12/approve', data={'approval_token': approval})
@@ -130,9 +132,13 @@ def test_commit_to_context_publication_cannot_bless_a_changed_source(proposal_ap
         return result
     monkeypatch.setattr(SQLiteDailyAgendaRepository, 'create_or_replace_draft', raced)
     client = app.test_client()
-    approval = save(client)
+    response = client.post('/planning/proposal/2026-10-12', data={'proposal_token': preview(client)})
+    assert response.status_code == 303
+    page = client.get(response.location)
+    assert 'Planner sources or this draft changed' in page.text
+    assert 'name="approval_token"' not in page.text
     before = logical_state(path)
-    assert client.post('/planning/day/2026-10-12/approve', data={'approval_token': approval}).status_code == 409
+    assert client.post('/planning/day/2026-10-12/approve', data={'approval_token': 'invalid'}).status_code == 400
     assert logical_state(path) == before
 
 
@@ -142,10 +148,11 @@ def test_identical_replacement_still_requires_its_own_review(proposal_app):
     old_approval = save(client)
     first = logical_state(path)
     new_approval = save(client)
-    assert logical_state(path) == first
+    assert logical_state(path) != first  # An explicit replacement appends a durable revision.
+    second = logical_state(path)
     assert old_approval != new_approval
     assert client.post('/planning/day/2026-10-12/approve', data={'approval_token': old_approval}).status_code == 409
-    assert logical_state(path) == first
+    assert logical_state(path) == second
     assert client.post('/planning/day/2026-10-12/approve', data={'approval_token': new_approval}).status_code == 303
 
 
@@ -210,7 +217,8 @@ def test_owner_wal_snapshot_freshness_boundary_preserves_pending_result_link(tmp
 def test_unscheduled_replacement_requires_fresh_review(proposal_app):
     app,path=proposal_app;client=app.test_client();base='/planning/day/2026-10-12'
     assert client.post(base+'/generate').status_code==303
-    assert not app.extensions['planning_proposal_contexts']
+    with sqlite3.connect(path) as db:
+        assert db.execute('SELECT COUNT(*) FROM planner_proposals').fetchone()[0] == 0
     old=re.search(r'name="approval_token" value="([^"]+)"',client.get(base).text).group(1)
     with sqlite3.connect(path) as db:
         assert db.execute("SELECT COUNT(*) FROM daily_agenda_items WHERE item_kind IN ('task','study') AND (starts_at IS NOT NULL OR ends_at IS NOT NULL)").fetchone()[0]==0

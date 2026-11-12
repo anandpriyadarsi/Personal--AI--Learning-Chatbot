@@ -19,17 +19,27 @@ def proposal_settings():
 
 
 def saved_proposal_context(agenda_date):
-    # Deliberately process-local: no unreviewed persistence contract is introduced.
-    # A restart or eviction requires a new explicit availability preview.
-    with current_app.extensions['planning_proposal_context_lock']:
-        context = current_app.extensions['planning_proposal_contexts'].get(agenda_date)
-        return dict(context) if context is not None else None
+    if not current_app.config.get('PAO_V3_ENABLED', False):
+        with current_app.extensions['planning_proposal_context_lock']:
+            context = current_app.extensions['planning_proposal_contexts'].get(agenda_date)
+            return dict(context) if context is not None else None
+    from personal_learning_assistant.repositories.sqlite.planner_proposal_repository import SQLitePlannerProposalRepository
+    from personal_learning_assistant.repositories.sqlite.daily_agenda_repository import DailyAgendaRepositoryError
+    try:
+        service = current_app.extensions['planning_proposal_service_factory']()
+        daily = getattr(service, 'daily', None)
+        if daily is None:
+            return None
+        return SQLitePlannerProposalRepository(daily.agendas.database_path).latest(agenda_date)
+    except DailyAgendaRepositoryError as error:
+        raise OperationalPlannerWebUnavailableError('Saved proposal context is unavailable.') from error
 
 
 def register_planning_proposals(app, service_factory):
     signer = URLSafeTimedSerializer(token_bytes(32), salt='planning-proposal-v1')
     blueprint = Blueprint('planning_proposals', __name__)
 
+    app.extensions['planning_proposal_service_factory'] = service_factory
     app.extensions['planning_proposal_contexts'] = {}
     app.extensions['planning_proposal_context_lock'] = RLock()
 
@@ -53,20 +63,26 @@ def register_planning_proposals(app, service_factory):
                     return 'Invalid or expired proposal. Preview again before saving.', 400
                 with current_app.extensions['planning_proposal_context_lock']:
                     service = service_factory()
+                    durable = current_app.config.get('PAO_V3_ENABLED', False)
                     saved = service.save_proposal(
-                        agenda_date, payload['start'], payload['end'],
-                        fingerprint=payload['fingerprint'], semantic_hash=payload['semantic_hash'], **config,
+                        agenda_date, payload['start'], payload['end'], windows=payload['windows'],
+                        fingerprint=payload['fingerprint'], semantic_hash=payload['semantic_hash'],
+                        proposal_context=payload if durable else None, **config,
                     )
-                    contexts = current_app.extensions['planning_proposal_contexts']
-                    contexts[agenda_date] = {**payload, 'saved_fingerprint': saved['planning_fingerprint'],
-                                             'nonce': token_urlsafe(24)}
-                    # Bound transient memory without storing personal planner state.
-                    while len(contexts) > 128:
-                        del contexts[next(iter(contexts))]
+                    if not durable:
+                        contexts = current_app.extensions['planning_proposal_contexts']
+                        contexts[agenda_date] = {**payload, 'saved_fingerprint': saved['planning_fingerprint']}
+                        while len(contexts) > 128:
+                            del contexts[next(iter(contexts))]
                 return redirect(url_for('web.planning_day', agenda_date=agenda_date), code=303)
-            start, end = request.args.get('start', ''), request.args.get('end', '')
-            preview = service_factory().preview_proposal(agenda_date, start, end, **config)
-            token = signer.dumps({'date': agenda_date, 'start': start, 'end': end,
+            starts, ends = request.args.getlist('start'), request.args.getlist('end')
+            if len(starts) != len(ends):
+                raise OperationalPlannerWebValidationError('Each availability window needs a start and end.')
+            windows = [(start, end) for start, end in zip(starts, ends) if start or end]
+            start, end = windows[0] if windows else ('', '')
+            preview = service_factory().preview_proposal(agenda_date, start, end, windows=windows, **config)
+            token = signer.dumps({'date': agenda_date, 'start': start, 'end': end, 'windows': windows,
+                                  'command_id': token_urlsafe(24), 'nonce': token_urlsafe(24),
                                   'timezone': config['local_timezone'],
                                   'break_minutes': config['break_minutes'],
                                   'policy': 'explicit-availability-v1',
@@ -74,7 +90,7 @@ def register_planning_proposals(app, service_factory):
                                   'semantic_hash': preview['semantic_hash']})
             return render_template('planning_day.html', active_page='planning', day=preview['day'],
                                    error_message='', proposal_token=token,
-                                   proposal_start=start, proposal_end=end,
+                                   proposal_start=start, proposal_end=end, proposal_windows=windows,
                                    proposal_timezone=config['local_timezone'],
                                    proposal_break_minutes=config['break_minutes'])
         except OperationalPlannerWebValidationError as error:

@@ -26,7 +26,7 @@ _RICH_FENCE = re.compile(
 _CODE_FENCE = re.compile(
     r"(?ms)^(?P<fence>\x60{3,}|~{3,})[^\r\n]*\r?\n.*?^(?P=fence)\s*$"
 )
-_INLINE_CODE = re.compile(r"(?<!\x60)\x60([^\x60\r\n]+)\x60(?!\x60)")
+_INLINE_CODE = re.compile(r"(?<!`)(`+)([^\r\n]+?)\1(?!`)")
 _BLOCK_MATH = re.compile(r"(?ms)^\$\$\s*\n?(?P<body>.*?)\n?\$\$\s*$")
 _INLINE_MATH = re.compile(r"(?<!\$)\$(?!\$)([^$\r\n]+?)\$(?!\$)")
 _CALLOUT = re.compile(
@@ -85,6 +85,9 @@ def _activate_wikilinks(source: str, wikilinks=(), *, note_route="/obsidian/note
             str(note_route or "/obsidian/note"),
             quote(str(item["resolved_path"]), safe=""),
         )
+        anchor = str(item.get("block_id") or item.get("heading") or "").strip().lstrip("^")
+        if anchor:
+            target += "#" + quote(re.sub(r"[^\w -]", "", anchor.casefold()).replace(" ", "-"), safe="")
         return "[{}]({})".format(label, target)
 
     return _WIKILINK.sub(replace, str(source or ""))
@@ -291,7 +294,7 @@ def _extract_rich_blocks(
     current = _CODE_FENCE.sub(ordinary_code, current)
 
     def inline_code(match):
-        html = Markup("<code>{}</code>").format(escape(match.group(1)))
+        html = Markup(str(_MARKDOWN(match.group(0))).removeprefix("<p>").removesuffix("</p>\n"))
         return placeholders.add(html, block=False)
 
     current = _INLINE_CODE.sub(inline_code, current)
@@ -347,6 +350,9 @@ def _extract_rich_blocks(
             ) + "\n"
 
         current = _MARKDOWN_IMAGE.sub(markdown_image, current)
+        # Inline images follow the same local raster policy; never contact
+        # third-party image hosts while reading an external note.
+        current = re.sub(r"!\[([^\]\r\n]*)\]\(([^)\r\n]*)\)", markdown_image, current)
 
     def inline_math(match):
         return placeholders.add(
@@ -377,18 +383,29 @@ def render_markdown(
     asset_route="",
 ) -> Markup:
     """Return escaped HTML with deterministic, script-free academic visual blocks."""
-    source = _activate_wikilinks(
-        _reading_body(str(markdown_text or "")),
-        wikilinks=wikilinks,
-        note_route=note_route,
-    )
+    source = _reading_body(str(markdown_text or ""))
     try:
         source, placeholders = _extract_rich_blocks(
             source,
             note_path=str(note_path or ""),
             asset_route=str(asset_route or ""),
         )
+        source = _activate_wikilinks(source, wikilinks=wikilinks, note_route=note_route)
+        # Use the same resolved graph for ordinary Markdown note links.
+        for item in wikilinks or ():
+            if item.get("resolved_path"):
+                raw = str(item.get("target") or item.get("raw") or "")
+                target = str(note_route) + "?path=" + quote(str(item["resolved_path"]), safe="")
+                anchor = str(item.get("block_id") or item.get("heading") or "").lstrip("^")
+                if anchor:
+                    target += "#" + quote(re.sub(r"[^\w -]", "", anchor.casefold()).replace(" ", "-"), safe="")
+                if item.get("heading"):
+                    source = source.replace("](" + raw + "#" + str(item["heading"]) + ")", "](" + target + ")")
+                source = source.replace("](" + raw + ")", "](" + target + ")")
+        source = re.sub(r"(?m)^(.+?) \^([A-Za-z0-9_-]+)\s*$", lambda m: m[1] + "\n\n" + placeholders.add(Markup('<span id="{}"></span>').format(escape(m[2])), block=True), source)
         rendered: Any = _MARKDOWN(source)
+        # Deterministic heading targets agree with generated links.
+        rendered = re.sub(r"<h([1-6])>(.*?)</h\1>", lambda m: '<span id="{}"></span><h{}>{}</h{}>'.format(escape(re.sub(r"[^\w -]", "", re.sub(r"<[^>]+>", "", m[2]).casefold()).replace(" ", "-")), m[1], m[2], m[1]), str(rendered))
         rich = placeholders.apply(_wrap_tables(str(rendered)))
         return Markup(rich)
     except Exception:

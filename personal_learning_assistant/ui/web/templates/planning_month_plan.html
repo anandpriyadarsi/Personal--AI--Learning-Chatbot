@@ -15,7 +15,7 @@
 
 <section class="dashboard-panel">
   <div class="panel-heading"><div><p class="eyebrow">Step 1</p><h3>Preview YAML</h3></div><span class="tag">No write</span></div>
-  <form method="post" enctype="multipart/form-data" action="{{ url_for('web.planning_month_plan_preview') }}" class="planner-form">
+  <form method="post" enctype="multipart/form-data" action="{{ url_for('web.planning_month_plan_preview') }}" class="planner-form"><input type="hidden" name="pao_token" value="{{ pao_command_token('planning') }}">
     <label class="planner-span-2">ANVAYA month-plan YAML <input type="file" name="plan_file" accept=".yaml,.yml,text/yaml" required></label>
     <button class="button" type="submit">Preview plan</button>
   </form>
@@ -49,7 +49,7 @@
   {% if preview.valid and not preview.already_imported %}
   <div class="planner-approval">
     <p><strong>Step 2:</strong> re-select the same YAML file. The SHA-256 must match this preview before any write occurs.</p>
-    <form method="post" enctype="multipart/form-data" action="{{ url_for('web.planning_month_plan_approve') }}" class="planner-form">
+    <form method="post" enctype="multipart/form-data" action="{{ url_for('web.planning_month_plan_approve') }}" class="planner-form"><input type="hidden" name="pao_token" value="{{ pao_command_token('planning') }}">
       <input type="hidden" name="expected_sha256" value="{{ preview.source_sha256 }}">
       <label class="planner-span-2">Same reviewed YAML <input type="file" name="plan_file" accept=".yaml,.yml,text/yaml" required></label>
       <button class="button" type="submit">Approve import</button>

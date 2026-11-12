@@ -82,6 +82,23 @@ def _date(value):
         raise OperationalTaskValidationError("Due date must be YYYY-MM-DD.") from error
 
 
+_WEEKDAYS = ('Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday')
+
+
+def _preferred_day(value):
+    text = str(value or '').strip()
+    if not text or text.lower() == 'none':
+        return None
+    if text.title() in _WEEKDAYS:
+        return text.title()
+    try:
+        if len(text) != 10:
+            raise ValueError()
+        return datetime.strptime(text, '%Y-%m-%d').date().isoformat()
+    except ValueError as error:
+        raise OperationalTaskValidationError('Preferred day must be a date (YYYY-MM-DD), weekday, or none.') from error
+
+
 class OperationalTaskService:
     def __init__(self, repository, *, now=_now, id_factory=uuid.uuid4):
         self.repository = repository
@@ -89,25 +106,36 @@ class OperationalTaskService:
         self._id_factory = id_factory
 
     def tasks_workspace(self, *, status="", priority="", course_id=""):
-        statuses = None
-        if status:
-            statuses = (status,)
-        else:
-            statuses = ("backlog", "planned", "scheduled", "in_progress", "skipped")
+        if status not in {'', 'all', *_ALLOWED}:
+            raise OperationalTaskValidationError('Choose a valid task status.')
+        statuses = None if status == 'all' else ((status,) if status else
+            ('backlog', 'planned', 'scheduled', 'in_progress', 'skipped'))
         try:
-            tasks = self.repository.list_tasks(
-                statuses=statuses,
-                priority=priority or None,
-                course_id=course_id or None,
-            )
+            tasks = self.repository.list_tasks(statuses=statuses, priority=priority or None,
+                                               course_id=course_id or None)
+            catalogue = self.repository.capture_catalogue()
         except PlannerTaskRepositoryError as error:
-            raise OperationalTaskUnavailableError("Tasks are temporarily unavailable.") from error
+            raise OperationalTaskUnavailableError('Tasks are temporarily unavailable.') from error
+        labels = {c['id']: c['code'] + ' · ' + c['name'] for c in catalogue['courses']}
+        tasks = tuple(dict(task) for task in tasks)
+        for task in tasks:
+            from urllib.parse import quote
+            task['source_links'] = [dict(url='/academic-evidence/learning/'+quote(ref['identifier'],safe='')+'/'+quote(ref['revision_key'],safe=''),label='Open linked learning source') for ref in task.get('sources',()) if ref['owner']=='learning' and ref['kind']=='module' and ref['revision_key'].isdigit()]
+            task['source_links'] += [dict(url='/planning/source/obsidian/'+quote(ref['identifier'],safe='')+'?sha256='+quote(ref.get('sha256') or '',safe=''),label='Open linked Markdown version') for ref in task.get('sources',()) if ref['owner']=='obsidian' and ref['kind']=='markdown']
+            task['allowed_transitions'] = tuple(sorted(_ALLOWED.get(task['status'], ())))
+            task['course_label'] = labels.get(task.get('course_id'), 'Course unavailable' if task.get('course_id') else 'No course linked')
+            try:
+                _preferred_day(task.get('preferred_day'))
+                task['timing_needs_review'] = False
+            except OperationalTaskValidationError:
+                task['timing_needs_review'] = True
         return {
             "available": True,
+            "catalogue": catalogue,
             "tasks": tasks,
             "filters": {"status": status, "priority": priority, "course_id": course_id},
             "summary": {
-                "open": len(tasks),
+                "open": sum(t["status"] not in {"completed", "archived"} for t in tasks),
                 "p0": sum(1 for task in tasks if task["priority"] == "P0"),
                 "p1": sum(1 for task in tasks if task["priority"] == "P1"),
                 "p2": sum(1 for task in tasks if task["priority"] == "P2"),
@@ -131,6 +159,7 @@ class OperationalTaskService:
         external_id=None,
         _study_context=None,
         _intent_id=None,
+        _source_refs=(),
     ):
         title = str(title or "").strip()
         if not title or len(title) > MAX_TITLE:
@@ -146,6 +175,10 @@ class OperationalTaskService:
                 raise OperationalTaskValidationError(
                     "Task external ID is not an accepted internal recovery reference."
                 )
+        for reference in (course_id, topic_id, assessment_id):
+            if reference not in (None, '') and (not isinstance(reference, str) or
+                    not 1 <= len(reference) <= 120 or reference != reference.strip()):
+                raise OperationalTaskValidationError('Choose exact course, topic, and assessment IDs from the catalogue.')
         now = self._now()
         row = {
             "id": (str(uuid.uuid5(uuid.NAMESPACE_URL, "anvaya:manual-study:"+_intent_id))
@@ -160,7 +193,7 @@ class OperationalTaskService:
             "assessment_id": assessment_id or None,
             "estimated_minutes": _minutes(estimated_minutes),
             "due_on": _date(due_on),
-            "preferred_day": str(preferred_day or "").strip() or None,
+            "preferred_day": _preferred_day(preferred_day),
             "preferred_window": str(preferred_window or "").strip() or None,
             "rollover_policy": str(rollover_policy or "").strip(),
             "status": "backlog",
@@ -168,15 +201,15 @@ class OperationalTaskService:
             "updated_at": now,
         }
         try:
-            return (self.repository.create_task(row, study_context=_study_context)
-                    if _study_context is not None else self.repository.create_task(row))
+            return (self.repository.create_task(row, study_context=_study_context, source_refs=_source_refs)
+                    if _study_context is not None or _source_refs else self.repository.create_task(row))
         except PlannerTaskRepositoryConflictError as error:
             raise OperationalTaskConflictError(str(error)) from error
         except PlannerTaskRepositoryError as error:
             raise OperationalTaskUnavailableError("The task could not be saved.") from error
 
     def create_manual_study_task(self, *, intent_id, title, description, course_id,
-                                 topic_id, topic_name=None, estimated_minutes=30):
+                                 topic_id, topic_name=None, estimated_minutes=30, due_on=None, source_refs=()):
         """One explicit user intent, one owner receipt; never recovery eligibility."""
         try:
             parsed=uuid.UUID(str(intent_id))
@@ -189,9 +222,9 @@ class OperationalTaskService:
                 not isinstance(topic_id,str) or not 1<=len(topic_id)<=120):
             raise OperationalTaskValidationError('Choose exact course/topic and 1–180 practice minutes.')
         return self.create_task(title=title,description=description,priority='P2',
-            course_id=course_id,topic_id=topic_id,estimated_minutes=estimated_minutes,
+            course_id=course_id,topic_id=topic_id,estimated_minutes=estimated_minutes,due_on=due_on,
             _study_context={'course_id':course_id,'topic_id':topic_id,'topic_name':topic_name},
-            _intent_id=intent_id)
+            _intent_id=intent_id, _source_refs=source_refs)
 
     def create_assessment_recovery_task(
         self,
@@ -257,19 +290,27 @@ class OperationalTaskService:
         if status == "archived":
             fields["archived_at"] = now
         try:
-            return self.repository.update_task(task_id, fields, mark_manual=True)
+            return self.repository.update_task(task_id, fields, mark_manual=True, expected=current)
         except PlannerTaskRepositoryNotFoundError as error:
             raise OperationalTaskNotFoundError("Task was not found.") from error
+        except PlannerTaskRepositoryConflictError as error:
+            raise OperationalTaskConflictError(str(error)) from error
         except PlannerTaskRepositoryError as error:
             raise OperationalTaskUnavailableError("Task could not be updated.") from error
 
-    def update_task(self, task_id, **changes):
+    def update_task(self, task_id, expected_revision=None, **changes):
         try:
             current = self.repository.get_task(task_id)
         except PlannerTaskRepositoryNotFoundError as error:
             raise OperationalTaskNotFoundError("Task was not found.") from error
         if str(current["status"]) == "archived":
             raise OperationalTaskValidationError("Archived tasks cannot be edited.")
+        if expected_revision is not None:
+            try:
+                if int(expected_revision) != current.get('revision', current['manual_revision']):
+                    raise OperationalTaskConflictError('Task changed. Refresh before editing.')
+            except (ValueError, TypeError) as error:
+                raise OperationalTaskValidationError('A valid task revision is required.') from error
         fields = {}
         if "title" in changes:
             title = str(changes["title"] or "").strip()
@@ -289,10 +330,12 @@ class OperationalTaskService:
             fields["due_on"] = _date(changes["due_on"])
         for field in ("preferred_day", "preferred_window", "rollover_policy"):
             if field in changes:
-                fields[field] = str(changes[field] or "").strip() or None
+                fields[field] = _preferred_day(changes[field]) if field == "preferred_day" else str(changes[field] or "").strip() or None
         fields["updated_at"] = self._now()
         try:
-            return self.repository.update_task(task_id, fields, mark_manual=True)
+            return self.repository.update_task(task_id, fields, mark_manual=True, expected=current)
+        except PlannerTaskRepositoryConflictError as error:
+            raise OperationalTaskConflictError(str(error)) from error
         except PlannerTaskRepositoryError as error:
             raise OperationalTaskUnavailableError("Task could not be updated.") from error
 

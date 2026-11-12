@@ -8,6 +8,8 @@ from __future__ import annotations
 import hashlib
 import os
 import re
+import posixpath
+import uuid
 import unicodedata
 from importlib import import_module
 from pathlib import Path
@@ -126,6 +128,7 @@ class ObsidianWorkspaceService:
     def __init__(self, config_api, reader_factory):
         self.config_api = config_api
         self.reader_factory = reader_factory
+        self._scan_cache = None
 
     def _load_config(self) -> Dict[str, Any]:
         try:
@@ -198,7 +201,7 @@ class ObsidianWorkspaceService:
 
         reader = self._reader(vault_path)
         try:
-            scan = reader.scan()
+            scan = self._scan(reader, config)
         except Exception as error:
             # Reader exceptions are intentionally not reflected verbatim.
             raise ObsidianWorkspaceUnavailableError(
@@ -296,78 +299,149 @@ class ObsidianWorkspaceService:
             return None, len(unique) > 1
         return next(iter(unique.values())), False
 
+    def _scan(self, reader, config):
+        from .obsidian_manifest_service import manifest_scan
+        manifest = config.get("source_manifest")
+        if manifest and config.get("connection_id") == manifest.get("connection_id"):
+            return manifest_scan(manifest)
+        key = (_configured_path(config), config.get("connection_id"))
+        if self._scan_cache is None or self._scan_cache[0] != key:
+            self._scan_cache = (key, reader.scan())
+        return self._scan_cache[1]
+
+    def refresh_manifest(self):
+        from .obsidian_manifest_service import build_manifest
+        config = self._load_config()
+        path = _configured_path(config)
+        if not path or not self._path_is_valid(path):
+            raise ObsidianWorkspaceValidationError("Connect a valid vault before refreshing.")
+        scan = self._reader(path).scan()
+        manifest = build_manifest(scan, config.get("source_manifest"), connection_id=config.get("connection_id"))
+        if not config.get('source_manifest'):
+            from .study_item_resolver import obsidian_identity
+            prior_vault = ('vault:' + hashlib.sha256(str(config['connection_id']).encode()).hexdigest()
+                           if config.get('connection_id') else _vault_identity(path))
+            for row in manifest['items']:
+                identity = obsidian_identity({'vault_identity': prior_vault, 'relative_path': row['relative_path'], 'source_hash': row['source_hash']})
+                row['legacy_reference'] = {'vault_identity': prior_vault, 'note_identity': identity.item_id}
+        config.update(connection_id=manifest["connection_id"], source_manifest=manifest)
+        self.config_api.save_config(config)
+        self._scan_cache = None
+        return manifest
+
+    def relocate_connection(self, vault_path, *, expected_connection_id):
+        config = self._load_config()
+        manifest = config.get('source_manifest') or {}
+        if (not manifest or config.get('connection_mode', 'folder') != 'folder'
+                or config.get('connection_id') != expected_connection_id):
+            raise ObsidianWorkspaceValidationError('Refresh and review the current folder connection before relocating it.')
+        candidate = Path(str(vault_path or '').strip()).expanduser().absolute()
+        if not self._path_is_valid(str(candidate)):
+            raise ObsidianWorkspaceValidationError('Choose an available vault folder.')
+        scan = self._reader(str(candidate)).scan()
+        expected = {row['relative_path']: row['source_hash'] for row in manifest['items'] if row.get('state') != 'missing'}
+        observed = {row.relative_path: row.source_hash for row in scan.notes}
+        if expected != observed:
+            raise ObsidianWorkspaceValidationError('The destination differs from the saved manifest. Refresh the original connection or choose Replace connection.')
+        config['vault_path'] = str(candidate)
+        self.config_api.save_config(config)
+        self._scan_cache = None
+        return {'connection_id': expected_connection_id, 'relocated': True}
+
+    def confirm_rename(self, old_path, new_path, *, expected_hash):
+        old_path = _normalize_requested_note_path(old_path)
+        new_path = _normalize_requested_note_path(new_path)
+        config = self._load_config()
+        manifest = config.get("source_manifest") or {}
+        items = manifest.get("items", [])
+        old = next((row for row in items if row["relative_path"] == old_path), None)
+        if not old or old.get("state") == "conflict" or old["source_hash"] != expected_hash:
+            raise ObsidianWorkspaceValidationError("Refresh the manifest and confirm the source version.")
+        if any(row["relative_path"] == new_path and row.get("state") != "missing" for row in items):
+            raise ObsidianWorkspaceValidationError("The destination already has a distinct source identity.")
+        reader = self._reader(_configured_path(config))
+        reader.read_note(new_path, expected_hash=expected_hash)
+        try:
+            reader.read_note(old_path)
+        except Exception:
+            pass
+        else:
+            raise ObsidianWorkspaceValidationError("Both paths still exist; copies cannot be merged as a rename.")
+        old["relative_path"] = new_path
+        manifest.setdefault("aliases", []).append({"old_path": old_path, "item_id": old["id"], "provenance": "user_confirmed"})
+        config["source_manifest"] = manifest
+        self.config_api.save_config(config)
+        return self.refresh_manifest()
+
+    @staticmethod
+    def _resolve_relative(target, lookup, current_path):
+        normalized = unicodedata.normalize("NFC", str(target).replace("\\", "/")).casefold()
+        relative = posixpath.normpath(posixpath.join(posixpath.dirname(current_path), normalized))
+        for key in (relative, normalized):
+            if key.startswith("../") or key.startswith("/"):
+                continue
+            candidates = lookup.get(key, ()) or lookup.get(key + ".md", ())
+            exact = {item.relative_path: item for item in candidates if item.relative_path.casefold() in {key, key + ".md"}}
+            if len(exact) == 1:
+                return next(iter(exact.values())), False
+            if len(exact) > 1:
+                return None, True
+        return ObsidianWorkspaceService._resolve_link(target, lookup)
+
     def _link_context(self, reader, scan, current_path: str, source: str):
         lookup = self._link_lookup(scan)
-        outgoing = []
-        seen_outgoing = set()
-        for match in _WIKILINK.finditer(str(source or "")):
-            parts = self._wikilink_parts(match.group(1))
-            resolved, ambiguous = self._resolve_link(parts["target"], lookup)
-            resolved_path = (
-                ""
-                if resolved is None
-                else str(resolved.relative_path).replace("\\", "/")
-            )
-            key = (parts["raw"], resolved_path)
-            if key in seen_outgoing:
-                continue
-            seen_outgoing.add(key)
-            outgoing.append(
-                {
-                    **parts,
-                    "resolved_path": resolved_path,
-                    "resolved_title": (
-                        "" if resolved is None else str(resolved.title)
-                    ),
-                    "ambiguous": bool(ambiguous),
-                }
-            )
-
-        backlinks = []
-        current_key = str(current_path).replace("\\", "/").casefold()
+        outgoing, backlinks = [], []
         for candidate in scan.notes:
-            candidate_path = str(candidate.relative_path).replace("\\", "/")
-            if candidate_path.casefold() == current_key:
-                continue
-            try:
-                payload = reader.read_note(
-                    candidate_path,
-                    expected_hash=str(candidate.source_hash or ""),
-                )
-            except Exception:
-                continue
-            linked = False
-            for match in _WIKILINK.finditer(str(payload.get("text") or "")):
-                parts = self._wikilink_parts(match.group(1))
-                resolved, _ambiguous = self._resolve_link(parts["target"], lookup)
-                if (
-                    resolved is not None
-                    and str(resolved.relative_path)
-                    .replace("\\", "/")
-                    .casefold()
-                    == current_key
-                ):
-                    linked = True
-                    break
-            if linked:
-                backlinks.append(
-                    {
-                        "relative_path": candidate_path,
-                        "title": str(candidate.title or Path(candidate_path).stem),
-                    }
-                )
-        backlinks.sort(
-            key=lambda item: (
-                item["title"].casefold(),
-                item["relative_path"].casefold(),
-            )
-        )
-        return {
-            "outgoing": tuple(outgoing),
-            "backlinks": tuple(backlinks),
-        }
+            for link in candidate.links:
+                if link.target_kind not in {"wiki", "markdown", "note", "wikilink", "internal"}:
+                    continue
+                parts = self._wikilink_parts(link.raw_target)
+                resolved, ambiguous = self._resolve_relative(parts["target"], lookup, candidate.relative_path)
+                if candidate.relative_path == current_path:
+                    if link.target_kind == "wiki":
+                        try:
+                            line, column = (int(value) for value in link.source_position.split(":"))
+                            match = _WIKILINK.match(source.splitlines()[line - 1][column - 1:])
+                            if match:
+                                parts = self._wikilink_parts(match.group(1))
+                        except (ValueError, IndexError):
+                            pass
+                    outgoing.append({**parts, "heading": link.heading or parts["heading"], "block_id": link.block_id,
+                                     "resolved_path": resolved.relative_path if resolved else "",
+                                     "resolved_title": resolved.title if resolved else "", "ambiguous": ambiguous})
+                elif resolved and resolved.relative_path == current_path:
+                    if not any(row["relative_path"] == candidate.relative_path for row in backlinks):
+                        backlinks.append({"relative_path": candidate.relative_path, "title": candidate.title})
+        return {"outgoing": tuple(outgoing), "backlinks": tuple(backlinks)}
 
-    def note_preview(self, relative_path: Any) -> Dict[str, Any]:
+    def validate_note_version(self, relative_path, source_hash=""):
+        requested = _normalize_requested_note_path(relative_path)
+        config = self._load_config()
+        manifest = config.get("source_manifest") or {}
+        if not manifest:
+            return self.note_preview(requested, decorate=False, expected_hash=source_hash)
+        if not config.get("enabled") or not self._path_is_valid(_configured_path(config)):
+            raise ObsidianWorkspaceValidationError("Connect an available vault first.")
+        row = next((item for item in manifest.get("items", []) if item["relative_path"] == requested and item.get("state") != "missing"), None)
+        if row is None:
+            raise ObsidianWorkspaceNotFoundError("Source is missing from the saved manifest. Refresh explicitly after changing paths.")
+        try:
+            payload = self._reader(_configured_path(config)).read_note(requested, expected_hash=source_hash or row["source_hash"])
+        except Exception as error:
+            raise ObsidianWorkspaceUnavailableError("The selected source changed or is missing. Refresh its manifest before retrying.") from error
+        return {"title": row["title"], "relative_path": requested, "assistant_id": row.get("assistant_id"),
+                "source_hash": payload["source_hash"], "text": payload["text"], "size_bytes": payload["size_bytes"],
+                "vault_identity": "vault:" + hashlib.sha256(str(config["connection_id"]).encode()).hexdigest(),
+                "vault_name": manifest["vault_name"], "connection_id": config["connection_id"],
+                "source_item_id": row["id"], "identity_conflict": row.get("state") == "conflict"}
+
+    def read_asset(self, relative_path):
+        config = self._load_config()
+        if not config.get("enabled") or not self._path_is_valid(_configured_path(config)):
+            raise ObsidianWorkspaceValidationError("Connect an available vault first.")
+        return self._reader(_configured_path(config)).read_asset(relative_path)
+
+    def note_preview(self, relative_path: Any, *, decorate=True, expected_hash="") -> Dict[str, Any]:
         requested = _normalize_requested_note_path(relative_path)
         config = self._load_config()
         vault_path = _configured_path(config)
@@ -382,7 +456,7 @@ class ObsidianWorkspaceService:
 
         reader = self._reader(vault_path)
         try:
-            scan = reader.scan()
+            scan = self._scan(reader, config)
         except Exception as error:
             raise ObsidianWorkspaceUnavailableError(
                 "The Obsidian vault could not be scanned safely."
@@ -403,7 +477,7 @@ class ObsidianWorkspaceService:
         try:
             payload = reader.read_note(
                 str(note.relative_path),
-                expected_hash=str(note.source_hash or ""),
+                expected_hash=expected_hash or str(note.source_hash or ""),
             )
         except Exception as error:
             # Invalid paths are already filtered above; runtime read conflicts are
@@ -412,12 +486,12 @@ class ObsidianWorkspaceService:
                 "The selected note changed or could not be read safely. Refresh the vault and try again."
             ) from error
 
-        link_context = self._link_context(
-            reader,
-            scan,
-            str(note.relative_path),
-            str(payload["text"]),
-        )
+        link_context = self._link_context(reader, scan, str(note.relative_path), str(payload["text"])) if decorate else {"outgoing": (), "backlinks": ()}
+        manifest = config.get("source_manifest") or {}
+        item = next((row for row in manifest.get("items", []) if row["relative_path"] == note.relative_path), {})
+        connection_id = config.get("connection_id")
+        conflict = bool(note.assistant_id and sum(other.assistant_id == note.assistant_id for other in scan.notes) > 1)
+        stable_vault = "vault:" + hashlib.sha256(str(connection_id).encode()).hexdigest() if connection_id else _vault_identity(vault_path)
         return {
             "title": str(note.title),
             "relative_path": str(note.relative_path),
@@ -425,7 +499,13 @@ class ObsidianWorkspaceService:
                 None if note.assistant_id is None else str(note.assistant_id)
             ),
             "vault_name": str(scan.vault_name),
-            "vault_identity": _vault_identity(vault_path),
+            "vault_identity": stable_vault,
+            "connection_id": connection_id,
+            "source_item_id": item.get("id"),
+            "identity_conflict": conflict,
+            "legacy_reference": item.get('legacy_reference'),
+            "manifest_revision": manifest.get("revision"),
+            "manifest_observed_at": manifest.get("observed_at", ""),
             "tags": [str(item) for item in (note.tags or ())],
             "note_type": str(note.note_type or "note"),
             "revision_status": str(note.revision_status or "unreviewed"),
@@ -452,7 +532,20 @@ class ObsidianWorkspaceService:
                 raise ObsidianWorkspaceValidationError(
                     "Choose an existing Obsidian vault folder containing a .obsidian directory."
                 )
-            success, result = self.config_api.set_vault_path(normalized)
+            if callable(getattr(self.config_api, "save_config", None)):
+                from .obsidian_manifest_service import build_manifest
+                scan = self._reader(normalized).scan()
+                config = self._load_config()
+                connection_id = str(uuid.uuid4())
+                manifest = build_manifest(scan, connection_id=connection_id)
+                config.update(vault_path=normalized, enabled=True, connection_mode="folder", connection_id=connection_id, source_manifest=manifest)
+                for key in ("snapshot_id", "snapshot_name", "snapshot_imported_at", "snapshot_exclusions"):
+                    config.pop(key, None)
+                self.config_api.save_config(config)
+                self._scan_cache = None
+                success, result = True, normalized
+            else:
+                success, result = self.config_api.set_vault_path(normalized)
         except ObsidianWorkspaceValidationError:
             raise
         except Exception as error:

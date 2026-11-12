@@ -202,6 +202,25 @@ class MonthPlanImportService:
 
     def _normalize(self, document: dict[str, Any], filename: str, source_sha256: str):
         errors, warnings = [], []
+        # Count the raw collections before normalization, slicing, or recurrence expansion.
+        def collection(owner, key, kind):
+            value = owner.get(key, kind())
+            if not isinstance(value, kind):
+                raise MonthPlanImportValidationError(key + " has an invalid collection shape.")
+            return value
+        flex = collection(document, "flexible_tasks", dict)
+        routines = collection(document, "recurring_routines", dict)
+        timetable = collection(routines, "class_timetable", dict)
+        reviews = collection(document, "weekly_reviews", dict)
+        collections = [collection(document, "assessments", list),
+                       collection(document, "fixed_events", list),
+                       collection(document, "planned_blocks", list),
+                       collection(flex, "tasks", list),
+                       collection(routines, "personal_routines", list),
+                       collection(timetable, "entries", list),
+                       collection(reviews, "review_dates", list)]
+        if sum(map(len, collections)) > MAX_ITEMS:
+            raise MonthPlanImportValidationError("The plan contains too many operational items (maximum 1000).")
         if document.get("schema_version") != SCHEMA_VERSION:
             errors.append("Unsupported schema_version.")
         plan_id = _text(document.get("plan_id"), field="plan_id", required=True)

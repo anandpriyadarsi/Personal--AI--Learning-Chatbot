@@ -71,6 +71,21 @@ class SQLiteWeeklyReviewRepository:
                     raise WeeklyReviewRepositoryConflictError(
                         "Closed weekly reviews cannot be changed."
                     )
+                if row.get('expected_evidence_fingerprint'):
+                    from personal_learning_assistant.services.weekly_evidence_service import aggregate_connection, fingerprint
+                    current_evidence = aggregate_connection(c,row['week_start'],row['week_end'],as_of=row['evidence_as_of'])
+                    if fingerprint(current_evidence) != row['expected_evidence_fingerprint']:
+                        raise WeeklyReviewRepositoryConflictError('Evidence changed; reload before saving.')
+                columns = {r[1] for r in c.execute('PRAGMA table_info(weekly_reviews)')}
+                if row.get('expected_revision') is not None and 'revision' in columns:
+                    current = c.execute('SELECT revision FROM weekly_reviews WHERE week_start=? AND week_end=?',
+                        (row['week_start'],row['week_end'])).fetchone()
+                    try:
+                        expected = int(row['expected_revision'])
+                    except (ValueError, TypeError):
+                        raise WeeklyReviewRepositoryConflictError('Invalid review revision.')
+                    if expected != (current[0] if current else 0):
+                        raise WeeklyReviewRepositoryConflictError('Review changed; reload before saving.')
                 c.execute(
                     "INSERT INTO weekly_reviews "
                     "(id,week_start,week_end,planned_items,completed_items,"
@@ -97,7 +112,7 @@ class SQLiteWeeklyReviewRepository:
                     (
                         row["id"], row["week_start"], row["week_end"],
                         row["planned_items"], row["completed_items"],
-                        row["planned_focus_minutes"], row["actual_focus_minutes"],
+                        row["planned_focus_minutes"], row["actual_focus_minutes"] if row["actual_focus_minutes"] is not None else 0,
                         row["carry_forward_count"], row["missed_deadline_count"],
                         row.get("what_worked",""), row.get("what_failed",""),
                         row.get("remove_next_week",""), row.get("next_priority_1",""),
@@ -105,54 +120,23 @@ class SQLiteWeeklyReviewRepository:
                         row["created_at"], row["updated_at"], row.get("closed_at"),
                     ),
                 )
+                columns = {r[1] for r in c.execute('PRAGMA table_info(weekly_reviews)')}
+                if 'evidence_json' in columns:
+                    c.execute("UPDATE weekly_reviews SET evidence_json=?,evidence_fingerprint=?,evidence_as_of=?,policy_version=?,revision=revision+1 WHERE week_start=? AND week_end=?",
+                        (row.get('evidence_json'), row.get('evidence_fingerprint'), row.get('evidence_as_of'), row.get('policy_version'), row['week_start'], row['week_end']))
+                elif row.get('closed_at'):
+                    raise WeeklyReviewRepositoryError('Apply PAO migration before closing evidence snapshots.')
         finally:
             c.close()
         return self.get_review(row["week_start"], row["week_end"])
 
-    def aggregate_period(self, week_start, week_end):
+    def aggregate_period(self, week_start, week_end, *, as_of=None, course_id='', local_timezone='Asia/Kolkata'):
+        from personal_learning_assistant.services.weekly_evidence_service import aggregate_connection
         c = self._connect(writable=False)
         try:
-            agenda_rows = c.execute(
-                "SELECT id FROM daily_agendas WHERE agenda_date BETWEEN ? AND ?",
-                (week_start, week_end),
-            ).fetchall()
-            agenda_ids = [str(row["id"]) for row in agenda_rows]
-            if not agenda_ids:
-                return {
-                    "planned_items": 0,
-                    "completed_items": 0,
-                    "planned_focus_minutes": 0,
-                    "actual_focus_minutes": 0,
-                    "carry_forward_count": 0,
-                    "missed_deadline_count": 0,
-                }
-            placeholders = ",".join("?" for _ in agenda_ids)
-            stats = c.execute(
-                "SELECT COUNT(*) AS planned_items,"
-                "SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END) AS completed_items,"
-                "COALESCE(SUM(CASE WHEN item_kind IN ('task','study') THEN planned_minutes ELSE 0 END),0) AS planned_focus_minutes,"
-                "COALESCE(SUM(CASE WHEN item_kind IN ('task','study') THEN actual_minutes ELSE 0 END),0) AS actual_focus_minutes "
-                "FROM daily_agenda_items WHERE agenda_id IN ({})".format(placeholders),
-                tuple(agenda_ids),
-            ).fetchone()
-            carry = c.execute(
-                "SELECT COUNT(*) FROM task_rollover_events "
-                "WHERE from_date BETWEEN ? AND ? AND decision='carry'",
-                (week_start, week_end),
-            ).fetchone()[0]
-            missed = c.execute(
-                "SELECT COUNT(*) FROM planner_tasks "
-                "WHERE due_on BETWEEN ? AND ? AND status NOT IN ('completed','archived') "
-                "AND due_on < date('now')",
-                (week_start, week_end),
-            ).fetchone()[0]
-            return {
-                "planned_items": int(stats["planned_items"] or 0),
-                "completed_items": int(stats["completed_items"] or 0),
-                "planned_focus_minutes": int(stats["planned_focus_minutes"] or 0),
-                "actual_focus_minutes": int(stats["actual_focus_minutes"] or 0),
-                "carry_forward_count": int(carry or 0),
-                "missed_deadline_count": int(missed or 0),
-            }
+            return aggregate_connection(c, week_start, week_end, as_of=as_of,
+                course_id=course_id, local_timezone=local_timezone)
+        except sqlite3.Error as error:
+            raise WeeklyReviewRepositoryError("Weekly evidence is unavailable.") from error
         finally:
             c.close()

@@ -75,6 +75,14 @@ class SQLiteDailyAgendaRepository:
                     (row["id"],),
                 ).fetchall()
             )
+            task_columns = {r[1] for r in c.execute('PRAGMA table_info(planner_tasks)')}
+            if 'revision' in task_columns:
+                for item in result['items']:
+                    if item.get('source_type') == 'planner_task':
+                        task = c.execute('SELECT revision,status FROM planner_tasks WHERE id=?', (item['source_id'],)).fetchone()
+                        if task:
+                            item['task_revision'] = task['revision']
+                            item['task_status'] = task['status']
             review = c.execute(
                 "SELECT * FROM daily_reviews WHERE agenda_id=?", (row["id"],)
             ).fetchone()
@@ -84,34 +92,46 @@ class SQLiteDailyAgendaRepository:
             c.close()
 
     @staticmethod
-    def _planning_fingerprint(c):
-        """Bounded conservative source guard, shared by read preview and locked write."""
+    def _planning_fingerprint(c, agenda_date=None):
+        """Hash relevant day sources; legacy callers can request the full guard."""
         digest = hashlib.sha256()
-        for table in ("planner_tasks", "academic_events", "routine_templates",
-                      "study_plan_items", "month_plan_import_items", "courses",
-                      "daily_agendas", "daily_agenda_items", "daily_reviews"):
-            digest.update(table.encode("ascii"))
-            rows = c.execute("SELECT * FROM " + table + " ORDER BY rowid LIMIT 10001")
+        queries = {
+            "planner_tasks": ("status IN ('backlog','planned','scheduled','in_progress','skipped')", ()),
+            "academic_events": ("deleted_at IS NULL AND status<>'cancelled' AND substr(starts_at,1,10)<=? AND (NULLIF(recurrence_rule,'') IS NOT NULL OR ends_at IS NULL OR substr(ends_at,1,10)>=?)", (agenda_date, agenda_date)),
+            "routine_templates": ("status='active'", ()),
+            "study_plan_items": ("plan_date=? AND status NOT IN ('completed','cancelled')", (agenda_date,)),
+            "month_plan_import_items": ("entity_type='academic_event' AND entity_id IN (SELECT id FROM academic_events WHERE deleted_at IS NULL AND status<>'cancelled' AND substr(starts_at,1,10)<=? AND (NULLIF(recurrence_rule,'') IS NOT NULL OR ends_at IS NULL OR substr(ends_at,1,10)>=?))", (agenda_date, agenda_date)),
+            "courses": ("id IN (SELECT course_id FROM study_plan_items WHERE plan_date=?)", (agenda_date,)),
+            "daily_agendas": ("agenda_date=?", (agenda_date,)),
+            "daily_agenda_items": ("agenda_id IN (SELECT id FROM daily_agendas WHERE agenda_date=?)", (agenda_date,)),
+            "task_rollover_events": ("from_date=date(?,'-1 day')", (agenda_date,)),
+        }
+        for table, (where, args) in queries.items():
+            digest.update(table.encode('ascii'))
+            query = 'SELECT * FROM ' + table
+            if agenda_date is not None:
+                query += ' WHERE ' + where
+            rows = c.execute(query + ' ORDER BY rowid LIMIT 10001', args if agenda_date is not None else ())
             for index, row in enumerate(rows):
                 if index >= 10000:
-                    raise DailyAgendaRepositoryError("Planner proposal source exceeds the safe preview limit.")
-                digest.update(json.dumps(dict(row), sort_keys=True, separators=(",", ":"), default=str).encode("utf-8"))
+                    raise DailyAgendaRepositoryError('Planner proposal source exceeds the safe preview limit.')
+                digest.update(json.dumps(dict(row), sort_keys=True, separators=(',', ':'), default=str).encode('utf-8'))
         return digest.hexdigest()
 
-    def planning_fingerprint(self):
+    def planning_fingerprint(self, agenda_date=None):
         c = self._connect(writable=False)
         try:
-            c.execute("BEGIN")
-            return self._planning_fingerprint(c)
+            c.execute('BEGIN')
+            return self._planning_fingerprint(c, agenda_date)
         finally:
             c.close()
 
-    def create_or_replace_draft(self, agenda_row, items, *, expected_fingerprint=None):
+    def create_or_replace_draft(self, agenda_row, items, *, expected_fingerprint=None, proposal_context=None):
         c = self._connect(writable=True)
         saved_fingerprint = None
         try:
             with transaction(c, immediate=True):
-                if expected_fingerprint is not None and self._planning_fingerprint(c) != expected_fingerprint:
+                if expected_fingerprint is not None and self._planning_fingerprint(c, agenda_row["agenda_date"]) != expected_fingerprint:
                     raise DailyAgendaRepositoryConflictError("Planner sources changed. Preview again before saving.")
                 existing = c.execute(
                     "SELECT id,status FROM daily_agendas WHERE agenda_date=?",
@@ -165,7 +185,14 @@ class SQLiteDailyAgendaRepository:
                     # Bind the exact committed draft and its sources while the
                     # same write lock still excludes another writer. A later
                     # read must not bless a source change after this save.
-                    saved_fingerprint = self._planning_fingerprint(c)
+                    saved_fingerprint = self._planning_fingerprint(c, agenda_row["agenda_date"])
+                if proposal_context is not None:
+                    from .planner_proposal_repository import SQLitePlannerProposalRepository
+                    SQLitePlannerProposalRepository.append(
+                        c, agenda_row['agenda_date'],
+                        {**proposal_context, 'saved_fingerprint': saved_fingerprint},
+                        created_at=agenda_row['created_at'],
+                    )
         finally:
             c.close()
         result = self.get_agenda(agenda_row["agenda_date"])
@@ -177,7 +204,7 @@ class SQLiteDailyAgendaRepository:
         c = self._connect(writable=True)
         try:
             with transaction(c, immediate=True):
-                if expected_fingerprint is not None and self._planning_fingerprint(c) != expected_fingerprint:
+                if expected_fingerprint is not None and self._planning_fingerprint(c, agenda_date) != expected_fingerprint:
                     raise DailyAgendaRepositoryConflictError("Planner sources changed. Preview again before approval.")
                 cur = c.execute(
                     "UPDATE daily_agendas SET status='approved',approved_at=?,updated_at=? "
@@ -237,11 +264,13 @@ class SQLiteDailyAgendaRepository:
                     and str(item["source_type"] or "") == "planner_task"
                     and item["source_id"]
                 ):
-                    c.execute(
+                    changed = c.execute(
                         "UPDATE planner_tasks SET status='completed',completed_at=?,"
-                        "updated_at=? WHERE id=? AND status<>'archived'",
+                        "updated_at=?,manual_revision=manual_revision+1 WHERE id=? AND status NOT IN ('archived','completed','skipped')",
                         (completed_at or updated_at, updated_at, item["source_id"]),
                     )
+                    if changed.rowcount != 1:
+                        raise DailyAgendaRepositoryConflictError("Canonical task changed or is already terminal.")
                 if study_source is not None:
                     # Canonical source status is updated in the SAME transaction as the
                     # agenda receipt. No separate Learning Studio evidence is forged.

@@ -181,7 +181,7 @@ def test_reader_view_uses_assistant_identity_safe_rendering_and_deep_link():
     view = service.reader_view("Math/LU Factorization.md")
 
     assert workspace.preview_calls == ["Math/LU Factorization.md"]
-    assert view["note_identity"] == "assistant:" + ASSISTANT_ID
+    assert view["note_identity"] == "path:" + hashlib.sha256((VAULT_IDENTITY + "\0math/lu factorization.md").encode()).hexdigest()
     assert isinstance(view["rendered_html"], Markup)
     assert "<h1>LU</h1>" in str(view["rendered_html"])
     assert "<strong>Factorization</strong>" in str(view["rendered_html"])
@@ -307,7 +307,7 @@ def test_start_reading_revalidates_note_and_creates_zero_total_session():
     kind, values = repository.write_calls[-1]
     assert kind == "create_session"
     assert values["vault_identity"] == VAULT_IDENTITY
-    assert values["note_identity"] == "assistant:" + ASSISTANT_ID
+    assert values["note_identity"] == "path:" + hashlib.sha256((VAULT_IDENTITY + "\0math/lu factorization.md").encode()).hexdigest()
     assert values["relative_path"] == "Math/LU Factorization.md"
     assert values["source_hash"] == SOURCE_HASH
     assert values["now"] == NOW
@@ -579,7 +579,7 @@ def test_add_companion_entry_validates_current_note_and_normalizes_text(entry_ty
     kind, values = repository.write_calls[-1]
     assert kind == "add_entry"
     assert values["vault_identity"] == VAULT_IDENTITY
-    assert values["note_identity"] == "assistant:" + ASSISTANT_ID
+    assert values["note_identity"] == "path:" + hashlib.sha256((VAULT_IDENTITY + "\0math/lu factorization.md").encode()).hexdigest()
     assert values["relative_path"] == "Math/LU Factorization.md"
     assert values["now"] == NOW
 

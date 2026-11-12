@@ -1,0 +1,4 @@
+<section class="pa-panel" aria-label="Reviewed next actions"><h3>Choose your next action</h3>
+<p class="pa-caption">Up to three suggestions from recorded commitments. Review the source before creating or changing a task.</p>
+{% for action in hub.actions or [] %}<article><strong>{{ action.title }}</strong><p>{{ action.reason }}</p><small>{{ action.source_refs|join(' · ') }}</small> <a href="{{ action.url }}">{{ action.label }} →</a></article>
+{% else %}<p>No reviewed action is available. <a href="/academic-evidence">Open exact learning sources</a> to preview a manual study task.</p>{% endfor %}</section>

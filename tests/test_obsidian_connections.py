@@ -200,6 +200,7 @@ def test_mobile_settings_upload_copy_disconnect_and_csrf(connected):
     assert b'name="vault_path"' not in page.data
     assert client.post("/library/connected-sources/obsidian/disconnect").status_code == 403
     token = app.extensions["notes_media_csrf"]
+    client.environ_base["HTTP_X_PAO_TOKEN"] = app.extensions["pao_command_signer"].dumps({"scope": "obsidian"})
     assert client.post("/library/connected-sources/obsidian/connect", data={"csrf_token": token, "vault_path": "/tmp"}).status_code == 400
     response = client.post("/library/connected-sources/obsidian/snapshot", data={
         "csrf_token": token,

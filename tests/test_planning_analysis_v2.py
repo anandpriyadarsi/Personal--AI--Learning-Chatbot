@@ -65,6 +65,9 @@ def test_actual_effort_not_recorded_is_not_zero_and_drafts_excluded(tmp_path):
             c.execute("INSERT INTO daily_agendas(id,agenda_date,status,generated_at,created_at,updated_at) VALUES(?,?,?,?,?,?)",
                       (aid,'2026-09-27' if aid=='approved' else '2026-09-28',status,'x','x','x'))
             c.execute("INSERT INTO daily_agenda_items(id,agenda_id,ordinal,item_kind,title,planned_minutes,created_at,updated_at) VALUES(?,?,1,'manual','Read',30,'x','x')",(aid,aid))
+    with sqlite3.connect(path) as c:
+        c.execute("UPDATE daily_agendas SET approved_at='2026-09-26T12:00:00Z' WHERE id='approved'")
+        c.execute("UPDATE daily_agenda_items SET starts_at='2026-09-27T09:00:00Z',ends_at='2026-09-27T09:30:00Z' WHERE id='approved'")
     result = service(path).overview()['effort']
     assert result['planned_minutes'] == 30
     assert result['actual_minutes'] is None
@@ -280,6 +283,9 @@ def test_course_filtered_study_receipt_is_attributed_to_canonical_source(tmp_pat
             "(id,agenda_id,ordinal,item_kind,source_type,source_id,title,planned_minutes,actual_minutes,status,created_at,updated_at) "
             "VALUES ('v21-receipt','v21-day',1,'study','study_plan_item','v21-study','Study source',45,32,'completed','x','x')"
         )
+    with sqlite3.connect(path) as c:
+        c.execute("UPDATE daily_agendas SET approved_at='2026-09-26T12:00:00Z' WHERE id='v21-day'")
+        c.execute("UPDATE daily_agenda_items SET starts_at='2026-09-27T09:00:00Z',ends_at='2026-09-27T09:45:00Z' WHERE id='v21-receipt'")
     before = inventory(tmp_path)
     view = service(path).overview(course='MA103N')
     assert view['source_status']['effort'] == 'available'

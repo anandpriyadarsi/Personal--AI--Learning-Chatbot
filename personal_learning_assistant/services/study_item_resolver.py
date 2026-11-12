@@ -26,14 +26,11 @@ def obsidian_identity(note) -> StudyItemIdentity:
     source_hash = str(note.get("source_hash") or "").strip().lower()
     if not vault_identity.startswith("vault:"):
         raise LookupError("Obsidian vault identity is unavailable")
-    assistant_id = note.get("assistant_id")
-    note_identity = ""
-    if assistant_id:
-        try:
-            note_identity = "assistant:" + str(uuid.UUID(str(assistant_id)))
-        except (ValueError, TypeError, AttributeError):
-            note_identity = ""
-    if not note_identity:
+    if note.get("source_item_id"):
+        note_identity = "obsidian-source:" + str(uuid.UUID(str(note["source_item_id"])))
+    else:
+        # Legacy history cannot prove ownership of bare assistant UUIDs. New
+        # activity is scoped even before an explicit manifest has been enabled.
         material = vault_identity + "\0" + _normalized_path_key(relative_path)
         note_identity = "path:" + hashlib.sha256(material.encode("utf-8")).hexdigest()
     return StudyItemIdentity(

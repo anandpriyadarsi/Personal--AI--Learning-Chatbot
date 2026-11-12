@@ -52,7 +52,7 @@
     <article class="dashboard-panel">
       <div class="panel-heading"><div><p class="eyebrow">Later update</p><h3>Enter official exam slots</h3></div></div>
       {% for assessment in operational_calendar.waiting_exam_slots %}
-      <form method="post" action="{{ url_for('web.calendar_assessment_schedule', assessment_id=assessment.id) }}" class="planner-form planner-exam-form">
+      <form method="post" action="{{ url_for('web.calendar_assessment_schedule', assessment_id=assessment.id) }}" class="planner-form planner-exam-form"><input type="hidden" name="pao_token" value="{{ pao_command_token('planning') }}">
         <strong class="planner-span-2">{{ assessment.course_code }} · {{ assessment.title }}</strong>
         <label>Date <input name="due_on" type="date" required></label>
         <label>Start <input name="start_time" type="time" required></label>

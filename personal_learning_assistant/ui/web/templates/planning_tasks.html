@@ -1,95 +1,49 @@
 {% extends "base.html" %}
 {% block title %}Tasks · ANVAYA{% endblock %}
+{% block body_class %}analysis-page pa-page{% endblock %}
+{% block page_scripts %}<link rel="stylesheet" href="{{ url_for('static', filename='planning_analysis.css') }}">{% endblock %}
 {% block content %}
-<section class="hero dashboard-hero">
-  <div>
-    <p class="eyebrow">Operational planner</p>
-    <h2>Tasks</h2>
-    <p class="lede">Capture work first, then schedule it when a real free window exists.</p>
-  </div>
-  <a class="button button-secondary" href="{{ url_for('web.planning') }}">Back to planning</a>
-</section>
-
-{% if error_message %}<section class="notice-panel" role="alert"><p>{{ error_message }}</p></section>{% endif %}
-{% if request.args.get('created') == '1' %}<section class="notice-panel compact-notice">Task added.</section>{% endif %}
-{% if request.args.get('updated') == '1' %}<section class="notice-panel compact-notice">Task updated.</section>{% endif %}
-
-<section class="dashboard-panel">
-  <div class="panel-heading">
-    <div><p class="eyebrow">New task</p><h3>Add to ANVAYA</h3></div>
-  </div>
-  <form method="post" action="{{ url_for('web.planning_tasks_create') }}" class="planner-form">
-    <label>Task title <input name="title" required maxlength="300"></label>
-    <label>Priority
-      <select name="priority"><option>P0</option><option selected>P1</option><option>P2</option></select>
-    </label>
-    <label>Estimated minutes <input name="estimated_minutes" type="number" min="0" max="1440"></label>
-    <label>Due date <input name="due_on" type="date"></label>
-    <label class="planner-span-2">Description <textarea name="description" rows="2" maxlength="4000"></textarea></label>
-    <label>Preferred day <input name="preferred_day"></label>
-    <label>Preferred window <input name="preferred_window" placeholder="morning / afternoon / evening"></label>
-    <button class="button" type="submit">Add task</button>
-  </form>
-</section>
-
-<section class="metric-grid">
-  <article class="metric-card"><span class="metric-label">Open</span><strong>{{ workspace.summary.open }}</strong></article>
-  <article class="metric-card"><span class="metric-label">P0</span><strong>{{ workspace.summary.p0 }}</strong></article>
-  <article class="metric-card"><span class="metric-label">P1</span><strong>{{ workspace.summary.p1 }}</strong></article>
-  <article class="metric-card"><span class="metric-label">P2</span><strong>{{ workspace.summary.p2 }}</strong></article>
-</section>
-
-<section class="dashboard-panel">
-  <div class="panel-heading"><div><p class="eyebrow">Current work</p><h3>Open tasks</h3></div></div>
-  {% if not workspace.tasks %}
-    <p class="empty-state">No open planner tasks.</p>
-  {% else %}
-  <ul class="planner-task-list">
-    {% for task in workspace.tasks %}
-    <li class="planner-task-card">
-      <div class="list-main">
-        <strong>{{ task.priority }} · {{ task.title }}</strong>
-        <span>{{ task.status|replace('_',' ')|title }}{% if task.due_on %} · due {{ task.due_on }}{% endif %}{% if task.estimated_minutes is not none %} · {{ task.estimated_minutes }} min{% endif %}</span>
-        {% if task.description %}<p>{{ task.description }}</p>{% endif %}
-      </div>
-      <div class="planner-inline-actions">
-        {% if task.due_on %}
-        <a class="button button-quiet" href="{{ url_for('web.calendar', view='day', date=task.due_on) }}">Calendar</a>
-        {% endif %}
-        {% if task.status != 'completed' %}
-        <form method="post" action="{{ url_for('web.planning_task_transition', task_id=task.id) }}">
-          <input type="hidden" name="status" value="completed">
-          <button class="button button-secondary" type="submit">Complete</button>
-        </form>
-        {% endif %}
-        <form method="post" action="{{ url_for('web.planning_task_transition', task_id=task.id) }}">
-          <input type="hidden" name="status" value="archived">
-          <button class="button button-quiet" type="submit">Archive</button>
-        </form>
-      </div>
-      <details class="planner-task-editor">
-        <summary>Edit task</summary>
-        <form method="post" action="{{ url_for('web.planning_task_update', task_id=task.id) }}" class="planner-form">
-          <label>Task title <input name="title" value="{{ task.title }}" required maxlength="300"></label>
-          <label>Priority
-            <select name="priority">
-              {% for value in ('P0','P1','P2') %}
-              <option value="{{ value }}"{% if task.priority == value %} selected{% endif %}>{{ value }}</option>
-              {% endfor %}
-            </select>
-          </label>
-          <label>Estimated minutes <input name="estimated_minutes" type="number" min="0" max="1440" value="{{ task.estimated_minutes if task.estimated_minutes is not none else '' }}"></label>
-          <label>Due date <input name="due_on" type="date" value="{{ task.due_on or '' }}"></label>
-          <label class="planner-span-2">Description <textarea name="description" rows="2" maxlength="4000">{{ task.description or '' }}</textarea></label>
-          <label>Preferred day <input name="preferred_day" value="{{ task.preferred_day or '' }}"></label>
-          <label>Preferred window <input name="preferred_window" value="{{ task.preferred_window or '' }}" placeholder="morning / afternoon / evening"></label>
-          <label class="planner-span-2">Rollover policy <input name="rollover_policy" value="{{ task.rollover_policy or '' }}"></label>
-          <button class="button" type="submit">Save changes</button>
-        </form>
-      </details>
-    </li>
-    {% endfor %}
-  </ul>
-  {% endif %}
-</section>
+{% set values = form_values|default(request.form) %}
+{% set filters = workspace.filters %}
+{% set catalogue = workspace.catalogue|default({}) %}
+{% macro retain_filters() %}<input type="hidden" name="filter_status" value="{{ filters.status|default('') }}"><input type="hidden" name="filter_priority" value="{{ filters.priority|default('') }}"><input type="hidden" name="filter_course_id" value="{{ filters.course_id|default('') }}">{% endmacro %}
+<section class="pa-hero"><div><p class="eyebrow">Planning</p><h2>Capture your next step.</h2><p>Start with a title. Link a course or add timing when useful.</p></div><a class="pa-button" href="{{ url_for('web.planning') }}">Back to planning</a></section>
+<nav class="pa-workflows" aria-label="Planning workflows"><a href="{{ url_for('web.planning') }}">Today</a><a href="{{ url_for('web.planning', view='week') }}">This Week</a><a href="{{ url_for('web.planning_tasks', status='backlog', course_id=filters.course_id|default('')) }}">Backlog</a><a href="#exams">Exams</a></nav>
+{% if error_message %}<section class="notice-panel" role="alert"><p>{{ error_message }}</p><p>Your entered task details are below.</p></section>{% endif %}
+{% if request.args.get('created') == '1' %}<p class="notice-panel" role="status">Task added.</p>{% endif %}
+{% if request.args.get('updated') == '1' %}<p class="notice-panel" role="status">Task updated.</p>{% endif %}
+<section class="pa-panel pa-capture" aria-labelledby="capture-title">
+<h3 id="capture-title">Add a task</h3>
+<form method="post" action="{{ url_for('web.planning_tasks_create') }}" class="pa-capture-form">
+<input type="hidden" name="pao_token" value="{{ pao_command_token('planning') }}">{{ retain_filters() }}
+<label>Task title <input name="title" required maxlength="300" value="{{ values.get('title','') }}" placeholder="What is the next thing to do?"></label>
+<details{% if error_message %} open{% endif %}><summary>Course, timing &amp; other details</summary><div class="pa-capture-grid">
+<label>Course<select name="course_id"><option value="">No course linked</option>{% for c in catalogue.courses|default([]) %}<option value="{{ c.id }}"{% if values.get('course_id','') == c.id %} selected{% endif %}>{{ c.code }} · {{ c.name }}</option>{% endfor %}</select></label>
+<label>Topic<select name="topic_id"><option value="">No topic linked</option>{% for t in catalogue.topics|default([]) %}<option value="{{ t.id }}"{% if values.get('topic_id','') == t.id %} selected{% endif %}>{{ t.name }} · {{ t.course_id }}</option>{% endfor %}</select></label>
+<label>Assessment<select name="assessment_id"><option value="">No assessment linked</option>{% for a in catalogue.assessments|default([]) %}<option value="{{ a.id }}"{% if values.get('assessment_id','') == a.id %} selected{% endif %}>{{ a.title }} · {{ a.due_on or 'Date unknown' }} · {{ a.course_id }}</option>{% endfor %}</select></label>
+<label>Priority<select name="priority">{% for p in ('P0','P1','P2') %}<option{% if values.get('priority','P1') == p %} selected{% endif %}>{{ p }}</option>{% endfor %}</select></label>
+<label>Estimated minutes<input name="estimated_minutes" type="number" min="0" max="1440" value="{{ values.get('estimated_minutes','') }}"></label>
+<label>Due date<input name="due_on" type="date" value="{{ values.get('due_on','') }}"></label>
+<label>Preferred day<input name="preferred_day" list="capture-weekdays" value="{{ values.get('preferred_day','') }}" placeholder="YYYY-MM-DD, weekday, or none" aria-describedby="timing-help"></label>
+<datalist id="capture-weekdays">{% for d in ('Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday','none') %}<option value="{{ d }}">{% endfor %}</datalist>
+<label>Preferred window<input name="preferred_window" value="{{ values.get('preferred_window','') }}" placeholder="morning / afternoon / evening"></label>
+<label class="pa-capture-wide">Description<textarea name="description" rows="2" maxlength="4000">{{ values.get('description','') }}</textarea></label>
+<p id="timing-help" class="pa-caption pa-capture-wide">Optional: choose a date or weekday. Leave blank or enter none for no preference. A preference does not schedule a study block. Topic and assessment must belong to the chosen course.</p>
+</div></details><button class="pa-button pa-primary" type="submit">Add task</button></form></section>
+<section class="pa-panel" aria-labelledby="tasks-title"><div class="pa-heading"><h3 id="tasks-title">{{ 'Open tasks' if not filters.status else ('All tasks' if filters.status == 'all' else filters.status|replace('_',' ')|title + ' tasks') }}</h3><span>{{ workspace.summary.open }} open in selection</span></div>
+<form class="pa-filters" method="get"><label>Status<select name="status">{% for key,label in [('','Open'),('all','All tasks'),('backlog','Backlog'),('planned','Planned'),('scheduled','Scheduled'),('in_progress','In progress'),('skipped','Skipped'),('completed','Completed'),('archived','Archived')] %}<option value="{{ key }}"{% if filters.status|default('') == key %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+<label>Course<select name="course_id"><option value="">All courses · includes unlinked tasks</option>{% for c in catalogue.courses|default([]) %}<option value="{{ c.id }}"{% if filters.course_id == c.id %} selected{% endif %}>{{ c.code }} · {{ c.name }}</option>{% endfor %}</select></label>
+<label>Priority<select name="priority"><option value="">All priorities</option>{% for p in ('P0','P1','P2') %}<option{% if filters.priority == p %} selected{% endif %}>{{ p }}</option>{% endfor %}</select></label><button class="pa-button" type="submit">Apply filters</button></form>
+{% if workspace.tasks %}<ul class="planner-task-list">{% for task in workspace.tasks %}<li class="planner-task-card pa-capture-task" id="task-{{ task.id }}">
+<div class="list-main"><strong><a href="{{ url_for('web.planning_tasks',status=filters.status|default(''),priority=filters.priority|default(''),course_id=filters.course_id|default(''),_anchor='task-'+task.id) }}">{{ task.priority }} · {{ task.title }}</a></strong><span>{{ task.status|replace('_',' ')|title }} · {{ task.course_label|default('No course linked') }}{% if task.due_on %} · Due {{ task.due_on }}{% endif %}{% if task.estimated_minutes is not none %} · {{ task.estimated_minutes }} min{% endif %}</span>
+{% if task.timing_needs_review %}<p class="pa-badge">Needs timing review: {{ task.preferred_day }}</p>{% elif task.preferred_day %}<span>Preferred {{ task.preferred_day }}</span>{% endif %}{% if task.description %}<p>{{ task.description }}</p>{% endif %}</div>
+{% if task.recorded_minutes is defined and task.recorded_minutes is not none %}<p class="pa-caption">Recorded effort: {{ task.recorded_minutes }} min · self-reported</p>
+<details><summary>Work history and corrections</summary>{% for log in task.work_logs %}<p>{{ log.occurred_at }} · {{ log.actual_minutes }} min{% if log.superseded %} · Superseded{% endif %}{% if log.note %} · {{ log.note }}{% endif %}</p>{% if config.get('PAO_V3_ENABLED') and not log.superseded %}<form method="post" action="/planning/tasks/{{ task.id|urlencode }}/progress" class="pa-capture-grid"><input type="hidden" name="pao_token" value="{{ pao_command_token('planning') }}">{{ retain_filters() }}<input type="hidden" name="expected_revision" value="{{ task.revision }}"><input type="hidden" name="command_id" value="{{ pao_command_id() }}"><input type="hidden" name="occurred_at" value="{{ pao_now() }}"><input type="hidden" name="supersedes_id" value="{{ log.id }}"><input type="hidden" name="agenda_item_id" value="{{ log.agenda_item_id or '' }}"><label>Corrected session minutes<input type="number" name="actual_minutes" min="0" max="1440" value="{{ log.actual_minutes }}" required></label><label>Correction reason<input name="note" maxlength="4000" required></label><button class="pa-button" type="submit">Save correction</button></form>{% endif %}{% endfor %}</details>{% endif %}
+<div class="planner-inline-actions">{% for link in task.source_links|default([]) %}<a class="pa-button" href="{{ link.url }}">{{ link.label }}</a>{% endfor %}{% if task.due_on %}<a class="pa-button" href="{{ url_for('web.calendar',view='day',date=task.due_on) }}">Calendar</a>{% endif %}
+{% for target in task.allowed_transitions|default([]) %}<form method="post" action="{{ url_for('web.planning_task_transition',task_id=task.id) }}"><input type="hidden" name="pao_token" value="{{ pao_command_token('planning') }}">{{ retain_filters() }}<input type="hidden" name="status" value="{{ target }}">{% if config.get('PAO_V3_ENABLED') and task.revision is defined %}<input type="hidden" name="expected_revision" value="{{ task.revision }}"><input type="hidden" name="command_id" value="{{ pao_command_id() }}">{% endif %}<button class="pa-button" type="submit">{{ 'Complete' if target == 'completed' else ('Archive' if target == 'archived' else 'Move to ' + target|replace('_',' ')) }}</button></form>{% endfor %}</div>
+{% if config.get('PAO_V3_ENABLED') and task.revision is defined and task.status not in ('completed','archived','skipped') %}<details class="planner-task-editor"><summary>Log partial progress</summary><form method="post" action="/planning/tasks/{{ task.id|urlencode }}/progress" class="pa-capture-grid"><input type="hidden" name="pao_token" value="{{ pao_command_token('planning') }}">{{ retain_filters() }}<input type="hidden" name="expected_revision" value="{{ task.revision }}"><input type="hidden" name="command_id" value="{{ pao_command_id() }}"><input type="hidden" name="occurred_at" value="{{ pao_now() }}"><label>Minutes in this session<input type="number" name="actual_minutes" min="1" max="1440" required></label><label>Note (optional)<input name="note" maxlength="4000"></label><button class="pa-button" type="submit">Log progress</button><p class="pa-caption">Learner-reported time. The task stays open.</p></form></details>{% endif %}
+{% if task.status != 'archived' %}<details class="planner-task-editor"><summary>Edit task</summary><form method="post" action="{{ url_for('web.planning_task_update',task_id=task.id) }}" class="pa-capture-grid"><input type="hidden" name="pao_token" value="{{ pao_command_token('planning') }}">{{ retain_filters() }}{% if config.get('PAO_V3_ENABLED') and task.revision is defined %}<input type="hidden" name="expected_revision" value="{{ task.revision }}">{% endif %}
+<label>Task title<input name="title" value="{{ task.title }}" required maxlength="300"></label><label>Priority<select name="priority">{% for p in ('P0','P1','P2') %}<option{% if task.priority == p %} selected{% endif %}>{{ p }}</option>{% endfor %}</select></label><label>Estimated minutes<input name="estimated_minutes" type="number" min="0" max="1440" value="{{ task.estimated_minutes if task.estimated_minutes is not none else '' }}"></label><label>Due date<input name="due_on" type="date" value="{{ task.due_on or '' }}"></label><label>Preferred day<input name="preferred_day" value="{{ task.preferred_day or '' }}" list="capture-weekdays"></label><label>Preferred window<input name="preferred_window" value="{{ task.preferred_window or '' }}"></label><label class="pa-capture-wide">Description<textarea name="description" maxlength="4000">{{ task.description or '' }}</textarea></label><button class="pa-button" type="submit">Save changes</button></form></details>{% endif %}
+</li>{% endfor %}</ul>{% else %}<p class="pa-empty">No tasks in this selection. Change the filters or capture a next step.</p>{% endif %}</section>
+<section id="exams" class="pa-panel" aria-labelledby="exams-title"><h3 id="exams-title">Exams</h3><p class="pa-caption">Recorded assessment dates only. No readiness is inferred.</p><ul class="pa-task-list">{% for a in catalogue.assessments|default([]) if a.assessment_type in ('exam','midterm','final','test','quiz') and (not filters.course_id or a.course_id == filters.course_id) %}<li><div><strong>{{ a.title }}</strong><small>{% if a.due_on %}<a href="{{ url_for('web.calendar',view='day',date=a.due_on) }}">{{ a.due_on }}</a>{% else %}Date unknown{% endif %}</small></div></li>{% else %}<li>No recorded exams in this selection.</li>{% endfor %}</ul></section>
 {% endblock %}

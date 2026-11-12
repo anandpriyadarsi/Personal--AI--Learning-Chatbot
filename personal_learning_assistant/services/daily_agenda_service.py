@@ -217,7 +217,7 @@ class DailyAgendaService:
                               self._task_rank(item, day)),
         )
         # Active-flexible ceiling.
-        selected = [task for task in tasks if _preferred_day_allows(task, target)][:MAX_FLEXIBLE]
+        selected = tasks  # Feasibility is evaluated before the active-flexible cap.
         fixed_count = sum(1 for item in fixed if item.get("start_time"))
         deep_limit = 1 if fixed_count >= 4 else 3
 
@@ -246,7 +246,7 @@ class DailyAgendaService:
                 "updated_at": now,
             })
 
-        for row in study[:deep_limit]:
+        for row in study:
             items.append({
                 "id": _id(day, "study", row["id"]),
                 "item_kind": "study",
@@ -281,7 +281,7 @@ class DailyAgendaService:
             earliest = 1440
         windows = _free_windows(fixed, self.free_windows.get(day, ()), earliest, self.break_minutes)
         descriptors = {('planner_task', row['id']): row for row in selected}
-        for row in study[:deep_limit]:
+        for row in study:
             descriptors[('study_plan_item', row['id'])] = {
                 'id': row['id'], 'priority': 'P1', 'due_on': day,
                 'estimated_minutes': row.get('minutes'),
@@ -311,24 +311,41 @@ class DailyAgendaService:
             item['planned_minutes'] = duration if duration_known else None
             due = str(descriptor.get('due_on') or '')
             deadline_valid = not due or due >= day
+            preferred_day_valid = _preferred_day_allows(descriptor, target)
             placement = (_place_task(descriptor, windows, used, duration)
-                         if duration_known and deadline_valid and placed_deep < deep_limit else None)
+                         if duration_known and deadline_valid and preferred_day_valid and placed_deep < deep_limit else None)
             if placement is not None:
                 a, b = placement
                 item['starts_at'], item['ends_at'] = day + 'T' + _hm(a) + ':00', day + 'T' + _hm(b) + ':00'
+                item['reason_code'] = 'scheduled'
                 item['reason'] = 'Scheduled within shared explicit availability and capacity'
                 used.append((max(0, a - self.break_minutes), b + self.break_minutes))
                 placed_deep += 1
             else:
+                item['reason_code'] = (
+                    'deadline_review_required' if not deadline_valid
+                    else 'preferred_day_review_required' if not preferred_day_valid
+                    else 'duration_required' if not duration_known
+                    else 'capacity_unavailable'
+                )
                 item['reason'] = (
                     'Unscheduled: deadline has passed; revise the deadline explicitly' if not deadline_valid
+                    else 'Unscheduled: preferred day needs timing review' if not preferred_day_valid
                     else 'Unscheduled: a valid duration is required' if not duration_known
                     else 'Unscheduled: no safe explicit availability or capacity'
                 )
 
+        # Scheduled candidates get the bounded agenda slots first. Preserve the
+        # remaining review queue separately; blocked work cannot hide fitting work.
+        task_items = [item for item in items if item['item_kind'] == 'task']
+        active = sorted(task_items, key=lambda item: not bool(item['starts_at']))[:MAX_FLEXIBLE]
+        active_ids = {item['id'] for item in active}
+        review_needed = tuple(item for item in task_items if item['id'] not in active_ids)
+        items = [item for item in items if item['item_kind'] != 'task' or item['id'] in active_ids]
         day_mode = "minimum_viable" if fixed_count >= 6 else "normal"
         return {
             "available": True,
+            "review_needed": review_needed,
             "date": day,
             "existing": existing,
             "day_mode": day_mode,
@@ -414,7 +431,7 @@ class DailyAgendaService:
             except (ValueError, TypeError, KeyError):
                 raise DailyAgendaConflictError("Saved slots are no longer safe. Preview and save a fresh draft.")
 
-    def generate_day(self, agenda_date, *, expected_fingerprint=None, preview=None):
+    def generate_day(self, agenda_date, *, expected_fingerprint=None, preview=None, proposal_context=None):
         preview = preview if preview is not None else self.preview_day(agenda_date)
         if preview["existing"] and preview["existing"]["status"] != "draft":
             raise DailyAgendaConflictError("Only a draft agenda can be regenerated.")
@@ -431,7 +448,7 @@ class DailyAgendaService:
             if expected_fingerprint is None:
                 return self.agendas.create_or_replace_draft(agenda, preview["items"])
             return self.agendas.create_or_replace_draft(
-                agenda, preview["items"], expected_fingerprint=expected_fingerprint
+                agenda, preview["items"], expected_fingerprint=expected_fingerprint, proposal_context=proposal_context
             )
         except DailyAgendaRepositoryConflictError as error:
             raise DailyAgendaConflictError(str(error)) from error
@@ -442,7 +459,7 @@ class DailyAgendaService:
         day = _parse_date(agenda_date).isoformat()
         now = self._now()
         try:
-            fingerprint = self.agendas.planning_fingerprint()
+            fingerprint = self.agendas.planning_fingerprint(day)
             if expected_fingerprint is not None and fingerprint != expected_fingerprint:
                 raise DailyAgendaConflictError("Planner sources changed. Preview again before approval.")
             agenda = self.agendas.get_agenda(day)

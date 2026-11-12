@@ -121,6 +121,7 @@ class FakePlanner:
             "week_start": "2026-10-12",
             "week_end": "2026-10-18",
             "evidence": {
+                "legacy_snapshot": True,
                 "planned_items": 1, "completed_items": 1,
                 "planned_focus_minutes": 60, "actual_focus_minutes": 55,
                 "carry_forward_count": 0, "missed_deadline_count": 0,
@@ -174,7 +175,7 @@ def _app(fake):
 
 def test_operational_get_routes_are_readable_and_side_effect_free():
     fake = FakePlanner()
-    client = _app(fake).test_client()
+    client = _client(_app(fake))
     for path in (
         "/planning/tasks",
         "/planning/month-plan",
@@ -189,7 +190,7 @@ def test_operational_get_routes_are_readable_and_side_effect_free():
 
 def test_task_create_uses_post_prg():
     fake = FakePlanner()
-    response = _app(fake).test_client().post(
+    response = _client(_app(fake)).post(
         "/planning/tasks",
         data={"title": "New task", "priority": "P1", "estimated_minutes": "45"},
     )
@@ -199,7 +200,7 @@ def test_task_create_uses_post_prg():
 
 def test_month_preview_is_post_but_not_approval():
     fake = FakePlanner()
-    response = _app(fake).test_client().post(
+    response = _client(_app(fake)).post(
         "/planning/month-plan/preview",
         data={"plan_file": (io.BytesIO(b"schema_version: test"), "plan.yaml")},
         content_type="multipart/form-data",
@@ -212,7 +213,7 @@ def test_month_preview_is_post_but_not_approval():
 
 def test_month_approval_uses_expected_hash_and_prg():
     fake = FakePlanner()
-    response = _app(fake).test_client().post(
+    response = _client(_app(fake)).post(
         "/planning/month-plan/approve",
         data={
             "expected_sha256": "a" * 64,
@@ -227,7 +228,7 @@ def test_month_approval_uses_expected_hash_and_prg():
 def test_day_commands_use_explicit_post_and_prg():
     fake = FakePlanner()
     app = _app(fake)
-    client = app.test_client()
+    client = _client(app)
     for path, data in (
         ("/planning/day/2026-10-12/generate", {}),
         ("/planning/day/2026-10-12/approve", {}),
@@ -252,7 +253,7 @@ def test_day_commands_use_explicit_post_and_prg():
 
 def test_calendar_confirmed_assessment_slot_is_explicit_post():
     fake = FakePlanner()
-    response = _app(fake).test_client().post(
+    response = _client(_app(fake)).post(
         "/calendar/assessments/a1/schedule",
         data={
             "due_on": "2026-10-08",
@@ -263,3 +264,12 @@ def test_calendar_confirmed_assessment_slot_is_explicit_post():
     )
     assert response.status_code == 303
     assert fake.calls[0][0] == "schedule_assessment"
+
+
+def _client(app):
+    """Simulate the token carried by the real native form, retaining origin checks."""
+    from personal_learning_assistant.ui.web.pao_commands import command_token
+    client = app.test_client()
+    with app.test_request_context():
+        client.environ_base['HTTP_X_PAO_TOKEN'] = command_token('planning')
+    return client

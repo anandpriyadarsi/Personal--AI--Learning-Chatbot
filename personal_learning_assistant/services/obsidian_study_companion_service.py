@@ -121,17 +121,8 @@ class ObsidianStudyCompanionService:
                 "The current Obsidian note identity is unavailable."
             )
 
-        assistant_id = note.get("assistant_id")
-        if assistant_id:
-            try:
-                note_identity = "assistant:" + str(uuid.UUID(str(assistant_id)))
-            except (ValueError, AttributeError, TypeError):
-                assistant_id = None
-        if not assistant_id:
-            material = vault_identity + "\0" + _normalized_path_key(relative_path)
-            note_identity = "path:" + hashlib.sha256(
-                material.encode("utf-8")
-            ).hexdigest()
+        from .study_item_resolver import obsidian_identity
+        note_identity = obsidian_identity(note).item_id
         return vault_identity, note_identity, relative_path, source_hash
 
     @staticmethod
@@ -167,7 +158,8 @@ class ObsidianStudyCompanionService:
     def _current_note(self, relative_path, source_hash):
         submitted_hash = self._submitted_hash(source_hash)
         try:
-            note = dict(self.workspace_service.note_preview(relative_path))
+            validator = getattr(self.workspace_service, "validate_note_version", self.workspace_service.note_preview)
+            note = dict(validator(relative_path))
         except ObsidianWorkspaceValidationError as error:
             raise ObsidianStudyValidationError(
                 "Choose a valid Markdown note inside the configured vault."
@@ -185,6 +177,8 @@ class ObsidianStudyCompanionService:
                 "The current Markdown note could not be validated safely."
             ) from error
 
+        if note.get("identity_conflict"):
+            raise ObsidianStudyConflictError("Duplicate assistant IDs: reading is available, but annotations and tracking are disabled until the source conflict is resolved and the manifest refreshed.")
         identity = self._identity(note)
         if identity[3] != submitted_hash:
             raise ObsidianStudyConflictError(
@@ -413,6 +407,8 @@ class ObsidianStudyCompanionService:
                 rendered = self._renderer(
                     source,
                     wikilinks=tuple(note.get("wikilinks", ()) or ()),
+                    note_path=path,
+                    asset_route="/library/connected-sources/obsidian/asset",
                 )
             except TypeError:
                 # Preserve small injected test renderers that still accept one argument.
@@ -455,6 +451,22 @@ class ObsidianStudyCompanionService:
                 "doubts": (),
             }
 
+        legacy_companion = {'key_points': (), 'doubts': ()}
+        legacy_history = _empty_history()
+        legacy = note.get('legacy_reference')
+        if legacy and legacy.get('note_identity', '').startswith('path:'):
+            try:
+                legacy_history = self.repository.reading_history(**legacy)
+                prior_entries = self.repository.list_entries(**legacy)
+                legacy_companion = {kind: tuple(row for row in prior_entries if row['entry_type'] == entry_type)
+                    for kind, entry_type in (('key_points','key_point'),('doubts','doubt'))}
+            except ObsidianStudyRepositoryError:
+                pass
+        note['legacy_companion'] = legacy_companion
+        note['legacy_history'] = legacy_history
+        if note.get("identity_conflict"):
+            companion = {"available": False, "message": "Duplicate assistant IDs. Source reading is available; annotations and tracking are disabled until the conflict is resolved and the manifest refreshed.", "key_points": (), "doubts": ()}
+            history = _empty_history()
         vault_name = str(note.get("vault_name") or "").strip()
         deep_link = ""
         if vault_name:

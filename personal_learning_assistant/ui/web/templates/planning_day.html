@@ -16,9 +16,9 @@
 {% if proposal_token %}
 <section class="dashboard-panel">
   <p class="eyebrow">Review your proposal</p>
-  <h3>Available {{ proposal_start }}–{{ proposal_end }} · {{ proposal_timezone }}</h3>
+  <h3>Available {% for start, end in proposal_windows %}{{ start }}–{{ end }}{% if not loop.last %}, {% endif %}{% endfor %} · {{ proposal_timezone }}</h3>
   <p>Only your stated availability is used. Commitments and a {{ proposal_break_minutes }}-minute break buffer reduce capacity. Unscheduled tasks remain visible below.</p>
-  <form method="post" action="{{ url_for('planning_proposals.proposal', agenda_date=day.date) }}">
+  <form method="post" action="{{ url_for('planning_proposals.proposal', agenda_date=day.date) }}"><input type="hidden" name="pao_token" value="{{ pao_command_token('planning') }}">
     <input type="hidden" name="proposal_token" value="{{ proposal_token }}">
     <button class="button" type="submit">Save proposal as draft</button>
     <a class="button button-secondary" href="{{ url_for('web.planning_day', agenda_date=day.date) }}">Cancel</a>
@@ -26,8 +26,11 @@
   <p>Review the saved draft before choosing Approve day. This preview expires after 15 minutes; changed sources require a new preview.</p>
 </section>
 {% else %}
+{% if saved_proposal_context and saved_proposal_context.saved_fingerprint != day.planning_fingerprint %}
+<section class="notice-panel" role="alert"><p>Planner sources or this draft changed since the saved proposal. Preview your availability again before approval.</p></section>
+{% endif %}
 {% if saved_proposal_context %}
-<section class="notice-panel"><p>Saved availability: {{ saved_proposal_context.start }}–{{ saved_proposal_context.end }} · {{ saved_proposal_context.timezone }} · {{ saved_proposal_context.break_minutes }}-minute break buffer. This context is available for the current app session. Reopening after a restart requires a fresh preview.</p></section>
+<section class="notice-panel"><p>Saved availability: {% for start, end in saved_proposal_context.windows %}{{ start }}–{{ end }}{% if not loop.last %}, {% endif %}{% endfor %} · {{ saved_proposal_context.timezone }} · {{ saved_proposal_context.break_minutes }}-minute break buffer. {% if config.PAO_V3_ENABLED %}Saved with this draft and retained when you reopen it.{% else %}Availability is retained for this app session. Reopening after a restart requires a fresh preview.{% endif %} Review the draft before approval.</p></section>
 {% endif %}
 {% if approval_context_unavailable %}
 <section class="notice-panel" role="alert"><p>Original availability context is unavailable. Preview and save a fresh draft before approval.</p></section>
@@ -35,10 +38,19 @@
 <section class="dashboard-panel">
   <p class="eyebrow">Your availability</p>
   <h3>Find time for your tasks</h3>
-  <p>Enter a free window to preview a schedule. Nothing is saved until you choose Save proposal as draft.</p>
+  <p>Enter one or more free windows to preview a schedule. Nothing is saved until you choose Save proposal as draft.</p>
   <form method="get" action="{{ url_for('planning_proposals.proposal', agenda_date=day.date) }}" class="planner-form">
     <label>Available from<input type="time" name="start" required></label>
     <label>Available until<input type="time" name="end" required></label>
+    <details class="planner-span-2"><summary>Add another availability window</summary>
+      <label>Second window from<input type="time" name="start"></label>
+      <label>Second window until<input type="time" name="end"></label>
+      <details><summary>Add a third availability window</summary>
+        <label>Third window from<input type="time" name="start"></label>
+        <label>Third window until<input type="time" name="end"></label>
+      </details>
+    </details>
+    <p>Policy: at most five active tasks; at most three focus blocks, or one with four or more timed commitments. Overdue tasks need an explicit deadline review.</p>
     <button class="button" type="submit">Preview available time</button>
   </form>
 </section>
@@ -51,10 +63,10 @@
   </div>
   <div class="planner-inline-actions">
     {% if not proposal_token and (not agenda or agenda.status == 'draft') %}
-    <form method="post" action="{{ url_for('web.planning_day_generate', agenda_date=day.date) }}"><button class="button" type="submit">{% if agenda %}Regenerate draft{% else %}Generate today{% endif %}</button></form>
+    <form method="post" action="{{ url_for('web.planning_day_generate', agenda_date=day.date) }}"><input type="hidden" name="pao_token" value="{{ pao_command_token('planning') }}"><button class="button" type="submit">{% if agenda %}Regenerate draft{% else %}Generate today{% endif %}</button></form>
     {% endif %}
-    {% if not proposal_token and agenda and agenda.status == 'draft' and not approval_context_unavailable %}
-    <form method="post" action="{{ url_for('web.planning_day_approve', agenda_date=day.date) }}"><input type="hidden" name="approval_token" value="{{ planner_approval_token(day.date, day.planning_fingerprint, saved_proposal_context.nonce if saved_proposal_context else none) }}"><button class="button button-secondary" type="submit">Approve day</button></form>
+    {% if not proposal_token and agenda and agenda.status == 'draft' and not approval_context_unavailable and (not saved_proposal_context or saved_proposal_context.saved_fingerprint == day.planning_fingerprint) %}
+    <form method="post" action="{{ url_for('web.planning_day_approve', agenda_date=day.date) }}"><input type="hidden" name="pao_token" value="{{ pao_command_token('planning') }}"><input type="hidden" name="approval_token" value="{{ planner_approval_token(day.date, day.planning_fingerprint, saved_proposal_context.nonce if saved_proposal_context else none) }}"><button class="button button-secondary" type="submit">Approve day</button></form>
     {% endif %}
   </div>
 </section>
@@ -89,6 +101,12 @@
   </article>
 </section>
 
+{% set review_queue = day.review_needed or (saved_proposal_context.review_needed if saved_proposal_context else []) %}
+{% if review_queue %}
+<section class="dashboard-panel"><h3>Needs planning review</h3><p>These tasks remain in your backlog and are outside the five-task agenda limit.</p>
+<ul class="dashboard-list">{% for item in review_queue %}<li><strong>{{ item.title }}</strong><span>{{ item.reason }}</span></li>{% endfor %}</ul></section>
+{% endif %}
+
 {% if agenda and not proposal_token %}
 <section class="dashboard-panel">
   <div class="panel-heading"><div><p class="eyebrow">Saved agenda</p><h3>Track what actually happened</h3></div><span class="tag">{{ agenda.status }}</span></div>
@@ -99,9 +117,17 @@
         <strong>{{ item.title }}</strong>
         <span>{% if item.starts_at %}{{ item.starts_at[11:16] }}–{{ item.ends_at[11:16] }} · {% endif %}{{ item.item_kind|title }} · {{ item.status|replace('_',' ')|title }}{% if item.planned_minutes is not none %} · planned {{ item.planned_minutes }} min{% endif %}{% if item.item_kind in ['task','study','manual'] %}{% if item.actual_minutes is not none %} · recorded {{ item.actual_minutes }} min{% else %} · actual effort not recorded{% endif %}{% endif %}</span>
       </div>
-      {% if agenda.status in ['approved','active'] and item.item_kind in ['task','study','manual'] %}
-      <form method="post" action="{{ url_for('web.planning_day_item_update', agenda_date=day.date, item_id=item.id) }}" class="planner-inline-actions">
+      {% if agenda.status in ['approved','active'] and item.item_kind in ['task','study','manual'] and item.status not in ['completed','skipped','moved'] %}
+      <form method="post" action="{{ url_for('web.planning_day_item_update', agenda_date=day.date, item_id=item.id) }}" class="planner-inline-actions"><input type="hidden" name="pao_token" value="{{ pao_command_token('planning') }}">
+        {% if config.PAO_V3_ENABLED and item.item_kind == 'task' and item.task_revision is defined %}
+        <input type="hidden" name="expected_revision" value="{{ item.task_revision }}">
+        <input type="hidden" name="command_id" value="{{ pao_command_id() }}">
+        <input type="hidden" name="occurred_at" value="{{ pao_now() }}">
+        <label>Minutes in this session<input type="number" name="actual_minutes" min="1" max="1440" placeholder="session min" aria-label="Minutes in this session for {{ item.title }}"></label>
+        <button class="button button-secondary" name="status" value="in_progress">Log partial work</button>
+        {% else %}
         <input type="number" name="actual_minutes" min="0" max="1440" placeholder="actual min" aria-label="Actual minutes for {{ item.title }}">
+        {% endif %}
         <button class="button button-secondary" name="status" value="completed">Complete</button>
         <button class="button button-quiet" name="status" value="skipped">Skip</button>
       </form>
@@ -114,7 +140,7 @@
 {% if agenda.status != 'closed' %}
 <section class="dashboard-panel">
   <div class="panel-heading"><div><p class="eyebrow">21:45 review</p><h3>Close the day</h3></div></div>
-  <form method="post" action="{{ url_for('web.planning_day_close', agenda_date=day.date) }}" class="planner-form">
+  <form method="post" action="{{ url_for('web.planning_day_close', agenda_date=day.date) }}" class="planner-form"><input type="hidden" name="pao_token" value="{{ pao_command_token('planning') }}">
     <label class="planner-span-2">What did I genuinely learn?<textarea name="learned" rows="2"></textarea></label>
     <label class="planner-span-2">Biggest confusion?<textarea name="biggest_confusion" rows="2"></textarea></label>
     <label>Energy (1–5)<input name="energy_1_to_5" type="number" min="1" max="5"></label>

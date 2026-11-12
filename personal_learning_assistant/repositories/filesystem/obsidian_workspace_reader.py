@@ -6,9 +6,12 @@ but it never creates, rewrites, moves, deletes, registers, or indexes notes.
 from __future__ import annotations
 
 import hashlib
+import os
+import stat
 import re
 from pathlib import Path
 from typing import Dict, Tuple
+from .verified_source import read_verified_bytes
 
 from personal_learning_assistant.repositories.filesystem.obsidian_vault_scanner import (
     ObsidianVaultRootError,
@@ -18,6 +21,7 @@ from personal_learning_assistant.repositories.filesystem.obsidian_vault_scanner 
 )
 
 
+MAX_NOTE_BYTES = 500_000
 MAX_EXCERPT_CHARS = 360
 MAX_ASSET_BYTES = 20 * 1024 * 1024
 _ALLOWED_ASSET_MIMETYPES = {
@@ -200,7 +204,7 @@ class ObsidianWorkspaceReader:
                 raise ObsidianWorkspaceReadError(
                     "The selected image is too large to open safely."
                 )
-            raw = target.read_bytes()
+            raw = read_verified_bytes(target, max_bytes=MAX_ASSET_BYTES)
             after = target.stat()
         except ObsidianWorkspaceReadError:
             raise
@@ -233,21 +237,9 @@ class ObsidianWorkspaceReader:
     def read_note(self, relative_path: str, *, expected_hash: str = "") -> Dict[str, object]:
         target, normalized = self._resolve_markdown(relative_path)
         try:
-            before = target.stat()
-            raw = target.read_bytes()
-            after = target.stat()
+            raw = read_verified_bytes(target, max_bytes=MAX_NOTE_BYTES)
         except OSError as error:
-            raise ObsidianWorkspaceReadError(
-                "The selected note could not be read safely."
-            ) from error
-
-        if (
-            before.st_size != after.st_size
-            or before.st_mtime_ns != after.st_mtime_ns
-        ):
-            raise ObsidianWorkspaceReadError(
-                "The note changed while it was being read. Refresh and try again."
-            )
+            raise ObsidianWorkspaceReadError('The selected note changed, is unsafe, or exceeds the safe read limit.') from error
 
         source_hash = _hash_bytes(raw)
         expected = str(expected_hash or "").strip().lower()
@@ -264,6 +256,7 @@ class ObsidianWorkspaceReader:
 
         return {
             "relative_path": normalized,
+            "bytes": raw,
             "text": text,
             "source_hash": source_hash,
             "size_bytes": len(raw),
