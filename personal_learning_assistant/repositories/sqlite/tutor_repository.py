@@ -396,7 +396,7 @@ class SQLiteTutorRepository:
         with self._write_transaction():
             cursor = self.connection.execute(
                 "DELETE FROM tutor_sessions "
-                "WHERE datetime(created_at) < datetime(?) "
+                "WHERE datetime(updated_at) < datetime(?) "
                 "AND NOT EXISTS (SELECT 1 FROM tutor_turns "
                 "WHERE tutor_turns.session_id=tutor_sessions.id) "
                 + tasks_guard,
