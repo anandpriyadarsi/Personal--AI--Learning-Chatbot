@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Original Materials · Learning Studio · ANVAYA{% endblock %}
+{% block body_class %}learning-page ls-course-workspace{% endblock %}
+{% block page_scripts %}<link rel="stylesheet" href="{{ url_for('static',filename='css/learning_studio.css') }}"><link rel="stylesheet" href="{{ url_for('static',filename='css/learning_materials.css') }}">{% endblock %}
+{% block content %}
+<div class="ls-original-browser">
+  <nav class="ls-workspace-crumb" aria-label="Learning materials breadcrumbs">
+    <a href="{{ url_for('learning.library') }}">Learning Studio</a>
+    <span aria-hidden="true">/</span>
+    <a href="{{ url_for('learning.materials') }}"{% if not materials.folder_id %} aria-current="page"{% endif %}>Original materials</a>
+    {% for folder in materials.breadcrumbs %}
+      <span aria-hidden="true">/</span>
+      {% if loop.last %}<span aria-current="page">{{ folder.name }}</span>
+      {% else %}<a href="{{ url_for('learning.materials',folder_id=folder.id) }}">{{ folder.name }}</a>{% endif %}
+    {% endfor %}
+  </nav>
+  <header class="ls-materials-header">
+    <div>
+      <p class="ls-workspace-overline">Library-connected file browser</p>
+      <h1>{{ materials.breadcrumbs[-1].name if materials.breadcrumbs else 'Original study materials' }}</h1>
+      <p>Open your original documents and jump into study tools. File titles and folders come directly from Library.</p>
+    </div>
+    <a class="ls-manage-files" href="{{ url_for('native_library.home',folder_id=materials.folder_id or '') }}">Manage in Library ↗</a>
+  </header>
+  {% if not materials.available %}
+    <div class="ls-materials-unavailable">Original-file Library is unavailable in this session. Run <code>python phase7_web.py</code> to load it. Your published modules are still available on <a href="{{ url_for('learning.library') }}">Learning Studio</a>.</div>
+  {% else %}
+    {% if not materials.folder_id %}
+      {% if materials.mit_folder %}
+        <a class="ls-mit-feature" href="{{ url_for('learning.materials',folder_id=materials.mit_folder.id) }}">
+          <span class="ls-material-icon" aria-hidden="true">▣</span>
+          <span><strong>MIT Course Materials</strong><small>Shared collection · uses the actual Library folder</small></span>
+          <span aria-hidden="true">→</span>
+        </a>
+      {% else %}
+        <div class="ls-mit-empty">
+          <div><strong>MIT Course Materials</strong><p>Create the collection here, then move only verified MIT files into it using Library. No documents will be moved automatically.</p></div>
+          <form method="post" action="{{ url_for('learning.create_mit_folder') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="submit">Create MIT folder</button>
+          </form>
+        </div>
+      {% endif %}
+    {% endif %}
+    {% if materials.folders %}
+      <section aria-label="Folders" class="ls-materials-section">
+        <h2>Folders</h2>
+        <div class="ls-folder-grid">
+          {% for folder in materials.folders %}
+          <a class="ls-folder-tile" href="{{ url_for('learning.materials',folder_id=folder.id) }}">
+            <span class="ls-material-icon" aria-hidden="true">▣</span>
+            <span><strong>{{ folder.name }}</strong><small>{{ 'Subject' if folder.node_kind == 'subject' else 'Semester' if folder.node_kind == 'semester' else 'Folder' }}</small></span>
+          </a>
+          {% endfor %}
+        </div>
+      </section>
+    {% endif %}
+    {% if materials.folder_offset + materials.folders|length < materials.folder_total %}
+      <nav class="ls-material-pagination" aria-label="More folders">
+        <a href="{{ url_for('learning.materials',folder_id=materials.folder_id or '',folder_offset=materials.folder_offset+100,page=materials.page) }}">More folders →</a>
+      </nav>
+    {% endif %}
+    <section aria-label="Original documents" class="ls-materials-section">
+      <div class="ls-section-heading"><h2>Files</h2><span>{{ materials.total }} original {{ 'file' if materials.total == 1 else 'files' }}</span></div>
+      {% if materials.documents %}
+        <div class="ls-material-file-list">
+        {% for doc in materials.documents %}
+          <article class="ls-material-file">
+            <div class="ls-material-icon ls-document-type" aria-hidden="true">{{ doc.kind|upper }}</div>
+            <div class="ls-file-details">
+              <h3 title="{{ doc.display_name }}">{{ doc.display_name }}</h3>
+              <p>{{ doc.kind|upper }} · {{ '%.1f'|format(doc.size/1048576) }} MB{% if doc.display_name.startswith('Imported PDF ') %} · Rename recommended{% endif %}</p>
+            </div>
+            <div class="ls-file-actions">
+              <a href="{{ url_for('native_library.open_document',document_id=doc.id) }}">Open original</a>
+              <a href="{{ url_for('native_library.learning',document_id=doc.id) }}">Study tools</a>
+            </div>
+          </article>
+        {% endfor %}
+        </div>
+      {% else %}
+        <p class="ls-materials-empty">No original files in this folder yet. Choose <strong>Manage in Library</strong> to upload files or move existing ones here.</p>
+      {% endif %}
+      {% if materials.page > 1 or materials.page * materials.page_size < materials.total %}
+        <nav class="ls-material-pagination" aria-label="Document pages">
+          {% if materials.page > 1 %}<a href="{{ url_for('learning.materials',folder_id=materials.folder_id or '',page=materials.page-1,folder_offset=materials.folder_offset) }}">← Previous files</a>{% endif %}
+          {% if materials.page * materials.page_size < materials.total %}<a href="{{ url_for('learning.materials',folder_id=materials.folder_id or '',page=materials.page+1,folder_offset=materials.folder_offset) }}">Next files →</a>{% endif %}
+        </nav>
+      {% endif %}
+    </section>
+  {% endif %}
+</div>
+{% endblock %}
