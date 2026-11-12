@@ -18,7 +18,8 @@
     </div><div class="materials-hero-symbol" aria-hidden="true"><span>L</span><small>ANVAYA / SOURCES</small></div>
   </section>
   <nav class="library-view-tabs" aria-label="Library views">
-    <a href="{{ url_for('web.learning_library') }}"{% if library_view != 'search' %} aria-current="page"{% endif %}>Browse materials</a>
+    <a href="{{ url_for('web.learning_library') }}"{% if library_view == 'browse' or not library_view %} aria-current="page"{% endif %}>Browse files</a>
+    <a href="{{ url_for('web.learning_library', view='registered') }}"{% if library_view == 'registered' %} aria-current="page"{% endif %}>Registered sources</a>
     <a href="{{ url_for('web.learning_library', view='search') }}"{% if library_view == 'search' %} aria-current="page"{% endif %}>Search inside content</a>
     <a href="{{ url_for('web.learning_library', view='saved') }}"{% if library_view == 'saved' %} aria-current="page"{% endif %}>Saved links &amp; progress</a>
   </nav>
