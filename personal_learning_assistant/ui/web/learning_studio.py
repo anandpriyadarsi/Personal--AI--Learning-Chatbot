@@ -63,7 +63,7 @@ def library():
     from .learning_materials import material_snapshot, ready_library
     from personal_learning_assistant.services.native_document_library import LibraryError
     try:
-        materials = material_snapshot(ready_library())
+        materials = material_snapshot(ready_library() if current_app.config.get('LEARNING_LIBRARY_ENABLED', True) else None)
     except (LibraryError, sqlite3.Error, OSError):
         # Original files are optional on an unprepared test/local workspace.
         # Never initialize, migrate, or overwrite a Library from a GET.
