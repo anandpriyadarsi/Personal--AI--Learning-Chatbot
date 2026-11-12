@@ -95,7 +95,7 @@
         </p>
       </div>
       <div class="library-source-row-actions">
-        <button type="button" class="library-rename-action" data-library-rename="{{ url_for('library_rename.rename',kind=item.reference.kind,item_id=item.reference.id) }}" data-key="{{ item.key }}" aria-label="Rename {{ item.title }}">Rename</button>
+        <button type="button" class="library-rename-action" data-library-rename="{{ url_for('library_rename.rename',kind=item.reference.kind,item_id=item.reference.id) }}" data-key="{{ item.key }}" data-library-expected-title="{{ item.rename_expected_title or item.title }}" aria-label="Rename {{ item.title }}">Rename</button>
         {% if item.reference.kind == 'resource' or source_reader_available %}
           <a class="library-source-open" href="{{ item.open_target }}">{{ 'View resource' if item.reference.kind == 'resource' else 'View source' }} <span aria-hidden="true">↗</span></a>
         {% else %}<span class="materials-muted">Viewer unavailable</span>{% endif %}
