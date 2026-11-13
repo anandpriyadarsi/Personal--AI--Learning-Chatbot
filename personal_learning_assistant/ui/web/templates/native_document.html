@@ -1,6 +1,6 @@
 {% extends "workspace_base.html" %}
 {% block title %}{{ doc.display_name }} · Library{% endblock %}
-{% block workspace_assets %}{{ super() }}<link rel="stylesheet" href="{{ url_for('static',filename='css/native_library.css') }}">{% endblock %}
+{% block workspace_assets %}{{ super() }}<link rel="stylesheet" href="{{ url_for('static',filename='css/native_library.css') }}"><link rel="stylesheet" href="{{ url_for('static',filename='css/multimodal.css') }}">{% endblock %}
 {% block page_scripts %}{{ super() }}<script defer src="{{ url_for('static',filename='js/multimodal.js') }}"></script><script defer src="{{ url_for('static',filename='js/native_library.js') }}"></script>{% endblock %}
 {% block content %}<div class="native-files document-reader" data-csrf="{{ csrf_token }}" data-document="{{ doc.id }}" data-kind="{{ doc.kind }}">
 <header class="files-heading"><div><a href="{{ url_for('native_library.home') }}">← Library</a><h1>{{ doc.display_name }}</h1><p>{{ 'Page' if doc.kind=='pdf' else 'Slide' }} {{ position }} · {{ doc.status_label }}</p></div><button data-action="fullscreen">Fullscreen</button></header><div id="files-message" role="status"></div>

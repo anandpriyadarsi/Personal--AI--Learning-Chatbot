@@ -65,7 +65,7 @@
         else if(document.fullscreenElement){await document.exitFullscreen();}
         else {try{await root.requestFullscreen();}catch{root.classList.add('reader-focus');}button.textContent='Exit fullscreen';}
       }
-      if(action==='zoom-in'||action==='zoom-out'){zoom=Math.max(50,Math.min(300,zoom+(action==='zoom-in'?25:-25)));document.getElementById('pdf-page').style.width=zoom+'%';}
+      if(action==='zoom-in'||action==='zoom-out'){zoom=Math.max(50,Math.min(300,zoom+(action==='zoom-in'?25:-25)));const image=document.getElementById('pdf-page'),target=image.closest('.mm-crop-visual')||image;target.style.width=zoom+'%';}
       if(action==='share-original'){
         // A real anchor tap carries the gesture into the native intent policy.
         if(/; wv\)/.test(navigator.userAgent)||/\bwv\b/.test(navigator.userAgent))return;

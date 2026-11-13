@@ -53,9 +53,22 @@ Additional checks/fixes: selected visual text cannot be republished as legacy te
 
 - Applied the submitted blueprint directly. No additional design approval round was needed: the prompt explicitly authorized implementation of that design.
 - Used an additive Native ledger and optional canonical SQL 0020; Native user_version stays 2. No automatic migration on startup/GET, destructive downgrade or cache deletion.
-- One selected page/image per job keeps the first useful path bounded. Up to 20 supplied frames can be bound through the manifest API; compact reader form currently supplies one per manifest. Ready overlapping frame readings join the selected caption; missing visual coverage is not invented.
+- One selected page/image per job keeps the first useful path bounded. Up to 20 supplied frames can be bound through the manifest API; the completion pass adds up to 20 named frames in the reader form. Ready overlapping frame readings join the selected caption; missing visual coverage is not invented.
 - Kept paid extraction/answering disabled by default. No image-capable model ID or rate is silently chosen. The current ledger conservatively accounts the reserved maximum; live usage/cost calibration and actual model quality remain unverified.
 - The synthetic retrieval pilot uses a 3-page PDF, five explicitly user-transcribed matrix PNGs and ten supplied timed cues. Its text-only projection gets 10/30, and added modalities get 30/30; it does **not** prove visual transcription or answer correctness. Full handwriting/diagram/model accuracy, the 30-positive/15-adversarial educational-answer benchmark, real lecture timing, broad parser fuzzing and Windows resource containment are not certified by this set.
 - Optional C audio/video/ASR deferred. Existing Android, Learning, Assessment, Planning and vault owners were not expanded. No GitHub Actions/Android matrix was dispatched; commits use `[skip ci]` to respect the user's constrained CI budget. Required protections must still be respected.
 
 The release is an opt-in evidence/citation pilot, not a claim of dependable live multimodal teaching quality. Run the documented Windows and bounded live-provider pilot before relying on visual mathematics for academic work.
+
+## Completion pass on PR #77 main
+
+Base `8e577432458ec91c40fa3e861fe286e0830d620c`. Continued A/B without touching the original checkout's unrelated backup.py/dashboard.py edits.
+
+- **228 passed**, zero failures/skips: explicit multimodal contract/job/grounding/web/vision/pilot/validation-command tests, existing ingestion, Native Library/bridge/routes, grounded Tutor, lecture, Coding, Learning handoffs and Tutor title/empty-session lifecycle tests.
+- **10 passed**, zero failures/skips: actual Flask/SQLite/Chromium journeys, including mobile/desktop crops, edited-scope invalidation, reload, delayed preview response, multiple named frames, late-start transcripts, matching PDF page and preserved PDF zoom.
+- `python -m scripts.multimodal_validate --browser --output <temporary-report>`: 42 unit + 10 browser cases passed (subsets of the counts above). Report explicitly recorded Linux, Python 3.12.14, precommit dirty-tree state, Windows unverified and live-model quality unverified.
+- `pip check`, JavaScript syntax checks and `git diff --check` passed.
+
+The independent review reproduced delayed-response consent restoration, wrong-page selection restoration, queued-edit polling and PDF zoom issues. Revision fencing, matching-page restoration, dirty-state gates and wrapper-based zoom corrected them. Browser regression tests cover these paths. Duplicate frame placement IDs within one manifest are rejected to prevent contextual timestamp snapshots from aliasing the same chunk; explicit independent placement copies remain supported.
+
+This closes the one-frame reader limitation and adds bounded crop controls/overlay, matching selection restoration, first-real-cue navigation, readable answering scope and a portable validation command. The original live educational-quality benchmark, actual Windows execution and optional audio/video/ASR limitations remain as documented; offline tests do not certify them. No paid calls, personal-store activation, Android work or manually dispatched CI occurred.
