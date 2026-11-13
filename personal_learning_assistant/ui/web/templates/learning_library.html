@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ profile.title if profile else 'Learning Studio' }} · ANVAYA{% endblock %}
 {% block body_class %}learning-page ls-course-workspace{% endblock %}
-{% block page_scripts %}<link rel="stylesheet" href="{{ url_for('static',filename='css/learning_studio.css') }}">{% endblock %}
+{% block page_scripts %}<link rel="stylesheet" href="{{ url_for('static',filename='css/learning_studio.css') }}"><link rel="stylesheet" href="{{ url_for('static',filename='css/learning_materials.css') }}">{% endblock %}
 {% block content %}
 <p class="ls-author-action"><a href="{{ url_for('learning.author') }}">Create a topic from related lectures</a></p>
 <nav class="ls-workspace-crumb" aria-label="Learning navigation">
@@ -40,6 +40,45 @@
   </div>
 </header>
 {% if not library.available %}<p class="notice-panel">The existing course catalogue is currently unavailable. ANVAYA has not changed your academic records.</p>{% endif %}
+
+<section class="ls-workspace-section ls-original-files" aria-labelledby="ls-original-title">
+  <div class="ls-section-heading">
+    <div><p class="ls-workspace-overline">Shared with your Library</p><h2 id="ls-original-title">Original study materials</h2></div>
+    <a href="{{ url_for('learning.materials') }}">Browse all folders →</a>
+  </div>
+  <p class="ls-original-note">These are your original Library files and folders, not duplicated Learning Studio lessons. Names and folder moves stay in sync with the Library.</p>
+  {% if materials.available %}
+    {% if materials.mit_folder %}
+      <a class="ls-mit-feature" href="{{ url_for('learning.materials',folder_id=materials.mit_folder.id) }}">
+        <span class="ls-material-icon" aria-hidden="true">📁</span>
+        <span><strong>MIT Course Materials</strong><small>All files you place in this Library folder appear here automatically.</small></span>
+        <span aria-hidden="true">→</span>
+      </a>
+    {% else %}
+      <div class="ls-mit-empty">
+        <div><strong>MIT Course Materials</strong><p>Create a shared folder, then move your verified MIT files into it from Library. ANVAYA will not guess which documents belong to this course.</p></div>
+        <form method="post" action="{{ url_for('learning.create_mit_folder') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button type="submit">Create MIT folder</button>
+        </form>
+      </div>
+    {% endif %}
+    {% if materials.folders %}
+      <div class="ls-folder-grid">
+        {% for folder in materials.folders %}
+        {% if not materials.mit_folder or folder.id != materials.mit_folder.id %}
+        <a class="ls-folder-tile" href="{{ url_for('learning.materials',folder_id=folder.id) }}">
+          <span class="ls-material-icon" aria-hidden="true">📁</span>
+          <span><strong>{{ folder.name }}</strong><small>{{ 'Subject' if folder.node_kind == 'subject' else 'Semester' if folder.node_kind == 'semester' else 'Folder' }}</small></span>
+        </a>
+        {% endif %}
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% else %}
+    <div class="ls-materials-unavailable">The original-file Library has not been started. Use the normal local launcher <code>python phase7_web.py</code>; existing Learning Studio modules are unaffected.</div>
+  {% endif %}
+</section>
 
 {% for year, courses in library.courses|groupby('academic_year') %}
 {% set displayed_year = 'First Year' if year == 'Academic year unspecified' else year %}

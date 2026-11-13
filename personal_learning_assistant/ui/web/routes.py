@@ -4770,9 +4770,12 @@ def _learning_library_service():
     source = (current_app.config.get("LEARNING_LIBRARY_DATABASE_PATH")
               or current_app.config.get("ACADEMIC_DATABASE_PATH")
               or installed_config.DATABASE_PATH)
+    from .learning_materials import canonical_document_titles, ready_library
+    native = ready_library()
     return LearningLibraryService(
         database_path=source,
-        wal_snapshot_provider=current_app.config.get("ACADEMIC_WAL_SNAPSHOT_PROVIDER"))
+        wal_snapshot_provider=current_app.config.get("ACADEMIC_WAL_SNAPSHOT_PROVIDER"),
+        native_title_lookup=(lambda pairs: canonical_document_titles(native, pairs)) if native else None)
 
 
 def _library_source_reader_available(service):

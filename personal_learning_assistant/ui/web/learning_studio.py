@@ -60,10 +60,69 @@ def library():
     studio = service()
     view = studio.library()
     templates = {c['id']: subject_template(c) for c in view['courses']}
+    from .learning_materials import material_snapshot, ready_library
+    from personal_learning_assistant.services.native_document_library import LibraryError
+    try:
+        materials = material_snapshot(ready_library() if current_app.config.get('LEARNING_LIBRARY_ENABLED', True) else None)
+    except (LibraryError, sqlite3.Error, OSError):
+        # Original files are optional on an unprepared test/local workspace.
+        # Never initialize, migrate, or overwrite a Library from a GET.
+        materials = material_snapshot(None)
     return render_template('learning_library.html', active_page='learning', library=view,
         course=None, profile=None, templates=templates, search='', topic='', section='',
-        resume=studio.resume_learning(),
+        resume=studio.resume_learning(), materials=materials,
+        csrf_token=current_app.extensions['learning_studio_csrf'],
         chemistry_sections=(), selected_chemistry_section=None)
+
+
+@learning_blueprint.get('/learning/materials')
+def materials():
+    """Folder-based browser for the *existing* Library documents, not lesson copies."""
+    from flask import abort
+    from .learning_materials import material_snapshot, ready_library
+    from personal_learning_assistant.services.native_document_library import LibraryError
+    if not current_app.config.get('LEARNING_LIBRARY_ENABLED', True):
+        abort(404)
+    if any(len(request.args.getlist(key)) > 1 for key in ('folder_id', 'page', 'folder_offset')):
+        abort(400)
+    folder_id = request.args.get('folder_id') or None
+    try:
+        page = int(request.args.get('page', '1'))
+        offset = int(request.args.get('folder_offset', '0'))
+        if not 1 <= page <= 100000 or not 0 <= offset <= 100000:
+            abort(400)
+    except (TypeError, ValueError):
+        abort(400)
+    try:
+        snapshot = material_snapshot(ready_library(), folder_id=folder_id,
+                                     page=page, folder_offset=offset)
+    except LibraryError as error:
+        abort(error.status if error.status in (400, 404) else 503)
+    except (sqlite3.Error, OSError):
+        abort(503)
+    return render_template('learning_materials.html', active_page='learning', materials=snapshot,
+                           csrf_token=current_app.extensions['learning_studio_csrf'])
+
+
+@learning_blueprint.post('/learning/materials/mit-folder')
+def create_mit_folder():
+    """An explicit, CSRF-protected folder action; never auto-move inferred files."""
+    from flask import abort
+    from .learning_materials import MIT_FOLDER_NAME, ready_library
+    from personal_learning_assistant.services.native_document_library import LibraryError
+    if not current_app.config.get('LEARNING_LIBRARY_ENABLED', True):
+        abort(404)
+    library = ready_library()
+    if library is None:
+        abort(503)
+    try:
+        root_folders = library.children(None, limit=100)['items']
+        existing = next((item for item in root_folders
+                         if item['name'].casefold() == MIT_FOLDER_NAME.casefold()), None)
+        folder = existing or library.create_folder(MIT_FOLDER_NAME)
+    except LibraryError as error:
+        abort(error.status if error.status in (400, 404, 409) else 503)
+    return redirect(url_for('learning.materials', folder_id=folder['id']), code=303)
 
 
 @learning_blueprint.get('/learning/courses/<course_id>')

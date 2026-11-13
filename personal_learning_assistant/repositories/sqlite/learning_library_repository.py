@@ -6,6 +6,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 import sqlite3
 import os
+import re
 import stat
 from urllib.parse import urlsplit
 from personal_learning_assistant.services.academic_wal_snapshot import AcademicSnapshotUnavailable
@@ -29,7 +30,16 @@ def document_title(path_key):
         except ValueError:
             return 'Registered document'
     value = value.rstrip('/')
-    return value.rsplit('/', 1)[-1] or 'Registered document'
+    basename = value.rsplit('/', 1)[-1]
+    # Knowledge's managed originals may be content-addressed. A digest is not
+    # a human-facing filename, and must never masquerade as a document title.
+    stem, dot, extension = basename.rpartition('.')
+    if re.fullmatch(r'[0-9a-fA-F]{24,64}', stem if dot else basename):
+        recognized = {'pdf': 'PDF', 'ppt': 'PowerPoint', 'pptx': 'PowerPoint',
+                      'doc': 'Word', 'docx': 'Word', 'txt': 'text'}
+        kind = recognized.get(extension.lower()) if dot else None
+        return 'Unnamed ' + (kind + ' ' if kind else '') + 'document'
+    return basename or 'Registered document'
 
 
 # Validate the complete read contract even for an empty database/result.
@@ -47,11 +57,11 @@ _COLUMNS = {
 _ACTIVE = 'r.archived_at IS NULL AND r.deleted_at IS NULL'
 _ITEMS = """
 SELECT 'resource' AS kind, r.id, library_display_title('resource',r.id,r.title) AS title, r.resource_type AS item_type,
-       r.provider, r.status AS learning_status, r.updated_at, '' AS extraction_status
+       r.provider, r.status AS learning_status, r.updated_at, '' AS extraction_status, '' AS path_key, '' AS content_hash
 FROM resources r WHERE """ + _ACTIVE + """
 UNION ALL
 SELECT 'document', d.id, library_display_title('document',d.id,library_document_title(d.path_key)), d.kind,
-       '', NULL, d.updated_at, d.extraction_status
+       '', NULL, d.updated_at, d.extraction_status, d.path_key, d.content_hash
 FROM knowledge_documents d
 WHERE NOT EXISTS (SELECT 1 FROM resource_documents rd WHERE rd.document_id=d.id)
 """
@@ -235,6 +245,16 @@ class LearningLibraryRepository:
                     "SELECT library_display_title('document',?,?)",
                     (document['id'],document_title(document['path_key']))).fetchone()[0]
             return dict(row), relations
+
+    def document_identity(self, item_id):
+        """Read the exact canonical source identity for an optional native name."""
+        with self._read() as con:
+            row = con.execute(
+                'SELECT id,path_key,content_hash FROM knowledge_documents WHERE id=?',
+                (item_id,)).fetchone()
+            if row is None:
+                raise LibraryNotFoundError('Material was not found')
+            return dict(row)
 
     def original_title(self, kind, item_id):
         with self._read() as con:
