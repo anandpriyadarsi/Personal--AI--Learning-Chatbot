@@ -81,14 +81,25 @@ def suggest_tutor_session_title(message: str) -> str:
     if len(text.split()) < 2:
         return ""
 
-    # A compact, informative chat label: at most seven words / 48 chars.
+    # A compact, informative chat label: at most seven words / 56 chars.
     # Never rewrite manually chosen titles, which are stored independently.
     words = []
     for word in text.split():
         candidate = " ".join((*words, word))
-        if len(words) >= 7 or (words and len(candidate) > 48):
+        if len(words) >= 7 or (words and len(candidate) > 56):
             break
         words.append(word)
+    # If a title was shortened mid-phrase, drop an incomplete trailing
+    # qualifier instead of showing e.g. "theorem for nonhomogeneous".
+    if len(words) < len(text.split()):
+        for index in range(len(words) - 1, 1, -1):
+            if words[index].casefold() in {
+                "about", "for", "from", "in", "of", "on", "using", "with",
+            }:
+                if len(words) - index - 1 < 2:
+                    words = words[:index]
+                break
+
     # Avoid incomplete titles such as "Explain the theorem for".
     while len(words) > 2 and words[-1].casefold() in {
         "a", "an", "and", "about", "for", "from", "in", "of", "on",
