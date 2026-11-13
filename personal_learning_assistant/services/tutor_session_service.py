@@ -89,6 +89,12 @@ def suggest_tutor_session_title(message: str) -> str:
         if len(words) >= 7 or (words and len(candidate) > 48):
             break
         words.append(word)
+    # Avoid incomplete titles such as "Explain the theorem for".
+    while len(words) > 2 and words[-1].casefold() in {
+        "a", "an", "and", "about", "for", "from", "in", "of", "on",
+        "or", "the", "to", "using", "with",
+    }:
+        words.pop()
     title = " ".join(words).rstrip(" ,;:-")
     return title[:1].upper() + title[1:]
 
