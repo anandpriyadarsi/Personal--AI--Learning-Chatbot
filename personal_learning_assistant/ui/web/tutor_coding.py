@@ -28,7 +28,7 @@ def protect_request():
     if not supplied or not expected or not hmac.compare_digest(str(supplied),expected):
         raise CodingError('csrf','Tutor action token is invalid. Reload the page.',403)
     if current_app.config.get('TUTOR_CODING_ENABLED') is not True:
-        raise CodingError('feature_disabled','Coding Studio is disabled. Enable ANVAYA_TUTOR_CODING_ENABLED after activation.',503)
+        raise CodingError('feature_disabled','Coding Studio was explicitly disabled. Remove ANVAYA_TUTOR_CODING_ENABLED=false and restart ANVAYA.',503)
     if request.content_length and request.content_length > 96*1024:
         raise CodingError('too_large','This coding request is too large.',413)
 
