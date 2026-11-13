@@ -566,6 +566,26 @@ def test_agent_session_page_renders_transcript_support_provider_and_evidence():
         assert expected in text
 
 
+def test_legacy_tutor_session_without_metadata_renders_safely():
+    """Optional multimodal state must not break older stored Tutor sessions."""
+    fake = FakeWebService()
+    assert "metadata" not in fake.session
+    response = fake_web_app(fake).test_client().get("/agent/sessions/session-1")
+    assert response.status_code == 200
+    html = response.get_data(as_text=True)
+    assert "LU Doubts" in html
+    assert 'id="mm-answer-review"' not in html
+
+
+def test_tutor_multimodal_panel_appears_only_for_selected_source():
+    fake = FakeWebService()
+    fake.session["metadata"] = {"mm_selection": {"kind": "image"}}
+    response = fake_web_app(fake).test_client().get("/agent/sessions/session-1")
+    assert response.status_code == 200
+    assert "Selected source: image" in response.get_data(as_text=True)
+    assert 'id="mm-answer-review"' in response.get_data(as_text=True)
+
+
 def test_ask_route_ignores_posted_scope_fields():
     fake = FakeWebService()
     client = fake_web_app(fake).test_client()
