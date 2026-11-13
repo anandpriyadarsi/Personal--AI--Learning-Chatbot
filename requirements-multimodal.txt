@@ -1,0 +1,9 @@
+# Existing dependencies needed for selected local evidence. No GPU/model weights.
+Flask==3.1.2
+pypdf==6.18.0
+PyMuPDF==1.28.2
+Pillow==12.3.0
+mistune==3.3.4
+PyYAML==6.0.3
+python-dotenv==1.2.3
+requests==2.31.0

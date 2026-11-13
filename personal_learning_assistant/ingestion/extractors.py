@@ -95,20 +95,23 @@ class MarkdownExtractor:
 
 _TIMESTAMP = re.compile(r"(?P<a>\d{1,2}:)?(?P<b>\d{1,2}):(?P<c>\d{2})[,.](?P<ms>\d{3})")
 def _milliseconds(value: str) -> int:
-    match = _TIMESTAMP.search(value.strip())
+    match = _TIMESTAMP.fullmatch(value.strip())
     if not match:
         raise ExtractionError("invalid transcript timestamp: {}".format(value))
     if match.group("a"):
         hours = int(match.group("a")[:-1]); minutes = int(match.group("b")); seconds = int(match.group("c"))
     else:
         hours = 0; minutes = int(match.group("b")); seconds = int(match.group("c"))
+    if minutes>59 or seconds>59 or hours>23:
+        raise ExtractionError("transcript timestamp exceeds supported range")
     return ((hours * 60 + minutes) * 60 + seconds) * 1000 + int(match.group("ms"))
 
 class TranscriptExtractor:
     name = "transcript"
-    version = "transcript-v1"
+    version = "transcript-v2-bounded"
     extensions = {".srt", ".vtt"}
     def extract(self, raw: bytes, *, source_name: str) -> Tuple[ExtractedUnit, ...]:
+        if len(raw)>1_048_576:raise ExtractionError("Transcript exceeds 1 MiB")
         text = _normal_text(_decode_utf8(raw)).strip()
         if text.startswith("WEBVTT"):
             text = text[len("WEBVTT"):].lstrip("\n")
@@ -120,8 +123,10 @@ class TranscriptExtractor:
                 continue
             start_text, end_text = [part.strip() for part in lines[timing_index].split("-->", 1)]
             start_ms = _milliseconds(start_text); end_ms = _milliseconds(end_text.split()[0])
-            if end_ms < start_ms:
+            if end_ms <= start_ms:
                 raise ExtractionError("transcript cue end precedes start")
+            if units and start_ms<units[-1].timestamp_start_ms:raise ExtractionError("Nonmonotonic transcript cues")
+            if len(units)>=2000:raise ExtractionError("Transcript exceeds 2000 cues")
             cue_text = "\n".join(lines[timing_index + 1:]).strip()
             if cue_text:
                 units.append(ExtractedUnit(text=cue_text, kind="transcript", timestamp_start_ms=start_ms, timestamp_end_ms=end_ms, locator={"source": source_name, "timestamp_start_ms": start_ms, "timestamp_end_ms": end_ms}))
@@ -131,32 +136,21 @@ class TranscriptExtractor:
 
 class PPTXExtractor:
     name = "pptx"
-    version = "pptx-v1"
+    version = "pptx-v2-presentation-order"
     extensions = {".pptx"}
     _slide_name = re.compile(r"^ppt/slides/slide(\d+)\.xml$")
     def extract(self, raw: bytes, *, source_name: str) -> Tuple[ExtractedUnit, ...]:
+        from personal_learning_assistant.services.native_document_extraction import _slides
+        units=[]
         try:
-            archive = zipfile.ZipFile(io.BytesIO(raw), "r")
-        except zipfile.BadZipFile as error:
-            raise ExtractionError("PPTX is not a valid ZIP package") from error
-        units = []
-        with archive:
-            slides = []
-            for name in archive.namelist():
-                match = self._slide_name.match(name)
-                if match:
-                    slides.append((int(match.group(1)), name))
-            for slide_number, name in sorted(slides):
-                try:
-                    root = ElementTree.fromstring(archive.read(name))
-                except ElementTree.ParseError as error:
-                    raise ExtractionError("PPTX slide XML is malformed at slide {}".format(slide_number)) from error
-                texts = [(node.text or "").strip() for node in root.findall(".//{*}t") if (node.text or "").strip()]
-                if texts:
-                    title = texts[0]
-                    units.append(ExtractedUnit(text="\n".join(texts), kind="pptx", section_path=title, slide_number=slide_number, locator={"source": source_name, "slide": slide_number, "section": title}))
-        if not units:
-            raise EmptyExtractionError("PPTX contains no extractable slide text")
+            for number,text in _slides(io.BytesIO(raw),lambda:False):
+                if text.strip():
+                    title=text.splitlines()[0]
+                    units.append(ExtractedUnit(text=text,kind='pptx',section_path=title,slide_number=number,
+                        locator={'source':source_name,'slide':number,'section':title}))
+        except (ValueError,KeyError,zipfile.BadZipFile,ElementTree.ParseError) as error:
+            raise ExtractionError('Invalid or unsafe PowerPoint presentation') from error
+        if not units:raise EmptyExtractionError('PPTX contains no extractable slide text')
         return tuple(units)
 
 class PDFExtractor:

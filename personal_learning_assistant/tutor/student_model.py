@@ -120,6 +120,15 @@ def _session_projection(connection, session):
             ),
         ).fetchall()
 
+    # Source-scoped multimodal consent does not authorize later unrelated
+    # conversations to send derived adaptive summaries to their provider.
+    private_sessions=set()
+    if connection.execute("SELECT 1 FROM sqlite_master WHERE name='tutor_evidence_snapshots'").fetchone():
+        private_sessions={str(r[0]) for r in connection.execute(
+            "SELECT DISTINCT t.session_id FROM tutor_evidence_snapshots s JOIN tutor_turns t ON t.id=s.turn_id "
+            "WHERE s.artifact_hash<>'' OR s.locator_json LIKE '%transcript_cue%' OR s.locator_json LIKE '%video_frame%'")}
+    rows=[row for row in rows if str(row['id']) not in private_sessions and not _safe_json_object(row['metadata_json']).get('mm_selection')]
+
     answer_counts = Counter()
     doubt_counts = Counter()
     doubt_original = {}

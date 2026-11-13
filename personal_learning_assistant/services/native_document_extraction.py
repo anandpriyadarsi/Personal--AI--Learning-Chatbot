@@ -32,6 +32,11 @@ def ocr_available():
 
 def extract_pages(path, kind, *, ocr=False, cancelled=lambda: False):
     from .native_document_formats import TEXT_KINDS
+    if kind in ('srt','vtt'):
+        from personal_learning_assistant.ingestion.extractors import TranscriptExtractor
+        if path.stat().st_size>1_048_576:raise ValueError('Transcript exceeds 1 MiB')
+        units=TranscriptExtractor().extract(path.read_bytes(),source_name=path.name+'.'+kind)
+        return [(i,u.text) for i,u in enumerate(units,1)],'ready','Supplied timestamped transcript; visual content is not inferred.'
     if kind in TEXT_KINDS:
         if path.stat().st_size>MAX_TEXT: return [],'unavailable','Stored only: text exceeds local extraction budget.'
         text=path.read_text(encoding='utf-8')
