@@ -1,5 +1,7 @@
 # Unified Tutor + Coding Studio (local web)
 
+**Permanent integration:** Coding Studio is available by default in the local Tutor. You no longer need to set `ANVAYA_TUTOR_CODING_ENABLED=true` before each launch. One-time backup-first activation of optional schema 0017 is still required on each existing database. Its tables persist across ANVAYA restarts, and restarting never repeats the migration. `ANVAYA_TUTOR_CODING_ENABLED=false` remains an explicit emergency opt-out. The web app does not migrate or create a database during startup or a GET request.
+
 Academic and Coding share one Tutor history, rename flow, source policy and compact composer. Coding is versioned session metadata, never a new SQL teaching mode. Assessment Studio keeps its own UC100N/practice/exam policy and signed ephemeral context; it only shares the pure teaching catalogue/prompt builder.
 
 ## Windows update and explicit activation
@@ -13,7 +15,7 @@ git pull --ff-only origin main
 py -3.12 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt -r requirements-dev.txt -r requirements-assessment-browser.txt
 .\.venv\Scripts\python.exe -m personal_learning_assistant.services.coding_activation --database data/learning_assistant.db
-$env:ANVAYA_TUTOR_CODING_ENABLED='true'
+# No coding feature environment variable is required after activation.
 .\.venv\Scripts\python.exe phase7_web.py
 ```
 
@@ -43,7 +45,7 @@ Task archiving hides a task and retains its sent context/history. It does not er
 
 ## Rollback
 
-Stop the server and set `$env:ANVAYA_TUTOR_CODING_ENABLED='false'`, then restart. Existing Academic Tutor remains available. New optional tables and sent context stay intact. Code rollback may retain these additive tables. Do not run a destructive down migration or restore a backup over newer study records; compare dates and restore only through the canonical owner recovery process if needed.
+To temporarily disable Coding Studio, stop the server and set `$env:ANVAYA_TUTOR_CODING_ENABLED='false'`, then restart. Remove that override to enable Coding Studio again after its existing one-time activation. Existing Academic Tutor remains available. New optional tables and sent context stay intact. Code rollback may retain these additive tables. Do not run a destructive down migration or restore a backup over newer study records; compare dates and restore only through the canonical owner recovery process if needed.
 
 ## Verification commands
 
