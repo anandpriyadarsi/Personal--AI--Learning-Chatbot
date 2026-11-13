@@ -154,6 +154,20 @@ def test_rename_validation_not_found_and_safe_redirect(ui):
     assert response.headers['Location'].endswith('/agent/sessions/' + sid)
 
 
+
+def test_long_manual_tutor_title_stays_intact_but_history_uses_short_label(ui):
+    app, service, course = ui
+    full_title = "My detailed Linear Algebra revision about eigenvalues and eigenvectors for the final exam"
+    sid = service.create_session(course_id=course['id'], title=full_title)
+    _save_sample_user_turn(service, sid)
+    html = app.test_client().get('/agent').text
+
+    # The full title stays available to assistive technologies and Rename.
+    assert 'title="' + full_title + '"' in html
+    assert 'value="' + full_title + '"' in html
+    assert '<strong>' + full_title[:55] + '…</strong>' in html
+    assert service.session_view(sid)['title'] == full_title
+
 def test_tutor_home_full_width_and_rename_form_contract(ui):
     app, service, course = ui
     sid = service.create_session(course_id=course['id'], title='My chat')
