@@ -7,12 +7,17 @@ MIMES = {
     'pptx':'application/vnd.openxmlformats-officedocument.presentationml.presentation',
     'doc':'application/msword','docx':'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     'png':'image/png','jpg':'image/jpeg','jpeg':'image/jpeg','webp':'image/webp',
-    'txt':'text/plain','md':'text/markdown','csv':'text/csv','py':'text/plain',
+    'srt':'text/plain','vtt':'text/vtt','txt':'text/plain','md':'text/markdown','csv':'text/csv','py':'text/plain',
 }
 TEXT_KINDS = frozenset(('txt','md','csv','py'))
 
 
 def validate(path, kind, prefix):
+    if kind in ('srt','vtt'):
+        from personal_learning_assistant.ingestion.extractors import TranscriptExtractor
+        if path.stat().st_size>1_048_576:raise ValueError('Transcript exceeds 1 MiB')
+        TranscriptExtractor().extract(path.read_bytes(),source_name='transcript.'+kind)
+        return
     if kind in TEXT_KINDS:
         if b'\0' in prefix: raise ValueError('Binary file is not UTF-8 text')
         # Full stream validation with constant memory, including boundaries.

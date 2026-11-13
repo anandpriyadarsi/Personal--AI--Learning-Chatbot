@@ -1,0 +1,10 @@
+{% extends 'workspace_base.html' %}
+{% block title %}Source evidence · ANVAYA{% endblock %}
+{% block content %}
+{% if evidence %}<h1>{{ evidence.title }}</h1><p>Exact retained source · {{ evidence.locator.kind }}{% if evidence.locator.page %} · Page {{ evidence.locator.page }}{% endif %}{% if evidence.locator.slide %} · Slide {{ evidence.locator.slide }} (external viewer navigation unverified){% endif %}</p>
+{% if evidence.locator.kind=='pdf_page' %}<iframe title="Exact original PDF page" style="width:100%;height:70vh" src="{{ url_for('multimodal.evidence_original',snapshot_id=snapshot_id) }}#page={{ evidence.locator.page }}"></iframe>
+{% elif evidence.locator.kind=='image' %}<div style="position:relative;display:inline-block;max-width:100%"><img style="max-width:100%;height:auto;display:block" alt="Exact retained original image" src="{{ url_for('multimodal.evidence_original',snapshot_id=snapshot_id) }}">{% if evidence.locator.bbox %}{% set b=evidence.locator.bbox %}<div aria-label="Selected crop boundary" style="pointer-events:none;position:absolute;border:2px solid #43c8ba;left:{{ b[0]*100 }}%;top:{{ b[1]*100 }}%;width:{{ (b[2]-b[0])*100 }}%;height:{{ (b[3]-b[1])*100 }}%"></div>{% endif %}</div>
+{% elif evidence.locator.kind=='transcript_cue' %}<pre style="white-space:pre-wrap"><mark>{{ evidence.cue_text }}</mark></pre><p>Supplied cue: {{ evidence.locator.start_ms }}–{{ evidence.locator.end_ms }} ms. Frame/board content is not inferred.</p><a href="{{ url_for('multimodal.evidence_original',snapshot_id=snapshot_id) }}">Open unchanged transcript</a>
+{% else %}<a href="{{ url_for('multimodal.evidence_original',snapshot_id=snapshot_id) }}">Open original in a compatible viewer</a>{% endif %}
+{% else %}<h1>Historical evidence unavailable</h1><p>The exact source version, permission or location is unavailable. A newer file has not been substituted.</p>{% endif %}
+{% endblock %}

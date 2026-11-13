@@ -156,6 +156,19 @@ class SQLiteRetrievalSourceRepository:
                 return placements
         except sqlite3.Error: return {}
 
+    def _native_multimodal(self):
+        database=self.connection.execute('PRAGMA database_list').fetchone()[2]
+        path=Path(database).absolute().parent/'native_library/library.sqlite3'
+        if not path.is_file():return {},{}
+        try:
+            with closing(sqlite3.connect('file:'+path.as_posix()+'?mode=ro',uri=True)) as con:
+                con.row_factory=sqlite3.Row
+                publications={(r['document_id'],r['source_id'],r['content_hash'],r['operation_id']) for r in con.execute("SELECT s.* FROM source_links s JOIN processing_jobs j ON j.id=s.operation_id WHERE s.namespace='canonical' AND j.state='complete'")}
+                if not con.execute("SELECT 1 FROM sqlite_master WHERE name='mm_artifacts'").fetchone():return {},publications
+                artifacts={r['id']:dict(r) for r in con.execute('SELECT * FROM mm_artifacts')}
+                return artifacts,publications
+        except sqlite3.Error:return {},{}
+
     def active_records(self):
         resource_ids, course_ids, topic_ids, providers = self._document_relations()
         rows = self.connection.execute(
@@ -173,8 +186,16 @@ class SQLiteRetrievalSourceRepository:
 
         records = []
         placements = self._native_placements()
+        mm_artifacts,mm_publications=self._native_multimodal()
         for row in rows:
             kind, locator = decode_chunk_type(str(row["chunk_type"]))
+            if locator.get('mm_locator'):
+                from personal_learning_assistant.services.multimodal_evidence_service import enabled
+                if not enabled():continue
+                if (locator.get('native_document_id'),str(row['document_id']),str(row['content_hash']),locator.get('mm_publication_job')) not in mm_publications:continue
+                if locator.get('mm_artifact_id'):
+                    artifact=mm_artifacts.get(locator['mm_artifact_id'])
+                    if not artifact or artifact['content_hash']!=locator.get('mm_artifact_hash') or artifact['recipe']!=locator.get('mm_recipe'):continue
             native_id=locator.get('native_document_id')
             native=placements.get(native_id) if native_id else None
             if native_id and (not native or native['trashed_at'] or not native['indexing_enabled']

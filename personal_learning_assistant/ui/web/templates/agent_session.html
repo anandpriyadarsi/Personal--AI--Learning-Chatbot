@@ -13,6 +13,7 @@
 {% endblock %}
 
 {% block content %}
+{% if session and session.metadata.get("mm_selection") %}<section class="panel" data-mm-session="{{ session.session_id }}" data-mm-csrf="{{ native_library_csrf|default('') }}"><p>Selected source: {{ session.metadata.mm_selection.kind }} · Source only. Unclear symbols require review.</p><button type="button" id="mm-answer-review">Review cloud answering scope</button><button type="button" id="mm-answer-approve" hidden>Approve reviewed scope</button><button type="button" id="mm-answer-revoke" hidden>Revoke permission</button><p id="mm-answer-status" role="status"></p></section><script defer src="{{ url_for('static',filename='js/multimodal.js') }}"></script>{% endif %}
 <header class="tutor-session-heading">
   <a class="tutor-back" href="{{ url_for('web.academic_agent') }}" aria-label="Back to Academic Agent">← Tutor</a>
   <h1 id="agent-session-title">{% if session %}{{ session.title or 'A little clearer, every turn' }}{% else %}Tutor session{% endif %}</h1>
@@ -93,7 +94,7 @@
         {% if turn.evidence %}
           <div class="tag-row" aria-label="Answer evidence">
           {% for evidence in turn.evidence %}
-            <a class="tag" href="{{ url_for('web.knowledge_item', document_id=evidence.document_id) }}">{% if evidence.citation_label in (turn.cited_labels or []) %}Cited{% else %}Retrieved context{% endif %} · {{ evidence.citation_label }} · {{ evidence.source_title or evidence.source_label or ('document ' ~ evidence.document_id) }}{% if evidence.locator_label %} · {{ evidence.locator_label }}{% endif %}{% if evidence.relation_type %} · {{ evidence.relation_type }}{% endif %}{% if evidence.retrieval_score is not none %} · score {{ '%.4f'|format(evidence.retrieval_score) }}{% endif %}</a>
+            <a class="tag" href="{{ evidence.citation_url or url_for('web.knowledge_item', document_id=evidence.document_id) }}">{% if evidence.citation_label in (turn.cited_labels or []) %}Cited{% else %}Retrieved context{% endif %} · {{ evidence.citation_label }} · {{ evidence.source_title or evidence.source_label or ('document ' ~ evidence.document_id) }}{% if evidence.locator_label %} · {{ evidence.locator_label }}{% endif %}{% if evidence.relation_type %} · {{ evidence.relation_type }}{% endif %}{% if evidence.retrieval_score is not none %} · score {{ '%.4f'|format(evidence.retrieval_score) }}{% endif %}</a>
                 <span class="visually-hidden">{{ evidence.citation_label }} · document {{ evidence.document_id }} · chunk {{ evidence.chunk_id }}</span>
           {% endfor %}
           </div>

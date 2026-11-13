@@ -235,6 +235,10 @@ class GroundedTutorService:
             tutor_session_service,
         )
 
+    def _complete(self,request,session,plan):
+        from .multimodal_tutor import guarded_complete
+        return guarded_complete(self,request,session,plan)
+
     def preview(
         self,
         session_id,
@@ -290,6 +294,7 @@ class GroundedTutorService:
             from personal_learning_assistant.tutor.source_freshness import source_snapshot, TutorSourceChangedError
             bound_session = repository.get_session(session_id)
             bound_snapshot = source_snapshot(repository.connection, bound_session)
+            self._request_operation=request_id
             result = self._answer(session_id, question, top_k=top_k, max_chars=max_chars)
             if source_snapshot(repository.connection, bound_session) != bound_snapshot:
                 raise TutorSourceChangedError("Source changed during the response. Review and reselect it.")
@@ -327,7 +332,7 @@ class GroundedTutorService:
         advisory = {key: str(state.get(key) or '')[:300] for key in ('last_misconception', 'current_topic')}
         request = coding_provider_request(session, data, context_text=plan.context_text,
             evidence_labels=[e.citation_label for e in plan.evidence], history=history, advisory=advisory, task_context=task_context)
-        response = self.provider.complete(request)
+        response = self._complete(request,session,plan)
         if not isinstance(response.content, str) or not response.content.strip() or len(response.content) > 16000:
             raise CodingError('provider_unavailable', 'Tutor did not return a usable answer. Your draft is retained.', 503)
         content = response.content.strip()
@@ -360,6 +365,13 @@ class GroundedTutorService:
             top_k=top_k,
             max_chars=max_chars,
         )
+
+        if any(h.locator.get('mm_status')=='unknown' for h in plan.hits):
+            message='Critical symbols or visual content are unclear/unknown in the selected source. Please supply a clearer image or confirm a transcription before I calculate or infer an explanation. [S1]'
+            user=self.tutor_session_service.add_user_turn(session_id,plan.question)
+            assistant=self.tutor_session_service.add_assistant_turn(session_id,message,support_level='insufficient',evidence=plan.evidence)
+            return GroundedTutorResult(question=plan.question,user_turn=user,assistant_turn=assistant,
+                citations=('S1',),retrieved_chunk_ids=tuple(e.chunk_id for e in plan.evidence),provider_request_id='')
 
         teaching_plan = dict(plan.teaching_plan or {})
         if plan.teaching_intent == "cancel_pending":
@@ -544,7 +556,7 @@ class GroundedTutorService:
             plan,
             transcript=transcript,
         )
-        response = self.provider.complete(request)
+        response = self._complete(request,session,plan)
         from personal_learning_assistant.tutor.source_freshness import TutorSourceChangedError
         if source_snapshot(self.tutor_session_service.repository.connection, session) != bound_sources:
             raise TutorSourceChangedError("Source changed during the response. Review and reselect it.")
@@ -554,7 +566,7 @@ class GroundedTutorService:
 
         if not raw_content and had_provider_meta:
             retry_request = _provider_retry_request(request, raw_original)
-            retry_response = self.provider.complete(retry_request)
+            retry_response = self._complete(retry_request,session,plan)
             retry_original = str(retry_response.content or "").strip()
             retry_clean, retry_had_meta = _strip_provider_meta(retry_original)
             if retry_clean:
@@ -620,7 +632,7 @@ class GroundedTutorService:
                 raw_content,
                 math_verification,
             )
-            repaired_response = self.provider.complete(repair_request)
+            repaired_response = self._complete(repair_request,session,plan)
             repaired_raw = str(repaired_response.content or "").strip()
             if repaired_raw:
                 (

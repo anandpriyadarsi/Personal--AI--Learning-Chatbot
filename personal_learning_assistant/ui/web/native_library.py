@@ -234,8 +234,13 @@ def open_document(document_id):
         with service().original(document_id).open('rb') as stream:
             text_preview=stream.read(256_001)
         text_preview=text_preview[:256_000].decode('utf-8',errors='replace') + ('\n[Preview limited to 256 KB. Download original for the full file.]' if len(text_preview)>256_000 else '')
-    return render_template('native_document.html',active_page='library',doc=d,position=position,query=query,text_preview=text_preview,
-        csrf_token=current_app.extensions['native_library_csrf'])
+    transcript_cues=[]
+    if d['kind'] in ('srt','vtt'):
+        from personal_learning_assistant.ingestion.extractors import TranscriptExtractor
+        transcript_cues=TranscriptExtractor().extract(service().original(document_id).read_bytes(),source_name=d['filename'])
+    return render_template('native_document.html' ,active_page='library',doc=d,position=position,query=query,text_preview=text_preview,
+        csrf_token=current_app.extensions['native_library_csrf'],transcript_cues=transcript_cues,
+        frame_options=[x for x in service().list_documents()['items'] if x['kind'] in ('png','jpg','jpeg','webp') and x['subject_id']==d['subject_id']])
 
 
 @files.get('/library/files/<document_id>/preview/<int:position>.png')

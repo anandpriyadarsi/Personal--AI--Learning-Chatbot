@@ -1,0 +1,8 @@
+{% extends 'workspace_base.html' %}
+{% block title %}Lecture evidence · ANVAYA{% endblock %}
+{% block content %}<script defer src="{{ url_for('static',filename='js/multimodal.js') }}"></script>
+<div id="mm-panel" data-document="{{ lecture.transcript_id }}" data-kind="vtt" data-csrf="{{ csrf_token }}"><button type="button" data-mm-cue="{{ lecture.cue.start_ms }}" data-mm-end="{{ lecture.cue.end_ms }}" data-mm-manifest="{{ manifest_id }}">Ask about this cue and supplied frames</button><p id="mm-status" role="status"></p><pre id="mm-review"></pre></div><h1>Selected lecture evidence</h1><p>Supplied transcript interval {{ lecture.cue.start_ms }}–{{ lecture.cue.end_ms }} ms · {{ lecture.alignment }}</p><pre style="white-space:pre-wrap">{{ lecture.cue.text }}</pre>
+{% for frame in lecture.frames %}<figure><img style="max-width:100%" src="{{ url_for('native_library.original',document_id=frame.document_id) }}" alt="Supplied lecture frame"><figcaption>User supplied frame · {{ frame.timestamp_ms }} ms. Does not prove continuous video coverage.</figcaption></figure>{% else %}<p>No supplied frame overlaps this cue; board content is unknown.</p>{% endfor %}
+{% if lecture.reference %}<a rel="noopener noreferrer" href="{{ lecture.reference }}&t={{ (lecture.cue.start_ms//1000) }}s">Open original lecture reference at this time</a>{% endif %}
+<a href="{{ url_for('native_library.open_document',document_id=lecture.transcript_id) }}">Open supplied transcript / Ask Tutor</a>
+{% endblock %}

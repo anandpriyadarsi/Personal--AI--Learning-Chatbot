@@ -75,7 +75,48 @@ class NativeTutorBridge:
                 units.append(ExtractedUnit(text=text,kind=doc['kind'],
                     page_number=position if doc['kind']=='pdf' else None,
                     slide_number=position if doc['kind']=='pptx' else None,locator=locator))
-            chunks=prepare_chunks(units)
+            # Optional selected artifacts retain exact source + recipe + evidence
+            # type. Transcript timing is parsed, never inferred from row numbers.
+            from .multimodal_evidence_service import artifact_units, enabled
+            from personal_learning_assistant.domain.multimodal_models import canonical, source_ref
+            artifacts=artifact_units(self,doc)
+            if artifacts:
+                units=[]
+                for artifact in artifacts:
+                    import json
+                    loc=json.loads(artifact['locator_json'])
+                    locator={'native_document_id':doc['id'],'content_hash':doc['sha256'],
+                        'native_generation':doc['generation'],'metadata_revision':doc['metadata_revision'],
+                        'course_id':doc['subject_id'],'filename':doc['display_name'],
+                        'mm_artifact_id':artifact['id'],'mm_artifact_hash':artifact['content_hash'],
+                        'mm_publication_job':doc.get('_publication_job'),'mm_locator':loc,'mm_kind':artifact['kind'],'mm_status':artifact['status'],
+                        'mm_uncertain':json.loads(artifact['uncertain_json']),'mm_recipe':artifact['recipe']}
+                    if loc.get('page'):locator['page']=loc['page']
+                    if loc.get('slide'):locator['slide']=loc['slide']
+                    units.append(ExtractedUnit(text=artifact['text'],kind='multimodal',page_number=loc.get('page'),
+                                               slide_number=loc.get('slide'),locator=locator))
+            elif doc['kind'] in ('png','jpg','jpeg','webp'):
+                units=[]
+            elif doc['kind'] in ('srt','vtt'):
+                if not enabled():return source
+                from personal_learning_assistant.ingestion.extractors import TranscriptExtractor
+                cues=TranscriptExtractor().extract(self.original(doc['id']).read_bytes(),source_name=doc['original_name'])
+                units=[]
+                for i,cue in enumerate(cues,1):
+                    loc={'schema_version':2,'kind':'transcript_cue','cue_id':str(i),'start_ms':cue.timestamp_start_ms,'end_ms':cue.timestamp_end_ms}
+                    locator={'native_document_id':doc['id'],'content_hash':doc['sha256'],
+                        'native_generation':doc['generation'],'metadata_revision':doc['metadata_revision'],
+                        'course_id':doc['subject_id'],'filename':doc['display_name'],'mm_locator':loc,
+                        'mm_publication_job':doc.get('_publication_job'),'mm_kind':'user_transcript','mm_status':'observed','mm_recipe':'transcript-v2-bounded'}
+                    units.append(ExtractedUnit(text=cue.text,kind='transcript',timestamp_start_ms=cue.timestamp_start_ms,
+                                               timestamp_end_ms=cue.timestamp_end_ms,locator=locator))
+            # A rename/scope revision invalidates selected derived evidence. It
+            # must never be republished as ordinary text without its provenance.
+            from .multimodal_schema import available
+            with self.connection() as native:
+                selected=(native.execute('SELECT source_json FROM mm_selections WHERE document_id=?',(doc['id'],)).fetchone() if available(native) else None)
+            if selected and (not enabled() or selected['source_json']!=canonical(source_ref(doc))):units=[]
+            chunks=prepare_chunks(units,max_chars=16000 if artifacts else 1600)
             if chunks:
                 version='native-v2:'+doc['sha256']+':'+str(doc['generation'])
                 repo=SQLiteIngestionRepository(con)
@@ -150,6 +191,7 @@ class NativeTutorBridge:
                     # Never wait for that SQLite writer while holding the native
                     # metadata lock. Durable checkpoints make replay idempotent;
                     # live retrieval additionally validates the native generation.
+                    doc['_publication_job']=job
                     source=self._publish_native(doc,pages if active else [])
                     with self.connection(write=True) as con:
                         if not self._publication_is_current(con,doc,job,token):
@@ -163,6 +205,11 @@ class NativeTutorBridge:
                             con.execute('''INSERT OR REPLACE INTO source_links VALUES(?,?,?,?,?,?)''',
                                         (doc['id'],'canonical',source,doc['sha256'],'published',job))
                         con.execute("UPDATE processing_jobs SET state='complete',checkpoint='published',error_code='',lease_until=NULL WHERE id=? AND lease_owner=?",(job,token))
+                    from .multimodal_schema import available
+                    from personal_learning_assistant.domain.multimodal_models import canonical,source_ref
+                    with self.connection(write=True) as con:
+                        if available(con):
+                            con.execute("UPDATE mm_selections SET state='ready' WHERE document_id=? AND source_json=? AND state='processing'",(doc['id'],canonical(source_ref(doc))))
                     changed=True
                 except Exception:
                     with self.connection(write=True) as con:
