@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 from playwright.sync_api import expect
 from tests.test_tutor_final_browser import real_tutor
+from tests.test_tutor_ui_v3 import _save_sample_user_turn
 from tests.learning_studio.test_browser import browser
 
 pytestmark = pytest.mark.skipif(os.environ.get('ANVAYA_BROWSER_TESTS') != '1', reason='Requires Chromium')
@@ -307,6 +308,7 @@ def test_tutor_home_uses_screen_and_chat_rename_is_accessible(browser, real_tuto
     base, service, path, course, provider, before = real_tutor
     sid = service.create_session(course_id=course['id'], title='My original chat',
                                  mode='concept', source_policy='source_first')
+    _save_sample_user_turn(service, sid)
     page = browser.new_page(viewport={'width': width, 'height': 900})
     errors = []
     page.on('pageerror', lambda error: errors.append(str(error)))

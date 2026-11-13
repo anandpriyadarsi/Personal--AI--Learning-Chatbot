@@ -8,6 +8,7 @@ study plans, grades, assessments, notes, or source documents.
 from __future__ import annotations
 
 import json
+import re
 import uuid
 from datetime import datetime, timezone
 from typing import Iterable, Sequence
@@ -39,6 +40,35 @@ def _utc_now():
 
 def _new_id(prefix: str) -> str:
     return "{}-{}".format(prefix, uuid.uuid4())
+
+
+def suggest_tutor_session_title(message: str) -> str:
+    """A free, local, safe short label from a substantive student question.
+
+    No LLM request or document lookup is needed. Empty/greeting messages leave
+    the title unset so a later meaningful question can name the session.
+    """
+    text = re.sub(r"```[\s\S]*?```", " ", str(message or ""))
+    text = re.sub(r"https?://\S+", " ", text)
+    text = re.sub(r"[\x00-\x1f\x7f#*_`]", " ", text)
+    text = " ".join(text.split()).strip(" .!?–—-:\"'")
+    for _ in range(3):
+        trimmed = re.sub(
+            r"^(?:(?:hello|hi|hey)\s+(?:alex|anvaya)[,!: ]*|"
+            r"(?:alex|anvaya)[,!: ]+|"
+            r"(?:can|could|would)\s+you\s+(?:please\s+)?|"
+            r"please\s+|help\s+me\s+(?:to\s+|with\s+))",
+            "", text, count=1, flags=re.IGNORECASE,
+        ).strip()
+        if trimmed == text:
+            break
+        text = trimmed
+    text = re.split(r"[.!?](?:\s|$)", text, maxsplit=1)[0].strip(" ,;:-")
+    if len(text.split()) < 3:
+        return ""
+    if len(text) > 80:
+        text = text[:79].rsplit(" ", 1)[0].rstrip(" ,;:-") + "…"
+    return text[:1].upper() + text[1:]
 
 
 class TutorSessionService:
@@ -114,6 +144,7 @@ class TutorSessionService:
             session_id=session_id,
             role="user",
             content=clean,
+            suggested_title=suggest_tutor_session_title(clean),
             support_level="not_evaluated",
             provider_name="",
             provider_model="",

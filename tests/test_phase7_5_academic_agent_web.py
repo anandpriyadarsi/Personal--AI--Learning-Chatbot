@@ -351,11 +351,25 @@ def test_ask_persists_grounded_exchange_and_only_tutor_tables_change(tmp_path):
     assert view["turns"][-1]["provider_model"] == "fake-model"
 
     connection = open_database(base_path)
-    after = table_counts(connection)
-    connection.close()
+    try:
+        after = table_counts(connection)
+        saved_session = connection.execute(
+            "SELECT title FROM tutor_sessions WHERE id=?", (session_id,)
+        ).fetchone()
+        saved_turns = connection.execute(
+            "SELECT role FROM tutor_turns WHERE session_id=? ORDER BY ordinal",
+            (session_id,),
+        ).fetchall()
+    finally:
+        connection.close()
     changed = changed_tables(before, after)
     assert changed <= {"tutor_sessions", "tutor_turns", "tutor_evidence_links"}
-    assert {"tutor_sessions", "tutor_turns", "tutor_evidence_links"} <= changed
+    # Old, no-turn session shells may be pruned when this session is created.
+    # Therefore equal tutor_sessions counts do not imply the new chat was lost.
+    assert {"tutor_turns", "tutor_evidence_links"} <= changed
+    assert saved_session is not None
+    assert saved_session["title"] == "Explain this concept from my project source"
+    assert [row["role"] for row in saved_turns] == ["user", "assistant"]
     assert before["tutor_feedback"] == after["tutor_feedback"]
 
 

@@ -15,6 +15,22 @@ def ui(tmp_path):
     return app, service, course
 
 
+
+def _save_sample_user_turn(service, session_id):
+    """A conversation must have a persisted turn to appear in Recent chats."""
+    from personal_learning_assistant.repositories.sqlite.tutor_repository import SQLiteTutorRepository
+    from personal_learning_assistant.services.tutor_session_service import TutorSessionService
+    from tests.test_phase7_5_academic_agent_web import open_database
+
+    connection = open_database(service.database_path)
+    try:
+        TutorSessionService(SQLiteTutorRepository(connection)).add_user_turn(
+            session_id, "Explain LU factorization step by step."
+        )
+    finally:
+        connection.close()
+
+
 def test_android_home_discloses_unavailable_ai_and_prioritizes_start(ui):
     app, service, course = ui
     html = app.test_client().get('/agent').text
@@ -76,6 +92,7 @@ def test_tutor_rename_is_csrf_protected_and_preserves_history(ui):
     from tests.test_phase7_5_academic_agent_web import open_database, table_counts
     app, service, course = ui
     sid = service.create_session(course_id=course['id'], mode='concept', source_policy='source_first', title='Old title')
+    _save_sample_user_turn(service, sid)
     before = service.session_view(sid)
     db = open_database(service.database_path)
     try:
@@ -112,6 +129,7 @@ def test_tutor_rename_is_csrf_protected_and_preserves_history(ui):
 def test_rename_validation_not_found_and_safe_redirect(ui):
     app, service, course = ui
     sid = service.create_session(course_id=course['id'], title='Original')
+    _save_sample_user_turn(service, sid)
     token = app.extensions['tutor_action_csrf']
     client = app.test_client()
     for rejected in ('', '  ', 'x' * 161, 'line\nbreak', 'tab\tname', '\x7f'):
@@ -139,6 +157,7 @@ def test_rename_validation_not_found_and_safe_redirect(ui):
 def test_tutor_home_full_width_and_rename_form_contract(ui):
     app, service, course = ui
     sid = service.create_session(course_id=course['id'], title='My chat')
+    _save_sample_user_turn(service, sid)
     html = app.test_client().get('/agent').text
     assert 'class="tutor-home-grid"' in html
     assert 'id="tutor-history"' in html
