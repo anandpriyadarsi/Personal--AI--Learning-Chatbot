@@ -78,7 +78,11 @@ def ask(document_id):
 def manifest():
     d=payload({'transcript_id','frames','reference'})
     identity=svc().create_manifest(d.get('transcript_id'),d.get('frames',[]),reference=d.get('reference',''))
-    return jsonify(id=identity,url=url_for('multimodal.lecture',manifest_id=identity)),201
+    # A transcript may begin long after 00:00. Do not generate a broken link.
+    from personal_learning_assistant.ingestion.extractors import TranscriptExtractor
+    doc=service().get(d['transcript_id'])
+    first=TranscriptExtractor().extract(service().original(doc['id']).read_bytes(),source_name=doc['original_name'])[0]
+    return jsonify(id=identity,url=url_for('multimodal.lecture',manifest_id=identity,timestamp_ms=first.timestamp_start_ms)),201
 
 
 @multimodal.get('/library/lecture-manifests/<manifest_id>')

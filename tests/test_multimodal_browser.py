@@ -33,7 +33,7 @@ def test_image_review_to_existing_tutor_exact_citation_and_stale_source(live,wid
     from playwright.sync_api import sync_playwright,expect
     base,doc,lib=live
     with sync_playwright() as pw:
-        browser=pw.chromium.launch(executable_path=os.getenv('ANVAYA_CHROMIUM_PATH','/usr/bin/chromium'),args=['--no-sandbox'])
+        browser=pw.chromium.launch(executable_path=os.getenv('ANVAYA_CHROMIUM_PATH') or None,args=['--no-sandbox'])
         page=browser.new_page(viewport={'width':width,'height':height});page.set_default_timeout(5000);errors=[];page.on('pageerror',lambda error:errors.append(str(error)))
         page.goto(base+'/library/files/'+doc['id']+'/open')
         page.get_by_text('Ask about this page/image',exact=True).click()
@@ -59,4 +59,85 @@ def test_image_review_to_existing_tutor_exact_citation_and_stale_source(live,wid
         response=page.reload();assert response.status==410
         expect(page.get_by_role('heading',name='Historical evidence unavailable')).to_be_visible()
         assert not errors
+        browser.close()
+
+
+@pytest.mark.parametrize('width',[390,1366])
+def test_crop_scope_edits_invalidate_consent_and_survive_reload(live,width):
+    from playwright.sync_api import sync_playwright,expect
+    base,doc,lib=live
+    with sync_playwright() as pw:
+        browser=pw.chromium.launch(executable_path=os.getenv('ANVAYA_CHROMIUM_PATH') or None)
+        page=browser.new_page(viewport={'width':width,'height':844})
+        page.goto(base+'/library/files/'+doc['id']+'/open')
+        page.get_by_text('Ask about this page/image',exact=True).click()
+        page.locator('#mm-method').select_option('review');page.locator('#mm-text').fill('Selected crop has two rows.')
+        page.locator('#mm-crop-enabled').check();page.get_by_label('Right (%)').fill('60')
+        page.locator('#mm-preview').click();expect(page.locator('#mm-approve')).to_be_visible()
+        page.get_by_label('Left (%)').fill('10');expect(page.locator('#mm-approve')).to_be_hidden()
+        page.locator('#mm-preview').click();page.locator('#mm-approve').click()
+        expect(page.locator('#mm-ask')).to_be_visible(timeout=20000)
+        page.reload();page.get_by_text('Ask about this page/image',exact=True).click()
+        expect(page.get_by_label('Left (%)')).to_have_value('10')
+        expect(page.get_by_label('Right (%)')).to_have_value('60')
+        expect(page.locator('.mm-crop-overlay')).to_be_visible()
+        page.locator('#mm-ask').click();page.wait_for_url('**/agent/sessions/*')
+        assert page.evaluate('document.documentElement.scrollWidth<=innerWidth+1')
+        browser.close()
+
+
+def test_multiple_named_frames_and_late_start_lecture_navigation(live):
+    from playwright.sync_api import sync_playwright,expect
+    base,doc,lib=live
+    transcript=lib.upload(BytesIO(b'WEBVTT\n\n00:12.500 --> 00:18.000\nSwap the rows.'),'Late lecture.vtt')
+    frames=[lib.upload(BytesIO(image_bytes()),f'Board {i}.png',duplicate='copy',indexing=False) for i in range(3)]
+    with sync_playwright() as pw:
+        browser=pw.chromium.launch(executable_path=os.getenv('ANVAYA_CHROMIUM_PATH') or None)
+        page=browser.new_page(viewport={'width':390,'height':844})
+        page.goto(base+'/library/files/'+transcript['id']+'/open')
+        page.get_by_text('Ask about this page/image',exact=True).click();page.get_by_text('Link supplied lecture frames',exact=True).click()
+        for index,frame in enumerate(frames):
+            if index:page.locator('#mm-frame-add').click()
+            row=page.locator('.mm-frame-row').nth(index)
+            row.locator('select').select_option(frame['id']);row.locator('input').fill(str(13000+index*1000))
+        page.locator('#mm-manifest').click();page.get_by_role('link',name='Open lecture evidence',exact=True).click()
+        expect(page.get_by_text('Supplied transcript interval 12500–18000 ms',exact=False)).to_be_visible()
+        expect(page.locator('figure')).to_have_count(3)
+        for img in page.locator('figure img').all():expect(img).to_be_visible()
+        assert page.evaluate('document.documentElement.scrollWidth<=innerWidth+1')
+        browser.close()
+
+
+def test_delayed_preview_cannot_approve_edited_scope(live):
+    from playwright.sync_api import sync_playwright,expect
+    base,doc,lib=live
+    with sync_playwright() as pw:
+        browser=pw.chromium.launch(executable_path=os.getenv('ANVAYA_CHROMIUM_PATH') or None)
+        page=browser.new_page();held=[]
+        page.goto(base+'/library/files/'+doc['id']+'/open');page.get_by_text('Ask about this page/image',exact=True).click()
+        page.locator('#mm-method').select_option('review');page.locator('#mm-text').fill('First reading')
+        page.route('**/multimodal/preview',lambda route:held.append(route))
+        page.locator('#mm-preview').click();page.wait_for_timeout(100)
+        page.locator('#mm-text').fill('Edited reading');held[0].continue_()
+        expect(page.locator('#mm-status')).to_contain_text('changed')
+        expect(page.locator('#mm-approve')).to_be_hidden()
+        browser.close()
+
+
+def test_other_pdf_page_does_not_restore_previously_selected_page(live):
+    from playwright.sync_api import sync_playwright,expect
+    from test_native_document_library import pdf_bytes
+    from personal_learning_assistant.services.multimodal_evidence_service import MultimodalEvidenceService
+    base,doc,lib=live;pdf=lib.upload(BytesIO(pdf_bytes()),'Two pages.pdf')
+    service=MultimodalEvidenceService(lib);p=service.preview(pdf['id'],{'kind':'pdf_page','page':1},method='review',text='Page one only')
+    service.enqueue(pdf['id'],p['token'])
+    with sync_playwright() as pw:
+        browser=pw.chromium.launch(executable_path=os.getenv('ANVAYA_CHROMIUM_PATH') or None)
+        page=browser.new_page();page.goto(base+'/library/files/'+pdf['id']+'/open?position=1')
+        page.get_by_text('Ask about this page/image',exact=True).click();expect(page.locator('#mm-ask')).to_be_visible(timeout=20000)
+        before=page.locator('#pdf-page').bounding_box()['width'];page.get_by_role('button',name='Zoom +',exact=True).click()
+        assert page.locator('#pdf-page').bounding_box()['width']>before*1.2
+        page.goto(base+'/library/files/'+pdf['id']+'/open?position=2');page.get_by_text('Ask about this page/image',exact=True).click()
+        expect(page.locator('#mm-status')).to_contain_text('another page')
+        expect(page.locator('#mm-ask')).to_be_hidden()
         browser.close()

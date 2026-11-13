@@ -78,7 +78,7 @@ class MultimodalEvidenceService:
         with self.lib.connection() as con:
             row=con.execute('SELECT state,error,locator_json FROM mm_selections WHERE document_id=?',(document_id,)).fetchone()
             items=[dict(r) for r in con.execute('SELECT id,locator_json,kind,status,uncertain_json FROM mm_artifacts WHERE document_id=? AND source_json=?',(document_id,canonical(source_ref(doc))))]
-        return dict(state=(row['state'] if row else 'stored'),reason_code=(row['error'].split(':',1)[0] if row and row['error'] else ''),error=(row['error'] if row else ''),artifacts=items,
+        return dict(selection=(json.loads(row['locator_json']) if row else None),state=(row['state'] if row else 'stored'),reason_code=(row['error'].split(':',1)[0] if row and row['error'] else ''),error=(row['error'] if row else ''),artifacts=items,
                     tutor_state=doc['tutor_state'])
 
     def cancel(self,document_id):
@@ -103,9 +103,11 @@ class MultimodalEvidenceService:
             import re
             if not re.fullmatch('[A-Za-z0-9_-]{11}',video):raise ValueError('Invalid video reference')
             reference='https://www.youtube.com/watch?v='+video
-        bound=[]
+        bound=[];seen_frames=set()
         for f in frames:
             if not isinstance(f,dict) or set(f)!={'document_id','timestamp_ms'}:raise ValueError('Choose frame identity and supplied timestamp')
+            if f['document_id'] in seen_frames:raise ValueError('Use a distinct stored frame for each timestamp; copy the frame placement if needed.')
+            seen_frames.add(f['document_id'])
             frame=self.lib.get(f['document_id']);timestamp=integer(f['timestamp_ms'])
             if frame['kind'] not in ('png','jpg','jpeg','webp') or frame['trashed_at'] or frame['subject_id']!=doc['subject_id']:raise ValueError('Frame must be an available image in the same course')
             if timestamp>max(c.timestamp_end_ms for c in cues):raise ValueError('Frame outside supplied transcript interval')

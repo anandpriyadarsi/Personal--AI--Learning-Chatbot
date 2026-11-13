@@ -38,7 +38,7 @@ Open http://127.0.0.1:5000. Launcher remains loopback-only. Original Library ini
 
 From Library, open an image/PDF and expand **Ask about this page/image**. Choose **Local inspection** (digital text) or **My transcription / correction**. Review the scope, approve processing, wait for Ready and use **Ask Tutor**. Ambiguous scans/images stay unknown until a transcription or separately approved visual reading exists. A failed question retains its composer draft.
 
-For lectures, upload an authorized SRT/VTT (1 MiB / 2,000 cues / times below 24 h), open the transcript and choose a cue. To use frames, upload and explicitly process their readings first, then link each frame's displayed name and supplied timestamp. API accepts up to 20 frames; the compact reader form links one at a time per manifest. A changed frame invalidates its manifest rather than silently following a new version. Citation cue text is highlighted with exact supplied bounds.
+For lectures, upload an authorized SRT/VTT (1 MiB / 2,000 cues / times below 24 h), open the transcript and choose a cue. To use frames, upload and explicitly process their readings first, then link each frame's displayed name and supplied timestamp. Use **Add another frame** to link up to 20 named frames in one manifest. Use distinct stored frame placements for distinct timestamps; explicit copies may share original bytes. A changed frame invalidates its manifest rather than silently following a new version. Citation cue text is highlighted with exact supplied bounds.
 
 ## Optional paid vision and answering
 
@@ -72,3 +72,18 @@ Restore drill: copy those backups to a separate empty scratch directory, copy `n
 Primary rollback: stop app, remove/set `ANVAYA_MULTIMODAL_ENABLED=false`, restart the same verified build. Optional tables/history remain. Other text-only records retain their existing path; selected derived evidence is excluded while disabled. Native schema remains 2 and old Native reader acceptance was checked on synthetic upgraded stores. Full old-build downgrade compatibility across every independent owner is not certified. Do not use database deletion as an index reset or routinely restore old backups over newer records.
 
 See [validation.md](validation.md) for actual commands, results and limits.
+
+
+## Completion update
+
+The reader now supports normalized crop selection for images/PDF pages, visible crop boundaries, review invalidation after edits, restored matching selections after reload, and multiple supplied frames. A PDF page never inherits another page's processed selection. Zoom remains available with crop overlays. New lecture links open at the first real cue even when the transcript begins after zero.
+
+Run repeatable offline validation on your own Windows machine with the existing environment:
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt -r requirements-assessment-browser.txt
+.\.venv\Scripts\python.exe -m playwright install chromium
+.\.venv\Scripts\python.exe -m scripts.multimodal_validate --browser --output .\verification\multimodal-local.json
+```
+
+The validation command itself does not install anything, activate personal stores or call live providers. It runs isolated synthetic tests, clears provider keys from the subprocess environment, enforces a zero default budget, and records the actual OS, source revision, dirty-tree state, test exits/counts/skips and unverified live-model quality. A skip or failed suite makes the command fail. Browser installation above is an explicit optional prerequisite. Reports from Linux never claim Windows verification. No live vision test or video/ASR capability is implied by a passing offline report.
