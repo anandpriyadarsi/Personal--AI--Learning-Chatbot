@@ -66,9 +66,31 @@ def suggest_tutor_session_title(message: str) -> str:
     text = re.split(r"[.!?](?:\s|$)", text, maxsplit=1)[0].strip(" ,;:-")
     if len(text.split()) < 3:
         return ""
-    if len(text) > 80:
-        text = text[:79].rsplit(" ", 1)[0].rstrip(" ,;:-") + "…"
-    return text[:1].upper() + text[1:]
+
+    # Remove conversational extras without stripping the academic subject.
+    text = re.sub(
+        r"\b(?:step by step|with (?:an? )?examples?|in simple terms|"
+        r"in detail|for beginners)\b", "", text, flags=re.IGNORECASE,
+    )
+    text = re.sub(r"\bfrom my\b", "from", text, flags=re.IGNORECASE)
+    text = re.sub(
+        r"^how does (.+?) (?:find|calculate|determine) (.+)$",
+        r"\1 for \2", text, flags=re.IGNORECASE,
+    )
+    text = " ".join(text.split()).strip(" ,;:-")
+    if len(text.split()) < 2:
+        return ""
+
+    # A compact, informative chat label: at most seven words / 48 chars.
+    # Never rewrite manually chosen titles, which are stored independently.
+    words = []
+    for word in text.split():
+        candidate = " ".join((*words, word))
+        if len(words) >= 7 or (words and len(candidate) > 48):
+            break
+        words.append(word)
+    title = " ".join(words).rstrip(" ,;:-")
+    return title[:1].upper() + title[1:]
 
 
 class TutorSessionService:
