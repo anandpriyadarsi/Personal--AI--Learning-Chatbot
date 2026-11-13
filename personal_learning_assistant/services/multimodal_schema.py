@@ -42,7 +42,13 @@ def activate(database,library_root,*,apply=False):
     for path in root.rglob('*'):_safe(path)
     pending=[]
     for path in (native,database):
-        with closing(sqlite3.connect(str(path))) as con:
+        # Read-only SQLite can still create WAL/SHM sidecars. Immutable preview
+        # avoids writes; refuse an uncheckpointed owner rather than ignore WAL.
+        wal=Path(str(path)+'-wal')
+        if not apply and wal.is_file() and wal.stat().st_size:
+            raise ValueError('Stop writers and checkpoint existing owners before read-only preview')
+        connection=sqlite3.connect(str(path)) if apply else sqlite3.connect(path.as_uri()+'?mode=ro&immutable=1',uri=True)
+        with closing(connection) as con:
             if available(con):
                 row=con.execute('SELECT checksum FROM mm_schema_ledger WHERE version=1').fetchone()
                 if not row or row[0]!=CHECKSUM:raise ValueError('Multimodal schema checksum mismatch')
