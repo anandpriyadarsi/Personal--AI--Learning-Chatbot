@@ -603,7 +603,6 @@ def test_web_production_code_has_no_phase68_execution_path():
     )
     forbidden = (
         "AcademicAgentService",
-        ".execute(",
         "EXECUTE_ACADEMIC_AGENT_ACTION",
         "practice_quiz",
         "lecture_learning",
@@ -611,6 +610,19 @@ def test_web_production_code_has_no_phase68_execution_path():
     )
     for token in forbidden:
         assert token not in sources
+
+    # Read-only SELECTs added for immutable Tutor citation snapshots are
+    # permitted. This boundary must still ban academic action execution.
+    for path in (
+        "personal_learning_assistant/ui/web/routes.py",
+        "personal_learning_assistant/ui/web/templates/agent.html",
+        "personal_learning_assistant/ui/web/templates/agent_session.html",
+    ):
+        assert ".execute(" not in (ROOT / path).read_text(encoding="utf-8")
+    adapter = (ROOT / "personal_learning_assistant/services/academic_agent_web_service.py").read_text(encoding="utf-8")
+    for line in adapter.splitlines():
+        if ".execute(" in line:
+            assert "connection.execute(" in line and "SELECT " in line
 
 
 def test_web_app_creation_keeps_agent_provider_retrieval_and_mentor_lazy(tmp_path):
