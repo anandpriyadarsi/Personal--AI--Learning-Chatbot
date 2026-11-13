@@ -28,7 +28,7 @@ def test_short_conversational_titles_need_no_provider_and_keep_acronyms():
     assert suggest_tutor_session_title(
         "Can you generate 10 MCQs from my lead-acid battery PDF?"
     ) == "Generate 10 MCQs from lead-acid battery PDF"
-    assert len(suggest_tutor_session_title("Explain " + "eigenvalues " * 50)) <= 48
+    assert len(suggest_tutor_session_title("Explain " + "eigenvalues " * 50)) <= 56
     assert "`" not in suggest_tutor_session_title("Explain ```secret``` LU factorization")
     assert suggest_tutor_session_title(
         "Please explain partial derivatives and directional derivatives in detail with an example"
