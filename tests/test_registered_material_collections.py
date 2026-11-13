@@ -49,8 +49,12 @@ def test_verified_native_filename_replaces_digest_only_when_id_and_hash_match(li
         })
         client = app.test_client()
         body = client.get("/library?view=registered").get_data(as_text=True)
-        assert "MIT Matrix Lecture.txt" in body
-        assert "Unnamed document — rename to identify" not in body
+        # Verify the visible document title, not the entire HTML. The
+        # original placeholder is intentionally retained in a hidden
+        # data-library-expected-title attribute for safe rename conflict checks.
+        assert 'data-library-title="document:d0">MIT Matrix Lecture.txt</' in body
+        assert 'data-library-title="document:d0">Unnamed document — rename to identify</' not in body
+        assert 'data-library-expected-title="Unnamed document — rename to identify"' in body
 
         # The canonical source title is still the expected value for renames.
         token = app.extensions["library_rename_csrf"]
