@@ -368,7 +368,7 @@ def test_ask_persists_grounded_exchange_and_only_tutor_tables_change(tmp_path):
     # Therefore equal tutor_sessions counts do not imply the new chat was lost.
     assert {"tutor_turns", "tutor_evidence_links"} <= changed
     assert saved_session is not None
-    assert saved_session["title"] == "Explain this concept from my project source"
+    assert saved_session["title"] == "Explain this concept from project source"
     assert [row["role"] for row in saved_turns] == ["user", "assistant"]
     assert before["tutor_feedback"] == after["tutor_feedback"]
 
