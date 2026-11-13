@@ -24,12 +24,20 @@ def test_short_conversational_titles_need_no_provider_and_keep_acronyms():
     assert suggest_tutor_session_title("Hello, Alex!") == ""
     assert suggest_tutor_session_title(
         "Alex, can you please explain LU factorization step by step?"
-    ) == "Explain LU factorization step by step"
+    ) == "Explain LU factorization"
     assert suggest_tutor_session_title(
         "Can you generate 10 MCQs from my lead-acid battery PDF?"
-    ) == "Generate 10 MCQs from my lead-acid battery PDF"
-    assert len(suggest_tutor_session_title("Explain " + "eigenvalues " * 50)) <= 80
+    ) == "Generate 10 MCQs from lead-acid battery PDF"
+    assert len(suggest_tutor_session_title("Explain " + "eigenvalues " * 50)) <= 48
     assert "`" not in suggest_tutor_session_title("Explain ```secret``` LU factorization")
+    assert suggest_tutor_session_title(
+        "Please explain partial derivatives and directional derivatives in detail with an example"
+    ) == "Explain partial derivatives and directional derivatives"
+    assert suggest_tutor_session_title(
+        "How does Gaussian elimination find matrix rank?"
+    ) == "Gaussian elimination for matrix rank"
+    assert suggest_tutor_session_title("Explain the Rouché Capelli theorem for nonhomogeneous linear systems") == "Explain the Rouché Capelli theorem for"
+
 
 
 def test_first_meaningful_user_turn_sets_title_but_never_overrides_manual_name(tmp_path):
@@ -39,7 +47,7 @@ def test_first_meaningful_user_turn_sets_title_but_never_overrides_manual_name(t
     _user_turn(path, automatic, "Hi")
     assert service.session_view(automatic)["title"] == ""
     _user_turn(path, automatic, "Please explain Gaussian elimination with an example.")
-    assert service.session_view(automatic)["title"] == "Explain Gaussian elimination with an example"
+    assert service.session_view(automatic)["title"] == "Explain Gaussian elimination"
     manual = service.create_session(course_id=course["id"], title="My Linear Algebra practice")
     _user_turn(path, manual, "Explain eigenvectors and eigenvalues using a matrix.")
     assert service.session_view(manual)["title"] == "My Linear Algebra practice"
@@ -62,10 +70,10 @@ def test_history_excludes_empty_shells_and_derives_legacy_names_read_only(tmp_pa
     view = service.workspace()
     assert untouched not in [item["session_id"] for item in view["sessions"]]
     assert next(item for item in view["sessions"] if item["session_id"] == populated)["title"] == (
-        "How does Gaussian elimination find matrix rank"
+        "Gaussian elimination for matrix rank"
     )
     # History and transcript show the same label; GET never persists it.
-    assert service.session_view(populated)["title"] == "How does Gaussian elimination find matrix rank"
+    assert service.session_view(populated)["title"] == "Gaussian elimination for matrix rank"
     connection = open_database(path)
     try:
         stored = connection.execute(
