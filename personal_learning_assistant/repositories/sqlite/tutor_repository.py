@@ -442,7 +442,7 @@ class SQLiteTutorRepository:
 
             # Immutable evidence metadata shares this exact exchange transaction.
             from personal_learning_assistant.services.source_citation_service import save_snapshot
-            for item in evidence:save_snapshot(self.connection,turn_id,item)
+            for item in evidence:save_snapshot(self.connection,turn_id,item,context=(self._exchange or {}).get('evidence_locators',{}).get(item.chunk_id,{}))
 
             self.connection.execute(
                 "UPDATE tutor_sessions SET updated_at=? WHERE id=?",

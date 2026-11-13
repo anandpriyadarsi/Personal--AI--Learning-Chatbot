@@ -8,7 +8,7 @@ from personal_learning_assistant.services.multimodal_evidence_service import Mul
 
 def test_structured_vision_unknown_symbols_and_no_retry_on_timeout(owners,monkeypatch):
     from personal_learning_assistant.tutor.vision_provider import VisionProvider
-    lib,db=owners;monkeypatch.setenv('ANVAYA_MM_VISION_MODEL','test-model');monkeypatch.setenv('ANVAYA_MM_VISION_MAX_MICROS','20');monkeypatch.setenv('ANVAYA_MM_MONTHLY_MICROS','100')
+    lib,db=owners;monkeypatch.setenv('ANVAYA_MM_VISION_KEY','synthetic-test-key');monkeypatch.setenv('ANVAYA_MM_VISION_MODEL','test-model');monkeypatch.setenv('ANVAYA_MM_VISION_MAX_MICROS','20');monkeypatch.setenv('ANVAYA_MM_MONTHLY_MICROS','100')
     svc=MultimodalEvidenceService(lib);doc=lib.upload(BytesIO(image_bytes()),'unclear.png')
     called=[]
     def analyze(self,image):

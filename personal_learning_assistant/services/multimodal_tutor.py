@@ -115,12 +115,13 @@ def guarded_complete(service,request,session,plan):
     # entire request, including history/repair. Unknown pricing disables sends.
     cost=int(os.getenv('ANVAYA_MM_ANSWER_MAX_MICROS','0'))
     if cost<=0:raise ValueError('Cloud answering is local-only until a cost bound and exact consent are configured')
+    if hasattr(service.provider,'configured') and not service.provider.configured:raise ValueError('Provider unavailable; no request sent')
+    if len(canonical(list(request.messages)))>64_000:raise ValueError('Provider context exceeds reviewed request bound')
     operation='answer:'+digest(dict(session_id=session.session_id,messages=list(request.messages),
         request_identity=getattr(service,'_request_operation',''),
         repair=bool(request.metadata.get('correctness_repair')),retry=bool(request.metadata.get('provider_output_retry'))))
     guard.reserve(receipt,scope,identity,'answer',operation,cost)
     try:
-        if len(canonical(list(request.messages)))>64_000:raise ValueError('Provider context exceeds reviewed request bound')
         response=service.provider.complete(replace(request,metadata=dict(request.metadata,multimodal_guarded=True)))
         if not isinstance(response.content,str) or len(response.content)>16000:raise ValueError('Provider output exceeded bounds')
         # Any in-flight source change aborts persistence, including repair calls.

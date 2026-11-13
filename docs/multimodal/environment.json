@@ -1,0 +1,17 @@
+{
+  "platform": "Linux-6.18.57-x86_64-with-glibc2.41",
+  "python": "3.12.14",
+  "dependencies": {
+    "Flask": "3.1.2",
+    "pypdf": "6.18.0",
+    "PyMuPDF": "1.28.2",
+    "Pillow": "12.3.0",
+    "requests": "2.31.0",
+    "pytest": "9.1.1",
+    "playwright": "1.51.0"
+  },
+  "status_samples": 30,
+  "status_p50_ms": 1.5167065000696311,
+  "status_p95_ms": 2.5302819999524218,
+  "scope": "Synthetic in-process status reads; excludes HTTP, provider and real user hardware"
+}

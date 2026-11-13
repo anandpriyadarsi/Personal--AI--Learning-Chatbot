@@ -78,7 +78,7 @@ class MultimodalEvidenceService:
         with self.lib.connection() as con:
             row=con.execute('SELECT state,error,locator_json FROM mm_selections WHERE document_id=?',(document_id,)).fetchone()
             items=[dict(r) for r in con.execute('SELECT id,locator_json,kind,status,uncertain_json FROM mm_artifacts WHERE document_id=? AND source_json=?',(document_id,canonical(source_ref(doc))))]
-        return dict(state=(row['state'] if row else 'stored'),error=(row['error'] if row else ''),artifacts=items,
+        return dict(state=(row['state'] if row else 'stored'),reason_code=(row['error'].split(':',1)[0] if row and row['error'] else ''),error=(row['error'] if row else ''),artifacts=items,
                     tutor_state=doc['tutor_state'])
 
     def cancel(self,document_id):
@@ -148,9 +148,13 @@ def extract_selected(library,doc,cancelled):
     try:
         result=inspect_original(library.original(doc['id']),doc['kind'],loc,cancelled)
         if row['method']=='vision':
+            with library.connection() as con:
+                if doc.get('_processing_job') and not library._publication_is_current(con,doc,doc['_processing_job'],doc['_lease_owner']):raise ValueError('Processing lease lost before dispatch')
             from personal_learning_assistant.tutor.vision_provider import VisionProvider
             from .provider_permission_service import PermissionGuard
-            provider=VisionProvider();guard=PermissionGuard(library.database,monthly_limit_micros=int(os.getenv('ANVAYA_MM_MONTHLY_MICROS','0')))
+            provider=VisionProvider()
+            if not provider.key:raise ValueError('Provider key missing; no request sent')
+            guard=PermissionGuard(library.database,monthly_limit_micros=int(os.getenv('ANVAYA_MM_MONTHLY_MICROS','0')))
             scope=dict(source=source_ref(doc),locator=loc)
             operation='vision:'+digest(dict(scope=scope,recipe=RECIPE,provider=provider.identity))
             # Durable unique operation fences lease expiry/crash replay. A
@@ -182,15 +186,22 @@ def extract_selected(library,doc,cancelled):
         with library.connection(write=True) as con:
             current=library._doc(con.execute('SELECT * FROM documents WHERE id=?',(doc['id'],)).fetchone())
             selection=con.execute('SELECT * FROM mm_selections WHERE document_id=?',(doc['id'],)).fetchone()
-            if source_ref(current)!=source_ref(doc) or not selection or selection['state']=='cancelled' or cancelled():raise ValueError('Source changed or job cancelled')
+            lease_current=(not doc.get('_processing_job') or library._publication_is_current(con,doc,doc['_processing_job'],doc['_lease_owner']))
+            if not lease_current or source_ref(current)!=source_ref(doc) or not selection or selection['state']=='cancelled' or cancelled():raise ValueError('Source changed, lease lost or job cancelled')
             con.execute('INSERT OR REPLACE INTO mm_artifacts VALUES(?,?,?,?,?,?,?,?,?,?)',
                         (identity,doc['id'],canonical(source_ref(doc)),canonical(loc),recipe,hashlib.sha256(text.encode()).hexdigest(),text,kind,status,canonical(uncertain)))
             if row['method']=='review':con.execute('INSERT OR IGNORE INTO mm_reviews VALUES(?,?,?,?,?)',(identity,identity,hashlib.sha256(text.encode()).hexdigest(),text,datetime.now(timezone.utc).isoformat()))
             con.execute("UPDATE mm_selections SET state='processing',error='' WHERE document_id=?",(doc['id'],))
         return [(loc.get('page',loc.get('slide',1)),text)],('partial' if uncertain else 'ready'),'Selected scope only; local machine reading may be wrong. Review critical symbols.'
-    except Exception:
+    except Exception as error:
+        message=str(error).lower()
+        reason=('budget_limit' if 'budget' in message else 'consent_required' if 'consent' in message else
+                'outcome_unknown' if 'outcome' in message or 'already dispatched' in message else
+                'provider_unavailable' if 'key' in message else 'source_changed' if 'source' in message or 'lease' in message else
+                'cancelled' if 'cancel' in message else 'local_processing_failed')
         with library.connection(write=True) as con:
-            con.execute("UPDATE mm_selections SET state='blocked',error='Local inspection unavailable or resource limit reached; original preserved.' WHERE document_id=? AND source_json=?",(doc['id'],canonical(source_ref(doc))))
+            if not doc.get('_processing_job') or library._publication_is_current(con,doc,doc['_processing_job'],doc['_lease_owner']):
+                con.execute("UPDATE mm_selections SET state='blocked',error=? WHERE document_id=? AND source_json=?",(reason+': Original preserved. Review processing details before retrying paid work.',doc['id'],canonical(source_ref(doc))))
         raise
 
 

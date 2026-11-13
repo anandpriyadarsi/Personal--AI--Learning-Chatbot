@@ -161,7 +161,7 @@ class NativeTutorBridge:
             while not self._stop.is_set():
                 claimed=self._claim()
                 if claimed is None: break
-                doc,job,token=claimed;stopped=Event()
+                doc,job,token=claimed;doc['_processing_job']=job;doc['_lease_owner']=token;stopped=Event()
                 pulse=Thread(target=self._heartbeat,args=(job,token,stopped),daemon=True);pulse.start()
                 try:
                     active=doc['indexing_enabled'] and not doc['trashed_at'] and doc['availability']=='available'
@@ -218,7 +218,7 @@ class NativeTutorBridge:
                             # permanent extraction failure. Keep its checkpoint.
                             con.execute("UPDATE processing_jobs SET state='pending',lease_owner=NULL,lease_until=NULL,error_code='' WHERE id=? AND lease_owner=?",(job,token))
                             con.execute("UPDATE documents SET status='stored',tutor_state='preparing',status_detail='Local processing paused; resumes when ANVAYA starts.' WHERE id=? AND generation=?",(doc['id'],doc['generation']))
-                        else:
+                        elif self._publication_is_current(con,doc,job,token):
                             con.execute("UPDATE processing_jobs SET state='failed',error_code='local_processing_failed',lease_until=NULL WHERE id=? AND lease_owner=? AND state='running'",(job,token))
                             con.execute("UPDATE documents SET status='failed',tutor_state='attention',status_detail='Local processing failed or exceeded local resource limits. Original preserved; retry from Details.' WHERE id=? AND generation=?",(doc['id'],doc['generation']))
                 finally:

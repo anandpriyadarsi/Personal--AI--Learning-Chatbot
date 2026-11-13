@@ -97,3 +97,14 @@ def test_pdf_crop_excludes_off_scope_text_in_local_inspection(owners):
     doc=lib.upload(BytesIO(pdf.tobytes()),'crop.pdf');pdf.close()
     result=inspect_original(lib.original(doc['id']),'pdf',{'kind':'pdf_page','page':1,'bbox':[0,0,1,.4]})
     assert 'SELECTED' in result['text'] and 'PRIVATE' not in result['text']
+
+
+def test_lost_lease_cannot_write_selected_artifact(owners):
+    from personal_learning_assistant.services.multimodal_evidence_service import MultimodalEvidenceService,extract_selected
+    lib,db=owners;doc=lib.upload(BytesIO(image_bytes()),'lease.png');s=MultimodalEvidenceService(lib)
+    p=s.preview(doc['id'],{'kind':'image'},method='review',text='must not publish')
+    s.enqueue(doc['id'],p['token']);claimed,job,token=lib._claim()
+    claimed['_processing_job']=job;claimed['_lease_owner']=token
+    with lib.connection(write=True) as con:con.execute('UPDATE processing_jobs SET lease_owner=? WHERE id=?',('another-worker',job))
+    with pytest.raises(ValueError):extract_selected(lib,claimed,lambda:False)
+    with lib.connection() as con:assert not con.execute('SELECT * FROM mm_artifacts').fetchall()

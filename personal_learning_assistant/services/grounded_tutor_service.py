@@ -366,6 +366,10 @@ class GroundedTutorService:
             max_chars=max_chars,
         )
 
+        repository=self.tutor_session_service.repository
+        if repository._exchange is not None:
+            repository._exchange['evidence_locators']={h.chunk_id:dict(h.locator) for h in plan.hits}
+
         if any(h.locator.get('mm_status')=='unknown' for h in plan.hits):
             message='Critical symbols or visual content are unclear/unknown in the selected source. Please supply a clearer image or confirm a transcription before I calculate or infer an explanation. [S1]'
             user=self.tutor_session_service.add_user_turn(session_id,plan.question)

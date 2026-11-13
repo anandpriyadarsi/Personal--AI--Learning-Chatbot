@@ -149,3 +149,64 @@ def test_selected_lecture_adds_only_ready_overlapping_supplied_frames(owners):
         assert len(hits)==2 and any('board' in hit.text for hit in hits)
         lib.update(image['id'],display_name='new scope')
         with pytest.raises(ValueError):selected_hits(con,session)
+
+
+def test_private_multimodal_signals_do_not_leak_into_another_session(tmp_path):
+    from test_tutor22_student_model import _env,_session
+    from personal_learning_assistant.tutor.student_model import build_persistent_student_model,student_model_prompt
+    con,repo,sessions=_env(tmp_path)
+    try:
+        _session(sessions,session_id='private',course_id='course-ma',metadata={
+            'mm_selection':{'kind':'image'},'adaptive_tutor_state':{'unresolved_doubt':'PRIVATE MATRIX TRANSCRIPTION','last_misconception':'PRIVATE SOURCE CLAIM'}})
+        current=_session(sessions,session_id='ordinary',course_id='course-ma')
+        model=build_persistent_student_model(repo,current)
+        assert 'PRIVATE' not in student_model_prompt(model)
+        assert model.previous_sessions_considered==0
+    finally:con.close()
+
+
+def test_frame_snapshot_keeps_supplied_timestamp_in_atomic_exchange(owners):
+    from personal_learning_assistant.services.grounded_tutor_service import GroundedTutorService
+    lib,db=owners;s=MultimodalEvidenceService(lib)
+    transcript=lib.upload(BytesIO(b'WEBVTT\n\n00:01.000 --> 00:04.000\nSwap the rows.'),'lecture.vtt')
+    image=lib.upload(BytesIO(image_bytes()),'board.png');p=s.preview(image['id'],{'kind':'image'},method='review',text='The board shows a row swap.')
+    s.enqueue(image['id'],p['token']);lib.run_pending()
+    manifest=s.create_manifest(transcript['id'],[{'document_id':image['id'],'timestamp_ms':2000}])
+    record=next(r for r in records(db) if r['locator']['native_document_id']==transcript['id'])
+    with closing(sqlite3.connect(db,isolation_level=None)) as con:
+        sessions=TutorSessionService(SQLiteTutorRepository(con))
+        session=sessions.create_session(TutorSessionSpec(mode='doubt',source_policy='source_only',title='lecture',metadata={
+            'source_document_id':record['document_id'],'source_version_hash':transcript['sha256'],
+            'mm_selection':record['locator']['mm_locator'],'mm_source_ref':record['locator'],'mm_manifest_id':manifest}))
+        class Retrieval:
+            def search(self,*args,**kwargs):return ()
+        class Provider:
+            local_only=True
+            def complete(self,request):return TutorProviderResponse('Both caption [S1] and supplied board reading [S2] describe a row swap.','offline','fake')
+        result=GroundedTutorService(tutor_session_service=sessions,retrieval_service=Retrieval(),provider=Provider()).answer(session.session_id,'Explain the cue and the board')
+        row=con.execute("SELECT * FROM tutor_evidence_snapshots WHERE turn_id=? AND label='S2'",(result.assistant_turn.turn_id,)).fetchone()
+        loc=json.loads(row['locator_json']);assert loc['kind']=='video_frame' and loc['frame_pts_ms']==2000
+        assert loc['parent_source_ref']==manifest
+
+
+def test_multimodal_ingestion_and_answer_leave_independent_owners_unchanged(owners):
+    from personal_learning_assistant.services.grounded_tutor_service import GroundedTutorService
+    lib,db=owners
+    allowed={'knowledge_documents','knowledge_chunks','index_jobs','outbox_events','tutor_sessions','tutor_turns','tutor_evidence_links','tutor_evidence_snapshots'}
+    def independent(con):
+        tables=[r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'") if r[0] not in allowed]
+        return {t:con.execute('SELECT * FROM "'+t.replace('"','""')+'" ORDER BY rowid').fetchall() for t in tables}
+    with closing(sqlite3.connect(db,isolation_level=None)) as con:
+        before=independent(con);doc,record=prepared(owners)
+        sessions=TutorSessionService(SQLiteTutorRepository(con))
+        session=sessions.create_session(TutorSessionSpec(mode='doubt',source_policy='source_only',title='owner boundaries',metadata={
+            'source_document_id':record['document_id'],'source_version_hash':doc['sha256'],
+            'mm_selection':record['locator']['mm_locator'],'mm_source_ref':record['locator']}))
+        class Retrieval:
+            def search(self,*args,**kwargs):return ()
+        class Provider:
+            local_only=True
+            def complete(self,request):return TutorProviderResponse('The supplied reading has two rows [S1].','offline','fake')
+        GroundedTutorService(tutor_session_service=sessions,retrieval_service=Retrieval(),provider=Provider()).answer(session.session_id,'Explain this source')
+        con.row_factory=None
+        assert independent(con)==before

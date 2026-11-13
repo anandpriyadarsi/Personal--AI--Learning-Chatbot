@@ -17,6 +17,7 @@ def svc():
 
 
 def database():
+    if urlsplit(request.host_url).hostname not in ('localhost','127.0.0.1','::1'):abort(403)
     path=getattr(service(),'_tutor_database',None)
     if not path or not path.is_file():raise ValueError('Existing academic owner is unavailable')
     return path
@@ -88,6 +89,21 @@ def lecture(manifest_id):
                            csrf_token=current_app.extensions['native_library_csrf'])
 
 
+@multimodal.get('/library/lecture-manifests/<manifest_id>/frames/<frame_id>/original')
+@protect
+def lecture_frame(manifest_id,frame_id):
+    s=svc();result=s.temporal(manifest_id,int(request.args.get('timestamp_ms',0)))
+    frame=next((f for f in result['frames'] if f['document_id']==frame_id),None)
+    if not frame:raise ValueError('Supplied frame unavailable at this cue')
+    from personal_learning_assistant.services.native_document_library import _verified_original
+    from personal_learning_assistant.domain.multimodal_models import source_ref
+    doc=s.lib.get(frame_id)
+    if source_ref(doc)!=frame['source']:raise ValueError('Frame version changed')
+    response=send_file(_verified_original(s.lib.root,doc),mimetype=doc['mime'],conditional=True)
+    response.headers['Content-Security-Policy']='sandbox'
+    return response
+
+
 @multimodal.get('/sources/evidence/<snapshot_id>')
 @protect
 def evidence(snapshot_id):
@@ -106,8 +122,7 @@ def evidence_original(snapshot_id):
     from personal_learning_assistant.services.source_citation_service import resolve_snapshot
     with closing(sqlite3.connect(database())) as con:
         con.row_factory=sqlite3.Row;result=resolve_snapshot(con,snapshot_id,service())
-    doc=service().get(result['document_id'])
-    response=send_file(service().original(doc['id']),mimetype=doc['mime'],conditional=True)
+    response=send_file(result['_original_path'],mimetype=result['mime'],conditional=True)
     response.headers['Content-Security-Policy']='sandbox'
     return response
 

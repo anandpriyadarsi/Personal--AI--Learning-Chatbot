@@ -27,7 +27,7 @@ def validate_locator(value):
     loc=dict(value);kind=loc.get('kind')
     fields={'pdf_page':{'page','bbox'},'pptx_slide':{'slide','asset_id'},
             'image':{'asset_id','bbox'},'transcript_cue':{'cue_id','start_ms','end_ms'},
-            'video_frame':{'frame_pts_ms','asset_id','alignment'}}
+            'video_frame':{'frame_pts_ms','asset_id','alignment','parent_source_ref','bbox'}}
     if kind not in fields or set(loc)-fields[kind]-{'kind','schema_version'}:raise ValueError('Unknown locator fields')
     if loc.get('schema_version',2)!=2:raise ValueError('Unsupported locator version')
     if kind=='pdf_page':integer(loc.get('page'),1,2500)
@@ -37,6 +37,7 @@ def validate_locator(value):
         if end<=start:raise ValueError('Empty or reversed cue')
     if kind=='video_frame':
         integer(loc.get('frame_pts_ms'))
+        if not isinstance(loc.get('parent_source_ref',''),str) or len(loc.get('parent_source_ref',''))>64:raise ValueError('Invalid parent source reference')
         if loc.get('alignment')!='user_supplied':raise ValueError('Frame alignment must be explicit')
     if 'bbox' in loc:
         box=loc['bbox']
