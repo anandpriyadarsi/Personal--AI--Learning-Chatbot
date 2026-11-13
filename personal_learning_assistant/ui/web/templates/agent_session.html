@@ -13,15 +13,25 @@
 {% endblock %}
 
 {% block content %}
-{% if session and session.metadata.get("mm_selection") %}<section class="panel" data-mm-session="{{ session.session_id }}" data-mm-csrf="{{ native_library_csrf|default('') }}"><p>Selected source: {{ session.metadata.mm_selection.kind }} · Source only. Unclear symbols require review.</p><button type="button" id="mm-answer-review">Review cloud answering scope</button><button type="button" id="mm-answer-approve" hidden>Approve reviewed scope</button><button type="button" id="mm-answer-revoke" hidden>Revoke permission</button><p id="mm-answer-status" role="status"></p></section><script defer src="{{ url_for('static',filename='js/multimodal.js') }}"></script>{% endif %}
+{% set session_metadata = session.metadata|default({}, true) if session else {} %}
+{% if session and session_metadata.get('mm_selection') %}
+<section class="panel" data-mm-session="{{ session.session_id }}" data-mm-csrf="{{ native_library_csrf|default('') }}">
+  <p>Selected source: {{ session_metadata.get('mm_selection', {}).get('kind', 'Source') }} · Source only. Unclear symbols require review.</p>
+  <button type="button" id="mm-answer-review">Review cloud answering scope</button>
+  <button type="button" id="mm-answer-approve" hidden>Approve reviewed scope</button>
+  <button type="button" id="mm-answer-revoke" hidden>Revoke permission</button>
+  <p id="mm-answer-status" role="status"></p>
+</section>
+<script defer src="{{ url_for('static', filename='js/multimodal.js') }}"></script>
+{% endif %}
 <header class="tutor-session-heading">
   <a class="tutor-back" href="{{ url_for('web.academic_agent') }}" aria-label="Back to Academic Agent">← Tutor</a>
   <h1 id="agent-session-title">{% if session %}{{ session.title or 'A little clearer, every turn' }}{% else %}Tutor session{% endif %}</h1>
   {% include "tutor_provider_state.html" %}
   {% if session and config.get('TUTOR_CODING_ENABLED') and session.coding_schema_available %}
   <div class="coding-workspace-switch" role="group" aria-label="Tutor workspace">
-    <button type="button" data-coding-workspace="academic" aria-pressed="{{ 'true' if session.metadata.get('coding_workspace_v1', {}).get('workspace', 'academic') == 'academic' else 'false' }}">Academic</button>
-    <button type="button" data-coding-workspace="coding" aria-pressed="{{ 'true' if session.metadata.get('coding_workspace_v1', {}).get('workspace') == 'coding' else 'false' }}">Coding Studio</button>
+    <button type="button" data-coding-workspace="academic" aria-pressed="{{ 'true' if session_metadata.get('coding_workspace_v1', {}).get('workspace', 'academic') == 'academic' else 'false' }}">Academic</button>
+    <button type="button" data-coding-workspace="coding" aria-pressed="{{ 'true' if session_metadata.get('coding_workspace_v1', {}).get('workspace') == 'coding' else 'false' }}">Coding Studio</button>
   </div>
   {% endif %}
 </header>

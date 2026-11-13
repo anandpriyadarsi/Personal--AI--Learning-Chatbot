@@ -210,6 +210,56 @@ def test_json_routes_csrf_origin_host_and_unknown_fields(coding):
     assert client.post(url,json={'workspace':'coding'},headers={**headers,'Origin':'http://localhost'}).status_code==200
 
 
+
+def test_coding_studio_persistent_default_without_environment_variable(tmp_path, monkeypatch):
+    """One-time schema activation survives restarts; page GET never migrates."""
+    monkeypatch.delenv("ANVAYA_TUTOR_CODING_ENABLED", raising=False)
+    web, path, course, provider, retrieval = build_test_web_service(tmp_path)
+    config = {"TESTING": True, "ACADEMIC_AGENT_WEB_SERVICE_FACTORY": lambda: web}
+    first_start = create_app(config)
+    assert first_start.config["TUTOR_CODING_ENABLED"] is True
+    home = first_start.test_client().get("/agent")
+    assert home.status_code == 200
+    assert 'id="session-workspace"' in home.text
+    assert "Coding Studio · Python" in home.text
+
+    # Merely starting the web app or reading Tutor must not alter the DB.
+    with open_database(path) as connection:
+        assert not connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE name='tutor_coding_tasks'"
+        ).fetchone()
+
+    backup = activate(path)
+    assert backup is not None and backup.is_file()
+    sid = web.create_session(
+        course_id=course["id"], mode="free", source_policy="source_first",
+        title="Python practice", workspace="coding",
+    )
+    restarted = create_app(config)
+    assert restarted.config["TUTOR_CODING_ENABLED"] is True
+    response = restarted.test_client().get("/agent/sessions/" + sid)
+    assert response.status_code == 200
+    assert 'data-coding-workspace="coding"' in response.text
+    assert 'id="coding-tools"' in response.text
+    assert activate(path) is None  # Idempotent after the first activation.
+    assert provider.calls == 0
+
+
+def test_coding_studio_explicit_opt_out_remains_supported(tmp_path, monkeypatch):
+    monkeypatch.setenv("ANVAYA_TUTOR_CODING_ENABLED", "false")
+    web, path, course, provider, retrieval = build_test_web_service(tmp_path)
+    app = create_app({
+        "TESTING": True, "ACADEMIC_AGENT_WEB_SERVICE_FACTORY": lambda: web,
+    })
+    assert app.config["TUTOR_CODING_ENABLED"] is False
+    home = app.test_client().get("/agent")
+    assert home.status_code == 200
+    assert 'id="session-workspace"' not in home.text
+    with open_database(path) as connection:
+        assert not connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE name='tutor_coding_tasks'"
+        ).fetchone()
+
 def test_feature_off_and_missing_schema_never_migrate_on_get(tmp_path):
     web,path,course,provider,retrieval=build_test_web_service(tmp_path)
     sid=web.create_session(course_id=course['id'])

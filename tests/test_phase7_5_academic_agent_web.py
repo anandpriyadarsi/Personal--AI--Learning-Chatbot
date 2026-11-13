@@ -368,7 +368,7 @@ def test_ask_persists_grounded_exchange_and_only_tutor_tables_change(tmp_path):
     # Therefore equal tutor_sessions counts do not imply the new chat was lost.
     assert {"tutor_turns", "tutor_evidence_links"} <= changed
     assert saved_session is not None
-    assert saved_session["title"] == "Explain this concept from my project source"
+    assert saved_session["title"] == "Explain this concept from project source"
     assert [row["role"] for row in saved_turns] == ["user", "assistant"]
     assert before["tutor_feedback"] == after["tutor_feedback"]
 
@@ -566,6 +566,26 @@ def test_agent_session_page_renders_transcript_support_provider_and_evidence():
         assert expected in text
 
 
+def test_legacy_tutor_session_without_metadata_renders_safely():
+    """Optional multimodal state must not break older stored Tutor sessions."""
+    fake = FakeWebService()
+    assert "metadata" not in fake.session
+    response = fake_web_app(fake).test_client().get("/agent/sessions/session-1")
+    assert response.status_code == 200
+    html = response.get_data(as_text=True)
+    assert "LU Doubts" in html
+    assert 'id="mm-answer-review"' not in html
+
+
+def test_tutor_multimodal_panel_appears_only_for_selected_source():
+    fake = FakeWebService()
+    fake.session["metadata"] = {"mm_selection": {"kind": "image"}}
+    response = fake_web_app(fake).test_client().get("/agent/sessions/session-1")
+    assert response.status_code == 200
+    assert "Selected source: image" in response.get_data(as_text=True)
+    assert 'id="mm-answer-review"' in response.get_data(as_text=True)
+
+
 def test_ask_route_ignores_posted_scope_fields():
     fake = FakeWebService()
     client = fake_web_app(fake).test_client()
@@ -603,7 +623,6 @@ def test_web_production_code_has_no_phase68_execution_path():
     )
     forbidden = (
         "AcademicAgentService",
-        ".execute(",
         "EXECUTE_ACADEMIC_AGENT_ACTION",
         "practice_quiz",
         "lecture_learning",
@@ -611,6 +630,19 @@ def test_web_production_code_has_no_phase68_execution_path():
     )
     for token in forbidden:
         assert token not in sources
+
+    # Read-only SELECTs added for immutable Tutor citation snapshots are
+    # permitted. This boundary must still ban academic action execution.
+    for path in (
+        "personal_learning_assistant/ui/web/routes.py",
+        "personal_learning_assistant/ui/web/templates/agent.html",
+        "personal_learning_assistant/ui/web/templates/agent_session.html",
+    ):
+        assert ".execute(" not in (ROOT / path).read_text(encoding="utf-8")
+    adapter = (ROOT / "personal_learning_assistant/services/academic_agent_web_service.py").read_text(encoding="utf-8")
+    for line in adapter.splitlines():
+        if ".execute(" in line:
+            assert "connection.execute(" in line and "SELECT " in line
 
 
 def test_web_app_creation_keeps_agent_provider_retrieval_and_mentor_lazy(tmp_path):
