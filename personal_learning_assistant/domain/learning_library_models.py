@@ -11,6 +11,7 @@ class LibraryQuery:
     page: int = 1
     page_size: int = 25
     search: str = ''
+    collection: str | None = None
 
     def __post_init__(self):
         if (not isinstance(self.search, str) or len(self.search) > 200
@@ -18,6 +19,8 @@ class LibraryQuery:
             raise ValueError('Invalid search')
         if self.item_kind not in ('all', 'resource', 'document'):
             raise ValueError('Invalid item kind')
+        if self.collection not in (None, 'mit', 'unlinked'):
+            raise ValueError('Invalid collection')
         if type(self.page) is not int or self.page < 1:
             raise ValueError('Invalid page')
         if type(self.page_size) is not int or not 1 <= self.page_size <= 100:
@@ -65,6 +68,8 @@ class LibraryItem:
     note_count: int
     extraction_summary: str
     open_target: str
+    content_hash: str = ''  # Identity cross-check only; never shown as a title.
+    rename_expected_title: str | None = None
 
 
 @dataclass(frozen=True)

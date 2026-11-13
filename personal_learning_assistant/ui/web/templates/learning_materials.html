@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block title %}{{ materials.title }} · Learning Studio · ANVAYA{% endblock %}
+{% block body_class %}learning-page ls-course-workspace{% endblock %}
+{% block page_scripts %}<link rel="stylesheet" href="{{ url_for('static',filename='css/learning_studio.css') }}">{% endblock %}
+{% block content %}
+<nav class="ls-workspace-crumb" aria-label="Source material navigation">
+  <a href="{{ url_for('learning.library') }}">Learning Studio</a>
+  <span aria-hidden="true">/</span>
+  <a href="{{ url_for('learning.materials') }}">Original files</a>
+  {% for folder in materials.breadcrumbs %}
+  <span aria-hidden="true">/</span>
+  <a href="{{ url_for('learning.materials',folder_id=folder.id) }}"{% if loop.last %} aria-current="page"{% endif %}>{{ folder.name }}</a>
+  {% endfor %}
+  {% if materials.collection == 'mit' %}<span aria-hidden="true">/</span><span aria-current="page">MIT Course Materials</span>{% endif %}
+  {% if course %}<span aria-hidden="true">/</span><span aria-current="page">{{ course.code }}</span>{% endif %}
+</nav>
+<section class="ls-workspace-hero ls-materials-hero">
+  <div class="ls-workspace-intro">
+    <p class="ls-workspace-overline">Original files · connected to ANVAYA Library</p>
+    <h1>{{ course.code ~ ' · ' ~ course.name if course else materials.title }}</h1>
+    <p>
+      {% if materials.collection == 'mit' %}
+      One collection for files already labeled MIT or kept inside an MIT-labeled folder. Unidentified documents remain outside until you label or organize them.
+      {% elif course %}
+      Your original files assigned to this existing subject, including nested folders. Lessons and academic records remain unchanged.
+      {% else %}
+      Browse your saved original documents and academic folders. Filenames and folder locations come directly from the Library.
+      {% endif %}
+    </p>
+    <div class="ls-workspace-actions">
+      <a class="ls-workspace-primary" href="{{ url_for('native_library.home') }}">Manage files in Library <span aria-hidden="true">↗</span></a>
+      {% if materials.collection != 'mit' %}<a href="{{ url_for('learning.materials',collection='mit') }}">MIT Course Materials</a>{% endif %}
+      <a href="{{ url_for('learning.library') }}">Back to lessons</a>
+    </div>
+  </div>
+  <div class="ls-course-hero-stat"><strong>{{ materials.total + (registered_mit.total if registered_mit and materials.collection == 'mit' else 0) }}</strong><span>{{ 'Registered resources and original files' if materials.collection == 'mit' else ('Original file' if materials.total == 1 else 'Original files') }}</span><small>Linked views · no copies</small></div>
+</section>
+
+{% if materials.folders %}
+<section class="ls-workspace-section" aria-labelledby="ls-material-folders">
+  <div class="ls-section-heading"><div><p class="ls-workspace-overline">Library folders</p><h2 id="ls-material-folders">Browse folders</h2></div></div>
+  <div class="ls-material-folder-grid">
+    {% for folder in materials.folders %}
+    <a class="ls-card ls-material-folder" href="{{ url_for('learning.materials',folder_id=folder.id) }}">
+      <span class="ls-material-folder-icon" aria-hidden="true">▰</span>
+      <strong>{{ folder.name }}</strong>
+      <span class="ls-material-arrow" aria-hidden="true">→</span>
+    </a>
+    {% endfor %}
+  </div>
+  {% if materials.more_folders %}<p class="ls-material-note">More folders are available in the <a href="{{ url_for('native_library.home',folder_id=materials.folder_id) }}">Library file manager</a>.</p>{% endif %}
+</section>
+{% endif %}
+
+{% if materials.collection == 'mit' %}
+<section class="ls-workspace-section" aria-labelledby="ls-mit-lectures">
+  <div class="ls-section-heading"><div>
+    <p class="ls-workspace-overline">Registered academic resources · MIT OpenCourseWare</p>
+    <h2 id="ls-mit-lectures">MIT lectures and course resources</h2>
+  </div><span>{{ registered_mit.total if registered_mit else 'Unavailable' }}</span></div>
+  <div class="ls-material-document-list">
+    {% if registered_mit %}
+      {% for item in registered_mit.items %}
+      <article class="ls-card ls-material-document">
+        <span class="ls-material-filetype" aria-hidden="true">MIT</span>
+        <div class="ls-material-document-info">
+          <h3><a href="{{ item.open_target }}">{{ item.title }}</a></h3>
+          <p>{{ item.provider }} · {{ item.document_count }} linked {{ 'document' if item.document_count == 1 else 'documents' }}</p>
+        </div>
+        <div class="ls-material-document-actions"><a href="{{ item.open_target }}">View resource</a></div>
+      </article>
+      {% else %}<p class="ls-material-note">No registered MIT lectures were found.</p>{% endfor %}
+      {% if registered_mit.total > registered_mit.query.page_size %}
+        <a class="ls-workspace-primary" href="{{ url_for('web.learning_library',view='registered',collection='mit') }}">Browse all {{ registered_mit.total }} MIT resources →</a>
+      {% endif %}
+    {% else %}
+      <p class="ls-material-note">Registered MIT lectures are currently unavailable. Your original files below remain separate and unchanged.</p>
+    {% endif %}
+  </div>
+</section>
+{% endif %}
+
+<section class="ls-workspace-section" aria-labelledby="ls-material-documents">
+  <div class="ls-section-heading"><div><p class="ls-workspace-overline">Original source documents</p><h2 id="ls-material-documents">Available files</h2></div><span>{{ materials.total }} in this view</span></div>
+  <div class="ls-material-document-list">
+    {% for doc in materials.documents %}
+    <article class="ls-card ls-material-document">
+      <span class="ls-material-filetype" aria-hidden="true">{{ doc.kind|upper }}</span>
+      <div class="ls-material-document-info">
+        <h3><a href="{{ url_for('native_library.open_document',document_id=doc.id) }}">{{ doc.display_name }}</a></h3>
+        <p>{{ doc.status_label|default('Saved') }} · {{ (doc.size / 1048576)|round(2) }} MiB</p>
+      </div>
+      <div class="ls-material-document-actions">
+        <a href="{{ url_for('native_library.open_document',document_id=doc.id) }}">Open original</a>
+        <a href="{{ url_for('native_library.learning',document_id=doc.id) }}">Use for learning</a>
+      </div>
+    </article>
+    {% else %}
+    <div class="ls-empty-workspace">
+      <h3>No original files in this view</h3>
+      <p>{% if materials.collection == 'mit' %}Add MIT to a document name or put it inside a folder labeled MIT in Library. ANVAYA will display it here automatically; no files are copied.{% else %}Open the Library to upload or place originals in this folder. Nothing has been removed from your academic records.{% endif %}</p>
+      <a href="{{ url_for('native_library.home') }}">Open Library <span aria-hidden="true">↗</span></a>
+    </div>
+    {% endfor %}
+  </div>
+  {% if materials.total > materials.page_size %}
+  <nav class="ls-pagination" aria-label="Source file pages">
+    {% if materials.page > 1 %}<a href="{{ url_for('learning.materials',folder_id=materials.folder_id,subject_id=materials.subject_id,collection=materials.collection,page=materials.page-1) }}">← Previous</a>{% endif %}
+    <span>Page {{ materials.page }} of {{ ((materials.total-1)//materials.page_size)+1 }}</span>
+    {% if materials.page*materials.page_size < materials.total %}<a href="{{ url_for('learning.materials',folder_id=materials.folder_id,subject_id=materials.subject_id,collection=materials.collection,page=materials.page+1) }}">Next →</a>{% endif %}
+  </nav>
+  {% endif %}
+</section>
+<p class="ls-material-note">This is a linked view of your Library originals, not a duplicate upload or a published Learning Studio module. Move, rename or assign files in Library; this page reflects those changes.</p>
+{% endblock %}

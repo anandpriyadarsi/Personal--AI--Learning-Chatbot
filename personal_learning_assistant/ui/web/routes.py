@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hmac
+import sqlite3
 
 from flask import (
     abort,
@@ -4810,15 +4811,22 @@ def source_lesson_helpers():
 
 @web_blueprint.get("/library")
 def learning_library():
-    if not request.args and (current_app.config.get('ANDROID_LOCAL_RUNTIME') or current_app.config.get('WEB_ORIGINAL_LIBRARY')) and current_app.config.get('LEARNING_LIBRARY_ENABLED',True):
-        return redirect(url_for('native_library.home'),code=302)
+    # The installed local website uses the original-file manager as its
+    # canonical folder view, including when an old link says ?view=browse.
+    # Keep an explicit registered-source projection for legacy resources.
+    if ((current_app.config.get('ANDROID_LOCAL_RUNTIME') or current_app.config.get('WEB_ORIGINAL_LIBRARY'))
+            and current_app.config.get('LEARNING_LIBRARY_ENABLED', True)
+            and len(request.args.getlist('view')) <= 1
+            and request.args.get('view', 'browse') == 'browse'
+            and not any(key in request.args for key in ('q', 'course_id', 'item_kind', 'collection', 'page', 'page_size'))):
+        return redirect(url_for('native_library.home'), code=302)
     from flask import abort
     from personal_learning_assistant.domain.learning_library_models import LibraryQuery
     from personal_learning_assistant.services.learning_library_service import LibraryUnavailableError
     if not current_app.config.get("LEARNING_LIBRARY_ENABLED", True):
         abort(404)
     view = request.args.get("view", "browse", type=str)
-    if view not in ("browse", "search", "saved") or len(request.args.getlist("view")) > 1:
+    if view not in ("browse", "registered", "search", "saved") or len(request.args.getlist("view")) > 1:
         return render_template("library.html", active_page="library", library=None,
                                library_view="browse",
                                error_message="Choose a valid Library view."), 400
@@ -4854,24 +4862,43 @@ def learning_library():
                                library_view="search", dashboard=dashboard)
     try:
         if any(len(request.args.getlist(key)) > 1 for key in
-               ("course_id", "item_kind", "page", "page_size", "q")):
+               ("course_id", "item_kind", "collection", "page", "page_size", "q")):
             raise ValueError("Duplicate filters")
         query = LibraryQuery(
             course_id=request.args.get("course_id") or None,
             item_kind=request.args.get("item_kind", "all"),
             page=int(request.args.get("page", "1")),
             page_size=int(request.args.get("page_size", "25")),
-            search=request.args.get("q", "").strip())
+            search=request.args.get("q", "").strip(),
+            collection=request.args.get("collection") or None)
     except ValueError:
         return render_template("library.html", active_page="library", library=None,
                                error_message="Choose valid search text, course, item kind and page."), 400
     try:
         service = _learning_library_service()
         page = service.list_items(query)
+        if current_app.config.get('LEARNING_LIBRARY_ENABLED', True):
+            # Crosswalk is optional: when no native record matches the exact
+            # source ID and digest, keep the neutral unidentified title.
+            from dataclasses import replace
+            from personal_learning_assistant.services.learning_materials_view import recover_registered_titles
+            native = (current_app.config.get('NATIVE_LIBRARY_SERVICE') or
+                      current_app.extensions.get('native_document_library'))
+            if native:
+                try:
+                    names = recover_registered_titles(native, page.items)
+                except (OSError, ValueError, sqlite3.Error):
+                    names = {}
+                if names:
+                    page = replace(page, items=tuple(
+                        replace(item, title=names[item.reference.id], rename_expected_title=item.title)
+                        if item.reference.kind == 'document' and item.reference.id in names
+                        else item for item in page.items))
     except LibraryUnavailableError:
         return render_template("library.html", active_page="library", library=None,
                                error_message="Library is temporarily unavailable"), 503
     return render_template("library.html", active_page="library", library=page,
+                           library_view=view,
                            source_reader_available=_library_source_reader_available(service))
 
 

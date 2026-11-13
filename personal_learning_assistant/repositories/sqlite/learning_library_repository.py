@@ -6,6 +6,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 import sqlite3
 import os
+import re
 import stat
 from urllib.parse import urlsplit
 from personal_learning_assistant.services.academic_wal_snapshot import AcademicSnapshotUnavailable
@@ -29,7 +30,14 @@ def document_title(path_key):
         except ValueError:
             return 'Registered document'
     value = value.rstrip('/')
-    return value.rsplit('/', 1)[-1] or 'Registered document'
+    name = value.rsplit('/', 1)[-1] or 'Registered document'
+    # Content-addressed storage uses an internal digest as the basename.
+    # Keep the identifier as a stable backend key, never a user-facing title.
+    match = re.fullmatch(r'[0-9a-fA-F]{32}(?:[0-9a-fA-F]{32})?(?:\.([a-zA-Z0-9]{1,8}))?', name)
+    if match:
+        kind = match.group(1).upper() if match.group(1) else 'document'
+        return f'Unnamed {kind} — rename to identify'
+    return name
 
 
 # Validate the complete read contract even for an empty database/result.
@@ -47,11 +55,11 @@ _COLUMNS = {
 _ACTIVE = 'r.archived_at IS NULL AND r.deleted_at IS NULL'
 _ITEMS = """
 SELECT 'resource' AS kind, r.id, library_display_title('resource',r.id,r.title) AS title, r.resource_type AS item_type,
-       r.provider, r.status AS learning_status, r.updated_at, '' AS extraction_status
+       r.provider, r.status AS learning_status, r.updated_at, '' AS extraction_status, '' AS content_hash
 FROM resources r WHERE """ + _ACTIVE + """
 UNION ALL
 SELECT 'document', d.id, library_display_title('document',d.id,library_document_title(d.path_key)), d.kind,
-       '', NULL, d.updated_at, d.extraction_status
+       '', NULL, d.updated_at, d.extraction_status, d.content_hash
 FROM knowledge_documents d
 WHERE NOT EXISTS (SELECT 1 FROM resource_documents rd WHERE rd.document_id=d.id)
 """
@@ -147,6 +155,10 @@ class LearningLibraryRepository:
             con.create_function('library_display_title', 3,
                 lambda kind, ident, fallback: titles.get((kind,ident),fallback), deterministic=True)
             con.create_function('library_casefold', 1, lambda value: str(value or '').casefold(), deterministic=True)
+            # Exact MIT word/provider marker, not a substring of e.g. 'limits'.
+            mit_pattern = re.compile(r'(?<![A-Za-z])MIT(?![A-Za-z])|Massachusetts\s+Institute\s+of\s+Technology|ocw\.mit\.edu', re.IGNORECASE)
+            con.create_function('library_is_mit', 1,
+                lambda value: bool(mit_pattern.search(str(value or ''))), deterministic=True)
             con.execute('PRAGMA query_only=ON')
             if not con.in_transaction:
                 con.execute('BEGIN')
@@ -196,6 +208,10 @@ class LearningLibraryRepository:
             if query.item_kind != 'all':
                 where.append('i.kind=?')
                 params.append(query.item_kind)
+            if query.collection == 'mit':
+                where.append("(i.kind='resource' AND (library_is_mit(i.title)=1 OR library_is_mit(i.provider)=1))")
+            elif query.collection == 'unlinked':
+                where.append("i.kind='document'")
             if query.course_id:
                 where.append("i.kind='resource' AND EXISTS (SELECT 1 FROM resource_courses rc "
                              'JOIN courses c ON c.id=rc.course_id WHERE rc.resource_id=i.id '

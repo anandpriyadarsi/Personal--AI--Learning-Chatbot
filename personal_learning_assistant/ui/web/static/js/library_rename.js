@@ -11,7 +11,7 @@
     button.addEventListener('click', () => {
       trigger = button;
       input.value = Array.from(document.querySelectorAll('[data-library-title]')).find(label => label.dataset.libraryTitle === button.dataset.key)?.textContent || '';
-      button.dataset.title = input.value;
+      button.dataset.title = button.dataset.libraryExpectedTitle || input.value;
       error.textContent = '';
       dialog.showModal();
       input.focus(); input.select();
