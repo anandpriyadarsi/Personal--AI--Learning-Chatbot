@@ -36,7 +36,7 @@ def test_short_conversational_titles_need_no_provider_and_keep_acronyms():
     assert suggest_tutor_session_title(
         "How does Gaussian elimination find matrix rank?"
     ) == "Gaussian elimination for matrix rank"
-    assert suggest_tutor_session_title("Explain the Rouché Capelli theorem for nonhomogeneous linear systems") == "Explain the Rouché Capelli theorem for"
+    assert suggest_tutor_session_title("Explain the Rouché Capelli theorem for nonhomogeneous linear systems") == "Explain the Rouché Capelli theorem"
 
 
 
