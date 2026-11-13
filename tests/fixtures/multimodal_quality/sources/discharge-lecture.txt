@@ -1,0 +1,3 @@
+Discharge frame:
+Negative Pb plate -> e- through wire -> positive PbO2 plate
+Oxidation releases electrons at negative plate.

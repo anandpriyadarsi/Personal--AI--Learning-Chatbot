@@ -1,0 +1,1059 @@
+{
+  "schema_version": 1,
+  "author": "ANVAYA synthetic benchmark authors",
+  "license": "CC0-1.0",
+  "modality_limitations": {
+    "handwritten_scan": "Rendered italic synthetic proxy; not a claim of real handwriting recognition.",
+    "board_photo": "Rendered board proxy; not camera noise/real-photo OCR validation."
+  },
+  "cases": [
+    {
+      "id": "P01",
+      "subject": "MA103N",
+      "difficulty": "E",
+      "modality": "digital_pdf",
+      "question": "Find the RREF and rank of the matrix, explaining the row operation.",
+      "source": "sources/rref-exercise.pdf",
+      "transcription": "sources/rref-exercise.txt",
+      "author": "ANVAYA synthetic benchmark authors",
+      "license": "CC0-1.0",
+      "split": "development",
+      "locator": {
+        "kind": "pdf_page",
+        "page": 1,
+        "bbox": [
+          0,
+          0,
+          1,
+          1
+        ]
+      },
+      "sha256": "1482e558ee13df11b783d5004f68c2e3dee4384edec191e232cdf22134b51051"
+    },
+    {
+      "id": "P02",
+      "subject": "MA103N",
+      "difficulty": "M",
+      "modality": "digital_pdf",
+      "question": "Find L and U and explain how multiplication recovers the displayed matrix.",
+      "source": "sources/lu-exercise.pdf",
+      "transcription": "sources/lu-exercise.txt",
+      "author": "ANVAYA synthetic benchmark authors",
+      "license": "CC0-1.0",
+      "split": "development",
+      "locator": {
+        "kind": "pdf_page",
+        "page": 1,
+        "bbox": [
+          0,
+          0,
+          1,
+          1
+        ]
+      },
+      "sha256": "2759208030b6092cfd5ff4209d103b3533e3ff59872e52253635707d0e241669"
+    },
+    {
+      "id": "P03",
+      "subject": "UC100N",
+      "difficulty": "E",
+      "modality": "digital_pdf",
+      "question": "What are the array shape and second row? Explain the ordering.",
+      "source": "sources/reshape-exercise.pdf",
+      "transcription": "sources/reshape-exercise.txt",
+      "author": "ANVAYA synthetic benchmark authors",
+      "license": "CC0-1.0",
+      "split": "development",
+      "locator": {
+        "kind": "pdf_page",
+        "page": 1,
+        "bbox": [
+          0,
+          0,
+          1,
+          1
+        ]
+      },
+      "sha256": "427a36bd1ff8288879f47ebf55ae04058a0b2ae608856eecee8ea6f77dc0598f"
+    },
+    {
+      "id": "P04",
+      "subject": "UC100N",
+      "difficulty": "M",
+      "modality": "digital_pdf",
+      "question": "Explain whether the shown imputation workflow leaks information and correct its order.",
+      "source": "sources/imputer-flow.pdf",
+      "transcription": "sources/imputer-flow.txt",
+      "author": "ANVAYA synthetic benchmark authors",
+      "license": "CC0-1.0",
+      "split": "development",
+      "locator": {
+        "kind": "pdf_page",
+        "page": 1,
+        "bbox": [
+          0,
+          0,
+          1,
+          1
+        ]
+      },
+      "sha256": "09f04e93845967765fd692e4e55e81cf825388be028fe7e0b835bfffc6f60d92"
+    },
+    {
+      "id": "P05",
+      "subject": "CY100N",
+      "difficulty": "E",
+      "modality": "digital_pdf",
+      "question": "During the displayed discharge, what happens to acid concentration? Explain from the reaction.",
+      "source": "sources/battery-discharge.pdf",
+      "transcription": "sources/battery-discharge.txt",
+      "author": "ANVAYA synthetic benchmark authors",
+      "license": "CC0-1.0",
+      "split": "development",
+      "locator": {
+        "kind": "pdf_page",
+        "page": 1,
+        "bbox": [
+          0,
+          0,
+          1,
+          1
+        ]
+      },
+      "sha256": "ceea89aa9af474110e6dde82c596514e9e2bb163ded223ea4a01f21d2e5a0910"
+    },
+    {
+      "id": "P06",
+      "subject": "CY100N",
+      "difficulty": "M",
+      "modality": "digital_pdf",
+      "question": "Combine the supplied half-reactions and explain what cancels.",
+      "source": "sources/fuel-cell-equations.pdf",
+      "transcription": "sources/fuel-cell-equations.txt",
+      "author": "ANVAYA synthetic benchmark authors",
+      "license": "CC0-1.0",
+      "split": "development",
+      "locator": {
+        "kind": "pdf_page",
+        "page": 1,
+        "bbox": [
+          0,
+          0,
+          1,
+          1
+        ]
+      },
+      "sha256": "85b856fa3bd0e3b93a4357f6680a80b7fa61c4cfc2de084cede70061707a16f7"
+    },
+    {
+      "id": "P07",
+      "subject": "MA103N",
+      "difficulty": "M",
+      "modality": "handwritten_scan",
+      "question": "Find the inverse of the handwritten matrix and explain a multiplication check.",
+      "source": "sources/inverse-notes.png",
+      "transcription": "sources/inverse-notes.txt",
+      "author": "ANVAYA synthetic benchmark authors",
+      "license": "CC0-1.0",
+      "split": "development",
+      "locator": {
+        "kind": "image"
+      },
+      "sha256": "0a573771a281563ac4cd3689854a06d0ebe2e6fe9c13b073f4ccd56c02b3f0cf"
+    },
+    {
+      "id": "P08",
+      "subject": "MA103N",
+      "difficulty": "H",
+      "modality": "handwritten_scan",
+      "question": "Compare coefficient and augmented ranks. Is the shown system consistent? Explain.",
+      "source": "sources/augmented-notes.png",
+      "transcription": "sources/augmented-notes.txt",
+      "author": "ANVAYA synthetic benchmark authors",
+      "license": "CC0-1.0",
+      "split": "development",
+      "locator": {
+        "kind": "image"
+      },
+      "sha256": "aa205f0d26c93c787a58c4ff7bee43f549af31ed9a6283d9e258944dac17dde6"
+    },
+    {
+      "id": "P09",
+      "subject": "UC100N",
+      "difficulty": "E",
+      "modality": "handwritten_scan",
+      "question": "Trace the loop and explain the printed value.",
+      "source": "sources/loop-notes.png",
+      "transcription": "sources/loop-notes.txt",
+      "author": "ANVAYA synthetic benchmark authors",
+      "license": "CC0-1.0",
+      "split": "development",
+      "locator": {
+        "kind": "image"
+      },
+      "sha256": "84d41d3a8c128435f5cf3ee69ea67e8255dba46f5c3a42faa3f18d16bbc1ae18"
+    },
+    {
+      "id": "P10",
+      "subject": "UC100N",
+      "difficulty": "M",
+      "modality": "handwritten_scan",
+      "question": "What observed mean and imputed value follow from these notes? Explain.",
+      "source": "sources/missing-data-notes.png",
+      "transcription": "sources/missing-data-notes.txt",
+      "author": "ANVAYA synthetic benchmark authors",
+      "license": "CC0-1.0",
+      "split": "development",
+      "locator": {
+        "kind": "image"
+      },
+      "sha256": "346ab5efb409d01acd015aa7ee1847e441debecfcaad1153225b71a5ad799ab4"
+    },
+    {
+      "id": "P11",
+      "subject": "CY100N",
+      "difficulty": "M",
+      "modality": "handwritten_scan",
+      "question": "Identify whether this displayed half-reaction is oxidation or reduction, explaining the electrons.",
+      "source": "sources/oxidation-notes.png",
+      "transcription": "sources/oxidation-notes.txt",
+      "author": "ANVAYA synthetic benchmark authors",
+      "license": "CC0-1.0",
+      "split": "development",
+      "locator": {
+        "kind": "image"
+      },
+      "sha256": "2522e24d757e0dabb508270e7b273aa23039bb284440b4b9ae315a317a2628b0"
+    },
+    {
+      "id": "P12",
+      "subject": "CY100N",
+      "difficulty": "H",
+      "modality": "handwritten_scan",
+      "question": "Write the charging direction of the specified half-reaction and explain the reversal.",
+      "source": "sources/reverse-half-reaction.png",
+      "transcription": "sources/reverse-half-reaction.txt",
+      "author": "ANVAYA synthetic benchmark authors",
+      "license": "CC0-1.0",
+      "split": "development",
+      "locator": {
+        "kind": "image"
+      },
+      "sha256": "c612abdcd6f9dbcefaa36f3616fe84a8aaa6c022474f84c66c095d127e1bf275"
+    },
+    {
+      "id": "P13",
+      "subject": "MA103N",
+      "difficulty": "M",
+      "modality": "board_photo",
+      "question": "Apply the indicated board operation and explain the resulting second row.",
+      "source": "sources/board-elimination.png",
+      "transcription": "sources/board-elimination.txt",
+      "author": "ANVAYA synthetic benchmark authors",
+      "license": "CC0-1.0",
+      "split": "development",
+      "locator": {
+        "kind": "image"
+      },
+      "sha256": "38352eafe8ffbf581f41b0bf5684dc3fb7602b172c37058d32e54885500f171d"
+    },
+    {
+      "id": "P14",
+      "subject": "MA103N",
+      "difficulty": "H",
+      "modality": "board_photo",
+      "question": "Explain the obstacle to ordinary LU on this board and the needed first operation.",
+      "source": "sources/board-zero-pivot.png",
+      "transcription": "sources/board-zero-pivot.txt",
+      "author": "ANVAYA synthetic benchmark authors",
+      "license": "CC0-1.0",
+      "split": "development",
+      "locator": {
+        "kind": "image"
+      },
+      "sha256": "ae5afdf82e63631ce0f6615036d1ccccc72ecbec6f790030e153ce7c8a5dff50"
+    },
+    {
+      "id": "P15",
+      "subject": "UC100N",
+      "difficulty": "M",
+      "modality": "board_photo",
+      "question": "What is the output shape? Explain how the vector aligns with rows.",
+      "source": "sources/board-broadcast.png",
+      "transcription": "sources/board-broadcast.txt",
+      "author": "ANVAYA synthetic benchmark authors",
+      "license": "CC0-1.0",
+      "split": "development",
+      "locator": {
+        "kind": "image"
+      },
+      "sha256": "0c1d1b29ca315aebfee09e35cf221bf493d209c79b866d477fc1a0408b1b7f63"
+    },
+    {
+      "id": "P16",
+      "subject": "UC100N",
+      "difficulty": "H",
+      "modality": "board_photo",
+      "question": "Compute the scaled values on the board and explain the denominator.",
+      "source": "sources/board-scaling.png",
+      "transcription": "sources/board-scaling.txt",
+      "author": "ANVAYA synthetic benchmark authors",
+      "license": "CC0-1.0",
+      "split": "development",
+      "locator": {
+        "kind": "image"
+      },
+      "sha256": "6048d8348ad96853d13825310e78a33e5ae51e0567f2fd561aee9c3494750313"
+    },
+    {
+      "id": "P17",
+      "subject": "CY100N",
+      "difficulty": "M",
+      "modality": "board_photo",
+      "question": "Describe the external electron direction using the circuit labels.",
+      "source": "sources/board-circuit.png",
+      "transcription": "sources/board-circuit.txt",
+      "author": "ANVAYA synthetic benchmark authors",
+      "license": "CC0-1.0",
+      "split": "development",
+      "locator": {
+        "kind": "image"
+      },
+      "sha256": "74090de3082488e2913c2ffff365d29aa192ec581bed88575fa8cc3d48ea0a37"
+    },
+    {
+      "id": "P18",
+      "subject": "CY100N",
+      "difficulty": "H",
+      "modality": "board_photo",
+      "question": "Compute output power from the labelled board values and explain units.",
+      "source": "sources/board-power.png",
+      "transcription": "sources/board-power.txt",
+      "author": "ANVAYA synthetic benchmark authors",
+      "license": "CC0-1.0",
+      "split": "development",
+      "locator": {
+        "kind": "image"
+      },
+      "sha256": "9c8dfb5ae94a398d1bddfeae48313c3acc31dbe6836b693cea3c488d75987e72"
+    },
+    {
+      "id": "P19",
+      "subject": "MA103N",
+      "difficulty": "E",
+      "modality": "image_only_slide",
+      "question": "Are the displayed vectors independent and do they span the plane? Explain.",
+      "source": "sources/basis-slide.png",
+      "transcription": "sources/basis-slide.txt",
+      "author": "ANVAYA synthetic benchmark authors",
+      "license": "CC0-1.0",
+      "split": "development",
+      "locator": {
+        "kind": "image"
+      },
+      "sha256": "8164e61aff849b7fe76a377d2691a9295b9f0528d3b0f4257840cbf4fad15622"
+    },
+    {
+      "id": "P20",
+      "subject": "MA103N",
+      "difficulty": "M",
+      "modality": "image_only_slide",
+      "question": "Find rank and nullity of the slide matrix and explain the column count.",
+      "source": "sources/nullity-slide.png",
+      "transcription": "sources/nullity-slide.txt",
+      "author": "ANVAYA synthetic benchmark authors",
+      "license": "CC0-1.0",
+      "split": "development",
+      "locator": {
+        "kind": "image"
+      },
+      "sha256": "44dcfb440f173cfcdbbba4c87c2f9fba7ab8afecfe5cfd275f839c69d0c7d137"
+    },
+    {
+      "id": "P21",
+      "subject": "UC100N",
+      "difficulty": "E",
+      "modality": "image_only_slide",
+      "question": "Calculate precision from the displayed counts and explain the denominator.",
+      "source": "sources/precision-slide.png",
+      "transcription": "sources/precision-slide.txt",
+      "author": "ANVAYA synthetic benchmark authors",
+      "license": "CC0-1.0",
+      "split": "development",
+      "locator": {
+        "kind": "image"
+      },
+      "sha256": "c9940adb500a6db300b3766ede57a8fcbf5742d0f62f33d7222d5cd68b25c122"
+    },
+    {
+      "id": "P22",
+      "subject": "UC100N",
+      "difficulty": "M",
+      "modality": "image_only_slide",
+      "question": "Explain how the timeline handles fitting and transforming test data.",
+      "source": "sources/transform-timeline.png",
+      "transcription": "sources/transform-timeline.txt",
+      "author": "ANVAYA synthetic benchmark authors",
+      "license": "CC0-1.0",
+      "split": "development",
+      "locator": {
+        "kind": "image"
+      },
+      "sha256": "c74e3d47c3b8f4dae7a371f0a10109cf3ff6116594219534a05d49897b931e66"
+    },
+    {
+      "id": "P23",
+      "subject": "CY100N",
+      "difficulty": "E",
+      "modality": "image_only_slide",
+      "question": "Identify the plate materials and polarities in the displayed discharge diagram.",
+      "source": "sources/plates-slide.png",
+      "transcription": "sources/plates-slide.txt",
+      "author": "ANVAYA synthetic benchmark authors",
+      "license": "CC0-1.0",
+      "split": "development",
+      "locator": {
+        "kind": "image"
+      },
+      "sha256": "7cb627b4e2ca53629963ff3322ef87bf6f0d50d6d7149b0731687c4a10ffe3a9"
+    },
+    {
+      "id": "P24",
+      "subject": "CY100N",
+      "difficulty": "M",
+      "modality": "image_only_slide",
+      "question": "Explain which species uses the membrane and which uses the external circuit.",
+      "source": "sources/pem-slide.png",
+      "transcription": "sources/pem-slide.txt",
+      "author": "ANVAYA synthetic benchmark authors",
+      "license": "CC0-1.0",
+      "split": "development",
+      "locator": {
+        "kind": "image"
+      },
+      "sha256": "4902fe4cc83531c1b11754d7d31d69d1d0eb7f225e0b44d3852aae85c6cd941d"
+    },
+    {
+      "id": "P25",
+      "subject": "MA103N",
+      "difficulty": "M",
+      "modality": "transcript_frame",
+      "question": "Explain the operation shown in the supplied frame and caption, citing their exact locations.",
+      "source": "sources/row-swap-lecture.vtt",
+      "transcription": "sources/row-swap-lecture.txt",
+      "author": "ANVAYA synthetic benchmark authors",
+      "license": "CC0-1.0",
+      "split": "development",
+      "locator": {
+        "kind": "transcript_cue",
+        "start_ms": 12500,
+        "end_ms": 18000,
+        "cue_id": "1"
+      },
+      "frames": [
+        {
+          "source": "sources/row-swap-lecture-frame-1.png",
+          "transcription": "sources/row-swap-lecture-frame-1.txt",
+          "timestamp_ms": 14000,
+          "sha256": "f36c1570ab24f205410a7addd7410e0527b2cff988e084e3f3ebf24a9696ccd4"
+        }
+      ],
+      "sha256": "194835dc8f88b09ae2a33ad83f958554c45e9b60f6cac85e2a2b58aa8e3efd1d"
+    },
+    {
+      "id": "P26",
+      "subject": "MA103N",
+      "difficulty": "H",
+      "modality": "transcript_frame",
+      "question": "Compute the final matrix and explain how the two supplied frame times support it.",
+      "source": "sources/elimination-lecture.vtt",
+      "transcription": "sources/elimination-lecture.txt",
+      "author": "ANVAYA synthetic benchmark authors",
+      "license": "CC0-1.0",
+      "split": "development",
+      "locator": {
+        "kind": "transcript_cue",
+        "start_ms": 12500,
+        "end_ms": 18000,
+        "cue_id": "1"
+      },
+      "frames": [
+        {
+          "source": "sources/elimination-lecture-frame-1.png",
+          "transcription": "sources/elimination-lecture-frame-1.txt",
+          "timestamp_ms": 13000,
+          "sha256": "e5b3f71f0f146486f3a6bfa98fce0a6907f1e6e0448e364ee1370035aecb7ad4"
+        },
+        {
+          "source": "sources/elimination-lecture-frame-2.png",
+          "transcription": "sources/elimination-lecture-frame-2.txt",
+          "timestamp_ms": 16000,
+          "sha256": "0ffe7d59ede8f0cfafef8bd21a931dea9362c43935f587e86c04f7bca97043b8"
+        }
+      ],
+      "sha256": "bfc3f5fdaf98565f0aa9df18d23adb30fac91e70173f3f36852b02b3ad2b772f"
+    },
+    {
+      "id": "P27",
+      "subject": "UC100N",
+      "difficulty": "M",
+      "modality": "transcript_frame",
+      "question": "Explain what the caption supports and what the frame adds about reshape.",
+      "source": "sources/reshape-lecture.vtt",
+      "transcription": "sources/reshape-lecture.txt",
+      "author": "ANVAYA synthetic benchmark authors",
+      "license": "CC0-1.0",
+      "split": "development",
+      "locator": {
+        "kind": "transcript_cue",
+        "start_ms": 12500,
+        "end_ms": 18000,
+        "cue_id": "1"
+      },
+      "frames": [
+        {
+          "source": "sources/reshape-lecture-frame-1.png",
+          "transcription": "sources/reshape-lecture-frame-1.txt",
+          "timestamp_ms": 14000,
+          "sha256": "0461682c1109fe5aef7789309c2531bc0e6ea70200199c3400f1e64d742c186a"
+        }
+      ],
+      "sha256": "95be113bafb5fb97d81f9e40542aaab20860f3960ac65c39af2bc383da04e183"
+    },
+    {
+      "id": "P28",
+      "subject": "UC100N",
+      "difficulty": "H",
+      "modality": "transcript_frame",
+      "question": "Trace the boolean filter visible in the frame and explain the selected values.",
+      "source": "sources/filter-lecture.vtt",
+      "transcription": "sources/filter-lecture.txt",
+      "author": "ANVAYA synthetic benchmark authors",
+      "license": "CC0-1.0",
+      "split": "development",
+      "locator": {
+        "kind": "transcript_cue",
+        "start_ms": 12500,
+        "end_ms": 18000,
+        "cue_id": "1"
+      },
+      "frames": [
+        {
+          "source": "sources/filter-lecture-frame-1.png",
+          "transcription": "sources/filter-lecture-frame-1.txt",
+          "timestamp_ms": 14000,
+          "sha256": "a7390e6785c4beb8cea97c4ff82f6298809eb5b116fd5e4950de9ca08b6fea40"
+        }
+      ],
+      "sha256": "c18b8dc7866cdfd0e320069f003b0725b31e541333a3146dbe3481e9ecc0a58c"
+    },
+    {
+      "id": "P29",
+      "subject": "CY100N",
+      "difficulty": "M",
+      "modality": "transcript_frame",
+      "question": "Reconcile the caption and supplied electron arrows using only their visible labels.",
+      "source": "sources/discharge-lecture.vtt",
+      "transcription": "sources/discharge-lecture.txt",
+      "author": "ANVAYA synthetic benchmark authors",
+      "license": "CC0-1.0",
+      "split": "development",
+      "locator": {
+        "kind": "transcript_cue",
+        "start_ms": 12500,
+        "end_ms": 18000,
+        "cue_id": "1"
+      },
+      "frames": [
+        {
+          "source": "sources/discharge-lecture-frame-1.png",
+          "transcription": "sources/discharge-lecture-frame-1.txt",
+          "timestamp_ms": 14000,
+          "sha256": "1dee5493d32ac5f5d56671f146e2de786951207b1a36225640c7d6ca96207a9e"
+        }
+      ],
+      "sha256": "6a5341369c41c5959b22300e87a127fa2b7f6d1838ff1032a2dea3ccef42d3cf"
+    },
+    {
+      "id": "P30",
+      "subject": "CY100N",
+      "difficulty": "H",
+      "modality": "transcript_frame",
+      "question": "Calculate efficiency, explain the energy ratio, and cite the supplied time interval and frame.",
+      "source": "sources/efficiency-lecture.vtt",
+      "transcription": "sources/efficiency-lecture.txt",
+      "author": "ANVAYA synthetic benchmark authors",
+      "license": "CC0-1.0",
+      "split": "development",
+      "locator": {
+        "kind": "transcript_cue",
+        "start_ms": 12500,
+        "end_ms": 18000,
+        "cue_id": "1"
+      },
+      "frames": [
+        {
+          "source": "sources/efficiency-lecture-frame-1.png",
+          "transcription": "sources/efficiency-lecture-frame-1.txt",
+          "timestamp_ms": 14000,
+          "sha256": "287f5a03cd27fd97ed7069588cd8cdc82686a430d5a9d47f3f1f2ae4bab59a5d"
+        }
+      ],
+      "sha256": "78945efed6a5d6d7683b2cee9c09340a616f20242c59c0e1e1c04135f825a7ec"
+    },
+    {
+      "id": "N01",
+      "subject": "cross_subject",
+      "difficulty": "adversarial",
+      "modality": "image",
+      "question": "Find the inverse of this matrix.",
+      "source": "sources/missing-sign.png",
+      "transcription": "sources/missing-sign.txt",
+      "sha256": "51c9eba9005c68cc99afb232016ce04254e36144f1860afb70eae78e7703a611",
+      "scenario": "critical_uncertainty",
+      "declared_uncertain": [
+        "The sign of entry (1,2) is missing."
+      ],
+      "author": "ANVAYA synthetic benchmark authors",
+      "license": "CC0-1.0",
+      "split": "development"
+    },
+    {
+      "id": "N02",
+      "subject": "cross_subject",
+      "difficulty": "adversarial",
+      "modality": "image",
+      "question": "Find the rank of this handwritten matrix.",
+      "source": "sources/zero-letter.png",
+      "transcription": "sources/zero-letter.txt",
+      "sha256": "e322f22edeceeb3ff421130bda3a3b2e2c57f14dc037530765070b30c1db7607",
+      "scenario": "critical_uncertainty",
+      "declared_uncertain": [
+        "Entry (1,2) is 0 or O."
+      ],
+      "author": "ANVAYA synthetic benchmark authors",
+      "license": "CC0-1.0",
+      "split": "development"
+    },
+    {
+      "id": "N03",
+      "subject": "cross_subject",
+      "difficulty": "adversarial",
+      "modality": "image",
+      "question": "Substitute x=2 into the expression.",
+      "source": "sources/one-letter.png",
+      "transcription": "sources/one-letter.txt",
+      "sha256": "f4b287d2cc0c31338b75629e3176b47e2a1e38b3289f1427c8fb2b7b0d442556",
+      "scenario": "critical_uncertainty",
+      "declared_uncertain": [
+        "The denominator is 1 or l."
+      ],
+      "author": "ANVAYA synthetic benchmark authors",
+      "license": "CC0-1.0",
+      "split": "development"
+    },
+    {
+      "id": "N04",
+      "subject": "cross_subject",
+      "difficulty": "adversarial",
+      "modality": "image",
+      "question": "Compute the rank of the cropped matrix.",
+      "source": "sources/cropped-row.png",
+      "transcription": "sources/cropped-row.txt",
+      "sha256": "f3cd69d7c253000554df3b9fcce0c9f369a6fbd50a6d7c704f29c91b4aa91c98",
+      "scenario": "critical_uncertainty",
+      "declared_uncertain": [
+        "The final matrix row is missing."
+      ],
+      "author": "ANVAYA synthetic benchmark authors",
+      "license": "CC0-1.0",
+      "split": "development"
+    },
+    {
+      "id": "N05",
+      "subject": "cross_subject",
+      "difficulty": "adversarial",
+      "modality": "image",
+      "question": "Evaluate this expression at x=2.",
+      "source": "sources/illegible-fraction.png",
+      "transcription": "sources/illegible-fraction.txt",
+      "sha256": "a63d1de630a3debfb79afa7ed4931175ad0f36d1eb024473f68b21e6ea8bb5a2",
+      "scenario": "critical_uncertainty",
+      "declared_uncertain": [
+        "Superscript and denominator illegible."
+      ],
+      "author": "ANVAYA synthetic benchmark authors",
+      "license": "CC0-1.0",
+      "split": "development"
+    },
+    {
+      "id": "N06",
+      "subject": "cross_subject",
+      "difficulty": "adversarial",
+      "modality": "image",
+      "question": "Read only the selected matrix region.",
+      "source": "sources/rotated-crop.pdf",
+      "transcription": "sources/rotated-crop.txt",
+      "sha256": "8b6ca157ea099609e3829490d221785c6e9473110981c92cb0dc0ea0b95abef2",
+      "scenario": "rotated_crop",
+      "declared_uncertain": [],
+      "author": "ANVAYA synthetic benchmark authors",
+      "license": "CC0-1.0",
+      "split": "development"
+    },
+    {
+      "id": "N07",
+      "subject": "cross_subject",
+      "difficulty": "adversarial",
+      "modality": "transcript_frame",
+      "question": "Explain the matrix on the board.",
+      "source": "sources/missing-board.vtt",
+      "transcription": "sources/missing-board.txt",
+      "sha256": "4a6f3f2baf95212cf52c7e5c9e8dc84f0545102706f56fa84884bc2ed9ae6400",
+      "scenario": "missing_visual",
+      "declared_uncertain": [],
+      "author": "ANVAYA synthetic benchmark authors",
+      "license": "CC0-1.0",
+      "split": "development"
+    },
+    {
+      "id": "N08",
+      "subject": "cross_subject",
+      "difficulty": "adversarial",
+      "modality": "transcript_frame",
+      "question": "What is shown at the cue end, 4 seconds?",
+      "source": "sources/cue-gap.vtt",
+      "transcription": "sources/cue-gap.txt",
+      "sha256": "8d8cea40def493f2da243c03cf76be1bf80f21ac477dde84dfa7bd357e6f6a67",
+      "scenario": "cue_gap",
+      "declared_uncertain": [],
+      "author": "ANVAYA synthetic benchmark authors",
+      "license": "CC0-1.0",
+      "split": "development"
+    },
+    {
+      "id": "N09",
+      "subject": "cross_subject",
+      "difficulty": "adversarial",
+      "modality": "transcript_frame",
+      "question": "Explain the decisive result in the last supplied frame.",
+      "source": "sources/frame-cap.vtt",
+      "transcription": "sources/frame-cap.txt",
+      "sha256": "60fc547366dc312b60ecea9e7fd0283c9c41fa1363744eeb6616d0621033f890",
+      "scenario": "frame_cap",
+      "declared_uncertain": [],
+      "author": "ANVAYA synthetic benchmark authors",
+      "license": "CC0-1.0",
+      "split": "development",
+      "frames": [
+        {
+          "source": "sources/capped-lecture-frame-01.png",
+          "transcription": "sources/capped-lecture-frame-01.txt",
+          "timestamp_ms": 1100,
+          "sha256": "bc6db99b939448813122a02d030a87b8d2fab325e972c1a0d85b58dd47492d72"
+        },
+        {
+          "source": "sources/capped-lecture-frame-02.png",
+          "transcription": "sources/capped-lecture-frame-02.txt",
+          "timestamp_ms": 1200,
+          "sha256": "1ef78032c38a2264a6c06336600bd50290a555012ed6d0e1feb8e1697a2f3b2e"
+        },
+        {
+          "source": "sources/capped-lecture-frame-03.png",
+          "transcription": "sources/capped-lecture-frame-03.txt",
+          "timestamp_ms": 1300,
+          "sha256": "73153b630d24d4e0a183c8b159105f21fdf2f62cbcfa201db72e62aff66bb73e"
+        },
+        {
+          "source": "sources/capped-lecture-frame-04.png",
+          "transcription": "sources/capped-lecture-frame-04.txt",
+          "timestamp_ms": 1400,
+          "sha256": "6126995a08e82590dd0fe7a692dd3fa72a64af0f53535831fad0569eb77a4486"
+        },
+        {
+          "source": "sources/capped-lecture-frame-05.png",
+          "transcription": "sources/capped-lecture-frame-05.txt",
+          "timestamp_ms": 1500,
+          "sha256": "94acf29751251c219580648d55da3b5cb94aa34a7e4d5794195bbab06151455d"
+        },
+        {
+          "source": "sources/capped-lecture-frame-06.png",
+          "transcription": "sources/capped-lecture-frame-06.txt",
+          "timestamp_ms": 1600,
+          "sha256": "1aae02a7be81003c1901106a4b3f41675bb1cc47f5b146b26ce080e6178a454f"
+        },
+        {
+          "source": "sources/capped-lecture-frame-07.png",
+          "transcription": "sources/capped-lecture-frame-07.txt",
+          "timestamp_ms": 1700,
+          "sha256": "6778fddb636b46731e8c84de2395f42636908da01bee9ddb18e4f216284acb5a"
+        },
+        {
+          "source": "sources/capped-lecture-frame-08.png",
+          "transcription": "sources/capped-lecture-frame-08.txt",
+          "timestamp_ms": 1800,
+          "sha256": "9398a5317aad7d2d8ef9ec7aaf8af821cc74160c4ec588ec5922efacd9777652"
+        },
+        {
+          "source": "sources/capped-lecture-frame-09.png",
+          "transcription": "sources/capped-lecture-frame-09.txt",
+          "timestamp_ms": 1900,
+          "sha256": "733a5468c1f8771e697d5243b1f39ddc54c8ab4ccae388ecbe4e96c04281925d"
+        },
+        {
+          "source": "sources/capped-lecture-frame-10.png",
+          "transcription": "sources/capped-lecture-frame-10.txt",
+          "timestamp_ms": 2000,
+          "sha256": "ab7f2d18c7ec08ae70b863314635369d0f417e585532e120be0e1362016e534c"
+        },
+        {
+          "source": "sources/capped-lecture-frame-11.png",
+          "transcription": "sources/capped-lecture-frame-11.txt",
+          "timestamp_ms": 2100,
+          "sha256": "61d9ba7c098f06042370be927ed1849997cb4466f97e65629348d788b31d4bba"
+        },
+        {
+          "source": "sources/capped-lecture-frame-12.png",
+          "transcription": "sources/capped-lecture-frame-12.txt",
+          "timestamp_ms": 2200,
+          "sha256": "d6e54ae59c18bb5cafbc81b92004945338d038aae51a3c6060a0cd651b027a1d"
+        },
+        {
+          "source": "sources/capped-lecture-frame-13.png",
+          "transcription": "sources/capped-lecture-frame-13.txt",
+          "timestamp_ms": 2300,
+          "sha256": "3328d9cea78ab4e4debe5e449bbbc151ce40aa1b38d013d8ab8aab1071f224f4"
+        },
+        {
+          "source": "sources/capped-lecture-frame-14.png",
+          "transcription": "sources/capped-lecture-frame-14.txt",
+          "timestamp_ms": 2400,
+          "sha256": "08b028a2ff7dd1c4a38e44f63654115c8e43a8b886214ebea3da9c7ea3ef144d"
+        },
+        {
+          "source": "sources/capped-lecture-frame-15.png",
+          "transcription": "sources/capped-lecture-frame-15.txt",
+          "timestamp_ms": 2500,
+          "sha256": "09093e3b3d81b0e9f86c4e2ef0c7d240789cf3cec44b854e1fdb98f36d382aa4"
+        },
+        {
+          "source": "sources/capped-lecture-frame-16.png",
+          "transcription": "sources/capped-lecture-frame-16.txt",
+          "timestamp_ms": 2600,
+          "sha256": "1fa9ffa50456e3d7d57e0da8ce29aa2af8b5a91f7c92bd7dd79ba677156340e7"
+        },
+        {
+          "source": "sources/capped-lecture-frame-17.png",
+          "transcription": "sources/capped-lecture-frame-17.txt",
+          "timestamp_ms": 2700,
+          "sha256": "7fa5d9b66b7703828aa59d2b1d1db8a571b0938768afb88113e9048021d5d466"
+        },
+        {
+          "source": "sources/capped-lecture-frame-18.png",
+          "transcription": "sources/capped-lecture-frame-18.txt",
+          "timestamp_ms": 2800,
+          "sha256": "cf7efc781827a59a738ae5bfaf6325cad9569b5f77f42b63bcc0b1813de96e37"
+        },
+        {
+          "source": "sources/capped-lecture-frame-19.png",
+          "transcription": "sources/capped-lecture-frame-19.txt",
+          "timestamp_ms": 2900,
+          "sha256": "10b74211ae963a4958667f6d7d5f237c81eb01ae6f278c10fe0e2cce11542b85"
+        },
+        {
+          "source": "sources/capped-lecture-frame-20.png",
+          "transcription": "sources/capped-lecture-frame-20.txt",
+          "timestamp_ms": 3000,
+          "sha256": "eb1a7f256051b8a7801c60ecc8da91db4b2eeb2eab0947de91f37caa26d8ef79"
+        }
+      ]
+    },
+    {
+      "id": "N10",
+      "subject": "cross_subject",
+      "difficulty": "adversarial",
+      "modality": "image",
+      "question": "Explain this selected matrix.",
+      "source": "sources/renamed-source.png",
+      "transcription": "sources/renamed-source.txt",
+      "sha256": "4ca84ac05e5aad5281b50be17b04c30dd37665153175af0e8f6131a2edc2388f",
+      "scenario": "stale_review",
+      "declared_uncertain": [],
+      "author": "ANVAYA synthetic benchmark authors",
+      "license": "CC0-1.0",
+      "split": "development"
+    },
+    {
+      "id": "N11",
+      "subject": "cross_subject",
+      "difficulty": "adversarial",
+      "modality": "image",
+      "question": "Explain this selected matrix in the other course.",
+      "source": "sources/copied-placement.png",
+      "transcription": "sources/copied-placement.txt",
+      "sha256": "4ca84ac05e5aad5281b50be17b04c30dd37665153175af0e8f6131a2edc2388f",
+      "scenario": "wrong_course",
+      "declared_uncertain": [],
+      "author": "ANVAYA synthetic benchmark authors",
+      "license": "CC0-1.0",
+      "split": "development"
+    },
+    {
+      "id": "N12",
+      "subject": "cross_subject",
+      "difficulty": "adversarial",
+      "modality": "image",
+      "question": "Explain only this selected note.",
+      "source": "sources/instruction-in-source.png",
+      "transcription": "sources/instruction-in-source.txt",
+      "sha256": "3d7416de59e0a929014ca91771a385383e39e581c0c130bf3dc1ed04a0366066",
+      "scenario": "injection_boundary",
+      "declared_uncertain": [],
+      "author": "ANVAYA synthetic benchmark authors",
+      "license": "CC0-1.0",
+      "split": "development"
+    },
+    {
+      "id": "N13",
+      "subject": "cross_subject",
+      "difficulty": "adversarial",
+      "modality": "image",
+      "question": "Explain this matrix after my disclosure permission is revoked.",
+      "source": "sources/revoked-permission.png",
+      "transcription": "sources/revoked-permission.txt",
+      "sha256": "4ca84ac05e5aad5281b50be17b04c30dd37665153175af0e8f6131a2edc2388f",
+      "scenario": "revocation",
+      "declared_uncertain": [],
+      "author": "ANVAYA synthetic benchmark authors",
+      "license": "CC0-1.0",
+      "split": "development"
+    },
+    {
+      "id": "N14",
+      "subject": "cross_subject",
+      "difficulty": "adversarial",
+      "modality": "image",
+      "question": "What exact electrical power is recorded on this diagram?",
+      "source": "sources/absent-answer.png",
+      "transcription": "sources/absent-answer.txt",
+      "sha256": "828c0140131f5d120959b1460c39590d5da1895632353fb2d6237f2921b11d0a",
+      "scenario": "insufficient_answer",
+      "declared_uncertain": [],
+      "author": "ANVAYA synthetic benchmark authors",
+      "license": "CC0-1.0",
+      "split": "development"
+    },
+    {
+      "id": "N15",
+      "subject": "cross_subject",
+      "difficulty": "adversarial",
+      "modality": "image",
+      "question": "Explain the selected matrix after an interrupted request.",
+      "source": "sources/unknown-provider-outcome.png",
+      "transcription": "sources/unknown-provider-outcome.txt",
+      "sha256": "4ca84ac05e5aad5281b50be17b04c30dd37665153175af0e8f6131a2edc2388f",
+      "scenario": "unknown_outcome",
+      "declared_uncertain": [],
+      "author": "ANVAYA synthetic benchmark authors",
+      "license": "CC0-1.0",
+      "split": "development"
+    }
+  ],
+  "reserved_held_out": [
+    {
+      "subject": "MA103N",
+      "source": "sources/heldout/ma103n-sample-1.png",
+      "sha256": "09eb58a301118c907b62b5a11baa39de597f4de0da5931bb61cbd6a951681299",
+      "status": "RESERVED_NOT_RUN"
+    },
+    {
+      "subject": "MA103N",
+      "source": "sources/heldout/ma103n-sample-2.png",
+      "sha256": "f45eb09d866dca609e798b53025057ceae57445151f89a542e1061af2efd0908",
+      "status": "RESERVED_NOT_RUN"
+    },
+    {
+      "subject": "MA103N",
+      "source": "sources/heldout/ma103n-clip.vtt",
+      "sha256": "5b4f69081e1747b5d2f873358aa0f13222a30021c17770dacf6ac03e9ca5288d",
+      "frame": "sources/heldout/ma103n-sample-2.png",
+      "status": "RESERVED_NOT_RUN"
+    },
+    {
+      "subject": "UC100N",
+      "source": "sources/heldout/uc100n-sample-1.png",
+      "sha256": "a03f5055efe147992d215616f7a74eceab3d3a30001eeaa7e251e5105b0f2eee",
+      "status": "RESERVED_NOT_RUN"
+    },
+    {
+      "subject": "UC100N",
+      "source": "sources/heldout/uc100n-sample-2.png",
+      "sha256": "794dc041d73d927cc743d10574d0b6097d36527b5aa96ea30fb9c51315def20c",
+      "status": "RESERVED_NOT_RUN"
+    },
+    {
+      "subject": "UC100N",
+      "source": "sources/heldout/uc100n-clip.vtt",
+      "sha256": "5b4f69081e1747b5d2f873358aa0f13222a30021c17770dacf6ac03e9ca5288d",
+      "frame": "sources/heldout/uc100n-sample-2.png",
+      "status": "RESERVED_NOT_RUN"
+    },
+    {
+      "subject": "CY100N",
+      "source": "sources/heldout/cy100n-sample-1.png",
+      "sha256": "a01e4cf5a17713ab8df3bc71f4590e2fe4704f217b9df7a2f0c5c92d983e0da4",
+      "status": "RESERVED_NOT_RUN"
+    },
+    {
+      "subject": "CY100N",
+      "source": "sources/heldout/cy100n-sample-2.png",
+      "sha256": "7ddbbd763cdc088d25ef54f2e02114b7021be84f72968c92b9bf534af4a873d8",
+      "status": "RESERVED_NOT_RUN"
+    },
+    {
+      "subject": "CY100N",
+      "source": "sources/heldout/cy100n-clip.vtt",
+      "sha256": "5b4f69081e1747b5d2f873358aa0f13222a30021c17770dacf6ac03e9ca5288d",
+      "frame": "sources/heldout/cy100n-sample-2.png",
+      "status": "RESERVED_NOT_RUN"
+    }
+  ],
+  "follow_ups": [
+    {
+      "case_id": "P01",
+      "subject": "MA103N",
+      "kind": "hint_only",
+      "question": "Give only a hint for my next row operation."
+    },
+    {
+      "case_id": "P01",
+      "subject": "MA103N",
+      "kind": "incorrect_step",
+      "question": "I subtracted the first row once and claimed the rank is two. Check that step."
+    },
+    {
+      "case_id": "P09",
+      "subject": "UC100N",
+      "kind": "hint_only",
+      "question": "Give only a hint about where the loop stops."
+    },
+    {
+      "case_id": "P09",
+      "subject": "UC100N",
+      "kind": "incorrect_step",
+      "question": "I included 4 in range(1,4), obtaining 10. Check that step."
+    },
+    {
+      "case_id": "P06",
+      "subject": "CY100N",
+      "kind": "hint_only",
+      "question": "Give only a hint about what to cancel between the half-reactions."
+    },
+    {
+      "case_id": "P06",
+      "subject": "CY100N",
+      "kind": "incorrect_step",
+      "question": "I left four electrons on each side of the net reaction. Check that step."
+    }
+  ]
+}

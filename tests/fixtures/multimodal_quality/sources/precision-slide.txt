@@ -1,0 +1,3 @@
+Confusion matrix labels:
+True positives TP = 8; false positives FP = 2
+Precision = TP/(TP+FP)

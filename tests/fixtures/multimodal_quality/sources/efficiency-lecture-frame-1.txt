@@ -1,0 +1,2 @@
+Frame labels: input energy 100 J; useful output energy 70 J
+Efficiency = useful output / input x 100%

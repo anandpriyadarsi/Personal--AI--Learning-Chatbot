@@ -1,0 +1,2 @@
+x = [2,4,6]
+Min-max scaling: (x - min(x))/(max(x)-min(x))

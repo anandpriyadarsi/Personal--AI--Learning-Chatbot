@@ -1,0 +1,2 @@
+Observations: [1, NaN, 3]
+Use mean imputation, ignoring NaN when estimating the mean.

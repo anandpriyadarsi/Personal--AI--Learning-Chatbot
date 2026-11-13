@@ -1,0 +1,3 @@
+Lead electrode on discharge:
+Pb + SO4^2- -> PbSO4 + 2e-
+Oxidation means loss of electrons.

@@ -1,0 +1,2 @@
+Discharge: Pb + SO4^2- -> PbSO4 + 2e-
+Charging reverses the discharge half-reaction.

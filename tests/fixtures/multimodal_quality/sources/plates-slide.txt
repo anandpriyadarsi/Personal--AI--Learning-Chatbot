@@ -1,0 +1,3 @@
+Lead-acid battery during discharge:
+Negative plate label: Pb
+Positive plate label: PbO2

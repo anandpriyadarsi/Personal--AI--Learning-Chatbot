@@ -1,0 +1,2 @@
+Timeline: split -> training set -> fit transform -> fit model
+                    test set -> apply fitted transform -> evaluate

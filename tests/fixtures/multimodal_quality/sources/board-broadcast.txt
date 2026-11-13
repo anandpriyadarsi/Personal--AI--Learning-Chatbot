@@ -1,0 +1,2 @@
+Array a has shape (2,3). Array b has shape (3,).
+Evaluate a + b using NumPy broadcasting.

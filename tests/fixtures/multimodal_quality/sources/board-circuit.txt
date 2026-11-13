@@ -1,0 +1,2 @@
+Fuel-cell circuit: anode -- wire/load --> cathode
+Electrons are released at the anode and consumed at the cathode.
