@@ -105,3 +105,29 @@ def test_plain_text_context_keeps_existing_truncation_semantics():
     hit=RetrievalHit(chunk_id='plain',document_id='plain-doc',text='a'*16000,score=1,lexical_rank=None,semantic_rank=None,page_number=None,locator={},resource_ids=(),course_ids=(),topic_ids=(),providers=())
     context=assemble_context('explain',(hit,),max_chars=12000)
     assert context.total_characters==12000 and len(context.hits)==1
+
+
+@pytest.mark.parametrize('mixed',[False,True])
+@pytest.mark.parametrize('question',['Explain the selected evidence and point out anything uncertain.','Compute the matrix rank'])
+def test_unread_selected_frames_block_dispatch_even_without_visual_keywords(owners,mixed,question):
+    from personal_learning_assistant.services.grounded_tutor_service import GroundedTutorService
+    from personal_learning_assistant.repositories.sqlite.tutor_repository import SQLiteTutorRepository
+    from personal_learning_assistant.services.tutor_session_service import TutorSessionService
+    from personal_learning_assistant.domain.tutor_models import TutorSessionSpec
+    lib,db=owners;session,frames=lecture_selection(owners,2,unread=True)
+    if mixed:
+        # Manifest review predates the processed frame, so rebind a fresh exact
+        # manifest rather than bypassing its generation fence.
+        svc=MultimodalEvidenceService(lib)
+        p=svc.preview(frames[0]['document_id'],{'kind':'image'},method='review',review_complete=True,text='Matrix [[1,2],[0,1]]')
+        svc.enqueue(frames[0]['document_id'],p['token']);lib.run_pending()
+        transcript=next(r for r in records(db) if r['document_id']==session.metadata['source_document_id'])
+        session.metadata['mm_manifest_id']=svc.create_manifest(transcript['locator']['native_document_id'],frames)
+    class Retrieval:
+        def search(self,*args,**kwargs):return ()
+    class Provider:
+        def complete(self,request):raise AssertionError('Unread selected frame was ignored before dispatch')
+    with closing(sqlite3.connect(db,isolation_level=None)) as con:
+        sessions=TutorSessionService(SQLiteTutorRepository(con));s=sessions.create_session(TutorSessionSpec(mode='doubt',source_policy='source_only',title='Unread',metadata=session.metadata))
+        answer=GroundedTutorService(tutor_session_service=sessions,retrieval_service=Retrieval(),provider=Provider()).answer(s.session_id,question).assistant_turn
+        assert answer.support_level=='insufficient' and 'unread' in answer.content.lower()

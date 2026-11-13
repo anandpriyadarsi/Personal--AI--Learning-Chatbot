@@ -13,6 +13,11 @@ New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
 $Report = Join-Path $OutputDirectory 'report.json'
 $ExitCode = 1
 $Reason = ''
+# A failed interpreter startup must never reuse a previous successful report
+# or screenshots. These names are owned solely by this validator invocation.
+if (Test-Path -LiteralPath $Report) { Remove-Item -LiteralPath $Report -Force }
+$PriorArtifacts = Join-Path $OutputDirectory 'report-artifacts'
+if (Test-Path -LiteralPath $PriorArtifacts) { Remove-Item -LiteralPath $PriorArtifacts -Recurse -Force }
 if (-not $Python) {
     foreach ($Candidate in @((Join-Path $Root '.venv/Scripts/python.exe'), (Join-Path $Root 'venv/Scripts/python.exe'))) {
         if (Test-Path -LiteralPath $Candidate -PathType Leaf) { $Python = $Candidate; break }

@@ -12,6 +12,7 @@ from test_multimodal_jobs import owners,image_bytes,records
     'Expression 1/l is ambiguous', 'Matrix sign +/- is unknown',
     'Fraction denominator illegible', 'Superscript unknown', 'Matrix final row missing',
     'Matrix [[1,+/-],[0,2]]', 'x^? + 2', 'Fraction 1/?',
+    'Matrix [[1,"?"],[0,2]]', 'x = ?',
 ])
 def test_approval_cannot_resolve_explicit_critical_ambiguity(text):
     from personal_learning_assistant.services.multimodal_fidelity import assess_reading
@@ -64,14 +65,15 @@ def test_review_scope_binds_completion_spans_and_stale_edits(owners):
 
 
 @pytest.mark.parametrize('coding',[False,True])
-def test_unclear_review_never_dispatches_in_standard_or_coding(owners,coding):
+@pytest.mark.parametrize('reading',['Matrix [[1,?],[0,2]]; entry unknown','Matrix [[1,"?"],[0,2]]','x = ?'])
+def test_unclear_review_never_dispatches_in_standard_or_coding(owners,coding,reading):
     from personal_learning_assistant.services.multimodal_evidence_service import MultimodalEvidenceService
     from personal_learning_assistant.services.grounded_tutor_service import GroundedTutorService
     from personal_learning_assistant.repositories.sqlite.tutor_repository import SQLiteTutorRepository
     from personal_learning_assistant.services.tutor_session_service import TutorSessionService
     from personal_learning_assistant.domain.tutor_models import TutorSessionSpec
     lib,db=owners;doc=lib.upload(BytesIO(image_bytes()),'Ambiguous.png');svc=MultimodalEvidenceService(lib)
-    r=svc.preview(doc['id'],{'kind':'image'},method='review',text='Matrix [[1,?],[0,2]]; entry unknown')
+    r=svc.preview(doc['id'],{'kind':'image'},method='review',review_complete=True,text=reading)
     svc.enqueue(doc['id'],r['token']);lib.run_pending();record=records(db)[0]
     class Retrieval:
         def search(self,*args,**kwargs):return ()

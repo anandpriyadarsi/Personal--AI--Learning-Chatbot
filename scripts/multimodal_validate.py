@@ -37,16 +37,16 @@ def _status(suite):
 def report(system,suites):
     """system is descriptive only; platform evidence can never be passed in."""
     by_name={s['name']:s for s in suites}
-    gates={name:dict(requested=name in by_name,executed=bool(by_name.get(name,{}).get('executed',name in by_name)),
+    gates={name:dict(required=True,requested=name in by_name,executed=bool(by_name.get(name,{}).get('executed',name in by_name)),
                      status=_status(by_name[name]) if name in by_name else 'NOT_AUTHORIZED') for name in GATES}
     passed=bool(suites) and all(_status(s)=='PASS' for s in suites)
     offline=all(gates[n]['status']=='PASS' for n in GATES)
     windows=platform.system()=='Windows' and offline
-    gates['windows_runtime']=dict(requested=True,executed=windows,status='PASS' if windows else 'BLOCKED_ENVIRONMENT',
+    gates['windows_runtime']=dict(required=True,requested=True,executed=windows,status='PASS' if windows else 'BLOCKED_ENVIRONMENT',
                                   reason='' if windows else 'Requires all offline gates on an actual Windows host')
-    gates['live_model']=dict(requested=False,executed=False,status='NOT_AUTHORIZED')
+    gates['live_model']=dict(required=False,requested=False,executed=False,status='NOT_AUTHORIZED')
     return dict(report_version=2,platform=platform.system(),reported_platform=system,passed=passed,offline_passed=offline,
-                windows_runtime_verified=windows,windows_verified=windows,
+                windows_runtime_verified=windows,windows_verified=windows,required_release_gates_complete=windows,
                 live_model_quality='unverified',video_asr='deferred',
                 release_readiness='conditional' if offline else 'not_ready',gates=gates,suites=suites)
 
@@ -189,7 +189,7 @@ def host_evidence(root):
         except importlib.metadata.PackageNotFoundError:dependencies[name]=None
     dirty=git('status','--porcelain')
     return dict(python=platform.python_version(),python_implementation=platform.python_implementation(),
-                os_release=platform.release(),machine=platform.machine(),source_sha=git('rev-parse','HEAD'),
+                os_release=platform.release(),machine=platform.machine(),source_sha=git('rev-parse','HEAD'),source_tree=git('rev-parse','HEAD^{tree}'),
                 working_tree_dirty=None if dirty is None else bool(dirty),dependencies=dependencies)
 
 

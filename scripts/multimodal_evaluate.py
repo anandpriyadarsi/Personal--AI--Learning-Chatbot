@@ -30,6 +30,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 FIXTURES = ROOT/'tests/fixtures/multimodal_quality'
+EVALUATOR_SHA256 = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
 CONTEXT = {'top_k': 10, 'max_chars': 12000}
 FAKE_CONTENT = 'The selected academic source is available for review. This offline adapter does not solve the exercise.'
 
@@ -91,14 +92,21 @@ def reference_calculations():
     observed = [v for v in [1,None,3] if v is not None]
     raw = [2,4,6]; scale = [(v-min(raw))/(max(raw)-min(raw)) for v in raw]
     rank20 = _rref([[1,0,2],[0,1,3]])[1]
+    reshaped = [list(range(6))[i:i+3] for i in range(0,6,3)]
+    shape = [len(reshaped),len(reshaped[0])]
+    # Right-align broadcasting dimensions, requiring equal or singleton sizes.
+    dimensions = list(zip([2,3],[1,3]))
+    assert all(left==right or left==1 or right==1 for left,right in dimensions)
+    broadcast_shape = [max(left,right) for left,right in dimensions]
+    rank19 = _rref([[1,0],[0,1]])[1]
     operation = [[1,2],[2-2*1,5-2*2]]
     return {'P01':{'rref':rref,'rank':rank}, 'P02':{'L':l,'U':u},
-        'P03':{'shape':[2,3],'second_row':list(range(6))[3:]},
+        'P03':{'shape':shape,'second_row':reshaped[1]},
         'P07':{'inverse':inv},'P08':{'rank_A':ra,'rank_augmented':rab,'consistent':ra==rab},
         'P09':{'total':sum(range(1,4))},'P10':{'mean':sum(observed)/len(observed),'imputed':sum(observed)/len(observed)},
         'P13':{'result':operation},'P14':{'swap_result':[[0,1],[1,1]][::-1]},
-        'P15':{'shape':[2,3]},'P16':{'scaled':scale},'P18':{'power_W':float(Fraction(2)*Fraction(7,10))},
-        'P19':{'rank':_rref([[1,0],[0,1]])[1],'independent':True},
+        'P15':{'shape':broadcast_shape},'P16':{'scaled':scale},'P18':{'power_W':float(Fraction(2)*Fraction(7,10))},
+        'P19':{'rank':rank19,'independent':rank19==2},
         'P20':{'rank':rank20,'nullity':3-rank20},'P21':{'precision':8/(8+2)},
         'P25':{'result':[[0,1],[1,2]][::-1]},'P26':{'result':operation},
         'P27':{'shape':[2,6//2]},'P28':{'filtered':[v for v in [1,3,2,4] if v>2]},
@@ -512,6 +520,7 @@ def _provenance():
         'dirty_tree':bool(git('status','--porcelain')),'run_time_utc':datetime.now(timezone.utc).isoformat(),
         'provider':'offline in-process fake/probe only','model':'not_run','manifest_sha256':file_hash(FIXTURES/'manifest.json'),
         'prompt_source_sha256':file_hash(ROOT/'personal_learning_assistant/tutor/grounding.py'),
+        'evaluator_sha256':EVALUATOR_SHA256,'gold_sha256':file_hash(FIXTURES/'gold/answers.json'),
         'source_split':'development only; nine source-distinct held-out samples reserved and never ingested'}
 
 

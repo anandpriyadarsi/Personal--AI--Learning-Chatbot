@@ -15,12 +15,15 @@ def assess_reading(text, *, origin, declared_uncertain, review_complete=False):
         any(not isinstance(x,str) or not x.strip() or len(x)>500 for x in declared_uncertain)):
         raise ValueError('Invalid unresolved spans')
     uncertain=list(dict.fromkeys(x.strip() for x in declared_uncertain))
+    math_placeholder=bool(
+        (re.search(r'\bmatrix\b|\[\s*\[',text,re.I) and re.search(r'\[[^\]]*\?[^\]]*\]',text))
+    )
     # Quoted program strings are data, not a mathematical uncertainty marker.
     clean=re.sub(r'''(?s)(["'])(?:\\.|(?!\1).)*?\1''','',text)
     diagnostics=[]
     if origin=='user_transcription' and not review_complete:
         diagnostics.append('Review incomplete: explicitly confirm critical symbols or correct the listed unresolved entries.')
-    if re.search(r'\[[^\]]*\?[^\]]*\]|\bentry\s*[=:]?\s*\?',clean,re.I):
+    if math_placeholder or re.search(r'\[[^\]]*\?[^\]]*\]|\bentry\s*[=:]?\s*\?|=\s*\?',clean,re.I):
         diagnostics.append('Matrix/entry contains an unresolved ? symbol; identify the row and column.')
     if re.search(r'\[[^\]]*(?:\+\s*/\s*-|-\s*/\s*\+)[^\]]*\]|[\^_]\s*\{?\?|/\s*\?',clean):
         diagnostics.append('Critical sign, exponent or denominator remains unresolved; correct the selected reading.')
@@ -60,6 +63,8 @@ def clarification_for_plan(plan):
         if reasons:details.append(label+' '+ '; '.join(reasons))
     if details:
         return 'Critical symbols or visual content are unclear/unknown in the selected source. '+ ' '.join(details)+ ' Supply a clearer image or correct the named entry before calculating. An approval alone cannot resolve it.'
+    if selection and any(reason in ('unread','unavailable') for _,reason in selection.coverage.excluded):
+        return 'Some selected frames are unread or unavailable. Review those frame readings before answering, or explicitly reselect the transcript alone. Selected frame content has not been inferred from captions.'
     if selection and selection.coverage.requires_narrowing:
         return 'Please narrow the selected evidence before answering. Some selected readings exceed the 10-item or context budget; no partial matrix or omitted frame was treated as understood. Select a smaller crop or shorter interval.'
     if (selection and selection.coverage.selected_cue_count and
