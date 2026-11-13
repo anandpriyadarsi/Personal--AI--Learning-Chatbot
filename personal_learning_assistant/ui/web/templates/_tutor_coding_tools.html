@@ -1,4 +1,4 @@
-{% set coding_state = session.metadata.get('coding_workspace_v1', {}) %}
+{% set coding_state = (session.metadata|default({}, true)).get('coding_workspace_v1', {}) %}
 <div id="coding-studio" data-session="{{ session.session_id }}" data-workspace="{{ coding_state.get('workspace', 'academic') }}" data-selected-task="{{ coding_state.get('selected_task_id', '') }}" data-consent="{{ coding_state.get('consent_revision', 0) }}" data-csrf="{{ tutor_action_csrf }}">
   <div class="coding-toolbar">
     <label for="coding-action" class="visually-hidden">Coding action</label>
