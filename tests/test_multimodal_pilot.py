@@ -32,7 +32,7 @@ def test_thirty_gold_retrieval_cases_and_text_only_projection(owners,tmp_path):
             lines.append(fact)
         draw.multiline_text((10,20),'\n'.join(lines),fill='black');stream=BytesIO();image.save(stream,format='PNG');raw=stream.getvalue()
         title=f'matrix-{number}.png';hashes[title]=hashlib.sha256(raw).hexdigest();item=lib.upload(BytesIO(raw),title)
-        preview=service.preview(item['id'],{'kind':'image'},method='review',text='\n'.join(lines))
+        preview=service.preview(item['id'],{'kind':'image'},method='review',review_complete=True,text='\n'.join(lines))
         service.enqueue(item['id'],preview['token'])
         for line in lines:gold.append(dict(id=line.split(':')[0],token=line.split(':')[0],modality='user_transcription',document_id=item['id'],expected=line))
     transcript=[]

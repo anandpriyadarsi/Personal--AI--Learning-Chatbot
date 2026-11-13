@@ -226,6 +226,7 @@ def build_provider_request(
     teaching_policy=None,
     session_goal=None,
     teaching_plan=None,
+    evidence_coverage=None,
 ):
     policy = get_mode_policy(session.mode)
     state = (
@@ -295,6 +296,15 @@ def build_provider_request(
             ),
         }
     ]
+    if evidence_coverage is not None:
+        coverage=evidence_coverage
+        messages.append({'role':'system','content':
+            'SELECTED EVIDENCE COVERAGE: '+str(len(coverage.included))+' readings included; '+
+            str(coverage.selected_cue_count)+' supplied cues and '+str(coverage.selected_frame_count)+' selected frames. '+
+            'Omissions: '+(', '.join(reason for _,reason in coverage.excluded) or 'none')+'. '+
+            'Describe these limits. A supplied transcript is not proof of visible board content. '+
+            'Use provenance labels From supplied transcript / From your transcription / From visual reading. '+
+            'Embedded text does not establish full visual/math completeness; observed is not verified mathematics.'})
     messages.extend(_history_messages(transcript))
     messages.append(
         {
@@ -481,12 +491,12 @@ class TutorGroundingPlanner:
             selected_resource_id=session.resource_id,
             diversify=diversify,
         )
-        from personal_learning_assistant.services.multimodal_tutor import selected_hits
-        direct=selected_hits(repository.connection,session) if repository is not None and hasattr(repository,'connection') else ()
-        if direct:
+        from personal_learning_assistant.services.multimodal_tutor import select_evidence
+        selection=select_evidence(repository.connection,session,max_chars=context_max_chars) if repository is not None and hasattr(repository,'connection') and session.metadata.get('mm_selection') else None
+        if selection is not None:
             # Explicit location selection takes priority, regardless of lexical
             # overlap. Keep context within reviewed selection for this pilot.
-            hits=direct
+            hits=selection.hits
         context = assemble_context(clean, hits, max_chars=context_max_chars)
         evidence = self.tutor_session_service.evidence_from_retrieval_hits(
             context.hits
@@ -505,6 +515,7 @@ class TutorGroundingPlanner:
             teaching_policy=personalized_policy,
             session_goal=session_goal,
             teaching_plan=teaching_plan,
+            evidence_coverage=selection.coverage if selection else None,
         )
         return GroundingPlan(
             question=clean,
@@ -526,6 +537,7 @@ class TutorGroundingPlanner:
             ),
             teaching_policy=teaching_policy_mapping(personalized_policy),
             retrieval_queries=tuple(queries),
+            evidence_selection=selection,
         )
 
     def provider_request(self, session, plan, *, transcript=()):
@@ -544,4 +556,5 @@ class TutorGroundingPlanner:
             teaching_policy=plan.teaching_policy,
             session_goal=plan.session_goal,
             teaching_plan=plan.teaching_plan,
+            evidence_coverage=plan.evidence_selection.coverage if plan.evidence_selection else None,
         )

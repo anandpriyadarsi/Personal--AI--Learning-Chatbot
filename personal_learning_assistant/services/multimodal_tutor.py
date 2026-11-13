@@ -14,13 +14,18 @@ from .provider_permission_service import PermissionGuard
 from .multimodal_evidence_service import enabled
 
 
-def selected_hits(connection,session,*,allow_unbound=False):
+def select_evidence(connection,session,*,allow_unbound=False,max_chars=12000):
+    from personal_learning_assistant.domain.multimodal_models import EvidenceSelection,EvidenceCoverage
+    from personal_learning_assistant.retrieval.rag_context import assemble_context
     selected=session.metadata.get('mm_selection')
-    if not selected:return ()
+    if not selected:return EvidenceSelection()
     if not enabled():raise ValueError('Multimodal Tutor is disabled; remove selected evidence to continue')
     wanted=session.metadata.get('source_document_id')
-    hits=[]
-    for r in SQLiteRetrievalSourceRepository(connection).active_records():
+    hits=[];excluded=[];selected_frames=0
+    active=SQLiteRetrievalSourceRepository(connection).active_records()
+    by_placement={}
+    for r in active:by_placement.setdefault(r['locator'].get('native_document_id'),[]).append(r)
+    for r in active:
         if r['document_id']!=wanted:continue
         loc=r['locator'];actual=loc.get('mm_locator',{})
         bound=session.metadata.get('mm_source_ref')
@@ -35,6 +40,7 @@ def selected_hits(connection,session,*,allow_unbound=False):
             course_ids=r['course_ids'],topic_ids=r['topic_ids'],providers=r['providers']))
     if not hits:raise ValueError('Selected source/version/location is unavailable; review it again')
     if session.course_id and any(session.course_id not in h.course_ids for h in hits):raise ValueError('Selected evidence is outside the conversation course')
+    cue_count=sum(h.locator.get('mm_locator',{}).get('kind')=='transcript_cue' for h in hits)
     manifest_id=session.metadata.get('mm_manifest_id')
     if manifest_id:
         root=_root(connection)
@@ -47,17 +53,36 @@ def selected_hits(connection,session,*,allow_unbound=False):
             if not transcript or source_ref(dict(transcript))!=json.loads(manifest['source_json']):raise ValueError('Lecture source version changed')
             if transcript['id']!=hits[0].locator['native_document_id']:raise ValueError('Manifest belongs to another source')
             for frame in json.loads(manifest['frames_json']):
-                if not selected.get('start_ms',0)<=frame['timestamp_ms']<selected.get('end_ms',0):continue
+                if not selected.get('start_ms',0)<=frame['timestamp_ms']<selected.get('end_ms',0):
+                    excluded.append((digest(frame),'outside_interval'));continue
+                selected_frames+=1
                 doc=native.execute('SELECT * FROM documents WHERE id=?',(frame['document_id'],)).fetchone()
                 if not doc or doc['trashed_at'] or source_ref(dict(doc))!=frame['source']:raise ValueError('Supplied frame version changed')
                 _verified_original(root,dict(doc))
-                for r in SQLiteRetrievalSourceRepository(connection).active_records():
-                    if r['locator'].get('native_document_id')!=frame['document_id'] or not r['locator'].get('mm_artifact_id'):continue
+                frame_records=[r for r in by_placement.get(frame['document_id'],[]) if r['locator'].get('mm_artifact_id')]
+                if not frame_records:excluded.append((digest(frame),'unread'))
+                for r in frame_records:
+                    if session.course_id and session.course_id not in r['course_ids']:raise ValueError('Supplied frame is outside the conversation course')
                     frame_locator=dict(r['locator'],mm_frame_pts_ms=frame['timestamp_ms'],mm_parent_manifest=manifest_id)
                     hits.append(RetrievalHit(chunk_id=r['chunk_id'],document_id=r['document_id'],text=r['text'],score=1,
                         lexical_rank=None,semantic_rank=None,page_number=None,locator=frame_locator,
                         resource_ids=r['resource_ids'],course_ids=r['course_ids'],topic_ids=r['topic_ids'],providers=r['providers']))
-    return tuple(hits[:10])
+    considered=tuple(hits)
+    for h in hits[10:]:excluded.append((h.chunk_id,'hit_limit'))
+    bounded=tuple(hits[:10])
+    context=assemble_context('',bounded,max_chars=min(12000,int(max_chars)))
+    included={h.chunk_id for h in context.hits}
+    for h in bounded:
+        if h.chunk_id not in included:excluded.append((h.chunk_id,'context_budget'))
+    narrowing=any(reason in ('hit_limit','context_budget') for _,reason in excluded)
+    coverage=EvidenceCoverage(tuple(h.chunk_id for h in context.hits),tuple(excluded),cue_count,selected_frames,
+                              not any(reason!='outside_interval' for _,reason in excluded),narrowing)
+    return EvidenceSelection(tuple(context.hits),coverage,considered)
+
+
+def selected_hits(connection,session,*,allow_unbound=False):
+    """Compatibility projection; planners use coverage, never this alone."""
+    return select_evidence(connection,session,allow_unbound=allow_unbound).hits
 
 
 def _root(connection):

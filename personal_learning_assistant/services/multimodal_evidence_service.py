@@ -13,7 +13,7 @@ from personal_learning_assistant.domain.multimodal_models import canonical,diges
 from .multimodal_schema import available
 
 _REVIEW_SECRET=secrets.token_bytes(32)
-RECIPE='multimodal-local-v1'
+RECIPE='multimodal-local-v2-fidelity'
 
 
 def enabled():
@@ -29,7 +29,7 @@ class MultimodalEvidenceService:
         with self.lib.connection() as con:
             if not available(con):raise ValueError('Stop ANVAYA and explicitly activate multimodal schema first')
 
-    def preview(self,document_id,locator,*,method='local',text=''):
+    def preview(self,document_id,locator,*,method='local',text='',review_complete=False,declared_uncertain=None):
         self.check();doc=self.lib.get(document_id);loc=validate_locator(locator)
         if doc['trashed_at'] or doc['availability']!='available':raise ValueError('Original unavailable')
         allowed={'pdf':'pdf_page','pptx':'pptx_slide','png':'image','jpg':'image','jpeg':'image','webp':'image','srt':'transcript_cue','vtt':'transcript_cue'}
@@ -37,7 +37,11 @@ class MultimodalEvidenceService:
         if method not in ('local','review','vision'):raise ValueError('Only local processing or explicit user transcription is enabled')
         if not isinstance(text,str) or len(text)>16000 or (method=='review' and not text.strip()):raise ValueError('Supply a bounded transcription')
         if doc['kind'] in ('png','jpg','jpeg','webp') and doc['size']>10*1024*1024:raise ValueError('Image processing limit is 10 MiB')
-        scope=dict(source=source_ref(doc),locator=loc,method=method,text=text)
+        from .multimodal_fidelity import assess_reading
+        assessment=assess_reading(text,origin='user_transcription' if method=='review' else 'embedded_text',
+                                 declared_uncertain=[] if declared_uncertain is None else declared_uncertain,review_complete=review_complete)
+        scope=dict(source=source_ref(doc),locator=loc,method=method,text=text,
+                   review_complete=review_complete,declared_uncertain=[] if declared_uncertain is None else declared_uncertain)
         provider='local';cost=0
         if method=='vision':
             if doc['kind']=='pptx':raise ValueError('Export the selected slide as PNG or PDF; faithful slide rendering is unavailable')
@@ -68,7 +72,8 @@ class MultimodalEvidenceService:
                 consent=dict(source=source_ref(doc),locator=scope['locator'])
                 con.execute('INSERT INTO mm_permissions VALUES(?,?,?,?,?,?,0)',(receipt,canonical(consent),scope['provider'],'extract',scope['cost'],time.time()+900))
             con.execute('INSERT OR REPLACE INTO mm_selections VALUES(?,?,?,?,?,?,?,?)',
-                        (document_id,canonical(source_ref(doc)),canonical(scope['locator']),scope['method'],scope['text'],receipt,'queued',''))
+                        (document_id,canonical(source_ref(doc)),canonical(scope['locator']),scope['method'],
+                         canonical(dict(format='review-v2',text=scope['text'],review_complete=scope.get('review_complete',False),declared_uncertain=scope.get('declared_uncertain',[]))),receipt,'queued',''))
             self.lib._enqueue_publication(con,document_id)
         self.lib._wake.set()
         return self.status(document_id)
@@ -128,14 +133,21 @@ class MultimodalEvidenceService:
         cues=TranscriptExtractor().extract(self.lib.original(doc['id']).read_bytes(),source_name=doc['original_name'])
         cue=next((c for c in cues if c.timestamp_start_ms<=timestamp_ms<c.timestamp_end_ms),None)
         if not cue:raise ValueError('No supplied cue covers this time; timing is unavailable')
-        frames=[]
+        frames=[];outside=0;unread=0
         for f in json.loads(row['frames_json']):
             frame=self.lib.get(f['document_id'])
             if source_ref(frame)!=f['source'] or frame['trashed_at']:raise ValueError('Supplied frame version changed')
             self.lib.original(frame['id'])
-            if cue.timestamp_start_ms<=f['timestamp_ms']<cue.timestamp_end_ms:frames.append(f)
+            if cue.timestamp_start_ms<=f['timestamp_ms']<cue.timestamp_end_ms:
+                with self.lib.connection() as con:
+                    readings=con.execute('SELECT status FROM mm_artifacts WHERE document_id=? AND source_json=?',(frame['id'],canonical(source_ref(frame)))).fetchall()
+                state='unread' if not readings or frame['tutor_state']!='ready' else 'uncertain' if any(r['status']=='unknown' for r in readings) else 'supplied reading'
+                if state in ('unread','uncertain'):unread+=1
+                frames.append(dict(f,name=frame['display_name'],reading_state=state))
+            else:outside+=1
         return dict(cue=dict(text=cue.text,start_ms=cue.timestamp_start_ms,end_ms=cue.timestamp_end_ms),
-                    frames=frames,reference=row['reference'],alignment='user_supplied',transcript_id=doc['id'])
+                    frames=frames,reference=row['reference'],alignment='user_supplied',transcript_id=doc['id'],
+                    coverage=dict(selected_frames=len(frames),unread_or_uncertain=unread,outside_interval=outside))
 
 
 def extract_selected(library,doc,cancelled):
@@ -177,14 +189,22 @@ def extract_selected(library,doc,cancelled):
             except Exception:
                 guard.finish(operation,'outcome_unknown')
                 raise ValueError('Provider outcome unknown; automatic retry is blocked') from None
-        text=row['review_text'] if row['method']=='review' else result['text']
-        uncertain=[] if row['method']=='review' else result['uncertain']
+        review=dict(text=row['review_text'],declared_uncertain=[],review_complete=False)
+        try:
+            decoded=json.loads(row['review_text'])
+            if isinstance(decoded,dict) and decoded.get('format')=='review-v2':review=decoded
+        except (ValueError,TypeError):pass
+        text=review['text'] if row['method']=='review' else result['text']
+        uncertain=review.get('declared_uncertain',[]) if row['method']=='review' else result['uncertain']
         kind='user_transcription' if row['method']=='review' else result['kind']
-        status='observed' if row['method']=='review' else ('unknown' if uncertain else 'observed')
+        from .multimodal_fidelity import assess_reading
+        fidelity=assess_reading(text,origin=kind,declared_uncertain=uncertain,review_complete=review.get('review_complete',False) if row['method']=='review' else False)
+        status=fidelity['status'];uncertain=fidelity['uncertain']
         if not text.strip():text='Visual content is unreadable locally. Supply a transcription or a clearer image. Critical mathematical symbols are unknown.'
         # Preserve source/recipe/locator and separate append-only user review.
         recipe=RECIPE+':'+row['method']+(':'+provider.identity if row['method']=='vision' else ':pinned-local-parsers')
-        identity=digest(dict(source=source_ref(doc),locator=loc,recipe=recipe,method=row['method'],text=text))
+        if row['method']=='review' and review.get('review_complete'):recipe+=':review-complete'
+        identity=digest(dict(source=source_ref(doc),locator=loc,recipe=recipe,method=row['method'],text=text,uncertain=uncertain))
         with library.connection(write=True) as con:
             current=library._doc(con.execute('SELECT * FROM documents WHERE id=?',(doc['id'],)).fetchone())
             selection=con.execute('SELECT * FROM mm_selections WHERE document_id=?',(doc['id'],)).fetchone()

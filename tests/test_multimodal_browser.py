@@ -37,7 +37,7 @@ def test_image_review_to_existing_tutor_exact_citation_and_stale_source(live,wid
         page=browser.new_page(viewport={'width':width,'height':height});page.set_default_timeout(5000);errors=[];page.on('pageerror',lambda error:errors.append(str(error)))
         page.goto(base+'/library/files/'+doc['id']+'/open')
         page.get_by_text('Ask about this page/image',exact=True).click()
-        page.locator('#mm-method').select_option('review');page.locator('#mm-text').fill('The matrix has two rows and two columns.')
+        page.locator('#mm-method').select_option('review');page.locator('#mm-review-complete').check();page.locator('#mm-text').fill('The matrix has two rows and two columns.')
         page.get_by_role('button',name='Review selected scope',exact=True).click()
         expect(page.locator('#mm-review')).to_contain_text('no cloud transmission')
         page.get_by_role('button',name='Approve reviewed processing',exact=True).click()
@@ -71,7 +71,7 @@ def test_crop_scope_edits_invalidate_consent_and_survive_reload(live,width):
         page=browser.new_page(viewport={'width':width,'height':844})
         page.goto(base+'/library/files/'+doc['id']+'/open')
         page.get_by_text('Ask about this page/image',exact=True).click()
-        page.locator('#mm-method').select_option('review');page.locator('#mm-text').fill('Selected crop has two rows.')
+        page.locator('#mm-method').select_option('review');page.locator('#mm-review-complete').check();page.locator('#mm-text').fill('Selected crop has two rows.')
         page.locator('#mm-crop-enabled').check();page.get_by_label('Right (%)').fill('60')
         page.locator('#mm-preview').click();expect(page.locator('#mm-approve')).to_be_visible()
         page.get_by_label('Left (%)').fill('10');expect(page.locator('#mm-approve')).to_be_hidden()
@@ -115,7 +115,7 @@ def test_delayed_preview_cannot_approve_edited_scope(live):
         browser=pw.chromium.launch(executable_path=os.getenv('ANVAYA_CHROMIUM_PATH') or None)
         page=browser.new_page();held=[]
         page.goto(base+'/library/files/'+doc['id']+'/open');page.get_by_text('Ask about this page/image',exact=True).click()
-        page.locator('#mm-method').select_option('review');page.locator('#mm-text').fill('First reading')
+        page.locator('#mm-method').select_option('review');page.locator('#mm-review-complete').check();page.locator('#mm-text').fill('First reading')
         page.route('**/multimodal/preview',lambda route:held.append(route))
         page.locator('#mm-preview').click();page.wait_for_timeout(100)
         page.locator('#mm-text').fill('Edited reading');held[0].continue_()
@@ -129,7 +129,7 @@ def test_other_pdf_page_does_not_restore_previously_selected_page(live):
     from test_native_document_library import pdf_bytes
     from personal_learning_assistant.services.multimodal_evidence_service import MultimodalEvidenceService
     base,doc,lib=live;pdf=lib.upload(BytesIO(pdf_bytes()),'Two pages.pdf')
-    service=MultimodalEvidenceService(lib);p=service.preview(pdf['id'],{'kind':'pdf_page','page':1},method='review',text='Page one only')
+    service=MultimodalEvidenceService(lib);p=service.preview(pdf['id'],{'kind':'pdf_page','page':1},method='review',review_complete=True,text='Page one only')
     service.enqueue(pdf['id'],p['token'])
     with sync_playwright() as pw:
         browser=pw.chromium.launch(executable_path=os.getenv('ANVAYA_CHROMIUM_PATH') or None)
@@ -141,3 +141,60 @@ def test_other_pdf_page_does_not_restore_previously_selected_page(live):
         expect(page.locator('#mm-status')).to_contain_text('another page')
         expect(page.locator('#mm-ask')).to_be_hidden()
         browser.close()
+
+
+@pytest.mark.parametrize('width',[320,390,768,1366])
+def test_rotated_pdf_crop_tutor_citation_and_return(live,width,tmp_path):
+    import fitz
+    from playwright.sync_api import sync_playwright,expect
+    base,_,lib=live
+    pdf=fitz.open();p=pdf.new_page(width=400,height=600)
+    p.insert_text((40,70),'TOP_LEFT_SECRET');p.insert_text((40,520),'BOTTOM_LEFT_SELECTED');p.set_rotation(90)
+    original=pdf.tobytes();pdf.close();doc=lib.upload(BytesIO(original),'Rotated matrix.pdf')
+    with sync_playwright() as pw:
+        browser=pw.chromium.launch(executable_path=os.getenv('ANVAYA_CHROMIUM_PATH') or None,args=['--no-sandbox'])
+        page=browser.new_page(viewport={'width':width,'height':568});page.set_default_timeout(7000)
+        page.goto(base+'/library/files/'+doc['id']+'/open?position=1')
+        page.get_by_text('Ask about this page/image',exact=True).click()
+        page.locator('#mm-crop-enabled').check();page.get_by_label('Right (%)').fill('25');page.get_by_label('Bottom (%)').fill('50')
+        page.locator('#mm-preview').focus();page.keyboard.press('Enter')
+        expect(page.locator('#mm-approve')).to_be_visible();page.locator('#mm-approve').click()
+        expect(page.locator('#mm-ask')).to_be_visible(timeout=20000)
+        page.reload();page.get_by_text('Ask about this page/image',exact=True).click()
+        expect(page.get_by_label('Right (%)')).to_have_value('25')
+        page.locator('#mm-ask').click();page.wait_for_url('**/agent/sessions/*')
+        page.locator('#agent-question').fill('What does this show?');page.get_by_role('button',name='Ask tutor',exact=True).click()
+        expect(page.locator('.agent-turn-assistant')).to_contain_text('two rows',timeout=15000)
+        page.get_by_text('Sources & answer details',exact=True).click();page.locator('a[href^="/sources/evidence/"]').first.click()
+        image=page.get_by_alt_text('Exact retained PDF page');expect(image).to_be_visible();expect(page.get_by_label('Selected crop boundary')).to_be_visible()
+        before=image.bounding_box()['width'];page.get_by_role('button',name='Zoom +',exact=True).click()
+        assert image.bounding_box()['width']>before*1.2
+        assert page.evaluate('document.documentElement.scrollWidth<=innerWidth+1')
+        out=Path(os.getenv('ANVAYA_WEB_ARTIFACTS',str(tmp_path)));out.mkdir(parents=True,exist_ok=True)
+        page.screenshot(path=str(out/f'rotated-pdf-citation-{width}.png'))
+        page.get_by_role('link',name='Return to selected page',exact=True).click()
+        page.get_by_text('Ask about this page/image',exact=True).click()
+        expect(page.get_by_label('Right (%)')).to_have_value('25')
+        assert lib.original(doc['id']).read_bytes()==original
+        browser.close()
+
+
+def test_unknown_review_ui_preserves_ambiguity_and_rejects_edits(live,tmp_path):
+    from playwright.sync_api import sync_playwright,expect
+    base,doc,lib=live
+    with sync_playwright() as pw:
+        browser=pw.chromium.launch(executable_path=os.getenv('ANVAYA_CHROMIUM_PATH') or None)
+        page=browser.new_page(viewport={'width':320,'height':568})
+        page.goto(base+'/library/files/'+doc['id']+'/open');page.get_by_text('Ask about this page/image',exact=True).click()
+        page.locator('#mm-method').select_option('review');page.locator('#mm-review-complete').check();page.locator('#mm-text').fill('Matrix [[1,?],[0,2]]')
+        page.locator('#mm-unresolved').fill('Entry (1,2): missing sign')
+        page.locator('#mm-review-complete').check();page.locator('#mm-preview').click()
+        expect(page.locator('#mm-approve')).to_be_visible();page.locator('#mm-review-complete').uncheck()
+        expect(page.locator('#mm-approve')).to_be_hidden();page.locator('#mm-preview').click();page.locator('#mm-approve').click()
+        expect(page.locator('#mm-ask')).to_be_visible(timeout=20000);page.locator('#mm-ask').click();page.wait_for_url('**/agent/sessions/*')
+        page.locator('#agent-question').fill('Calculate its inverse');page.get_by_role('button',name='Ask tutor',exact=True).click()
+        expect(page.locator('.agent-turn-assistant')).to_contain_text('unclear',timeout=15000)
+        expect(page.locator('.agent-turn-assistant')).to_contain_text('Entry (1,2)')
+        assert page.evaluate('document.documentElement.scrollWidth<=innerWidth+1')
+        out=Path(os.getenv('ANVAYA_WEB_ARTIFACTS',str(tmp_path)));out.mkdir(parents=True,exist_ok=True)
+        page.screenshot(path=str(out/'unclear-matrix-320.png'));browser.close()

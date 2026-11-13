@@ -16,7 +16,9 @@
 {% set session_metadata = session.metadata|default({}, true) if session else {} %}
 {% if session and session_metadata.get('mm_selection') %}
 <section class="panel" data-mm-session="{{ session.session_id }}" data-mm-csrf="{{ native_library_csrf|default('') }}">
-  <p>Selected source: {{ session_metadata.get('mm_selection', {}).get('kind', 'Source') }} · Source only. Unclear symbols require review.</p>
+  <p>Selected source: {{ session_metadata.get('mm_selection', {}).get('kind', 'Source') }} · {{ 'Source only' if session.source_policy=='source_only' else 'Source first · general explanations are labeled separately' }}. Unclear symbols require review.</p>
+  {% for source in session_metadata.get('mm_sources', []) %}<p>{{ source.name }} · {{ source.location }} · {% if source.origin=='user_transcript' %}From supplied transcript{% elif source.origin=='user_transcription' %}From your transcription{% elif source.origin=='vision_transcription' %}From visual reading{% else %}From embedded text{% endif %}</p>{% endfor %}
+  {% set coverage=session_metadata.get('mm_coverage', {}) %}{% if coverage %}<p>Included {{ coverage.included|length }} readings · {{ coverage.selected_cue_count }} cues · {{ coverage.selected_frame_count }} selected frames.{% if not coverage.complete %} Some evidence is unread or omitted.{% endif %}{% if coverage.requires_narrowing %} Narrow the crop or interval before answering.{% endif %}</p>{% for item in coverage.excluded %}<span>{{ item.reason|replace('_',' ') }}{% if not loop.last %} · {% endif %}</span>{% endfor %}{% endif %}
   <button type="button" id="mm-answer-review">Review cloud answering scope</button>
   <button type="button" id="mm-answer-approve" hidden>Approve reviewed scope</button>
   <button type="button" id="mm-answer-revoke" hidden>Revoke permission</button>

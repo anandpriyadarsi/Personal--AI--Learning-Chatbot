@@ -28,6 +28,7 @@ class GroundingPlan:
     persistent_student_model: Mapping[str, object] = field(default_factory=dict)
     teaching_policy: Mapping[str, object] = field(default_factory=dict)
     retrieval_queries: Tuple[str, ...] = ()
+    evidence_selection: object = None
 
 
 @dataclass(frozen=True)

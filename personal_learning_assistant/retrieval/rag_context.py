@@ -26,6 +26,8 @@ def _source_label(hit, number):
         parts.append(str(locator["section"]))
     if locator.get('mm_locator'):
         loc=locator['mm_locator'];parts.append(loc['kind'])
+        parts.append({'user_transcript':'From supplied transcript','user_transcription':'From your transcription',
+                      'vision_transcription':'From visual reading','embedded_text':'From embedded text'}.get(locator.get('mm_kind'),'From visual reading'))
         if loc.get('start_ms') is not None:parts.append(str(loc['start_ms'])+'–'+str(loc['end_ms'])+' ms')
     return " | ".join(parts)
 
@@ -96,6 +98,10 @@ def assemble_context(query, hits, *, max_chars=12000):
         if blocks and total + extra > int(max_chars):
             break
         if not blocks and len(block) > int(max_chars):
+            if hit.locator.get('mm_locator'):
+                # A selected mathematical reading is atomic. The explicit
+                # coverage planner will ask for narrowing, never slice it.
+                break
             block = block[: int(max_chars)]
             extra = len(block)
 
