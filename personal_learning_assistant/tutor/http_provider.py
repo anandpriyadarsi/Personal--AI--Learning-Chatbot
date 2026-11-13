@@ -64,21 +64,26 @@ class OpenAICompatibleTutorProvider:
             ) from error
 
         try:
-            response = requests.post(
-                self.api_url,
-                headers={
-                    "Authorization": "Bearer {}".format(self.api_key),
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "model": self.model,
-                    "messages": list(request.messages),
-                    "temperature": self.temperature,
-                },
-                timeout=self.timeout_seconds,
-            )
-            response.raise_for_status()
-            payload = response.json()
+            if request.metadata.get('multimodal_guarded'):
+                from .vision_provider import bounded_post
+                payload=bounded_post(self.api_url,self.api_key,{'model':self.model,'messages':list(request.messages),
+                    'temperature':self.temperature,'store':False,'max_completion_tokens':2000})
+            else:
+                response = requests.post(
+                    self.api_url,
+                    headers={
+                        "Authorization": "Bearer {}".format(self.api_key),
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": self.model,
+                        "messages": list(request.messages),
+                        "temperature": self.temperature,
+                    },
+                    timeout=self.timeout_seconds,
+                )
+                response.raise_for_status()
+                payload = response.json()
             content = payload["choices"][0]["message"]["content"]
         except requests.Timeout as error:
             raise TutorProviderRequestError("tutor provider request timed out") from error

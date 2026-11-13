@@ -1,0 +1,14 @@
+{% if doc.kind in ('pdf','png','jpg','jpeg','webp','pptx','srt','vtt') %}
+<details id="mm-panel" data-document="{{ doc.id }}" data-position="{{ position }}" data-kind="{{ doc.kind }}" data-csrf="{{ csrf_token }}">
+<summary>Ask about this page/image</summary>
+<p>Select what ANVAYA may read. Originals stay unchanged. Local processing costs $0; cloud answering needs separate approval.</p>
+{% if doc.kind not in ('srt','vtt') %}
+<label>Reading method <select id="mm-method"><option value="local">Local inspection</option><option value="vision">Cloud visual reading (review required)</option><option value="review">My transcription / correction</option></select></label>
+<label>Transcription <textarea id="mm-text" maxlength="16000" rows="4" placeholder="Copy the visible content. Mark unclear entries as unknown; keep matrix rows and minus signs."></textarea></label>
+<button type="button" id="mm-preview">Review selected scope</button><button type="button" id="mm-approve" hidden>Approve reviewed processing</button><button type="button" id="mm-cancel">Cancel processing</button><button type="button" id="mm-ask" hidden>Ask Tutor</button>
+{% else %}<p>Use “Ask about this cue” below for exact supplied timing. Captions do not establish what is visible on the board.</p>
+<details><summary>Link supplied lecture frames</summary><label>Supplied frame <select id="mm-frame"><option value="">Transcript only</option>{% for frame in frame_options %}<option value="{{ frame.id }}">{{ frame.display_name }}</option>{% endfor %}</select></label><label>Supplied frame timestamp (ms) <input id="mm-frame-time" type="number" min="0" step="1" value="0"></label><label>YouTube reference (optional) <input id="mm-reference" type="url" maxlength="200"></label><button type="button" id="mm-manifest">Save transcript and frame link</button></details>
+{% endif %}
+<pre id="mm-review" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre><p id="mm-status" role="status" aria-live="polite"></p>
+</details>
+{% endif %}

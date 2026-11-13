@@ -1,0 +1,259 @@
+{
+  "positive_cases": 30,
+  "negative_retrieval_cases": 15,
+  "recall_at_5": 1.0,
+  "mean_precision_at_5": 1.0,
+  "baseline_text_only_projection_recall": "10/30",
+  "live_answer_quality": "NOT EVALUATED",
+  "hashes": {
+    "RREF-and-LU-3-pages.pdf": "2867dac996e5d073cac21cb6835042afb0c79aa57019a20c0cbc21f76e0781ff",
+    "matrix-0.png": "ca5de20d352f84564ddfbdd9e5ac811ac64890ecc3dcf1e23c44cdf55898e167",
+    "matrix-1.png": "37a9e57bef75342987e8098b5c1758186dc74db0b58e9ed93d345ccd8779a016",
+    "matrix-2.png": "b3ffea8dc48217d32a839be1b5abdb2d80f3758f020ad230227b288cc884976c",
+    "matrix-3.png": "f2b13bfbd8176af0ee79fe35ac0dcdd141df1ad2d33485c2e783f145cc1979bc",
+    "matrix-4.png": "a2d027a62f057f5efbba4eb1cc0197ec93943d3dd00a29e8c1626a46415e5683",
+    "lecture.vtt": "36c6c55d19815e4a27286115502a5985f653ac3330a448140ba6ace18354991c"
+  },
+  "gold": [
+    {
+      "id": "doc-0",
+      "token": "rrefgold00",
+      "modality": "embedded_text",
+      "page": 1,
+      "expected": "rrefgold00: A pivot is the first nonzero entry in a row.",
+      "document_id": "fcabb1a9dbc242b6b636e500de2f83c9"
+    },
+    {
+      "id": "doc-1",
+      "token": "rrefgold01",
+      "modality": "embedded_text",
+      "page": 1,
+      "expected": "rrefgold01: A pivot is the first nonzero entry in a row.",
+      "document_id": "fcabb1a9dbc242b6b636e500de2f83c9"
+    },
+    {
+      "id": "doc-2",
+      "token": "rrefgold02",
+      "modality": "embedded_text",
+      "page": 1,
+      "expected": "rrefgold02: A pivot is the first nonzero entry in a row.",
+      "document_id": "fcabb1a9dbc242b6b636e500de2f83c9"
+    },
+    {
+      "id": "doc-3",
+      "token": "rrefgold03",
+      "modality": "embedded_text",
+      "page": 1,
+      "expected": "rrefgold03: A pivot is the first nonzero entry in a row.",
+      "document_id": "fcabb1a9dbc242b6b636e500de2f83c9"
+    },
+    {
+      "id": "doc-4",
+      "token": "rrefgold04",
+      "modality": "embedded_text",
+      "page": 2,
+      "expected": "rrefgold04: A pivot is the first nonzero entry in a row.",
+      "document_id": "fcabb1a9dbc242b6b636e500de2f83c9"
+    },
+    {
+      "id": "doc-5",
+      "token": "rrefgold05",
+      "modality": "embedded_text",
+      "page": 2,
+      "expected": "rrefgold05: A pivot is the first nonzero entry in a row.",
+      "document_id": "fcabb1a9dbc242b6b636e500de2f83c9"
+    },
+    {
+      "id": "doc-6",
+      "token": "rrefgold06",
+      "modality": "embedded_text",
+      "page": 2,
+      "expected": "rrefgold06: A pivot is the first nonzero entry in a row.",
+      "document_id": "fcabb1a9dbc242b6b636e500de2f83c9"
+    },
+    {
+      "id": "doc-7",
+      "token": "rrefgold07",
+      "modality": "embedded_text",
+      "page": 2,
+      "expected": "rrefgold07: A pivot is the first nonzero entry in a row.",
+      "document_id": "fcabb1a9dbc242b6b636e500de2f83c9"
+    },
+    {
+      "id": "doc-8",
+      "token": "rrefgold08",
+      "modality": "embedded_text",
+      "page": 3,
+      "expected": "rrefgold08: A pivot is the first nonzero entry in a row.",
+      "document_id": "fcabb1a9dbc242b6b636e500de2f83c9"
+    },
+    {
+      "id": "doc-9",
+      "token": "rrefgold09",
+      "modality": "embedded_text",
+      "page": 3,
+      "expected": "rrefgold09: A pivot is the first nonzero entry in a row.",
+      "document_id": "fcabb1a9dbc242b6b636e500de2f83c9"
+    },
+    {
+      "id": "matrixgold00",
+      "token": "matrixgold00",
+      "modality": "user_transcription",
+      "document_id": "523122bfc8af4bd7a59f2ff2bf93688e",
+      "expected": "matrixgold00: Matrix [[1,-1],[0,2]] has two rows and two columns."
+    },
+    {
+      "id": "matrixgold01",
+      "token": "matrixgold01",
+      "modality": "user_transcription",
+      "document_id": "523122bfc8af4bd7a59f2ff2bf93688e",
+      "expected": "matrixgold01: Matrix [[1,-1],[0,2]] has two rows and two columns."
+    },
+    {
+      "id": "matrixgold02",
+      "token": "matrixgold02",
+      "modality": "user_transcription",
+      "document_id": "c366fb7759234d69aef81f939e462386",
+      "expected": "matrixgold02: Matrix [[1,-1],[0,2]] has two rows and two columns."
+    },
+    {
+      "id": "matrixgold03",
+      "token": "matrixgold03",
+      "modality": "user_transcription",
+      "document_id": "c366fb7759234d69aef81f939e462386",
+      "expected": "matrixgold03: Matrix [[1,-1],[0,2]] has two rows and two columns."
+    },
+    {
+      "id": "matrixgold04",
+      "token": "matrixgold04",
+      "modality": "user_transcription",
+      "document_id": "2b1a738ff7954ec2a1246e512bac4307",
+      "expected": "matrixgold04: Matrix [[1,-1],[0,2]] has two rows and two columns."
+    },
+    {
+      "id": "matrixgold05",
+      "token": "matrixgold05",
+      "modality": "user_transcription",
+      "document_id": "2b1a738ff7954ec2a1246e512bac4307",
+      "expected": "matrixgold05: Matrix [[1,-1],[0,2]] has two rows and two columns."
+    },
+    {
+      "id": "matrixgold06",
+      "token": "matrixgold06",
+      "modality": "user_transcription",
+      "document_id": "30a7763888654677b91129e0bb48eb34",
+      "expected": "matrixgold06: Matrix [[1,-1],[0,2]] has two rows and two columns."
+    },
+    {
+      "id": "matrixgold07",
+      "token": "matrixgold07",
+      "modality": "user_transcription",
+      "document_id": "30a7763888654677b91129e0bb48eb34",
+      "expected": "matrixgold07: Matrix [[1,-1],[0,2]] has two rows and two columns."
+    },
+    {
+      "id": "matrixgold08",
+      "token": "matrixgold08",
+      "modality": "user_transcription",
+      "document_id": "63eaf13119594470a8c84f4a4d19b9e0",
+      "expected": "matrixgold08: Matrix [[1,-1],[0,2]] has two rows and two columns."
+    },
+    {
+      "id": "matrixgold09",
+      "token": "matrixgold09",
+      "modality": "user_transcription",
+      "document_id": "63eaf13119594470a8c84f4a4d19b9e0",
+      "expected": "matrixgold09: Matrix [[1,-1],[0,2]] has two rows and two columns."
+    },
+    {
+      "id": "lecturegold00",
+      "token": "lecturegold00",
+      "modality": "user_transcript",
+      "start_ms": 125,
+      "end_ms": 1750,
+      "expected": "lecturegold00: Swap rows before elimination when the pivot is zero.",
+      "document_id": "47430bfce32d4189bdf4f2bd85e67ad0"
+    },
+    {
+      "id": "lecturegold01",
+      "token": "lecturegold01",
+      "modality": "user_transcript",
+      "start_ms": 2125,
+      "end_ms": 3750,
+      "expected": "lecturegold01: Swap rows before elimination when the pivot is zero.",
+      "document_id": "47430bfce32d4189bdf4f2bd85e67ad0"
+    },
+    {
+      "id": "lecturegold02",
+      "token": "lecturegold02",
+      "modality": "user_transcript",
+      "start_ms": 4125,
+      "end_ms": 5750,
+      "expected": "lecturegold02: Swap rows before elimination when the pivot is zero.",
+      "document_id": "47430bfce32d4189bdf4f2bd85e67ad0"
+    },
+    {
+      "id": "lecturegold03",
+      "token": "lecturegold03",
+      "modality": "user_transcript",
+      "start_ms": 6125,
+      "end_ms": 7750,
+      "expected": "lecturegold03: Swap rows before elimination when the pivot is zero.",
+      "document_id": "47430bfce32d4189bdf4f2bd85e67ad0"
+    },
+    {
+      "id": "lecturegold04",
+      "token": "lecturegold04",
+      "modality": "user_transcript",
+      "start_ms": 8125,
+      "end_ms": 9750,
+      "expected": "lecturegold04: Swap rows before elimination when the pivot is zero.",
+      "document_id": "47430bfce32d4189bdf4f2bd85e67ad0"
+    },
+    {
+      "id": "lecturegold05",
+      "token": "lecturegold05",
+      "modality": "user_transcript",
+      "start_ms": 10125,
+      "end_ms": 11750,
+      "expected": "lecturegold05: Swap rows before elimination when the pivot is zero.",
+      "document_id": "47430bfce32d4189bdf4f2bd85e67ad0"
+    },
+    {
+      "id": "lecturegold06",
+      "token": "lecturegold06",
+      "modality": "user_transcript",
+      "start_ms": 12125,
+      "end_ms": 13750,
+      "expected": "lecturegold06: Swap rows before elimination when the pivot is zero.",
+      "document_id": "47430bfce32d4189bdf4f2bd85e67ad0"
+    },
+    {
+      "id": "lecturegold07",
+      "token": "lecturegold07",
+      "modality": "user_transcript",
+      "start_ms": 14125,
+      "end_ms": 15750,
+      "expected": "lecturegold07: Swap rows before elimination when the pivot is zero.",
+      "document_id": "47430bfce32d4189bdf4f2bd85e67ad0"
+    },
+    {
+      "id": "lecturegold08",
+      "token": "lecturegold08",
+      "modality": "user_transcript",
+      "start_ms": 16125,
+      "end_ms": 17750,
+      "expected": "lecturegold08: Swap rows before elimination when the pivot is zero.",
+      "document_id": "47430bfce32d4189bdf4f2bd85e67ad0"
+    },
+    {
+      "id": "lecturegold09",
+      "token": "lecturegold09",
+      "modality": "user_transcript",
+      "start_ms": 18125,
+      "end_ms": 19750,
+      "expected": "lecturegold09: Swap rows before elimination when the pivot is zero.",
+      "document_id": "47430bfce32d4189bdf4f2bd85e67ad0"
+    }
+  ]
+}

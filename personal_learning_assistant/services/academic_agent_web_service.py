@@ -661,6 +661,18 @@ class AcademicAgentWebService:
                         metadata["source_label"] if metadata is not None else "Source"
                     )
                     evidence["locator_label"] = locator["locator_label"]
+                    evidence['historical_exact']=False
+                    if connection.execute("SELECT 1 FROM sqlite_master WHERE name='tutor_evidence_snapshots'").fetchone():
+                        snapshot=connection.execute('SELECT * FROM tutor_evidence_snapshots WHERE turn_id=? AND label=?',(turn['turn_id'],evidence['citation_label'])).fetchone()
+                        if snapshot:
+                            evidence['citation_url']='/sources/evidence/'+snapshot['id']
+                            evidence['source_title']=snapshot['title']
+                            evidence['historical_exact']=True
+                            import json
+                            from personal_learning_assistant.domain.multimodal_models import location_label
+                            evidence['locator_label']=location_label(json.loads(snapshot['locator_json']))
+                    if not evidence['historical_exact']:
+                        evidence['locator_label']='Exact historical location unavailable'
             from personal_learning_assistant.repositories.sqlite.tutor_coding_repository import SQLiteTutorCodingRepository
             coding_repo = SQLiteTutorCodingRepository(repository)
             view["coding_schema_available"] = coding_repo.available()
@@ -903,7 +915,7 @@ class AcademicAgentWebService:
                 )
                 engine.answer(session.session_id, clean_question, request_id=request_id)
                 _prune_stale_empty_sessions(repository)
-            except (TutorSourceChangedError, CodingError) as error:
+            except (TutorSourceChangedError, CodingError, ValueError) as error:
                 raise AcademicAgentWebValidationError(str(error)) from error
             except runtime_module.UnifiedSearchStaleIndexError as error:
                 raise AcademicAgentWebUnavailableError(

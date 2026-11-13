@@ -29,6 +29,11 @@ def test_srt_transcript_preserves_timestamp_locator():
 def _pptx_bytes():
     slide1=("<?xml version='1.0' encoding='UTF-8'?><p:sld xmlns:p='http://schemas.openxmlformats.org/presentationml/2006/main' xmlns:a='http://schemas.openxmlformats.org/drawingml/2006/main'><p:cSld><p:spTree><p:sp><p:txBody><a:p><a:r><a:t>LU Factorization</a:t></a:r></a:p><a:p><a:r><a:t>PA equals LU</a:t></a:r></a:p></p:txBody></p:sp></p:spTree></p:cSld></p:sld>").encode();slide2=slide1.replace(b"LU Factorization",b"Applications");stream=io.BytesIO()
     with zipfile.ZipFile(stream,"w") as zf: zf.writestr("ppt/slides/slide2.xml",slide2);zf.writestr("ppt/slides/slide1.xml",slide1)
+    # Real presentations require ordered slide relationships; internal filenames
+    # alone are not the presentation order.
+    with zipfile.ZipFile(stream,"a") as zf:
+        zf.writestr('ppt/presentation.xml','<p:presentation xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><p:sldIdLst><p:sldId r:id="r1"/><p:sldId r:id="r2"/></p:sldIdLst></p:presentation>')
+        zf.writestr('ppt/_rels/presentation.xml.rels','<Relationships><Relationship Id="r1" Target="slides/slide1.xml"/><Relationship Id="r2" Target="slides/slide2.xml"/></Relationships>')
     return stream.getvalue()
 def test_pptx_extractor_is_slide_ordered_and_preserves_slide_number():
     units=PPTXExtractor().extract(_pptx_bytes(),source_name="slides.pptx");assert [u.slide_number for u in units]==[1,2];assert units[0].section_path=="LU Factorization";_k,l=decode_chunk_type(prepare_chunks(units,max_chars=300)[0].chunk_type);assert l["slide"]==1

@@ -1,0 +1,2 @@
+CREATE TABLE IF NOT EXISTS tutor_evidence_snapshots(id TEXT PRIMARY KEY, turn_id TEXT NOT NULL REFERENCES tutor_turns(id) ON DELETE CASCADE, label TEXT NOT NULL, source_json TEXT NOT NULL, locator_json TEXT NOT NULL, title TEXT NOT NULL, artifact_hash TEXT NOT NULL, UNIQUE(turn_id,label));
+CREATE TABLE IF NOT EXISTS mm_schema_ledger(version INTEGER PRIMARY KEY, checksum TEXT NOT NULL, backup_ref TEXT NOT NULL);

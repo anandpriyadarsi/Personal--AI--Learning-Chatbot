@@ -440,6 +440,9 @@ class NativeDocumentLibrary(NativeTutorBridge, AcademicFiles, LegacySources):
         self._wake.set()
 
     def _extract(self, doc):
+        from .multimodal_evidence_service import extract_selected
+        selected=extract_selected(self,doc,self._job_cancel[doc["id"]].is_set)
+        if selected is not None:return selected
         return extract_pages(self.original(doc['id']), doc['kind'], ocr=bool(doc['ocr']),
                              cancelled=self._job_cancel[doc['id']].is_set)
 

@@ -103,6 +103,8 @@ def create_app(config: Mapping[str, Any] | None = None) -> Flask:
     register_obsidian_connections(app)
     from .native_library import register_native_library
     register_native_library(app)
+    from .multimodal import register_multimodal
+    register_multimodal(app)
     from .library_settings import register_library_settings
     register_library_settings(app)
     from .pao_commands import register_pao_commands

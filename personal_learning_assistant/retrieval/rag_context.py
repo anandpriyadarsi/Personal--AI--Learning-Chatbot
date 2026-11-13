@@ -24,6 +24,9 @@ def _source_label(hit, number):
         parts.append(str(locator["topic"]))
     elif locator.get("section"):
         parts.append(str(locator["section"]))
+    if locator.get('mm_locator'):
+        loc=locator['mm_locator'];parts.append(loc['kind'])
+        if loc.get('start_ms') is not None:parts.append(str(loc['start_ms'])+'–'+str(loc['end_ms'])+' ms')
     return " | ".join(parts)
 
 
@@ -62,6 +65,8 @@ def _compact_provenance(hit):
     if local_topics:
         lines.append("local_topic_ids={}".format(",".join(local_topics)))
 
+    for key in ('mm_kind','mm_status','mm_uncertain','mm_recipe','mm_locator','mm_frame_pts_ms','mm_parent_manifest'):
+        if key in locator:lines.append(key+'='+str(locator[key])[:1500])
     ranks = []
     if hit.lexical_rank is not None:
         ranks.append("lexical_rank={}".format(hit.lexical_rank))
