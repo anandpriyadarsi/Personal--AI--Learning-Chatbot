@@ -4718,7 +4718,16 @@ def academic_agent_ask(session_id):
         )
     except AcademicAgentWebUnavailableError as error:
         safe_messages = {
-            "Tutor answer could not be saved. Refresh the session and try again.",
+            "Academic database is busy or locked. Stop duplicate ANVAYA processes, then check local storage before retrying; the response was not confirmed saved.",
+            "Academic database is read-only. Check local folder permissions; do not replace or recreate your existing personal database.",
+            "Academic storage has insufficient space. Free disk space outside your ANVAYA records, then verify the existing database.",
+            "Academic SQLite storage reported an I/O or integrity problem. Stop ANVAYA, preserve your backups and run read-only integrity checks.",
+            "Tutor evidence references a missing academic record. Do not delete or recreate data; inspect Library/index consistency first.",
+            "Tutor database schema could not complete the operation. Check the installed migration status; do not create an empty database.",
+            "This Tutor session changed during the response. Reopen the existing conversation and check its latest turns before attempting a new request.",
+            "Selected PDF evidence and the Tutor index do not match. Check the document's current Library version and index before resending.",
+            "Tutor session metadata is unreadable. Preserve existing database and session history; inspect migration compatibility before changing it.",
+            "Tutor answer could not be saved. Check local academic storage and Tutor evidence links before retrying.",
             "AI tutor is not configured on this machine.",
             "The AI tutor could not complete this request. Your academic data was not changed.",
             "Grounded academic sources are temporarily unavailable.",
