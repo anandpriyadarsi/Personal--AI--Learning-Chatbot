@@ -1,6 +1,7 @@
 """Durable scope receipts and integer micro-dollar reservations. No network."""
 from contextlib import contextmanager
 from datetime import datetime,timezone
+from pathlib import Path
 import sqlite3
 import time
 import uuid
@@ -12,8 +13,9 @@ class PermissionGuard:
         self.database=database;self.limit=integer(monthly_limit_micros,0,1_000_000_000)
 
     @contextmanager
-    def connection(self):
-        con=sqlite3.connect(str(self.database),isolation_level=None,timeout=5)
+    def connection(self,*,existing=False):
+        database=Path(self.database).resolve().as_uri()+'?mode=rw' if existing else str(self.database)
+        con=sqlite3.connect(database,uri=existing,isolation_level=None,timeout=5)
         con.row_factory=sqlite3.Row
         try:
             con.execute('BEGIN IMMEDIATE');yield con;con.commit()
@@ -52,3 +54,22 @@ class PermissionGuard:
             if not row or row['status']!='sending':raise ValueError('Operation is not sending')
             if actual is not None:integer(actual,0,row['reserved'])
             con.execute('UPDATE mm_provider_requests SET status=?,actual=? WHERE id=?',(status,actual,operation))
+
+    def mark_unknown(self,operation_id):
+        """Stopped-writer recovery only: retain costs and the unique replay fence.
+
+        No age heuristic is possible: the existing ledger has no lease or time.
+        The operator, rather than this method, must establish stopped writers.
+        """
+        if not isinstance(operation_id,str) or not operation_id.strip():
+            raise ValueError('Invalid operation ID')
+        if not Path(self.database).is_file():raise ValueError('Existing request database required')
+        with self.connection(existing=True) as con:
+            row=con.execute('SELECT status FROM mm_provider_requests WHERE id=?',(operation_id,)).fetchone()
+            if not row:raise ValueError('Operation does not exist')
+            if row['status']=='outcome_unknown':
+                return dict(operation=operation_id,status='outcome_unknown',changed=False)
+            if row['status']!='sending':raise ValueError('Operation is not sending')
+            updated=con.execute("UPDATE mm_provider_requests SET status='outcome_unknown' WHERE id=? AND status='sending'",(operation_id,))
+            if updated.rowcount!=1:raise ValueError('Operation changed during recovery')
+            return dict(operation=operation_id,status='outcome_unknown',changed=True)

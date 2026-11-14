@@ -18,8 +18,8 @@ def headers(app):return {'X-Library-CSRF':app.extensions['native_library_csrf'],
 def test_protected_review_queue_status_and_tutor_handoff(app,owners):
     lib,db=owners;doc=lib.upload(BytesIO(image_bytes()),'Matrix.png');c=app.test_client()
     base='/library/files/'+doc['id']+'/multimodal'
-    assert c.post(base+'/preview',json={'locator':{'kind':'image'},'method':'review','text':'Two rows'}).status_code==403
-    preview=c.post(base+'/preview',json={'locator':{'kind':'image'},'method':'review','text':'Two rows'},headers=headers(app))
+    assert c.post(base+'/preview',json={'locator':{'kind':'image'},'method':'review','review_complete':True,'text':'Two rows'}).status_code==403
+    preview=c.post(base+'/preview',json={'locator':{'kind':'image'},'method':'review','review_complete':True,'text':'Two rows'},headers=headers(app))
     assert preview.status_code==200
     assert c.post(base+'/jobs',json={'token':preview.json['token']},headers=headers(app)).status_code==202
     lib.run_pending()
@@ -44,7 +44,7 @@ def test_ready_status_retains_exact_selected_crop(app,owners):
     lib,db=owners;doc=lib.upload(BytesIO(image_bytes()),'crop.png');c=app.test_client()
     base='/library/files/'+doc['id']+'/multimodal'
     loc={'kind':'image','bbox':[.1,.2,.8,.9]}
-    p=c.post(base+'/preview',json={'locator':loc,'method':'review','text':'Selected rows'},headers=headers(app))
+    p=c.post(base+'/preview',json={'locator':loc,'method':'review','review_complete':True,'text':'Selected rows'},headers=headers(app))
     c.post(base+'/jobs',json={'token':p.json['token']},headers=headers(app));lib.run_pending()
     assert c.get(base+'/status').json['selection']==dict(loc,schema_version=2)
 

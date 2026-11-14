@@ -326,6 +326,16 @@ class GroundedTutorService:
         plan = self.planner.plan(session, query, transcript=(), top_k=3, max_chars=8000)
         source_ids = tuple(item.document_id for item in plan.evidence)
         before = validate_sources(source_ids)
+        from .multimodal_fidelity import clarification_for_plan
+        clarification=clarification_for_plan(plan)
+        if clarification:
+            repository=self.tutor_session_service.repository
+            if repository._exchange is not None:
+                repository._exchange['evidence_locators']={h.chunk_id:dict(h.locator) for h in plan.hits}
+            user=self.tutor_session_service.add_user_turn(session_id,query)
+            assistant=self.tutor_session_service.add_assistant_turn(session_id,clarification,support_level='insufficient',evidence=plan.evidence)
+            persist_context(before,user,assistant)
+            return {'user_turn_id':user.turn_id,'assistant_turn_id':assistant.turn_id,'replayed':False}
         if not plan.evidence and session.source_policy == 'source_only':
             raise CodingError('sources_required', 'No matching source is available in this scope. Review sources or create a Source First practice conversation.', 409)
         state = load_adaptive_state(session.metadata)
@@ -370,12 +380,13 @@ class GroundedTutorService:
         if repository._exchange is not None:
             repository._exchange['evidence_locators']={h.chunk_id:dict(h.locator) for h in plan.hits}
 
-        if any(h.locator.get('mm_status')=='unknown' for h in plan.hits):
-            message='Critical symbols or visual content are unclear/unknown in the selected source. Please supply a clearer image or confirm a transcription before I calculate or infer an explanation. [S1]'
+        from .multimodal_fidelity import clarification_for_plan
+        message=clarification_for_plan(plan)
+        if message:
             user=self.tutor_session_service.add_user_turn(session_id,plan.question)
             assistant=self.tutor_session_service.add_assistant_turn(session_id,message,support_level='insufficient',evidence=plan.evidence)
             return GroundedTutorResult(question=plan.question,user_turn=user,assistant_turn=assistant,
-                citations=('S1',),retrieved_chunk_ids=tuple(e.chunk_id for e in plan.evidence),provider_request_id='')
+                citations=tuple(dict.fromkeys(_CITATION.findall(message))),retrieved_chunk_ids=tuple(e.chunk_id for e in plan.evidence),provider_request_id='')
 
         teaching_plan = dict(plan.teaching_plan or {})
         if plan.teaching_intent == "cancel_pending":

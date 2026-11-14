@@ -32,7 +32,7 @@ def test_image_review_queue_exact_locator_original_unchanged(owners):
     from personal_learning_assistant.services.multimodal_evidence_service import MultimodalEvidenceService
     lib,db=owners;raw=image_bytes();doc=lib.upload(BytesIO(raw),'matrix.png',subject_id='math')
     svc=MultimodalEvidenceService(lib)
-    review=svc.preview(doc['id'],{'kind':'image'},method='review',text='Matrix [[1,-1],[0,2]]')
+    review=svc.preview(doc['id'],{'kind':'image'},method='review',review_complete=True,text='Matrix [[1,-1],[0,2]]')
     svc.enqueue(doc['id'],review['token']);lib.run_pending()
     found=records(db);assert len(found)==1
     assert found[0]['locator']['mm_locator']['kind']=='image'
@@ -40,7 +40,7 @@ def test_image_review_queue_exact_locator_original_unchanged(owners):
     assert lib.original(doc['id']).read_bytes()==raw
     assert svc.status(doc['id'])['state']=='ready'
     # Changed source invalidates review token, even if bytes are shared.
-    review=svc.preview(doc['id'],{'kind':'image'},method='review',text='a')
+    review=svc.preview(doc['id'],{'kind':'image'},method='review',review_complete=True,text='a')
     lib.update(doc['id'],display_name='renamed')
     with pytest.raises(ValueError):svc.enqueue(doc['id'],review['token'])
 
@@ -48,10 +48,10 @@ def test_image_review_queue_exact_locator_original_unchanged(owners):
 def test_cancellation_fences_publication_and_off_flag_hides_evidence(owners,monkeypatch):
     from personal_learning_assistant.services.multimodal_evidence_service import MultimodalEvidenceService
     lib,db=owners;doc=lib.upload(BytesIO(image_bytes()),'a.png');svc=MultimodalEvidenceService(lib)
-    rev=svc.preview(doc['id'],{'kind':'image'},method='review',text='test')
+    rev=svc.preview(doc['id'],{'kind':'image'},method='review',review_complete=True,text='test')
     svc.enqueue(doc['id'],rev['token']);svc.cancel(doc['id']);lib.run_pending()
     assert not records(db)
-    rev=svc.preview(doc['id'],{'kind':'image'},method='review',text='test')
+    rev=svc.preview(doc['id'],{'kind':'image'},method='review',review_complete=True,text='test')
     svc.enqueue(doc['id'],rev['token']);lib.run_pending();assert records(db)
     monkeypatch.setenv('ANVAYA_MULTIMODAL_ENABLED','false');assert not records(db)
 
@@ -81,7 +81,7 @@ def test_pptx_uses_presentation_relationship_order():
 def test_rename_or_flag_off_cannot_republish_visual_text_as_legacy(owners,monkeypatch):
     from personal_learning_assistant.services.multimodal_evidence_service import MultimodalEvidenceService
     lib,db=owners;doc=lib.upload(BytesIO(image_bytes()),'private.png');s=MultimodalEvidenceService(lib)
-    p=s.preview(doc['id'],{'kind':'image'},method='review',text='private extracted matrix')
+    p=s.preview(doc['id'],{'kind':'image'},method='review',review_complete=True,text='private extracted matrix')
     s.enqueue(doc['id'],p['token']);lib.run_pending();assert records(db)
     lib.update(doc['id'],display_name='rename');lib.run_pending()
     assert not records(db)
@@ -102,7 +102,7 @@ def test_pdf_crop_excludes_off_scope_text_in_local_inspection(owners):
 def test_lost_lease_cannot_write_selected_artifact(owners):
     from personal_learning_assistant.services.multimodal_evidence_service import MultimodalEvidenceService,extract_selected
     lib,db=owners;doc=lib.upload(BytesIO(image_bytes()),'lease.png');s=MultimodalEvidenceService(lib)
-    p=s.preview(doc['id'],{'kind':'image'},method='review',text='must not publish')
+    p=s.preview(doc['id'],{'kind':'image'},method='review',review_complete=True,text='must not publish')
     s.enqueue(doc['id'],p['token']);claimed,job,token=lib._claim()
     claimed['_processing_job']=job;claimed['_lease_owner']=token
     with lib.connection(write=True) as con:con.execute('UPDATE processing_jobs SET lease_owner=? WHERE id=?',('another-worker',job))

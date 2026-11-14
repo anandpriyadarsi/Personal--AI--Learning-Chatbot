@@ -1,0 +1,2 @@
+Fuel-cell output: I = 2 A; V = 0.7 V
+Electrical power P = I V

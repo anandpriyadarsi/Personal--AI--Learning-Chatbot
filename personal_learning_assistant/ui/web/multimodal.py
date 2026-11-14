@@ -6,7 +6,7 @@ from urllib.parse import urlsplit
 from flask import Blueprint,abort,current_app,jsonify,render_template,request,send_file,url_for
 from .native_library import service,protect,payload
 from personal_learning_assistant.services.multimodal_evidence_service import MultimodalEvidenceService,enabled
-from personal_learning_assistant.domain.multimodal_models import validate_locator,canonical
+from personal_learning_assistant.domain.multimodal_models import validate_locator,canonical,location_label
 
 multimodal=Blueprint('multimodal',__name__)
 
@@ -26,8 +26,8 @@ def database():
 @multimodal.post('/library/files/<document_id>/multimodal/preview')
 @protect
 def preview(document_id):
-    d=payload({'locator','method','text'})
-    return jsonify(svc().preview(document_id,d.get('locator'),method=d.get('method','local'),text=d.get('text','')))
+    d=payload({'locator','method','text','review_complete','declared_uncertain'})
+    return jsonify(svc().preview(document_id,d.get('locator'),method=d.get('method','local'),text=d.get('text',''),review_complete=d.get('review_complete',False),declared_uncertain=d.get('declared_uncertain',[])))
 
 
 @multimodal.post('/library/files/<document_id>/multimodal/jobs')
@@ -53,7 +53,7 @@ def ask(document_id):
     from personal_learning_assistant.repositories.sqlite.tutor_repository import SQLiteTutorRepository
     from personal_learning_assistant.services.tutor_session_service import TutorSessionService
     from personal_learning_assistant.domain.tutor_models import TutorSessionSpec
-    from personal_learning_assistant.services.multimodal_tutor import selected_hits
+    from personal_learning_assistant.services.multimodal_tutor import select_evidence
     from personal_learning_assistant.repositories.sqlite.retrieval_source_repository import SQLiteRetrievalSourceRepository
     data=payload({'locator','manifest_id'});loc=validate_locator(data.get('locator'));s=svc();doc=s.lib.get(document_id)
     with closing(sqlite3.connect(database(),isolation_level=None)) as con:
@@ -66,8 +66,10 @@ def ask(document_id):
                   'mm_selection':loc,'origin':'multimodal',
                   'prefill_question':'Explain the selected evidence and point out anything uncertain.'}
         if data.get('manifest_id'):metadata['mm_manifest_id']=data['manifest_id']
-        direct=selected_hits(con,SimpleNamespace(metadata=metadata,course_id=course_id),allow_unbound=True)
-        metadata['mm_source_ref']=dict(direct[0].locator)
+        selection=select_evidence(con,SimpleNamespace(metadata=metadata,course_id=course_id),allow_unbound=True)
+        metadata['mm_source_ref']=dict(selection.considered_hits[0].locator)
+        metadata['mm_coverage']=selection.coverage.as_dict()
+        metadata['mm_sources']=[dict(name=h.locator.get('filename','Selected source'),location=location_label(h.locator['mm_locator']),origin=h.locator.get('mm_kind','embedded_text')) for h in selection.hits]
         session=sessions.create_session(TutorSessionSpec(mode='doubt',source_policy='source_only',
             course_id=course_id,title='Ask ANVAYA · '+doc['display_name'],metadata=metadata))
     return jsonify(url=url_for('web.academic_agent_session',session_id=session.session_id)),201
@@ -129,6 +131,26 @@ def evidence_original(snapshot_id):
     response=send_file(result['_original_path'],mimetype=result['mime'],conditional=True)
     response.headers['Content-Security-Policy']='sandbox'
     return response
+
+
+@multimodal.get('/sources/evidence/<snapshot_id>/preview.png')
+@protect
+def evidence_preview(snapshot_id):
+    """Render a validated retained PDF version in a bounded, killable parser."""
+    from personal_learning_assistant.services.source_citation_service import resolve_snapshot
+    from personal_learning_assistant.services.multimodal_process_runner import inspect_original
+    from io import BytesIO
+    import base64
+    with closing(sqlite3.connect(database())) as con:
+        con.row_factory=sqlite3.Row;result=resolve_snapshot(con,snapshot_id,service())
+    if result['locator']['kind']!='pdf_page':raise ValueError('PDF page required')
+    page=dict(kind='pdf_page',page=result['locator']['page'])
+    rendered=inspect_original(result['_original_path'],'pdf',page)
+    # Resolve again after asynchronous rendering so a rename/revoke cannot
+    # publish a preview of a source whose identity changed during the render.
+    with closing(sqlite3.connect(database())) as con:
+        con.row_factory=sqlite3.Row;resolve_snapshot(con,snapshot_id,service())
+    return send_file(BytesIO(base64.b64decode(rendered['image'].split(',',1)[1])),mimetype='image/png')
 
 
 @multimodal.post('/agent/sessions/<session_id>/multimodal/answer-preview')

@@ -7,6 +7,21 @@ import tempfile
 import time
 
 
+def display_crop_to_pdf_clip(page, bbox):
+    """Map normalized upright display coordinates to unrotated PDF space.
+
+    Page.rect already accounts for rotation and CropBox. Text extraction uses
+    the unrotated page frame, while pixmaps use the displayed frame.
+    """
+    import fitz
+    from personal_learning_assistant.domain.multimodal_models import validate_locator
+    box=validate_locator(dict(kind='pdf_page',page=1,bbox=bbox))['bbox']
+    r=page.rect
+    display=fitz.Rect(r.x0+box[0]*r.width,r.y0+box[1]*r.height,
+                      r.x0+box[2]*r.width,r.y0+box[3]*r.height)
+    return display * page.derotation_matrix
+
+
 def inspect_original(path,kind,locator,cancelled=lambda:False,*,timeout=120):
     with tempfile.TemporaryDirectory(prefix='anvaya-mm-') as temp:
         output=Path(temp)/'result.json'
@@ -57,8 +72,7 @@ def _inspect(path,kind,loc):
             p=pdf[page-1]
             clip=None
             if loc.get('bbox'):
-                x0,y0,x1,y1=loc['bbox'];r=p.rect
-                clip=fitz.Rect(r.x0+x0*r.width,r.y0+y0*r.height,r.x0+x1*r.width,r.y0+y1*r.height)
+                clip=display_crop_to_pdf_clip(p,loc['bbox'])
             text=p.get_text(clip=clip)[:16000]
             scale=min(2,2048/max(p.rect.width,p.rect.height))
             pix=p.get_pixmap(matrix=fitz.Matrix(scale,scale),alpha=False)

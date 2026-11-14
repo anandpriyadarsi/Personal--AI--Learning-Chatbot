@@ -1,0 +1,1 @@
+A = [[2,1],[4,3]]. Use unit diagonal L for an LU factorization.

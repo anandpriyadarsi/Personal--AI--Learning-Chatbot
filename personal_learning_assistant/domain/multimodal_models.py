@@ -2,6 +2,29 @@
 import hashlib
 import json
 import math
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class EvidenceCoverage:
+    included: tuple = ()
+    excluded: tuple = ()  # (opaque placement/location identity, reason)
+    selected_cue_count: int = 0
+    selected_frame_count: int = 0
+    complete: bool = True
+    requires_narrowing: bool = False
+
+    def as_dict(self):
+        return dict(included=list(self.included),excluded=[dict(locator_id=i,reason=r) for i,r in self.excluded],
+                    selected_cue_count=self.selected_cue_count,selected_frame_count=self.selected_frame_count,
+                    complete=self.complete,requires_narrowing=self.requires_narrowing)
+
+
+@dataclass(frozen=True)
+class EvidenceSelection:
+    hits: tuple = ()
+    coverage: EvidenceCoverage = EvidenceCoverage()
+    considered_hits: tuple = ()
 
 
 def canonical(value):

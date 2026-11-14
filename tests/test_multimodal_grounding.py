@@ -12,7 +12,7 @@ from personal_learning_assistant.domain.tutor_models import TutorSessionSpec,Tut
 
 def prepared(owners):
     lib,db=owners;doc=lib.upload(BytesIO(image_bytes()),'matrix.png')
-    svc=MultimodalEvidenceService(lib);r=svc.preview(doc['id'],{'kind':'image'},method='review',text='The matrix has two rows and two columns.')
+    svc=MultimodalEvidenceService(lib);r=svc.preview(doc['id'],{'kind':'image'},method='review',review_complete=True,text='The matrix has two rows and two columns.')
     svc.enqueue(doc['id'],r['token']);lib.run_pending();found=records(db)
     return doc,found[0]
 
@@ -104,7 +104,7 @@ def test_selected_session_cannot_follow_new_artifact_generation(owners):
     session=SimpleNamespace(course_id=None,metadata={'source_document_id':record['document_id'],'mm_selection':record['locator']['mm_locator'],'mm_source_ref':record['locator']})
     with closing(sqlite3.connect(db)) as con:
         assert selected_hits(con,session)[0].text.startswith('The matrix')
-        svc=MultimodalEvidenceService(lib);p=svc.preview(doc['id'],{'kind':'image'},method='review',text='Changed interpretation')
+        svc=MultimodalEvidenceService(lib);p=svc.preview(doc['id'],{'kind':'image'},method='review',review_complete=True,text='Changed interpretation')
         svc.enqueue(doc['id'],p['token']);lib.run_pending()
         with pytest.raises(ValueError):selected_hits(con,session)
 
@@ -138,7 +138,7 @@ def test_selected_lecture_adds_only_ready_overlapping_supplied_frames(owners):
     lib,db=owners;s=MultimodalEvidenceService(lib)
     transcript=lib.upload(BytesIO(b'WEBVTT\n\n00:01.000 --> 00:04.000\nSwap the rows.'),'lecture.vtt')
     image=lib.upload(BytesIO(image_bytes()),'board.png')
-    p=s.preview(image['id'],{'kind':'image'},method='review',text='The board shows a row swap.')
+    p=s.preview(image['id'],{'kind':'image'},method='review',review_complete=True,text='The board shows a row swap.')
     s.enqueue(image['id'],p['token']);lib.run_pending()
     manifest=s.create_manifest(transcript['id'],[{'document_id':image['id'],'timestamp_ms':2000}])
     transcript_record=next(r for r in records(db) if r['locator']['native_document_id']==transcript['id'])
@@ -169,7 +169,7 @@ def test_frame_snapshot_keeps_supplied_timestamp_in_atomic_exchange(owners):
     from personal_learning_assistant.services.grounded_tutor_service import GroundedTutorService
     lib,db=owners;s=MultimodalEvidenceService(lib)
     transcript=lib.upload(BytesIO(b'WEBVTT\n\n00:01.000 --> 00:04.000\nSwap the rows.'),'lecture.vtt')
-    image=lib.upload(BytesIO(image_bytes()),'board.png');p=s.preview(image['id'],{'kind':'image'},method='review',text='The board shows a row swap.')
+    image=lib.upload(BytesIO(image_bytes()),'board.png');p=s.preview(image['id'],{'kind':'image'},method='review',review_complete=True,text='The board shows a row swap.')
     s.enqueue(image['id'],p['token']);lib.run_pending()
     manifest=s.create_manifest(transcript['id'],[{'document_id':image['id'],'timestamp_ms':2000}])
     record=next(r for r in records(db) if r['locator']['native_document_id']==transcript['id'])

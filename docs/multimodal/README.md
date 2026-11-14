@@ -87,3 +87,39 @@ Run repeatable offline validation on your own Windows machine with the existing 
 ```
 
 The validation command itself does not install anything, activate personal stores or call live providers. It runs isolated synthetic tests, clears provider keys from the subprocess environment, enforces a zero default budget, and records the actual OS, source revision, dirty-tree state, test exits/counts/skips and unverified live-model quality. A skip or failed suite makes the command fail. Browser installation above is an explicit optional prerequisite. Reports from Linux never claim Windows verification. No live vision test or video/ASR capability is implied by a passing offline report.
+
+## Phase 1.5: evidence fidelity and recovery
+
+Selected PDF crops now use upright display coordinates for both text and pixels.
+New user transcriptions require explicit review completion; unresolved entries,
+including legacy ambiguous readings, remain blocked before Tutor/Coding dispatch.
+Selected unread frames require review or explicit transcript-only reselection.
+The ten-hit/12,000-character bounds remain; oversized readings and omitted frames
+require narrowing rather than silently sliced mathematics. Original files and
+historical exchanges are retained; renaming still invalidates exact old citations.
+
+Run the installed environment's single offline command from this checkout:
+
+```sh
+python -m scripts.multimodal_validate --full-offline --output verification/phase15-offline.json
+```
+
+It creates temporary synthetic owners and exercises real Flask/Chromium, scoped
+unit tests, activation/restore and integrity. Dependencies/browsers must already
+be explicitly installed. It clears provider credentials, denies outbound network,
+and records actual host/SHA/tree/JUnit/screenshots. No personal activation occurs.
+A passing Linux result does not certify Windows or live model quality.
+
+For a Windows environment unavailable to the implementer, the optional one-command
+fallback is `powershell -File scripts/multimodal_validate.ps1`; it never installs
+or activates personal stores. Its runtime remains unverified until run on Windows.
+See [validation](phase15-validation.md), [recovery](request-recovery.md), and the
+[educational protocol](quality-protocol.md). The 30-positive/15-negative benchmark
+keeps fake-provider engineering checks separate from real educational quality.
+
+Personal-store activation is outside this PR's authorization. If later approved,
+follow this README's existing stopped-writer preview/backup/apply process, restore
+and verify a separate copy first, and separately back up external owners. Never
+create empty owners or overwrite newer records to make activation pass.
+Feature-off rollback: stop ANVAYA, set `ANVAYA_MULTIMODAL_ENABLED=false`, restart
+with `python phase7_web.py`. Keep originals, optional tables and history.

@@ -1,0 +1,4 @@
+PEM fuel cell:
+Anode -> H+ -> membrane -> cathode
+Anode -> e- -> external wire -> cathode
+Membrane conducts protons, external circuit conducts electrons.

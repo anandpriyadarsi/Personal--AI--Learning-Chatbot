@@ -1,0 +1,1 @@
+A cell schematic without current or voltage values.

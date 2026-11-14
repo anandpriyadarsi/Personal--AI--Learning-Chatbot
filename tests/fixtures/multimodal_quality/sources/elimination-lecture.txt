@@ -1,0 +1,3 @@
+Before: [[1,2],[2,5]]
+Frame one: R2 <- R2 - 2 R1
+Frame two: second row is [0,1]

@@ -1,0 +1,3 @@
+Acidic fuel cell:
+Anode: 2H2 -> 4H+ + 4e-
+Cathode: O2 + 4H+ + 4e- -> 2H2O

@@ -1,0 +1,1 @@
+Board step 18: subtract the required multiple of the pivot row.

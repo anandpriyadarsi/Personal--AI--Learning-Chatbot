@@ -1,0 +1,2 @@
+Discharge reaction: Pb + PbO2 + 2H2SO4 -> 2PbSO4 + 2H2O.
+Acid concentration tracks the amount of H2SO4 remaining.

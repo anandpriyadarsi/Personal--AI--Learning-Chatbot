@@ -1,0 +1,2 @@
+A = [[0,1],[1,1]]
+Ordinary elimination without pivoting divides by the leading pivot.
