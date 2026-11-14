@@ -48,6 +48,59 @@ def _utc_now_text():
     return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
+def _safe_tutor_persistence_error(error):
+    """Classify persistence failures without displaying private SQLite details.
+
+    The full exception may contain paths, selected chunk IDs or study text.
+    Keep the response from a closed, audited set; do not interpolate it.
+    """
+    from personal_learning_assistant.repositories.sqlite.tutor_repository import TutorRepositoryError
+
+    if isinstance(error, sqlite3.Error):
+        code = str(getattr(error, "sqlite_errorname", "") or "")
+        if code.startswith(("SQLITE_BUSY", "SQLITE_LOCKED")):
+            return ("Academic database is busy or locked. Stop duplicate ANVAYA processes, "
+                    "then check local storage before retrying; the response was not confirmed saved.")
+        if code.startswith("SQLITE_READONLY"):
+            return ("Academic database is read-only. Check local folder permissions; "
+                    "do not replace or recreate your existing personal database.")
+        if code.startswith("SQLITE_FULL"):
+            return ("Academic storage has insufficient space. Free disk space outside "
+                    "your ANVAYA records, then verify the existing database.")
+        if code.startswith(("SQLITE_IOERR", "SQLITE_CORRUPT", "SQLITE_NOTADB")):
+            return ("Academic SQLite storage reported an I/O or integrity problem. "
+                    "Stop ANVAYA, preserve your backups and run read-only integrity checks.")
+        if code.startswith("SQLITE_CONSTRAINT_FOREIGNKEY"):
+            return ("Tutor evidence references a missing academic record. "
+                    "Do not delete or recreate data; inspect Library/index consistency first.")
+        if code.startswith("SQLITE_ERROR"):
+            return ("Tutor database schema could not complete the operation. "
+                    "Check the installed migration status; do not create an empty database.")
+        if code.startswith("SQLITE_CONSTRAINT"):
+            return ("A Tutor turn or evidence link failed an SQLite data constraint. "
+                    "No answer was confirmed saved. Inspect source and citation consistency before retrying.")
+        return ("SQLite rejected the Tutor write with an unclassified storage error. "
+                "Preserve your database and run the offline persistence probe.")
+    from personal_learning_assistant.services.tutor_session_service import TutorSessionError
+    if isinstance(error, TutorSessionError):
+        return ("Tutor rejected the generated turn or evidence fields before saving. "
+                "This indicates a Tutor contract issue; run the offline persistence probe.")
+    if isinstance(error, TutorRepositoryError):
+        reason = str(error)
+        if reason == "Tutor session changed; refresh before retrying":
+            return ("This Tutor session changed during the response. Reopen the existing "
+                    "conversation and check its latest turns before attempting a new request.")
+        if reason.startswith(("evidence chunk not found:", "evidence chunk/document mismatch")):
+            return ("Selected PDF evidence and the Tutor index do not match. "
+                    "Check the document's current Library version and index before resending.")
+        if reason.startswith("tutor session metadata"):
+            return ("Tutor session metadata is unreadable. Preserve existing database "
+                    "and session history; inspect migration compatibility before changing it.")
+        return ("Tutor repository rejected a session or evidence invariant. "
+                "Run the offline persistence probe before retrying.")
+    return "Tutor answer could not be saved. Check local academic storage and Tutor evidence links before retrying."
+
+
 def _open_database(path, *, writable):
     path = Path(path)
     if not path.is_file() or path.is_symlink():
@@ -973,7 +1026,7 @@ class AcademicAgentWebService:
             except (repository_module.TutorRepositoryError,
                     session_service_module.TutorSessionError, sqlite3.Error) as error:
                 raise AcademicAgentWebUnavailableError(
-                    "Tutor answer could not be saved. Refresh the session and try again."
+                    _safe_tutor_persistence_error(error)
                 ) from error
         finally:
             if store is not None:

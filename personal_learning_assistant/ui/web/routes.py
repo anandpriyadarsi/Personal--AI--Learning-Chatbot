@@ -4637,6 +4637,55 @@ def academic_agent_session(session_id):
         )
 
 
+def _tutor_ask_validation_message(error):
+    """Translate known safe Tutor blockers without exposing private backend details.
+
+    Validation also covers multimodal consent, source identity and cost fences;
+    calling every ValueError an empty question misdiagnoses a visible draft.
+    Unknown reasons are deliberately not echoed to the browser.
+    """
+    reason = str(error)
+    messages = {
+        "Question cannot be empty.": "Enter a question before sending.",
+        "Tutor session is not active.": "This Tutor session is no longer active. Open a new session to ask another question.",
+        "Cloud answering is local-only until a cost bound and exact consent are configured":
+            "The selected PDF/image is ready, but cloud answering is disabled because its per-request cost allowance is zero. No provider call was made. Use local evidence inspection, or configure an explicit cost limit and then Review cloud answering scope and Approve reviewed scope before sending.",
+        "Consent required or source/provider/scope changed":
+            "Cloud answering permission is missing, expired, revoked, or does not match this selected source. No provider call was made. Review cloud answering scope, approve it, then send again.",
+        "Operation budget exceeded":
+            "The reviewed cost limit is lower than the requested bound. No provider call was made. Review the cost settings and reapprove the exact scope before sending.",
+        "Monthly budget exceeded; local-only is the default":
+            "The configured monthly cloud-answering budget would be exceeded. No provider call was made. Keep using local evidence inspection or review your cost settings.",
+        "Provider call already in progress":
+            "A previous provider request is still marked as sending. No new request was made. Check request status before trying again.",
+        "Operation already dispatched; unknown outcomes are not retried":
+            "This exact provider operation was already dispatched. It will not be resent automatically; check its recorded outcome before taking further action.",
+        "Provider outcome unavailable; no automatic retry. Review request status before retrying.":
+            "A provider request has an unknown outcome. ANVAYA has not retried it. Check the request ledger before creating a new operation.",
+        "Selected evidence changed during local answer":
+            "The selected source changed while answering. Reselect the current page in Library and review it again.",
+        "Provider unavailable; no request sent":
+            "The configured provider is currently unavailable. No provider call was made. Check your local provider settings.",
+        "Provider context exceeds reviewed request bound":
+            "The selected evidence and conversation are too large for this reviewed request. Narrow the source scope and try again.",
+    }
+    if reason in messages:
+        return messages[reason]
+    if reason.startswith(("Selected source/version/location is unavailable",
+                          "Selected source generation or artifact changed",
+                          "Exact selected source version unavailable",
+                          "Selected source changed", "Selected evidence is outside",
+                          "Supplied frame", "Lecture source version changed")):
+        return ("Selected academic evidence is no longer available in the reviewed version. "
+                "Open the source in Library, reselect the page or frame, and try again.")
+    if reason.startswith(("Multimodal Tutor is disabled", "Multimodal disclosure disabled")):
+        return ("Selected multimodal evidence is disabled. Your conversation is preserved. "
+                "Use local inspection or explicitly activate the verified multimodal feature.")
+    return ("The Tutor could not use this request with its current source or permissions. "
+            "Open the selected source in Library and review its evidence and answering scope; "
+            "your question remains in the composer.")
+
+
 @web_blueprint.post("/agent/sessions/<session_id>/ask")
 def academic_agent_ask(session_id):
     """Run one explicit grounded tutor question and redirect to the transcript."""
@@ -4653,11 +4702,11 @@ def academic_agent_ask(session_id):
             url_for("web.academic_agent_session", session_id=session_id, _anchor="tutor-latest-turn"),
             code=303,
         )
-    except AcademicAgentWebValidationError:
+    except AcademicAgentWebValidationError as error:
         return _render_session_error(
             service,
             session_id,
-            "Question cannot be empty or the tutor session is not active.",
+            _tutor_ask_validation_message(error),
             400,
         )
     except AcademicAgentWebNotFoundError:
@@ -4669,7 +4718,20 @@ def academic_agent_ask(session_id):
         )
     except AcademicAgentWebUnavailableError as error:
         safe_messages = {
-            "Tutor answer could not be saved. Refresh the session and try again.",
+            "Academic database is busy or locked. Stop duplicate ANVAYA processes, then check local storage before retrying; the response was not confirmed saved.",
+            "Academic database is read-only. Check local folder permissions; do not replace or recreate your existing personal database.",
+            "Academic storage has insufficient space. Free disk space outside your ANVAYA records, then verify the existing database.",
+            "Academic SQLite storage reported an I/O or integrity problem. Stop ANVAYA, preserve your backups and run read-only integrity checks.",
+            "Tutor evidence references a missing academic record. Do not delete or recreate data; inspect Library/index consistency first.",
+            "Tutor database schema could not complete the operation. Check the installed migration status; do not create an empty database.",
+            "This Tutor session changed during the response. Reopen the existing conversation and check its latest turns before attempting a new request.",
+            "Selected PDF evidence and the Tutor index do not match. Check the document's current Library version and index before resending.",
+            "Tutor session metadata is unreadable. Preserve existing database and session history; inspect migration compatibility before changing it.",
+            "A Tutor turn or evidence link failed an SQLite data constraint. No answer was confirmed saved. Inspect source and citation consistency before retrying.",
+            "SQLite rejected the Tutor write with an unclassified storage error. Preserve your database and run the offline persistence probe.",
+            "Tutor rejected the generated turn or evidence fields before saving. This indicates a Tutor contract issue; run the offline persistence probe.",
+            "Tutor repository rejected a session or evidence invariant. Run the offline persistence probe before retrying.",
+            "Tutor answer could not be saved. Check local academic storage and Tutor evidence links before retrying.",
             "AI tutor is not configured on this machine.",
             "The AI tutor could not complete this request. Your academic data was not changed.",
             "Grounded academic sources are temporarily unavailable.",

@@ -20,6 +20,7 @@
   {% for source in session_metadata.get('mm_sources', []) %}<p>{{ source.name }} · {{ source.location }} · {% if source.origin=='user_transcript' %}From supplied transcript{% elif source.origin=='user_transcription' %}From your transcription{% elif source.origin=='vision_transcription' %}From visual reading{% else %}From embedded text{% endif %}</p>{% endfor %}
   {% set coverage=session_metadata.get('mm_coverage', {}) %}{% if coverage %}<p>Included {{ coverage.included|length }} readings · {{ coverage.selected_cue_count }} cues · {{ coverage.selected_frame_count }} selected frames.{% if not coverage.complete %} Some evidence is unread or omitted.{% endif %}{% if coverage.requires_narrowing %} Narrow the crop or interval before answering.{% endif %}</p>{% for item in coverage.excluded %}<span>{{ item.reason|replace('_',' ') }}{% if not loop.last %} · {% endif %}</span>{% endfor %}{% endif %}
   <button type="button" id="mm-answer-review">Review cloud answering scope</button>
+  <p class="microcopy">A configured Tutor provider does not automatically authorize sharing selected PDF/image evidence. Cloud answering requires a nonzero reviewed cost allowance and separate approval for this exact source. Local inspection remains available without a provider call.</p>
   <button type="button" id="mm-answer-approve" hidden>Approve reviewed scope</button>
   <button type="button" id="mm-answer-revoke" hidden>Revoke permission</button>
   <p id="mm-answer-status" role="status"></p>
