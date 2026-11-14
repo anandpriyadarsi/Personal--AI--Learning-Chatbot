@@ -311,6 +311,7 @@
   if (typeof window !== "undefined") {
     window.ANVAYAAssessmentMath = api;
     if (typeof document !== "undefined") {
+      document.addEventListener("tutor:transcript-updated", () => renderAll(document.querySelector(".tutor-transcript")));
       if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => renderAll(document));
       else renderAll(document);
     }

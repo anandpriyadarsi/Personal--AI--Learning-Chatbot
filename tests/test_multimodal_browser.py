@@ -28,7 +28,7 @@ def live(owners):
     finally:server.shutdown();thread.join(5);server.server_close()
 
 
-@pytest.mark.parametrize('width,height',[(320,568),(390,844),(768,1024),(1366,768),(390,440)])
+@pytest.mark.parametrize('width,height',[(320,568),(360,844),(390,844),(768,1024),(1366,768),(390,440)])
 def test_image_review_to_existing_tutor_exact_citation_and_stale_source(live,width,height,tmp_path):
     from playwright.sync_api import sync_playwright,expect
     base,doc,lib=live

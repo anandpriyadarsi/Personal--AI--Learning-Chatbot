@@ -1,0 +1,550 @@
+{
+  "base_sha": "3c6dbfea860049da80358084becf5a17e97516b3",
+  "branch": "feature/tutor-3-v2-ui",
+  "checks": {
+    "unit": {
+      "passed": 135,
+      "failed": 0,
+      "skipped": 0
+    },
+    "browser": {
+      "passed": 81,
+      "failed": 0,
+      "skipped": 0
+    },
+    "contrast-copy": {
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0
+    },
+    "supplemental-browser": {
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0
+    },
+    "guard-final": {
+      "passed": 48,
+      "failed": 0,
+      "skipped": 0
+    }
+  },
+  "source_sha256": {
+    "personal_learning_assistant/services/academic_agent_web_service.py": "e7963aa1d4bad5ab9a95ce03a128bd37f2e72f74e9a3bb063eab6b9865e18305",
+    "personal_learning_assistant/services/tutor_coding_service.py": "a651a8cd7bc913060db61ead25bde6a392091d300dde7731b5ca366a0cb89e30",
+    "personal_learning_assistant/ui/web/routes.py": "e7a537d5e2427f4804ca4726140ea1dee610e5590f07fbe5a5cddc4c80bcdf6f",
+    "personal_learning_assistant/ui/web/static/css/tutor_v3.css": "920c4b2ad0ebfbe50c8de0fa17b3d7694cc7bdddf301f45cd8b2a2f2740d6925",
+    "personal_learning_assistant/ui/web/static/js/assessment_math.js": "89691c8d38028363427c027135f8452dedbcecfadd2ddb63be147b8be04d6676",
+    "personal_learning_assistant/ui/web/static/js/tutor_chat.js": "1195e21614bb6ea61e163821a27772fdd479d219fa7a6d3b22206dc5ca5093e0",
+    "personal_learning_assistant/ui/web/static/js/tutor_coding.js": "b1a4f6b3728987b7ec11d6542d00fc79978f73d21cc3e2623e4ceb61a2d09ea3",
+    "personal_learning_assistant/ui/web/templates/_tutor_coding_tools.html": "5c7976ab3f9175221c4ca2ce569627164f5b54c28d52ad19bf4c004e8bc0596b",
+    "personal_learning_assistant/ui/web/templates/_tutor_evidence_panel.html": "7773c407ad5fc63a9026eb7ea66fab00519a40024901a01d7d53a42b83ce9f6a",
+    "personal_learning_assistant/ui/web/templates/_tutor_session_history.html": "2735b127bbee5394fbae733ddfea797a30ec4306ddbab8f2ee9df51379662071",
+    "personal_learning_assistant/ui/web/templates/agent.html": "2e1afb42f3b98ff8ffd49dae1d88898efa551d0d5235102a75dc2654c761eb75",
+    "personal_learning_assistant/ui/web/templates/agent_session.html": "1b5bca3753d397b8e3378b459681ba31261cde89b786189da5a681b567792515",
+    "personal_learning_assistant/ui/web/templates/tutor_provider_state.html": "e12f8c1033a6d82ee4ad151355b4b059284c449e43e4702e5971b2a01dd3a42d",
+    "personal_learning_assistant/ui/web/tutor_coding.py": "f3ef80af496198028c05ede6b830786690405c819f7b7238fd9e47dbdca4d4b2",
+    "tests/test_multimodal_browser.py": "7bacb59082404504170143228641e94a112f65542cf53925a9c6f5292409895c",
+    "tests/test_tutor3_v2.py": "474d1efcaf8ec670a561f50f34650024915617773b10fae904d83ca569dc4038",
+    "tests/test_tutor3_v2_browser.py": "a0943c9babfe93c445fc29c85718ddcd11afe5f13fdfe9e7d4aa5cc0a7e92b8c",
+    "tests/test_tutor_coding_browser.py": "44fc8697972e428b198fbec1d8c1422915e377ff5ca2c1a186f937f442eb7543",
+    "tests/test_tutor_ui_v3_browser.py": "e686532eeadac53b82e0ea51344de6fa40d18ccd74182bfa7ed3eeb6b581d5f3"
+  },
+  "screenshots": [
+    {
+      "file": "coding-1366x440.png",
+      "sha256": "ba8915588c984424071c8cf20a65d76a747e0a8eb115ad7eb3a0b74f73a03a8b",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "coding-1366x768.png",
+      "sha256": "1668043648b87c75cb6cd74396a43f9f308563d08ace17d50e1fca1ed7b6a5ee",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "coding-1920x1080.png",
+      "sha256": "b1a0779aa216e460ad75e25d2e37eb3b357442dcad5806b36ddd590b783a20d0",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "coding-320x568.png",
+      "sha256": "cae4ba1173d58b0ceb3a78ab31116f2b0c4f350dd0e1452dedf74280870b06a0",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "coding-390x440.png",
+      "sha256": "8f83e84ce141166d82089c24f4ea3e3b16180fe80ea0b635bffff5ba7d1f7b5b",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "coding-390x844.png",
+      "sha256": "f3f001d7980e3538cde554a4e8b09a8b885889b31d1ee237af1a3bf4966bce7c",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "coding-768x1024.png",
+      "sha256": "14fee7f61534a68049009cb6dc6e07179be8866f9f2c2bdc46a8d2a2f2492edb",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "coding-dark-1366.png",
+      "sha256": "42a5bc551f6d586741a63bdbf7b30163506702b0fd07abef4b16be66c6b2798c",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "coding-dark-360.png",
+      "sha256": "8f0bbf3c1eec0f6c1a090c0ffe71df3598a551eb95da2560335e7acd416d2d81",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "coding-light-1366.png",
+      "sha256": "4e4a8140f73eb8fdc162b01bfb4589e41937660cc2b1e6f97d7efa7b580a61d3",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "coding-light-360.png",
+      "sha256": "ac51f12f9074a0f74d89ed63354d365e636516a87406386bbe5c748acb05d55f",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "coding-overview-dark-1366.png",
+      "sha256": "8b7d230c1f0d45f0aa5b20577e15a5488f5f6d974888062e5f29cb11424c0ab1",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "coding-overview-dark-360.png",
+      "sha256": "b4fc370665bea06b49a217927651a7b86f78257c3f79645accef425ea075a738",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "conversation-dark-1024.png",
+      "sha256": "7bdfea71b2ea646faae7c1b9bdc73f073f978461d9c1b98fbca49fb89add45c9",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "conversation-dark-1366.png",
+      "sha256": "4a8e26536e0280f769e768f438b250611ddc4702379cb7d9341b6aed8099948d",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "conversation-dark-320.png",
+      "sha256": "9acece6f91231c7b1b95440102be276dc90962536e90c2f010ad666ca9238435",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "conversation-dark-360.png",
+      "sha256": "b4798fd11fbc8bff4f6d0cb47dd8994f479231b22b89ea99e7fec7b0fbca4592",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "conversation-dark-390.png",
+      "sha256": "028bb69a32ffb328d7636aa7a4c65beeb79b304f005d9020daaabb3c21cc59c7",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "conversation-dark-430.png",
+      "sha256": "e638a98d811b5a514a3f08cdda27d8406cb5ce8d57176880a4d49367df7a8ccd",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "conversation-dark-768.png",
+      "sha256": "aa64f0c0189b1acf61d30027c1a422a1cfc04ae6774ebd57af84b51b4b71fc22",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "conversation-light-1024.png",
+      "sha256": "360a991cce18a60454a0c4292aa3a9d8cd891e0e420d2688f62d513b7d6b37a4",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "conversation-light-1366.png",
+      "sha256": "c9583c52b2004511826decf2bd6fe94089323d683a47ba7e8105bbcdb78f00fc",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "conversation-light-320.png",
+      "sha256": "625630e14be0002f82e7d67143a4fa61771758ebe9fbd7391adc198811fb0bc7",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "conversation-light-360.png",
+      "sha256": "fb47f793085962fec8d8892cef8e20b8e775156da88f70cf22150cf0db1c4ce1",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "conversation-light-390.png",
+      "sha256": "711b3f44f284c530dbeb2c3f825616003bf160d1ecf2acbc2b77c1a803f68859",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "conversation-light-430.png",
+      "sha256": "2354885b614f8edd2aedfe85366a9c47b9e9c55640d159ee590e9d072f02f322",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "conversation-light-768.png",
+      "sha256": "ef741d010564d6cbd61a67c89d35a3956851a74ac0f863856a94ff3a958ccf58",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "error-draft-dark-1366.png",
+      "sha256": "211489cf4e0c960be49d7b90371c736d39f16a92093455d7e38ae758d2d76fa7",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "error-draft-dark-360.png",
+      "sha256": "9e1e689ea54f4206f2e64ff6533d1afcf1415687cb6a9b4535213ca3b0654407",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "evidence-dark-1024.png",
+      "sha256": "dce448b1baba7382661dff9ccf2e93e259a0f6d44f36162915afb081bb38c878",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "evidence-dark-1366.png",
+      "sha256": "3f34ee437e5126d8dfeb8a376b336325d34dc451e84abdd619c9d1397fe5ebf6",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "evidence-dark-320.png",
+      "sha256": "bbc63c6c6c8a548d589792ab9c489dd903674794bed65870a864c33306ce6ff1",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "evidence-dark-360.png",
+      "sha256": "967bb7a47d592a572b763861d4aec46f2293d104e5e4d18b2ab169d2646078ae",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "evidence-dark-390.png",
+      "sha256": "6fe34362f3cf79d64ead5c056e6a8b3af61002d164b5ab766027d23bfc7f1100",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "evidence-dark-430.png",
+      "sha256": "2c73932b5d828510427646efd36150eb90dd0a67bb6d5c349e7a88d735fc7c47",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "evidence-dark-768.png",
+      "sha256": "a40e465f7e8895977ce3a8600da117b3816c34946545bb6a42d313d9b2147f8c",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "evidence-light-1024.png",
+      "sha256": "7aa9c47797e2eba2edd38335bc7e1b8d6ef8f5be2e8221026b9d1fed32483358",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "evidence-light-1366.png",
+      "sha256": "b60cb634139f20cfce700d68388f002a72a0a19fc9c971ea6182d448ac2ef6f5",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "evidence-light-320.png",
+      "sha256": "5fac59815bbbb16e963245e373dd9936f0918399a9e1a46dd909d4c9554e6501",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "evidence-light-360.png",
+      "sha256": "36f67bd907bc97828f627e8c9ee30a0909224a499a94fb80b42cad76ec244ea8",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "evidence-light-390.png",
+      "sha256": "48c4bfcb75503b9457f765ee7be3b64a691aecbcc341eb7d33badf4347ebb7d8",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "evidence-light-430.png",
+      "sha256": "af03e5d10de7631a9f41816415717710fd90e85cffbc4bc7a438548cdb94521d",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "evidence-light-768.png",
+      "sha256": "cad5f382bde5d9adaef53cef0791b3b4ff6706c113a24bc30c27b21d943fc202",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "home-1366-full.png",
+      "sha256": "5584d50b5709f3269eb46e24900afca0fbe197d3e6dfb20e2a333460b37ede3a",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "home-1366.png",
+      "sha256": "0e617db06572b177fc6f8ec327c429047636b49af156e0e7f2678e5828529923",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "home-360-full.png",
+      "sha256": "5b2bb2759b5155270f343d54a4dc7b2847ee20c3118edc4dab33354a28b44c67",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "home-360.png",
+      "sha256": "a1d630a7e5ba7d8acbe5ab4ba8d37d2b22d0c9ad41675bd09f8b791859c32d5d",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "home-390-full.png",
+      "sha256": "dfbb285da8dd5207026a26965123b0ceb256ef030563d7c89f4c431e2db1c43d",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "home-390.png",
+      "sha256": "fea3d871fba5c89a337e41413964875f24166e165b81010592734a2fb9fcd179",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "home-768-full.png",
+      "sha256": "93ed12b24652569e31d4e9b3754033b7fac78dc385379ec702ab7be0e8dea2f0",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "home-768.png",
+      "sha256": "53b75f8605b4c7b1502eef0c2a06439a28e44be8abb0ab8f2af2025cb71473ac",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "home-dark-1024.png",
+      "sha256": "3cd43414911af8f2c5ae58f3ddeb648d7718a8645e4485aa564884e4c4520c47",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "home-dark-1366.png",
+      "sha256": "0e617db06572b177fc6f8ec327c429047636b49af156e0e7f2678e5828529923",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "home-dark-320.png",
+      "sha256": "6bcf64075a831295098a00308bd42bc2bf448739d1ce1e8d7a9d81ee4c0d110f",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "home-dark-360.png",
+      "sha256": "a1d630a7e5ba7d8acbe5ab4ba8d37d2b22d0c9ad41675bd09f8b791859c32d5d",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "home-dark-390.png",
+      "sha256": "fea3d871fba5c89a337e41413964875f24166e165b81010592734a2fb9fcd179",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "home-dark-430.png",
+      "sha256": "aee4ff2646fec0718462dddaa81ab6cdf050972a28680c1af1e60cfceddc74d8",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "home-dark-768.png",
+      "sha256": "53b75f8605b4c7b1502eef0c2a06439a28e44be8abb0ab8f2af2025cb71473ac",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "home-light-1024.png",
+      "sha256": "c7d41e72e9f5d2398b6a447fe2c0ff4de0bce1ca39ff8d4fa75ae95950b562d7",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "home-light-1366.png",
+      "sha256": "cff0735a36f7d22b3fcdd99bfa2d8d415c475b620ef703fdd328a0ac1071c051",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "home-light-320.png",
+      "sha256": "26b1275bbd272d43c73d732206b41e02e68226603588b02d6978686957de6d83",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "home-light-360.png",
+      "sha256": "1dad46b57e960a85972f4c8d38a326437ca9ae50ae45dc27b7de2d2fa2de98d2",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "home-light-390.png",
+      "sha256": "7298a5ea2b516f15ef3ab68b8e23246c6589a37797eebaaf6a21dd4d310c5400",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "home-light-430.png",
+      "sha256": "9426dcf002519050bd45f2dfc3454d659c5783037f97fa3704fd3cfb34365856",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "home-light-768.png",
+      "sha256": "8a041c608c0f95124f428f59e5b17f50d9e254838159a4bf217e3fd96095dfa0",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "insufficient-dark-1366.png",
+      "sha256": "46d52aa6ba2289abb2949e93b12512e13018a3fa63fb0631cba32b6169e530e0",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "insufficient-dark-360.png",
+      "sha256": "bf7e2eae056bea7dca1eecbd8d05078b6d9415264a423956716af8468cf5f651",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "multimodal-1366-768.png",
+      "sha256": "1be28762fca04869c5f5f144eecd20c6e227f7af4d2686a6a0ee58cfa83d86a1",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "multimodal-320-568.png",
+      "sha256": "a07d337ce00a6e413520510ecf2870c1af74973123cb9675c6036af5adb26f77",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "multimodal-360-844.png",
+      "sha256": "485bc6867e713d38b39b1deddc7aaf8773169d1e88bf51b34de7b05ece71d9dd",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "multimodal-390-440.png",
+      "sha256": "e67573ba6da4345013530a5266a0195b5e3f94446f6ee82848e8e71bf16b2b3e",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "multimodal-390-844.png",
+      "sha256": "187d9d13b723a47ad2a43e385d1897f13b2772b1549ae1d26f8368dc8c3fde16",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "multimodal-768-1024.png",
+      "sha256": "91a17378356f7a44d7dd5bdf715cee2207cf106ba3520e0896c746f9e5743489",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "no-provider-dark-1366.png",
+      "sha256": "e4196a6e5bfd3a7818fa1fdfbfdd67fdf04f260e47065006e4228b371f28df1e",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "no-provider-dark-360.png",
+      "sha256": "ba65207cfb5891df2cfeec5713fc0e38aac84e38d7ae79ccbe2c397fe5209872",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "prototype-reference-1366.png",
+      "sha256": "da3577ce8ae742cc0ce72accad24c0df392875968d60f1fa5654bdc134e1a1de",
+      "fixture": "Claude visual reference, external fonts blocked"
+    },
+    {
+      "file": "prototype-reference-360.png",
+      "sha256": "265acaec2775c0ceaa59dec85e641e6ad928fd9316172cd3f9d9d2e522a33005",
+      "fixture": "Claude visual reference, external fonts blocked"
+    },
+    {
+      "file": "session-1366-full.png",
+      "sha256": "04d94e9f326f52195f4fe7a859a6587addeff4584746a4aa54bbdaab0f366fc5",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "session-1366.png",
+      "sha256": "04d94e9f326f52195f4fe7a859a6587addeff4584746a4aa54bbdaab0f366fc5",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "session-360-full.png",
+      "sha256": "d239b67e73d38a7bbdf89382866c5f1bd57f09bbea974c9455410dc64dc5aeb6",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "session-360.png",
+      "sha256": "d239b67e73d38a7bbdf89382866c5f1bd57f09bbea974c9455410dc64dc5aeb6",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "session-390-full.png",
+      "sha256": "e1b5b6d5cbd98915b004acf49d0a15e8c0efc22736a56c268cc92974ef38aaee",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "session-390.png",
+      "sha256": "e1b5b6d5cbd98915b004acf49d0a15e8c0efc22736a56c268cc92974ef38aaee",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "session-768-full.png",
+      "sha256": "b3ae73363774673c206edfbde91ba6e08ce8ae226e7ba155e0c13cfad1cd3891",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "session-768.png",
+      "sha256": "b3ae73363774673c206edfbde91ba6e08ce8ae226e7ba155e0c13cfad1cd3891",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "session-light-1366.png",
+      "sha256": "f350e2cc4041f0148605012cb9083bad542b4fd722298999df7f8b7e31873d5d",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "session-light-390.png",
+      "sha256": "230e264c8c4e6a0e8184113c186258ddbb9027d73305789ab2d401ef9c01bb93",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "sessions-dark-1366.png",
+      "sha256": "8156ac52a4b57446d484609e1a523ede05d0ed6354b84f3adcb9d7afaacb0481",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "sessions-dark-360.png",
+      "sha256": "502bbb55a688a34d239f60f099fbdb026770b2617524efda40225261ac56045d",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "sessions-light-1366.png",
+      "sha256": "437bd4134bb3ef5143fba414c92e0bbcc36df9e7ba8d9003fff5a7fde97632b9",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "sessions-light-360.png",
+      "sha256": "351968fc5dd238f102b0b5b39b516fd82c30d56749370c3b1c09807ee515e95f",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "short-360.png",
+      "sha256": "17757ea58593195ac929508c5c7866dca3991d03ecf4314baae1895301e0495d",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "tools-dark-1366.png",
+      "sha256": "d42291ed9165fbe43b4d6ad7838066c1e5da8a4d10e8969e29b1723d2084ad36",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "tools-dark-360.png",
+      "sha256": "741df2e7580dbbd5260bf41c4df06a4d152cc65aef9adbc6d4c864a7ed9e55a1",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "tools-light-1366.png",
+      "sha256": "c699209b8ed7dd33e57eae69b1505aa9d1cde9d6923f7c70e3be3212c38c297c",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "tools-light-360.png",
+      "sha256": "bbf11eeb0379b2caca64f08a925c31dffbc3fe1bc3b439cae4617b17c1479031",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "unavailable-evidence-dark-1366.png",
+      "sha256": "c1358958506cadc85239e0deb34eb0f7cd5d007324ff2c97a26ea7a957d5ab64",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    },
+    {
+      "file": "unavailable-evidence-dark-360.png",
+      "sha256": "20cedddce9136820f6be42b1e9b13ab7515b0ee07719610d670e174ce85ad63b",
+      "fixture": "real local Flask, synthetic owners/providers/projections; not live-model quality"
+    }
+  ],
+  "pr81": "open/draft/unmerged a1ae1ed31412bbaff7a16ef9f78394a89845e58d; integration blocked",
+  "browser": "Playwright 1.51.0, Chromium Headless Shell 134.0.6998.35",
+  "python": "3.12",
+  "windows": "unverified",
+  "physical_keyboard": "unverified",
+  "paid_calls": 0
+}

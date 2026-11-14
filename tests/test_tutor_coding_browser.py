@@ -68,8 +68,12 @@ def test_coding_journey_and_geometry(browser,coding_live,width,height):
         page.locator('#coding-tools-close').click()
         send('Check my prediction')
         assert len(provider.requests)==1
+        page.locator('.tutor-evidence-trigger').first.click()
+        expect(page.locator('#tutor-evidence-content')).to_contain_text('Cited in this answer')
+        page.keyboard.press('Escape')
         tools();page.locator('#coding-action').select_option('hint');page.locator('#coding-hint').select_option('2');page.locator('#coding-tools-close').click()
         send('Give me one stronger hint')
+        expect(page.locator('#tutor-evidence-content')).to_contain_text('Conversation updated')
         tools();page.locator('#coding-action').select_option('debug')
         page.locator('#coding-error').fill('KeyError: 2\n<svg onload=alert(1)>')
         page.locator('#coding-code').fill('df.loc[2]')

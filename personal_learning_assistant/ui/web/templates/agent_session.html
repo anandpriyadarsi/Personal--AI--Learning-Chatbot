@@ -25,16 +25,44 @@
 <script defer src="{{ url_for('static', filename='js/multimodal.js') }}"></script>
 {% endif %}
 <header class="tutor-session-heading">
-  <a class="tutor-back" href="{{ url_for('web.academic_agent') }}" aria-label="Back to Academic Agent">← Tutor</a>
-  <h1 id="agent-session-title">{% if session %}{{ session.title or 'A little clearer, every turn' }}{% else %}Tutor session{% endif %}</h1>
-  {% include "tutor_provider_state.html" %}
+  <div class="tutor-title-row">
+    <button type="button" data-tutor-open="tutor-sessions-panel" aria-controls="tutor-sessions-panel" aria-label="Sessions">☰ <span class="tutor-button-label">Sessions</span></button>
+    <div class="tutor-title-copy"><h1 id="agent-session-title">{{ session.title or 'New study session' if session else 'Tutor session' }}</h1>
+    {% if session %}<p class="tutor-scope">{{ session.course.code if session.course else 'Unscoped' }}{% if session.topic %} · {{ session.topic.name }}{% endif %} <span class="tutor-policy">{{ 'Source Only' if session.source_policy == 'source_only' else 'Source First' }}</span></p>{% endif %}</div>
+    <button type="button" data-tutor-evidence="latest" aria-controls="tutor-evidence-panel" aria-label="Evidence">▤ <span class="tutor-button-label">Evidence</span></button>
+  </div>
+  <div class="tutor-header-actions">
+    {% include 'tutor_provider_state.html' %}
   {% if session and config.get('TUTOR_CODING_ENABLED') and session.coding_schema_available %}
   <div class="coding-workspace-switch" role="group" aria-label="Tutor workspace">
     <button type="button" data-coding-workspace="academic" aria-pressed="{{ 'true' if session_metadata.get('coding_workspace_v1', {}).get('workspace', 'academic') == 'academic' else 'false' }}">Academic</button>
     <button type="button" data-coding-workspace="coding" aria-pressed="{{ 'true' if session_metadata.get('coding_workspace_v1', {}).get('workspace') == 'coding' else 'false' }}">Coding Studio</button>
   </div>
   {% endif %}
+  </div>
 </header>
+<details class="tutor-panel-fallback" id="tutor-sessions-fallback"><summary>Recent conversations</summary>
+  <section id="tutor-sessions-panel" class="tutor-drawer" aria-labelledby="tutor-sessions-title">
+    <div class="tutor-drawer-heading"><h2 id="tutor-sessions-title">Study sessions</h2><button type="button" data-tutor-close>Close</button></div>
+    <a class="tutor-new-session" href="{{ url_for('web.academic_agent') }}">＋ New study session</a>
+    <label for="tutor-session-search">Filter the 20 most recent conversations</label>
+    <input id="tutor-session-search" type="search" placeholder="Find a recent session…" autocomplete="off">
+    {% if tutor_ui is defined and tutor_ui.history_available %}
+      {% set history_sessions = tutor_ui.recent_sessions %}{% set current_session_id = session.session_id if session else '' %}
+      {% include '_tutor_session_history.html' %}
+      <p id="tutor-search-empty" hidden>No recent conversations match.</p>
+    {% else %}<p>Recent conversations unavailable. Your transcript is still readable.</p>{% endif %}
+  </section>
+</details>
+<details class="tutor-panel-fallback" id="tutor-evidence-fallback"><summary>Conversation evidence</summary>
+  <section id="tutor-evidence-panel" class="tutor-drawer" aria-labelledby="tutor-evidence-title">
+    <div class="tutor-drawer-heading"><h2 id="tutor-evidence-title">Answer evidence</h2><button type="button" data-tutor-close>Close</button></div>
+    <div id="tutor-evidence-content"><p>Select Evidence beside an answer to inspect its sources.</p></div>
+    <h3>Selected for this conversation</h3>
+    {% if session %}<p>{{ session.course.code if session.course else 'Unscoped' }}{% if session.topic %} · {{ session.topic.name }}{% else %} · whole course{% endif %}. Scope and source policy stay fixed.</p>{% endif %}
+    <p>Use the Library to select an original source. A different scope starts a new conversation.</p><a href="{{ url_for('native_library.home') }}">Open Library</a>
+  </section>
+</details>
 {% if error_message %}
 <section class="error-panel" aria-live="polite">
   <h3>Request could not be completed</h3>
@@ -47,6 +75,9 @@
 {% set goal = session.session_goal|default({}) %}
 {% set teaching = session.teaching_plan|default({}) %}
 {% set teaching_plan = teaching %}
+{% if session.status == 'active' and config.get('TUTOR_CODING_ENABLED') and session.coding_schema_available %}
+{% include '_tutor_coding_tools.html' %}
+{% elif config.get('TUTOR_CODING_ENABLED') %}<details class="tutor-coding-unavailable"><summary>Coding Studio needs activation · unavailable in this store</summary><p>Academic Tutor remains available; no activation was performed.</p></details>{% endif %}
 <section class="tutor-transcript" aria-labelledby="transcript-title">
   <div class="panel-heading">
     <div>
@@ -66,14 +97,14 @@
 
   {% if session.turns %}
     {% for turn in session.turns %}
-    <article class="agent-turn agent-turn-{{ turn.role }}"{% if loop.last %} id="tutor-latest-turn"{% endif %}>
+    <article class="agent-turn agent-turn-{{ turn.role }}" data-turn-id="{{ turn.turn_id }}"{% if loop.last %} id="tutor-latest-turn"{% endif %}>
       <div class="panel-heading">
         <div>
           <p class="eyebrow">{% if turn.role == 'assistant' %}Alex <span class="tutor-role-note">· Tutor</span>{% else %}You{% endif %}</p>
-          <span class="microcopy">Turn {{ turn.ordinal }} · {{ turn.created_at }}</span>
+
         </div>
         {% if turn.coding and turn.role == 'assistant' %}<span class="tag">AI feedback · not executed{% if turn.coding.full_solution %} · solution requested{% endif %}</span>{% endif %}
-        {% if turn.role == 'assistant' %}<span class="tag">Support: {{ turn.support_level|replace('_', ' ')|title }}</span>{% endif %}
+
       </div>
       {% if turn.role == 'assistant' %}
       <div class="agent-message tutor-markdown">{{ turn.content|tutor_markdown }}</div>
@@ -91,7 +122,9 @@
       {% if turn.role == 'assistant' %}
         {% if not turn.cited_labels and turn.support_level == 'mixed' %}<p class="microcopy">General explanation · no project source was cited.</p>{% endif %}
 
-        <details class="tutor-answer-details"><summary>Sources &amp; answer details</summary>
+        <button type="button" class="tutor-evidence-trigger" data-tutor-evidence="{{ turn.turn_id }}" aria-controls="tutor-evidence-panel">Evidence · answer {{ turn.ordinal }}</button>
+        {% include '_tutor_evidence_panel.html' %}
+        <details class="tutor-answer-details"><summary>Sources &amp; answer details</summary><p class="microcopy">Turn {{ turn.ordinal }} · {{ turn.created_at }} · Support: {{ turn.support_level|replace("_", " ")|title }}</p>
         <form class="tutor-turn-feedback" method="post" action="{{ url_for('web.academic_agent_feedback', session_id=session.session_id, turn_id=turn.turn_id) }}">
           <input type="hidden" name="csrf_token" value="{{ tutor_action_csrf }}">
           <span class="microcopy">Was this explanation useful?</span>
@@ -104,7 +137,7 @@
         {% if turn.evidence %}
           <div class="tag-row" aria-label="Answer evidence">
           {% for evidence in turn.evidence %}
-            <a class="tag" href="{{ evidence.citation_url or url_for('web.knowledge_item', document_id=evidence.document_id) }}">{% if evidence.citation_label in (turn.cited_labels or []) %}Cited{% else %}Retrieved context{% endif %} · {{ evidence.citation_label }} · {{ evidence.source_title or evidence.source_label or ('document ' ~ evidence.document_id) }}{% if evidence.locator_label %} · {{ evidence.locator_label }}{% endif %}{% if evidence.relation_type %} · {{ evidence.relation_type }}{% endif %}{% if evidence.retrieval_score is not none %} · score {{ '%.4f'|format(evidence.retrieval_score) }}{% endif %}</a>
+            <a class="tag" href="{{ evidence.citation_url if evidence.historical_exact and evidence.citation_url and evidence.citation_url.startswith('/sources/evidence/') else url_for('web.knowledge_item', document_id=evidence.document_id) }}">{% if evidence.citation_label in (turn.cited_labels or []) %}Cited{% else %}Retrieved context{% endif %} · {{ evidence.citation_label }} · {{ evidence.source_title or evidence.source_label or ('document ' ~ evidence.document_id) }}{% if evidence.locator_label %} · {{ evidence.locator_label }}{% endif %}{% if evidence.relation_type %} · {{ evidence.relation_type }}{% endif %}{% if evidence.retrieval_score is not none %} · score {{ '%.4f'|format(evidence.retrieval_score) }}{% endif %}</a>
                 <span class="visually-hidden">{{ evidence.citation_label }} · document {{ evidence.document_id }} · chunk {{ evidence.chunk_id }}</span>
           {% endfor %}
           </div>
@@ -118,7 +151,12 @@
   {% endif %}
 </section>
 
-<details class="tutor-secondary" id="tutor-learning-details"><summary>Learning journey, session details &amp; memory</summary>
+<details class="tutor-secondary" id="tutor-learning-details"><summary>Learning journey, session details &amp; memory</summary>  {% if session %}<details class="tutor-title-details"><summary>Session title &amp; rename</summary><p>{{ session.title or 'New study session' }}</p>
+  <form method="post" action="{{ url_for('web.academic_agent_rename_session', session_id=session.session_id) }}">
+    <input type="hidden" name="csrf_token" value="{{ tutor_action_csrf }}"><input type="hidden" name="return_to" value="session">
+    <label for="current-title">Session title</label><input id="current-title" name="title" value="{{ session.title or '' }}" maxlength="160" required><button type="submit">Save name</button>
+  </form></details>{% endif %}
+
 <section class="metric-grid" aria-label="Tutor session metadata">
   <article class="metric-card">
     <span class="metric-label">Mode</span>
@@ -255,12 +293,12 @@
 {% if session and session.status == 'active' %}
 <section class="tutor-composer" id="tutor-composer" aria-labelledby="ask-tutor-title">
   <h3 id="ask-tutor-title" class="visually-hidden">Ask grounded tutor</h3>
-  {% if config.get('TUTOR_CODING_ENABLED') and session.coding_schema_available %}
-  {% include '_tutor_coding_tools.html' %}
-  {% elif config.get('TUTOR_CODING_ENABLED') %}
-  <p class="microcopy">Coding Studio needs activation. Stop the server and run python -m personal_learning_assistant.services.coding_activation --database data/learning_assistant.db</p>
-  {% endif %}
-  <form id="tutor-ask-form" method="post" action="{{ url_for('web.academic_agent_ask', session_id=session.session_id) }}">
+  {% set saved_coding = (session.metadata|default({}, true)).get('coding_workspace_v1', {}).get('workspace') == 'coding' %}
+  <div id="coding-native-fallback"{% if not saved_coding %} hidden{% endif %}><p>Coding needs JavaScript to initialize safely. Send stays disabled until it is ready.</p>
+    <form method="post" action="{{ url_for('tutor_coding.workspace', sid=session.session_id) }}"><input type="hidden" name="csrf_token" value="{{ tutor_action_csrf }}"><input type="hidden" name="workspace" value="academic"><button type="submit">Switch to Academic Tutor</button></form>
+  </div>
+  <p id="tutor-dispatch-label" class="microcopy">{{ 'Coding Studio' if saved_coding else 'Academic Tutor' }} · Review your draft before sending</p>
+  <form id="tutor-ask-form" data-workspace="{{ 'coding' if saved_coding else 'academic' }}" method="post" action="{{ url_for('web.academic_agent_ask', session_id=session.session_id) }}">
     <input type="hidden" name="csrf_token" value="{{ tutor_action_csrf }}">
     <input type="hidden" name="request_id" value="{{ retry_request_id|default(tutor_request_id, true) }}">
     <div id="tutor-quick-prompts" class="tutor-quick-prompts" aria-label="Teaching follow-ups" hidden>
@@ -269,12 +307,13 @@
       <button type="button" data-tutor-prompt="Check my understanding with one question.">Check me</button>
       <button type="button" data-tutor-prompt="Explain the previous concept differently with an intuitive example.">Explain differently</button>
       <button type="button" data-tutor-prompt="Show one worked example and verify the calculation.">Worked example</button>
+      <a href="{{ url_for('native_library.home') }}">Open Library to select a source</a>
     </div>
     <div class="tutor-input-row">
       <button class="tutor-tools-toggle" id="tutor-tools-toggle" type="button" aria-controls="tutor-quick-prompts" aria-expanded="false">+ Tools</button>
       <label for="agent-question" class="visually-hidden">Question</label>
       <textarea id="agent-question" name="question" rows="1" maxlength="4000" required placeholder="Ask Alex, or share where you got stuck…">{{ failed_question if failed_question is defined else (session.prefill_question or "") }}</textarea>
-      <button class="tutor-primary tutor-send" type="submit" aria-label="Ask tutor"><span aria-hidden="true">↑</span><span class="visually-hidden">Ask tutor</span></button>
+      <button class="tutor-primary tutor-send" type="submit"{% if saved_coding %} disabled{% endif %} aria-label="Ask tutor"><span aria-hidden="true">↑</span><span class="visually-hidden">Ask tutor</span></button>
     </div>
     <p id="tutor-submit-status" class="visually-hidden" role="status" aria-live="polite">{{ error_message or "Review your message, then send. Learning guidance is not a grade." }}</p>
   </form>

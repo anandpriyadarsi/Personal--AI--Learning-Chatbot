@@ -19,6 +19,8 @@
       }).format(value);
       node.title = value.toLocaleString();
     });
+    installPanels();
+    installCodeCopy();
     // Rename is an in-flow editor, never a narrow overlay over other chats.
     const renameToggles = Array.from(document.querySelectorAll('[data-tutor-rename-toggle]'));
     const setRenameOpen = (toggle, open, focus = false) => {
@@ -29,6 +31,9 @@
       if (focus) (open ? editor.querySelector('input[name="title"]') : toggle)?.focus();
     };
     renameToggles.forEach(toggle => {
+      const native = toggle.closest('li')?.querySelector('.tutor-native-rename');
+      if (native) { native.open = true; native.classList.add('tutor-rename-enhanced'); }
+      setRenameOpen(toggle, false);
       toggle.addEventListener('click', () => {
         const open = toggle.getAttribute('aria-expanded') !== 'true';
         renameToggles.forEach(other => {
@@ -128,7 +133,10 @@
     const status = document.getElementById('tutor-submit-status');
     let submitting = false;
     form?.addEventListener('submit', event => {
-      if (form.dataset.workspace === 'coding') return;
+      if (form.dataset.workspace === 'coding') {
+        if (form.dataset.codingReady !== 'true') event.preventDefault();
+        return;
+      }
       if (submitting) { event.preventDefault(); return; }
       submitting = true;
       form.setAttribute('aria-busy', 'true');
@@ -164,6 +172,87 @@
         fit();
         composer.focus();
       });
+    });
+  }
+  function installCodeCopy() {
+    document.querySelectorAll('.tutor-transcript pre').forEach(pre => {
+      if (pre.querySelector('button')) return;
+      const code = pre.querySelector('code');
+      if (!code) return;
+      const button = document.createElement('button');
+      button.type = 'button'; button.className = 'coding-copy'; button.textContent = 'Copy code';
+      button.addEventListener('click', async () => {
+        try {
+          if (!navigator.clipboard) throw new Error('Clipboard unavailable');
+          await navigator.clipboard.writeText(code.textContent);
+          button.textContent = 'Copied';
+        } catch (_) { button.textContent = 'Select code and copy manually'; }
+      });
+      pre.append(button);
+    });
+  }
+  function installPanels() {
+    const panels = new Map();
+    let opener = null;
+    ['sessions', 'evidence'].forEach(name => {
+      const panel = document.getElementById('tutor-' + name + '-panel');
+      if (!panel || typeof HTMLDialogElement === 'undefined' || !HTMLDialogElement.prototype.showModal) return;
+      const fallback = panel.parentElement;
+      const dialog = document.createElement('dialog');
+      dialog.className = 'tutor-modal'; dialog.setAttribute('aria-labelledby', 'tutor-' + name + '-title');
+      dialog.append(panel); document.body.append(dialog); fallback.hidden = true;
+      panels.set(panel.id, dialog);
+      panel.querySelector('[data-tutor-close]').addEventListener('click', () => dialog.close());
+      dialog.addEventListener('click', event => { if (event.target === dialog) dialog.close(); });
+      dialog.addEventListener('close', () => {
+        document.body.classList.remove('tutor-modal-open');
+        if (opener?.isConnected) opener.focus();
+      });
+      // Explicit containment also handles browsers whose native tab loop visits chrome.
+      dialog.addEventListener('keydown', event => {
+        if (event.key !== 'Tab') return;
+        const nodes = [...dialog.querySelectorAll('a[href],button,input,select,textarea,summary')].filter(node => !node.disabled && node.getClientRects().length);
+        if (!nodes.length) return;
+        if (event.shiftKey && document.activeElement === nodes[0]) {event.preventDefault(); nodes.at(-1).focus();}
+        else if (!event.shiftKey && document.activeElement === nodes.at(-1)) {event.preventDefault(); nodes[0].focus();}
+      });
+    });
+    function open(id, trigger) {
+      const dialog = panels.get(id); if (!dialog) return;
+      panels.forEach(other => { if (other !== dialog && other.open) other.close(); });
+      // Do not stack a global mobile navigation drawer behind another modal.
+      if (document.body.classList.contains('nav-open')) document.getElementById('nav-toggle')?.click();
+      opener = trigger;
+      if (!dialog.open) dialog.showModal();
+      document.body.classList.add('tutor-modal-open');
+      (dialog.querySelector('input[type="search"]') || dialog.querySelector('button'))?.focus();
+    }
+    document.addEventListener('click', event => {
+      const trigger = event.target.closest('[data-tutor-open],[data-tutor-evidence]');
+      if (!trigger) return;
+      if (trigger.hasAttribute('data-tutor-open')) { open(trigger.dataset.tutorOpen, trigger); return; }
+      const templates = [...document.querySelectorAll('.tutor-transcript template[data-evidence-turn]')];
+      const selected = trigger.dataset.tutorEvidence === 'latest' ? templates.at(-1) : templates.find(node => node.dataset.evidenceTurn === trigger.dataset.tutorEvidence);
+      const content = document.getElementById('tutor-evidence-content');
+      if (!content) return;
+      content.replaceChildren();
+      if (selected) content.append(selected.content.cloneNode(true));
+      else content.textContent = 'No answer evidence yet. Ask a question to begin.';
+      open('tutor-evidence-panel', trigger);
+    });
+    document.getElementById('tutor-session-search')?.addEventListener('input', event => {
+      const query = event.target.value.trim().toLocaleLowerCase();
+      const items = [...document.querySelectorAll('#tutor-sessions-panel [data-history-title]')];
+      items.forEach(item => {item.hidden = !item.dataset.historyTitle.toLocaleLowerCase().includes(query);});
+      const empty = document.getElementById('tutor-search-empty');
+      if (empty) empty.hidden = !items.length || items.some(item => !item.hidden);
+    });
+    document.addEventListener('tutor:transcript-updated', () => {
+      const dialog = panels.get('tutor-evidence-panel'); if (dialog?.open) dialog.close();
+      const content = document.getElementById('tutor-evidence-content');
+      if (content) content.textContent = 'Conversation updated. Select an answer to inspect its evidence.';
+      installCodeCopy();
+      // The existing math renderer observes new markup; no provider HTML is injected.
     });
   }
   if (document.readyState === 'loading') {

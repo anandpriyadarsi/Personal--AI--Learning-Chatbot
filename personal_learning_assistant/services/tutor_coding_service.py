@@ -37,7 +37,8 @@ class TutorCodingService:
     def workspace(self, sid, value, selected_task_id=None):
         if value not in {'academic','coding'}:
             raise CodingError('invalid_workspace', 'Choose Academic or Coding.')
-        self.coding.require(sid)
+        if value == 'coding' or selected_task_id is not None:
+            self.coding.require(sid)
         with self.repository.atomic_exchange(sid):
             session = self.repository.get_session(sid)
             metadata = dict(session.metadata)
