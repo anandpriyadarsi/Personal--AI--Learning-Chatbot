@@ -218,6 +218,30 @@ def revoke(permission_id):
     return jsonify(revoked=True,disclosure='Future calls blocked. Already transmitted data cannot be recalled.')
 
 
+@multimodal.errorhandler(ValueError)
+def evidence_validation_error(error):
+    """Return a private, usable JSON error to the reviewed-evidence controls.
+
+    Flask's default HTML 500 page cannot be parsed by the multimodal fetch UI.
+    Do not expose raw provider IDs, database paths, file contents or tokens.
+    """
+    reason = str(error)
+    if reason == 'Set a conservative provider cost bound before cloud answering':
+        message = ('Cloud answering is disabled until an explicit per-request cost bound is configured. '
+                   'Local evidence inspection remains available; no cloud request was made.')
+    elif reason == 'Configure a trusted HTTPS provider and model locally':
+        message = ('The configured Tutor provider is not eligible for reviewed cloud answering. '
+                   'Check the trusted HTTPS provider and model configuration; no request was made.')
+    elif reason in ('Review expired', 'Review scope mismatch', 'Source changed; review again',
+                    'Provider changed; review again', 'No selected multimodal evidence'):
+        message = 'The reviewed evidence scope expired or changed. Reselect the source and review it again.'
+    elif reason.startswith('Multimodal processing is disabled'):
+        message = 'Multimodal processing is disabled; activate the verified local feature first.'
+    else:
+        message = 'Evidence action could not be completed. Check the selected source and review its scope again.'
+    return jsonify(error=message), 400
+
+
 @multimodal.after_request
 def private(response):
     response.headers['Cache-Control']='no-store';response.headers['X-Content-Type-Options']='nosniff'
