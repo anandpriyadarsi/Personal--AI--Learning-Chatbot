@@ -1,5 +1,6 @@
 """Local-only Coding Studio JSON/form routes, using canonical Tutor ownership."""
 from contextlib import contextmanager
+from collections.abc import Mapping
 from functools import wraps
 import hmac
 import sqlite3
@@ -27,10 +28,17 @@ def protect_request():
     expected = current_app.extensions.get('tutor_action_csrf','')
     if not supplied or not expected or not hmac.compare_digest(str(supplied),expected):
         raise CodingError('csrf','Tutor action token is invalid. Reload the page.',403)
-    if current_app.config.get('TUTOR_CODING_ENABLED') is not True:
-        raise CodingError('feature_disabled','Coding Studio was explicitly disabled. Remove ANVAYA_TUTOR_CODING_ENABLED=false and restart ANVAYA.',503)
     if request.content_length and request.content_length > 96*1024:
         raise CodingError('too_large','This coding request is too large.',413)
+    # A disabled optional feature must still allow the explicit, protected exit
+    # from a previously saved Coding workspace; never silently reroute a send.
+    switch_data = (request.get_json(silent=True) or {}) if request.is_json else request.form
+    academic_exit = (request.endpoint == 'tutor_coding.workspace'
+                     and isinstance(switch_data, Mapping)
+                     and switch_data.get('workspace') == 'academic')
+    if current_app.config.get('TUTOR_CODING_ENABLED') is not True and not academic_exit:
+        raise CodingError('feature_disabled','Coding Studio was explicitly disabled. Remove ANVAYA_TUTOR_CODING_ENABLED=false and restart ANVAYA.',503)
+
 
 
 def endpoint(fn):
@@ -57,14 +65,15 @@ def endpoint(fn):
 
 
 @contextmanager
-def service(sid):
+def service(sid, *, require_coding=True):
     from .routes import _academic_agent_service
     web = _academic_agent_service()
     connection = _open_database(web.database_path,writable=True)
     try:
         repository = SQLiteTutorRepository(connection)
         result = TutorCodingService(repository,web)
-        result.coding.require(sid)
+        if require_coding:
+            result.coding.require(sid)
         yield result
     finally:
         connection.close()
@@ -103,7 +112,7 @@ def respond(sid, value, status=200):
 def workspace(sid):
     data = payload()
     fields(data,{'workspace','selected_task_id'})
-    with service(sid) as svc:
+    with service(sid, require_coding=data.get('workspace') != 'academic' or 'selected_task_id' in data) as svc:
         state = svc.workspace(sid,data.get('workspace'),data.get('selected_task_id'))
     return respond(sid,state)
 

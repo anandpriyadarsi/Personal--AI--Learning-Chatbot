@@ -939,6 +939,13 @@ def _unavailable_agent_workspace(message="Academic Agent is temporarily unavaila
     }
 
 
+def _tutor_ui_context(service):
+    try:
+        return service.ui_context()
+    except Exception:
+        return {"recent_sessions": [], "history_available": False, "provider_configured": None}
+
+
 def _render_session_error(service, session_id, message, status):
     session = None
     if status != 404:
@@ -957,6 +964,7 @@ def _render_session_error(service, session_id, message, status):
             "agent_session.html",
             active_page="agent",
             session=session,
+            tutor_ui=_tutor_ui_context(service),
             error_message=message,
             **draft,
         ),
@@ -4610,6 +4618,7 @@ def academic_agent_session(session_id):
             "agent_session.html",
             active_page="agent",
             session=session,
+            tutor_ui=_tutor_ui_context(service),
             error_message="",
         )
     except AcademicAgentWebNotFoundError:

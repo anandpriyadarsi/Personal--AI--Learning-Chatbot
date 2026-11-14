@@ -1,0 +1,15 @@
+<template data-evidence-turn="{{ turn.turn_id }}" data-session-id="{{ session.session_id }}">
+  <p class="tutor-evidence-answer">Answer {{ turn.ordinal }} · {{ session.title or 'Study session' }}</p>
+  {% for heading, cited in [('Cited in this answer', true), ('Retrieved context', false)] %}
+  <h3>{{ heading }}</h3>
+  {% set matching = namespace(count=0) %}
+  {% for evidence in turn.evidence %}{% if (evidence.citation_label in (turn.cited_labels or [])) == cited %}
+  {% set matching.count = matching.count + 1 %}
+  <article class="tutor-evidence-card"><strong>{{ evidence.citation_label }} · {{ evidence.source_title or evidence.source_label or 'Source' }}</strong>
+  <p>{{ evidence.locator_label or 'Exact historical location unavailable' }}</p><p>{{ 'Historical source snapshot' if evidence.historical_exact else 'Legacy evidence · exact location unavailable' }}</p>
+  <a href="{{ evidence.citation_url if evidence.historical_exact and evidence.citation_url and evidence.citation_url.startswith('/sources/evidence/') else url_for('web.knowledge_item', document_id=evidence.document_id) }}">{{ 'View original evidence' if evidence.historical_exact else 'View current source metadata' }}</a></article>
+  {% endif %}{% endfor %}
+  <p class="microcopy">{{ matching.count }} evidence item{{ '' if matching.count == 1 else 's' }}{% if matching.count == 0 %} · none recorded{% endif %}</p>
+  {% endfor %}
+  {% if not turn.evidence %}<p>No project evidence was recorded for this answer. This is not proof of source support.</p>{% endif %}
+</template>

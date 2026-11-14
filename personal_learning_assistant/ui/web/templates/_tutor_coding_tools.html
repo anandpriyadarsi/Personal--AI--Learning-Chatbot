@@ -17,18 +17,22 @@
     <span id="coding-task-label" class="microcopy">Save a task to begin</span>
   </div>
   <section id="coding-tools" class="coding-tools" hidden aria-label="Coding task and tools">
-    <div class="coding-sheet-heading"><strong>Python practice</strong><button type="button" id="coding-tools-close" aria-label="Close coding tools">Close</button></div>
+    <div class="coding-sheet-heading"><strong>Coding Studio · Python practice</strong><button type="button" id="coding-tools-close" aria-label="Close coding tools">Back to conversation</button></div>
+    <nav class="coding-sections" aria-label="Coding workspace sections"><a href="#coding-code-section">Code</a><a href="#coding-review-section">Review</a><a href="#coding-tasks-section">Tasks</a></nav>
     <p class="microcopy">Saved tasks and sent code stay in this conversation. Archive hides a task; it does not erase sent code. Review and redact private paths, keys or data before sending to your configured AI provider.</p>
+    <section id="coding-tasks-section" aria-label="Saved task"><h3>Tasks</h3>
     <label for="coding-task">Saved task</label>
     <select id="coding-task"><option value="">New task…</option>{% for task in session.coding_tasks %}<option value="{{ task.id }}">{{ task.title }}</option>{% endfor %}</select>
     <label for="coding-title">Task title</label><input id="coding-title" maxlength="160" placeholder="e.g. Understand NumPy axes">
     <label for="coding-template">Practice template</label>
     <select id="coding-template"><option value="">Student-defined Python task</option><option value="python-collections">Python collections</option><option value="numpy-shapes">NumPy shape and axis</option><option value="pandas-indexing">Pandas loc/iloc and groupby</option><option value="missing-values">Missing-value cleaning</option><option value="histogram">Matplotlib histogram</option></select>
     <label for="coding-objective">Objective</label><textarea id="coding-objective" rows="2" maxlength="2000" placeholder="What would you like to understand?"></textarea>
+    </section><section id="coding-code-section" aria-label="Student code"><h3>Code</h3>
     <label for="coding-topic">Topic for this request</label><input id="coding-topic" maxlength="200" placeholder="e.g. Pandas groupby">
     <label for="coding-code">Your code · sent exactly as reviewed</label><textarea id="coding-code" class="coding-code" rows="4" maxlength="12000" spellcheck="false" placeholder="Paste Python code here"></textarea>
     <label for="coding-error">Output / error · student-provided, unverified</label><textarea id="coding-error" class="coding-code" rows="2" maxlength="3000" placeholder="Paste only the output or traceback you want to share"></textarea>
     <label for="coding-attempt">Your attempt / prediction</label><textarea id="coding-attempt" rows="2" maxlength="2000" placeholder="What did you expect, and what have you tried?"></textarea>
+    </section><section id="coding-review-section" aria-label="Review and permissions"><h3>Review · AI feedback, not executed</h3>
     <div class="coding-options">
       <label>Hint level <select id="coding-hint"><option value="1">1 · Concept</option><option value="2">2 · Operation</option><option value="3">3 · Next step</option></select></label>
       <label>Explanation <select id="coding-depth"><option value="overview">Overview</option><option value="line_by_line">Line by line</option><option value="operations">Operations</option><option value="data_flow">Data flow</option></select></label>
@@ -52,6 +56,7 @@
       <p class="microcopy">Download your notebook, then choose File → Upload notebook in Colab. ANVAYA cannot see that tab. Paste code/output/error here when you want feedback. Save your code before exporting. Uploading transfers the notebook to Google.</p>
     </details>
     <p class="microcopy">Code is never run on the ANVAYA server. Notebook outputs start empty. AI feedback and pasted outputs are unverified.</p>
+    </section>
   </section>
   <p id="coding-status" class="microcopy" role="status" aria-live="polite"></p>
   <button type="button" id="coding-stop" hidden>Stop waiting</button>

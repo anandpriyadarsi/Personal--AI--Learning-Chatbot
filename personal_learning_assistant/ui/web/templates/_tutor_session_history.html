@@ -1,0 +1,35 @@
+  {% if history_sessions %}
+  <ul class="tutor-history-list">
+    {% for session in history_sessions %}
+    <li class="tutor-history-item" data-history-title="{{ session.title or 'Untitled tutor session' }}">
+      <div class="tutor-history-row">
+      <a class="tutor-history-link" href="{{ url_for('web.academic_agent_session', session_id=session.session_id) }}" title="{{ session.title or 'Untitled tutor session' }}">
+        <span class="tutor-history-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round"><path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5 8.4 8.4 0 0 1-3.6-.8L4 20l1.4-4.7A7.5 7.5 0 1 1 20 11.5Z"/><path d="M8 11.5h8"/></svg>
+        </span>
+        <span class="tutor-history-copy">
+          <strong>{{ (session.title or 'Untitled tutor session')|truncate(56, True, '…', 0) }}</strong>
+          <span class="tutor-history-meta">{{ session.mode|replace('_', ' ')|title }} · {% if session.source_policy == 'source_only' %}Source Only{% else %}Source First{% endif %}{% if session.status != 'active' %} · {{ session.status|title }}{% endif %}</span>
+        </span>
+        <time class="tutor-history-time" datetime="{{ session.updated_at }}" data-tutor-time>{{ session.updated_at[:10] }}</time>
+      </a>
+      <button type="button" class="tutor-rename-toggle" data-tutor-rename-toggle
+        aria-label="Rename {{ session.title or 'Untitled tutor session' }}"
+        aria-controls="rename-editor-{{ loop.index }}" aria-expanded="false" title="Rename chat">⋯</button>
+      </div>
+      <details class="tutor-native-rename"><summary>Rename chat</summary><form id="rename-editor-{{ loop.index }}" action="{{ url_for('web.academic_agent_rename_session', session_id=session.session_id) }}" method="post" class="tutor-rename-form">
+          <input name="csrf_token" type="hidden" value="{{ tutor_action_csrf }}">
+          <input name="return_to" type="hidden" value="{{ 'session' if current_session_id is defined and current_session_id == session.session_id else 'history' }}">
+          <label for="rename-chat-{{ loop.index }}">Rename chat</label>
+          <input id="rename-chat-{{ loop.index }}" name="title" type="text" maxlength="160" required value="{{ session.title or '' }}" placeholder="Enter a chat name" autocomplete="off">
+          <div class="tutor-rename-buttons">
+            <button type="button" class="tutor-rename-cancel" data-tutor-rename-cancel>Cancel</button>
+            <button type="submit">Save name</button>
+          </div>
+      </form></details>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+    <p class="tutor-history-empty">No saved conversations yet. Send a message in a new session to see it here.</p>
+  {% endif %}

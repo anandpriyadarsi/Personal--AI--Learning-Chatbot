@@ -38,7 +38,7 @@ def test_chat_first_explicit_chips_and_composer_resize(browser, real_tutor, widt
     page.on('pageerror', lambda e: errors.append(str(e)))
     try:
         page.goto(base+'/agent/sessions/'+sid)
-        transcript = page.locator('#transcript-title').bounding_box()
+        transcript = page.locator('.tutor-transcript').bounding_box()
         assert transcript['y'] < 520
         details = page.locator('#tutor-learning-details')
         expect(details).not_to_have_attribute('open', '')

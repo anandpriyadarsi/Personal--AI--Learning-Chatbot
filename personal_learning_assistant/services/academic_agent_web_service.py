@@ -392,6 +392,32 @@ class AcademicAgentWebService:
         finally:
             connection.close()
 
+    def ui_context(self):
+        """Bounded read-only navigation; never build Mentor or probe a provider."""
+        context = {"recent_sessions": [], "history_available": False,
+                   "provider_configured": None}
+        try:
+            context["provider_configured"] = bool(getattr(self._provider(), "configured", False))
+        except Exception:
+            pass
+        connection = None
+        try:
+            connection = _open_database(self.database_path, writable=False)
+            from personal_learning_assistant.repositories.sqlite.tutor_repository import SQLiteTutorRepository
+            from personal_learning_assistant.services.tutor_session_service import suggest_tutor_session_title
+            repository = SQLiteTutorRepository(connection)
+            for item in repository.list_sessions(limit=20, with_turns_only=True):
+                summary = _session_summary(item)
+                summary["title"] = _visible_session_title(repository, item, suggest_tutor_session_title)
+                context["recent_sessions"].append(summary)
+            context["history_available"] = True
+        except Exception:
+            context["recent_sessions"] = []
+        finally:
+            if connection is not None:
+                connection.close()
+        return context
+
     def create_session(
         self,
         *,

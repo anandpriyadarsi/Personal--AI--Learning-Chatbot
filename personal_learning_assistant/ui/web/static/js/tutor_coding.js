@@ -37,6 +37,7 @@
     function tools(open, focus=false) {
       $('tools').hidden = !open;
       document.body.classList.toggle('tutor-tools-open',open);
+      document.body.classList.toggle('tutor-coding-presented',open);
       $('tools-toggle').setAttribute('aria-expanded',String(open));
       if (focus) (open ? $('task') : $('tools-toggle')).focus();
     }
@@ -53,6 +54,7 @@
       $('solution').checked = false;
       document.getElementById('tutor-quick-prompts').hidden = true;
       if (value==='academic') tools(false);
+      controls();
       question.maxLength = value==='coding' ? 2000 : 4000;
       question.placeholder = value==='coding' ? 'Ask about your task, or describe what happened…' : 'Ask Alex, or share where you got stuck…';
     }
@@ -70,6 +72,8 @@
       $('download').disabled = !task;
       $('archive').disabled = !task;
       $('task-label').textContent = task ? task.title + ' · v' + task.revision : 'Save a task to begin';
+      const label = document.getElementById('tutor-dispatch-label');
+      if (label) label.textContent = studio.dataset.workspace === 'coding' ? 'Coding Studio · ' + $('task-label').textContent : 'Academic Tutor · Review your draft before sending';
     }
     function selectTask(value) {
       generation++; pending=null; preview=null;
@@ -202,6 +206,7 @@
         const transcript=documentCopy.querySelector('.tutor-transcript');
         document.querySelector('.tutor-transcript').replaceWith(transcript);
         question.value='';question.dispatchEvent(new Event('input'));dirty=false;pending=null;$('solution').checked=false;
+        document.dispatchEvent(new Event('tutor:transcript-updated'));
         installCopy(); document.getElementById('tutor-latest-turn')?.scrollIntoView({block:'end'});
         status('AI feedback saved · code not executed. Paste reviewed Colab output here for your next step.');
       } catch(error) {
@@ -216,6 +221,11 @@
     form.addEventListener('submit',()=>{if(form.dataset.workspace!=='coding') suppressLeave=true;});
     if(tasks.length) selectTask(tasks.some(t=>t.id===studio.dataset.selectedTask) ? studio.dataset.selectedTask : tasks[tasks.length-1].id);
     controls();
+    // Enable only once all dispatch handlers, task parsing and controls initialized.
+    form.dataset.codingReady = 'true';
+    form.querySelector('button[type="submit"]').disabled = false;
+    const fallback = document.getElementById('coding-native-fallback');
+    if (fallback) fallback.hidden = true;
   }
   const api={solutionAllowed,copyExact};
   if(typeof module!=='undefined') module.exports=api;
