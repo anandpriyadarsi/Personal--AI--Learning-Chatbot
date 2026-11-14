@@ -104,3 +104,53 @@ def test_multimodal_review_errors_are_safe_json(detail, expected):
         message = response.get_json()["error"]
         assert expected in message
         assert "PRIVATE_DATABASE_PATH_AND_PROVIDER_TOKEN" not in message
+
+
+@pytest.mark.parametrize("error_type, sqlite_code, expected", [
+    ("operational", "SQLITE_BUSY", "busy or locked"),
+    ("operational", "SQLITE_READONLY", "read-only"),
+    ("operational", "SQLITE_FULL", "insufficient space"),
+    ("operational", "SQLITE_IOERR", "I/O or integrity"),
+    ("integrity", "SQLITE_CONSTRAINT_FOREIGNKEY", "missing academic record"),
+    ("operational", "SQLITE_ERROR", "schema could not complete"),
+])
+def test_sqlite_save_failures_are_classified_without_private_details(
+    error_type, sqlite_code, expected,
+):
+    import sqlite3
+    from personal_learning_assistant.services.academic_agent_web_service import (
+        _safe_tutor_persistence_error,
+    )
+
+    exception_class = (
+        sqlite3.IntegrityError if error_type == "integrity"
+        else sqlite3.OperationalError
+    )
+    error = exception_class("PRIVATE_STUDENT_SOURCE_AND_PATH")
+    error.sqlite_errorname = sqlite_code
+    message = _safe_tutor_persistence_error(error)
+    assert expected in message
+    assert "PRIVATE_STUDENT_SOURCE_AND_PATH" not in message
+
+
+def test_tutor_repository_save_failure_message_is_whitelisted_and_draft_retained():
+    from personal_learning_assistant.services.academic_agent_web_service import (
+        AcademicAgentWebUnavailableError,
+    )
+
+    class LockedService(FakeWebService):
+        def ask(self, session_id, question, **kwargs):
+            raise AcademicAgentWebUnavailableError(
+                "Academic database is busy or locked. Stop duplicate ANVAYA processes, "
+                "then check local storage before retrying; the response was not confirmed saved."
+            )
+
+    app = fake_web_app(LockedService())
+    draft = "Keep this unsent eigenvector question"
+    response = app.test_client().post(
+        "/agent/sessions/session-1/ask",
+        data={"csrf_token": app.extensions["tutor_action_csrf"], "question": draft},
+    )
+    assert response.status_code == 503
+    assert "Academic database is busy or locked." in response.text
+    assert draft in response.text
