@@ -76,6 +76,15 @@ def _safe_tutor_persistence_error(error):
         if code.startswith("SQLITE_ERROR"):
             return ("Tutor database schema could not complete the operation. "
                     "Check the installed migration status; do not create an empty database.")
+        if code.startswith("SQLITE_CONSTRAINT"):
+            return ("A Tutor turn or evidence link failed an SQLite data constraint. "
+                    "No answer was confirmed saved. Inspect source and citation consistency before retrying.")
+        return ("SQLite rejected the Tutor write with an unclassified storage error. "
+                "Preserve your database and run the offline persistence probe.")
+    from personal_learning_assistant.services.tutor_session_service import TutorSessionError
+    if isinstance(error, TutorSessionError):
+        return ("Tutor rejected the generated turn or evidence fields before saving. "
+                "This indicates a Tutor contract issue; run the offline persistence probe.")
     if isinstance(error, TutorRepositoryError):
         reason = str(error)
         if reason == "Tutor session changed; refresh before retrying":
@@ -87,6 +96,8 @@ def _safe_tutor_persistence_error(error):
         if reason.startswith("tutor session metadata"):
             return ("Tutor session metadata is unreadable. Preserve existing database "
                     "and session history; inspect migration compatibility before changing it.")
+        return ("Tutor repository rejected a session or evidence invariant. "
+                "Run the offline persistence probe before retrying.")
     return "Tutor answer could not be saved. Check local academic storage and Tutor evidence links before retrying."
 
 
