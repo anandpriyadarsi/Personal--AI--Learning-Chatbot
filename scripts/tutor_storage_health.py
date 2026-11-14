@@ -29,8 +29,11 @@ def _report(path, required, *, library=False):
         tables = {str(row["name"]) for row in db.execute(
             "SELECT name FROM sqlite_master WHERE type='table'"
         )}
+        # Return a boolean only; never print foreign-key row IDs or table payloads.
+        foreign_keys_ok = db.execute("PRAGMA foreign_key_check").fetchone() is None
         status = {
             "quick_check_ok": integrity == "ok",
+            "foreign_keys_ok": foreign_keys_ok,
             "required_tables_present": all(name in tables for name in required),
             "missing_table_names": [name for name in required if name not in tables],
             "multimodal_ledger_present": "mm_schema_ledger" in tables,
@@ -77,6 +80,7 @@ def main():
             "library": native,
             "ready_for_repair_triage": (
                 academic["quick_check_ok"] and native["quick_check_ok"]
+                and academic["foreign_keys_ok"] and native["foreign_keys_ok"]
                 and academic["required_tables_present"]
                 and native["required_tables_present"]
             ),
